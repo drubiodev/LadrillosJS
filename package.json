@@ -1,0 +1,21 @@
+{
+  "name": "ladrillosjs",
+  "version": "0.1.0",
+  "description": "A lightweight, zero-dependency web component framework for building modular web applications.",
+  "files": [
+    "dist"
+  ],
+  "main": "./dist/ladrillosjs.umd.js",
+  "module": "./dist/ladrillosjs.es.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "keywords": [],
+  "author": "Daniel Rubio",
+  "license": "MIT",
+  "devDependencies": {
+    "vite": "^6.2.5"
+  }
+}
