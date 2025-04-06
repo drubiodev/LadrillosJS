@@ -26,7 +26,7 @@ export class Ladrillos {
         style: styleContent,
       };
 
-      console.log(`Component <${name}> registered successfully`);
+      console.log(`Component ${name} registered successfully`);
     } catch (error) {
       console.error(`Failed to register component ${name}:`, error);
     }
