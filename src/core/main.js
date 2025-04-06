@@ -1,8 +1,25 @@
+/**
+ * @fileoverview Ladrillos main module
+ * @typedef {import('../types/LadrilloTypes').LadrillosComponent} LadrillosComponent
+ */
+
 export class Ladrillos {
   constructor() {
+    /**
+     * Registered components collection
+     * @type {Object.<string, LadrillosComponent>}
+     * @private
+     */
     this.components = {};
   }
 
+  /**
+   * Registers a component by loading it from a file path
+   * @param {string} name - Component name/tag
+   * @param {string} path - Path to the component file
+   * @param {boolean} [useShadowDOM=true] - Whether to use Shadow DOM
+   * @returns {Promise<void>}
+   */
   async registerComponent(name, path, useShadowDOM = true) {
     try {
       const component = await fetch(path).then((res) => res.text());
@@ -26,9 +43,25 @@ export class Ladrillos {
         style: styleContent,
       };
 
+      // TODO: Convert to web component
+      this._defineWebComponent(name, useShadowDOM);
       console.log(`Component ${name} registered successfully`);
     } catch (error) {
       console.error(`Failed to register component ${name}:`, error);
     }
+  }
+
+  /**
+   * Defines a registered component as a web component
+   * @param {string} name - Name of the component to define
+   * @param {boolean} useShadowDOM - Whether to use Shadow DOM
+   * @returns {Promise<void>}
+   * @private
+   */
+  async _defineWebComponent(name, useShadowDOM) {
+    const { defineWebComponent } = await import("./webcomponent.js");
+    const component = this.components[name];
+
+    defineWebComponent(component, useShadowDOM);
   }
 }
