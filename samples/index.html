@@ -5,5 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>LadrillosJS - Samples</title>
   </head>
-  <body></body>
+  <body>
+    <header-component></header-component>
+  </body>
+  <script type="module">
+    import { ladrillos } from "../src/core/main.js";
+    ladrillos.registerComponent("header-component", "components/header.html");
+  </script>
 </html>

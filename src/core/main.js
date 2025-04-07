@@ -1,9 +1,11 @@
+import { logger } from "../utils/logger.js";
+
 /**
  * @fileoverview Ladrillos main module
  * @typedef {import('../types/LadrilloTypes').LadrillosComponent} LadrillosComponent
  */
 
-export class Ladrillos {
+class Ladrillos {
   constructor() {
     /**
      * Registered components collection
@@ -30,7 +32,7 @@ export class Ladrillos {
       const styleMatch = component.match(/<style>([\s\S]*?)<\/style>/);
 
       if (!templateMatch) {
-        console.error(`No template found in component: ${name}`);
+        logger.error(`No template found in component: ${name}`);
         return;
       }
       const templateContent = templateMatch[1].trim();
@@ -38,6 +40,7 @@ export class Ladrillos {
       let styleContent = styleMatch ? styleMatch[1].trim() : "";
 
       this.components[name] = {
+        tagName: name,
         template: templateContent,
         script: scriptContent,
         style: styleContent,
@@ -45,9 +48,9 @@ export class Ladrillos {
 
       // TODO: Convert to web component
       this._defineWebComponent(name, useShadowDOM);
-      console.log(`Component ${name} registered successfully`);
+      logger.log(`Component ${name} registered successfully`);
     } catch (error) {
-      console.error(`Failed to register component ${name}:`, error);
+      logger.error(`Failed to register component ${name}:`, error);
     }
   }
 
@@ -65,3 +68,5 @@ export class Ladrillos {
     defineWebComponent(component, useShadowDOM);
   }
 }
+
+export const ladrillos = new Ladrillos();
