@@ -46,7 +46,6 @@ class Ladrillos {
         style: styleContent,
       };
 
-      // TODO: Convert to web component
       this._defineWebComponent(name, useShadowDOM);
       logger.log(`Component ${name} registered successfully`);
     } catch (error) {

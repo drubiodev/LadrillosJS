@@ -1,6 +1,30 @@
+<style>
+  header {
+    background-color: #f8f9fa;
+    padding: 20px;
+    text-align: center;
+  }
+  h1 {
+    font-size: 2em;
+    margin: 0;
+  }
+  nav ul {
+    list-style-type: none;
+    padding: 0;
+  }
+  nav ul li {
+    display: inline;
+    margin: 0 15px;
+  }
+  nav ul li a {
+    text-decoration: none;
+    color: #007bff;
+  }
+</style>
+
 <template>
   <header>
-    <h1>My Application</h1>
+    <h1>{appName}</h1>
     <nav>
       <ul>
         <li><a href="#home">Home</a></li>
@@ -10,3 +34,7 @@
     </nav>
   </header>
 </template>
+
+<script>
+  const appName = "My Application";
+</script>

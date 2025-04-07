@@ -53,6 +53,24 @@ export const defineWebComponent = (component, useShadowDOM) => {
         fragment.appendChild(tempContainer.firstChild);
       }
 
+      // Apply styles
+      if (this._componentStyle) {
+        if (this.shadowRoot) {
+          if (window.ShadowRoot && "adoptedStyleSheets" in document) {
+            if (!this.constructor._styleSheet) {
+              this.constructor._styleSheet = new CSSStyleSheet();
+              this.constructor._styleSheet.replaceSync(this._componentStyle);
+            }
+            this.shadowRoot.adoptedStyleSheets = [this.constructor._styleSheet];
+          } else {
+            // Fallback to style element
+            const styleEl = document.createElement("style");
+            styleEl.textContent = this._componentStyle;
+            this.shadowRoot.appendChild(styleEl);
+          }
+        }
+      }
+
       // Append content to appropriate root
       if (this.shadowRoot) {
         this.shadowRoot.appendChild(fragment);
