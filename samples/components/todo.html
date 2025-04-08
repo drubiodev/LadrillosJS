@@ -1,0 +1,29 @@
+<style>
+  label {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+  }
+
+  input[type="checkbox"] {
+    margin-right: 8px;
+  }
+
+  .description {
+    font-size: 0.9em;
+    color: #808080;
+    margin-left: 8px;
+  }
+</style>
+
+<template>
+  <label>
+    <input type="checkbox" />
+    <slot></slot>
+    <span class="description"><slot name="description"></slot></span>
+  </label>
+</template>
+
+<script>
+  // console.log("hi from todo-component");
+</script>

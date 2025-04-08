@@ -6,10 +6,17 @@
     <title>LadrillosJS - Samples</title>
   </head>
   <body>
-    <header-component></header-component>
+    <header-component name="LadrillosJS"> hello world </header-component>
+    <todo-component checked>
+      Todo 1
+      <span slot="description">Description</span>
+    </todo-component>
+    <todo-component>Todo 2</todo-component>
   </body>
   <script type="module">
     import { ladrillos } from "../src/core/main.js";
+
     ladrillos.registerComponent("header-component", "components/header.html");
+    ladrillos.registerComponent("todo-component", "components/todo.html");
   </script>
 </html>
