@@ -24,7 +24,23 @@ export const defineWebComponent = (component, useShadowDOM) => {
 
   const { tagName, template, script, style } = component;
 
+  const extractProperties = (template) => {
+    const regex = /{{(.*?)}}/g;
+    const properties = new Set();
+    let match;
+    while ((match = regex.exec(template)) !== null) {
+      properties.add(match[1].trim().toLocaleLowerCase());
+    }
+    return Array.from(properties);
+  };
+
+  // Get properties from the template
+  const componentProperties = extractProperties(template);
+
   class ComponentElement extends HTMLElement {
+    // Store properties directly on the class instead of the instance
+    static properties = componentProperties;
+
     constructor() {
       super();
 
@@ -51,9 +67,8 @@ export const defineWebComponent = (component, useShadowDOM) => {
 
         // Handle script execution
         if (this.scriptElement.textContent) {
-          const scriptElement = document.createElement("script");
-          scriptElement.textContent = this.scriptElement.textContent;
-          this.shadowRoot.appendChild(scriptElement);
+          const scriptFunction = new Function(this.scriptElement.textContent);
+          scriptFunction.call(this); // Execute with 'this' as the component
         }
       } else {
         // Fallback for when not using shadow DOM
@@ -61,9 +76,8 @@ export const defineWebComponent = (component, useShadowDOM) => {
         this.appendChild(this.template.content.cloneNode(true));
 
         if (this.scriptElement.textContent) {
-          const scriptElement = document.createElement("script");
-          scriptElement.textContent = this.scriptElement.textContent;
-          this.appendChild(scriptElement);
+          const scriptFunction = new Function(this.scriptElement.textContent);
+          scriptFunction.call(this); // Execute with 'this' as the component
         }
       }
     }
@@ -75,7 +89,7 @@ export const defineWebComponent = (component, useShadowDOM) => {
 
     // property
     static get observedAttributes() {
-      return ["checked"];
+      return ComponentElement.properties;
     }
 
     // Called when one of the element's watched attributes change.
@@ -87,9 +101,7 @@ export const defineWebComponent = (component, useShadowDOM) => {
     }
   }
 
-  customElements.define(component.tagName, ComponentElement);
+  customElements.define(tagName, ComponentElement);
 
-  logger.log(
-    `Web component defined: <${component.tagName}></${component.tagName}>`
-  );
+  logger.log(`Web component defined: <${tagName}></${tagName}>`);
 };
