@@ -1,4 +1,5 @@
 import { logger } from "../utils/logger.js";
+import { createComponentModel } from "./reactivity.js";
 
 /**
  * @fileoverview Web component definition utilities
@@ -66,19 +67,39 @@ export const defineWebComponent = (component, useShadowDOM) => {
         this.shadowRoot.appendChild(templateContent);
 
         // Handle script execution
-        if (this.scriptElement.textContent) {
-          const scriptFunction = new Function(this.scriptElement.textContent);
-          scriptFunction.call(this); // Execute with 'this' as the component
-        }
+        // if (this.scriptElement.textContent) {
+        //   const scriptFunction = new Function(this.scriptElement.textContent);
+        //   scriptFunction.call(this); // Execute with 'this' as the component
+        // }
       } else {
         // Fallback for when not using shadow DOM
         this.appendChild(this.styleElement);
         this.appendChild(templateContent);
 
-        if (this.scriptElement.textContent) {
-          const scriptFunction = new Function(this.scriptElement.textContent);
-          scriptFunction.call(this);
+        // if (this.scriptElement.textContent) {
+        //   const scriptFunction = new Function(this.scriptElement.textContent);
+        //   scriptFunction.call(this);
+        // }
+      }
+
+      // Initialize data model with attributes
+      const initialData = {};
+      for (const attr of componentBindings) {
+        if (this.hasAttribute(attr)) {
+          initialData[attr] = this.getAttribute(attr);
         }
+      }
+
+      // Create reactive data model
+      this.data = createComponentModel(this, initialData);
+
+      // Handle script execution with access to data model
+      if (this.scriptElement.textContent) {
+        const scriptFunction = new Function(
+          "data",
+          this.scriptElement.textContent
+        );
+        scriptFunction.call(this, this.data); // Pass data model to the component script
       }
     }
 
@@ -98,6 +119,89 @@ export const defineWebComponent = (component, useShadowDOM) => {
       logger.log(
         `🪵 ===> Attribute changed: ${name}, Old value: ${oldValue}, New value: ${newValue}`
       );
+      // Update the DOM with the new attribute value
+      this._updateBindings(name, newValue);
+    }
+
+    _findBindingNodes(root, propName) {
+      const nodes = [];
+
+      // First, check for already tracked bindings
+      const trackedElements = root.querySelectorAll(`[data-bind-${propName}]`);
+      trackedElements.forEach((element) => {
+        const textNode = Array.from(element.childNodes).find(
+          (node) => node.nodeType === Node.TEXT_NODE
+        );
+        if (textNode) {
+          nodes.push(textNode);
+        }
+      });
+
+      // If we found tracked bindings, return them
+      if (nodes.length > 0) {
+        return nodes;
+      }
+
+      // Otherwise, search for new bindings
+      const walker = document.createTreeWalker(
+        root,
+        NodeFilter.SHOW_TEXT,
+        null,
+        false
+      );
+
+      let node;
+      while ((node = walker.nextNode())) {
+        if (node.textContent.includes(`{${propName}}`)) {
+          // Store original content on the first encounter
+          if (!node.parentElement.hasAttribute("data-original")) {
+            node.parentElement.setAttribute("data-original", node.textContent);
+          }
+
+          // Mark this element as containing a binding for this property
+          node.parentElement.setAttribute(`data-bind-${propName}`, "true");
+
+          nodes.push(node);
+        }
+      }
+
+      return nodes;
+    }
+
+    _updateBindings(propName, value) {
+      const root = this.shadowRoot || this;
+      const bindingNodes = this._findBindingNodes(root, propName);
+
+      bindingNodes.forEach((node) => {
+        // Get original template content with bindings
+        const originalContent =
+          node.parentElement.getAttribute("data-original") || node.textContent;
+
+        // Make a copy to work with
+        let newContent = originalContent;
+
+        // Create a map of all active property values
+        const propertyValues = {};
+        if (this.data) {
+          Object.keys(this.data).forEach((key) => {
+            propertyValues[key] = this.data[key];
+          });
+        }
+
+        // Override with the property being updated
+        propertyValues[propName] = value;
+
+        // Replace all binding expressions
+        for (const [prop, val] of Object.entries(propertyValues)) {
+          newContent = newContent.replace(
+            new RegExp(`{${prop}}`, "g"),
+            val ?? ""
+          );
+        }
+
+        // Update the text content
+        node.textContent = newContent;
+      });
     }
   }
 

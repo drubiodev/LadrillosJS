@@ -38,8 +38,19 @@
 </template>
 
 <script>
-  const text = "This is a header component";
-  // const appName = this.getAttribute("appName");
-  // console.log(appName); // Now should show "MyApp"
-  // this.shadowRoot.querySelector("h1").textContent = appName;
+  // Reactive data model is passed as 'data'
+  data.text = "This is a header component";
+
+  // Access component attributes
+  const appName = this.getAttribute("appName");
+
+  // Update reactive data based on attributes
+  if (appName) {
+    data.appName = appName;
+  }
+
+  // You can update data later and the DOM will update automatically
+  setTimeout(() => {
+    data.text = "Updated text after 2 seconds";
+  }, 2000);
 </script>
