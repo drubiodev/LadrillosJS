@@ -24,7 +24,7 @@
 
 <template>
   <header>
-    <h1>{{appName}}</h1>
+    <h1>{appName}</h1>
     <div><slot></slot></div>
     <nav>
       <ul>
@@ -33,11 +33,13 @@
         <li><a href="#contact">Contact</a></li>
       </ul>
     </nav>
+    <p>{text}</p>
   </header>
 </template>
 
 <script>
-  const appName = this.getAttribute("appName");
-  console.log(appName); // Now should show "MyApp"
-  this.shadowRoot.querySelector("h1").textContent = appName;
+  const text = "This is a header component";
+  // const appName = this.getAttribute("appName");
+  // console.log(appName); // Now should show "MyApp"
+  // this.shadowRoot.querySelector("h1").textContent = appName;
 </script>

@@ -24,23 +24,20 @@ export const defineWebComponent = (component, useShadowDOM) => {
 
   const { tagName, template, script, style } = component;
 
-  const extractProperties = (template) => {
-    const regex = /{{(.*?)}}/g;
-    const properties = new Set();
+  const extractBindings = (template) => {
+    const regex = /{(.*?)}/g;
+    const attributes = new Set();
     let match;
     while ((match = regex.exec(template)) !== null) {
-      properties.add(match[1].trim().toLocaleLowerCase());
+      attributes.add(match[1].trim().toLocaleLowerCase());
     }
-    return Array.from(properties);
+    return Array.from(attributes);
   };
 
-  // Get properties from the template
-  const componentProperties = extractProperties(template);
+  // Get bindings from the template
+  const componentBindings = extractBindings(template);
 
   class ComponentElement extends HTMLElement {
-    // Store properties directly on the class instead of the instance
-    static properties = componentProperties;
-
     constructor() {
       super();
 
@@ -58,12 +55,15 @@ export const defineWebComponent = (component, useShadowDOM) => {
 
     // Called when the element is first added to the DOM
     connectedCallback() {
+      // Clone template content
+      const templateContent = this.template.content.cloneNode(true);
+
       if (this.shadowRoot) {
         // Add the style element first
         this.shadowRoot.appendChild(this.styleElement); // Updated reference
 
-        // Add the template content
-        this.shadowRoot.appendChild(this.template.content.cloneNode(true));
+        // Add the processed template content
+        this.shadowRoot.appendChild(templateContent);
 
         // Handle script execution
         if (this.scriptElement.textContent) {
@@ -72,12 +72,12 @@ export const defineWebComponent = (component, useShadowDOM) => {
         }
       } else {
         // Fallback for when not using shadow DOM
-        this.appendChild(this.styleElement); // Updated reference
-        this.appendChild(this.template.content.cloneNode(true));
+        this.appendChild(this.styleElement);
+        this.appendChild(templateContent);
 
         if (this.scriptElement.textContent) {
           const scriptFunction = new Function(this.scriptElement.textContent);
-          scriptFunction.call(this); // Execute with 'this' as the component
+          scriptFunction.call(this);
         }
       }
     }
@@ -89,7 +89,7 @@ export const defineWebComponent = (component, useShadowDOM) => {
 
     // property
     static get observedAttributes() {
-      return ComponentElement.properties;
+      return componentBindings; // Return the attributes to be observed
     }
 
     // Called when one of the element's watched attributes change.
