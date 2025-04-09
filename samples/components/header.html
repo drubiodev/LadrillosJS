@@ -34,15 +34,22 @@
       </ul>
     </nav>
     <p>{text}</p>
+    <button @click="increment">The Count is: {count}</button>
   </header>
 </template>
 
 <script>
   // Reactive data model is passed as 'data'
   data.text = "This is a header component";
+  data.count = 0;
 
   // Access component attributes
   const appName = this.getAttribute("appName");
+
+  this.increment = () => {
+    console.log("Count is:", data.count);
+    data.count++;
+  };
 
   // Update reactive data based on attributes
   if (appName) {

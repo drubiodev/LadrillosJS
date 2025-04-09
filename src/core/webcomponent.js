@@ -59,27 +59,18 @@ export const defineWebComponent = (component, useShadowDOM) => {
       // Clone template content
       const templateContent = this.template.content.cloneNode(true);
 
+      this._processEventBindings(templateContent);
+
       if (this.shadowRoot) {
         // Add the style element first
         this.shadowRoot.appendChild(this.styleElement); // Updated reference
 
         // Add the processed template content
         this.shadowRoot.appendChild(templateContent);
-
-        // Handle script execution
-        // if (this.scriptElement.textContent) {
-        //   const scriptFunction = new Function(this.scriptElement.textContent);
-        //   scriptFunction.call(this); // Execute with 'this' as the component
-        // }
       } else {
         // Fallback for when not using shadow DOM
         this.appendChild(this.styleElement);
         this.appendChild(templateContent);
-
-        // if (this.scriptElement.textContent) {
-        //   const scriptFunction = new Function(this.scriptElement.textContent);
-        //   scriptFunction.call(this);
-        // }
       }
 
       // Initialize data model with attributes
@@ -201,6 +192,38 @@ export const defineWebComponent = (component, useShadowDOM) => {
 
         // Update the text content
         node.textContent = newContent;
+      });
+    }
+
+    _processEventBindings(content) {
+      // Find all elements with attributes that start with @
+      const elements = content.querySelectorAll("*");
+      elements.forEach((element) => {
+        // Check each attribute for event bindings
+        Array.from(element.attributes).forEach((attr) => {
+          if (attr.name.startsWith("@")) {
+            const eventName = attr.name.substring(1); // Remove the @ prefix
+            const methodName = attr.value;
+
+            // Store the event binding info as a data attribute
+            element.setAttribute(`data-event-${eventName}`, methodName);
+
+            // Remove the original @event attribute to avoid HTML validation errors
+            element.removeAttribute(attr.name);
+
+            // Add event listener that will connect to the method once available
+            element.addEventListener(eventName, (event) => {
+              // The method should be available on the component instance
+              if (typeof this[methodName] === "function") {
+                this[methodName].call(this, event);
+              } else {
+                logger.warn(
+                  `Method ${methodName} not found for ${eventName} event`
+                );
+              }
+            });
+          }
+        });
       });
     }
   }
