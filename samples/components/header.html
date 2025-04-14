@@ -22,21 +22,19 @@
   }
 </style>
 
-<template>
-  <header>
-    <h1>{appName}</h1>
-    <div><slot></slot></div>
-    <nav>
-      <ul>
-        <li><a href="/">Home</a></li>
-        <li><a href="about.html">About</a></li>
-        <li><a href="#contact">Contact</a></li>
-      </ul>
-    </nav>
-    <p>{text}</p>
-    <button @click="increment">The Count is: {count}</button>
-  </header>
-</template>
+<header>
+  <h1>{appName}</h1>
+  <div><slot></slot></div>
+  <nav>
+    <ul>
+      <li><a href="/">Home</a></li>
+      <li><a href="about.html">About</a></li>
+      <li><a href="#contact">Contact</a></li>
+    </ul>
+  </nav>
+  <p>{text}</p>
+  <button @click="increment">The Count is: {count}</button>
+</header>
 
 <script>
   // Reactive data model is passed as 'data'

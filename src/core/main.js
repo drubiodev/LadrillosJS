@@ -26,22 +26,21 @@ class Ladrillos {
     try {
       const component = await fetch(path).then((res) => res.text());
 
+      const template = document.createElement("template");
+      template.innerHTML = component
+        .replace(/<script.*?<\/script>/g, "")
+        .replace(/<style.*?<\/style>/g, "");
+
       // Parse the template, script and style
-      const templateMatch = component.match(/<template>([\s\S]*?)<\/template>/);
       const scriptMatch = component.match(/<script>([\s\S]*?)<\/script>/);
       const styleMatch = component.match(/<style>([\s\S]*?)<\/style>/);
 
-      if (!templateMatch) {
-        logger.error(`No template found in component: ${name}`);
-        return;
-      }
-      const templateContent = templateMatch[1].trim();
-      let scriptContent = scriptMatch ? scriptMatch[1].trim() : "";
-      let styleContent = styleMatch ? styleMatch[1].trim() : "";
+      const scriptContent = scriptMatch ? scriptMatch[1].trim() : "";
+      const styleContent = styleMatch ? styleMatch[1].trim() : "";
 
       this.components[name] = {
         tagName: name,
-        template: templateContent,
+        template: template.innerHTML, // TODO: extract text nodes
         script: scriptContent,
         style: styleContent,
       };
