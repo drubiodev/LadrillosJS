@@ -5,8 +5,16 @@
   "files": [
     "dist"
   ],
-  "main": "./dist/ladrillosjs.umd.js",
-  "module": "./dist/ladrillosjs.es.js",
+  "main": "dist/ladrillosjs.cjs.js",
+  "module": "dist/ladrillosjs.es.js",
+  "browser": "dist/ladrillosjs.umd.js",
+  "exports": {
+    ".": {
+      "import": "./dist/ladrillosjs.es.js",
+      "require": "./dist/ladrillosjs.cjs.js",
+      "browser": "./dist/ladrillosjs.umd.js"
+    }
+  },
   "scripts": {
     "dev": "vite",
     "build": "vite build",

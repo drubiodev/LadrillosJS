@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>About - Samples</title>
+  </head>
+  <body>
+    <header-component appName="MyApp"> hello world </header-component>
+  </body>
+  <script type="module">
+    import { ladrillos } from "../src/core/main.js";
+
+    ladrillos.registerComponent("header-component", "components/header.html");
+  </script>
+</html>
