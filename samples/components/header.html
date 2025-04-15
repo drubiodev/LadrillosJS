@@ -33,29 +33,20 @@
     </ul>
   </nav>
   <p>{text}</p>
-  <button @click="increment">The Count is: {count}</button>
+  <button onclick="{handleClick()}">Clicked {clickCount} times</button>
 </header>
 
 <script>
-  // Reactive data model is passed as 'data'
-  data.text = "This is a header component";
-  data.count = 0;
+  const appName = "My App";
+  let text = "Welcome to my app!";
+  let clickCount = 0;
 
-  // Access component attributes
-  const appName = this.getAttribute("appName");
+  function handleClick() {
+    clickCount++; // Remove "this." - access the variable directly
 
-  this.increment = () => {
-    console.log("Count is:", data.count);
-    data.count++;
-  };
-
-  // Update reactive data based on attributes
-  if (appName) {
-    data.appName = appName;
+    // You can update multiple state values
+    if (clickCount > 10) {
+      text = "You clicked a lot!"; // Update text directly, not message
+    }
   }
-
-  // You can update data later and the DOM will update automatically
-  setTimeout(() => {
-    data.text = "Updated text after 2 seconds";
-  }, 2000);
 </script>

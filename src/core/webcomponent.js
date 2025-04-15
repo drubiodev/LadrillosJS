@@ -1,5 +1,5 @@
 import { logger } from "../utils/logger.js";
-import { createComponentModel } from "./reactivity.js";
+import { createReactiveState } from "./reactivity.js";
 
 /**
  * @fileoverview Web component definition utilities
@@ -25,18 +25,18 @@ export const defineWebComponent = (component, useShadowDOM) => {
 
   const { tagName, template, script, style } = component;
 
-  const extractBindings = (template) => {
-    const regex = /{(.*?)}/g;
-    const attributes = new Set();
-    let match;
-    while ((match = regex.exec(template)) !== null) {
-      attributes.add(match[1].trim().toLocaleLowerCase());
-    }
-    return Array.from(attributes);
-  };
+  // const extractBindings = (template) => {
+  //   const regex = /{(.*?)}/g;
+  //   const attributes = new Set();
+  //   let match;
+  //   while ((match = regex.exec(template)) !== null) {
+  //     attributes.add(match[1].trim().toLocaleLowerCase());
+  //   }
+  //   return Array.from(attributes);
+  // };
 
-  // Get bindings from the template
-  const componentBindings = extractBindings(template);
+  // // Get bindings from the template
+  // const componentBindings = extractBindings(template);
 
   class ComponentElement extends HTMLElement {
     constructor() {
@@ -46,20 +46,53 @@ export const defineWebComponent = (component, useShadowDOM) => {
         this.attachShadow({ mode: "open" });
       }
 
-      this.template = document.createElement("template");
+      this.state = {}; // Initialize state
+
       this.styleElement = document.createElement("style");
-      this.scriptElement = document.createElement("script");
+      // this.scriptElement = document.createElement("script");
       this.styleElement.textContent = style || "";
-      this.scriptElement.textContent = script || "";
-      this.template.innerHTML = template;
+      // this.scriptElement.textContent = script || "";
     }
 
     // Called when the element is first added to the DOM
     connectedCallback() {
       // Clone template content
-      const templateContent = this.template.content.cloneNode(true);
+      const templateContent = template.content.cloneNode(true);
 
-      this._processEventBindings(templateContent);
+      //hold all the script variables
+      const componentContext = {};
+      const scriptWithReturn = `
+        ${script}
+        
+        // Return all declared variables and functions as an object
+        return { 
+          ${
+            script
+              .match(/\b(?:let|const|var)\s+(\w+)/g)
+              ?.map((v) => v.replace(/\b(?:let|const|var)\s+/, ""))
+              ?.join(", ") || ""
+          },
+          ${
+            script
+              .match(/function\s+(\w+)/g)
+              ?.map((f) => f.replace(/function\s+/, ""))
+              ?.join(", ") || ""
+          }
+        };
+      `;
+
+      try {
+        // Execute script and capture all variables and functions
+        const scriptResult = new Function(scriptWithReturn)();
+        Object.assign(componentContext, scriptResult);
+      } catch (error) {
+        console.error("Error executing component script:", error);
+      }
+
+      // Create reactive state
+      this.state = createReactiveState(this, componentContext);
+
+      this._processTemplate(templateContent);
 
       if (this.shadowRoot) {
         // Add the style element first
@@ -72,160 +105,134 @@ export const defineWebComponent = (component, useShadowDOM) => {
         this.appendChild(this.styleElement);
         this.appendChild(templateContent);
       }
-
-      // Initialize data model with attributes
-      const initialData = {};
-      for (const attr of componentBindings) {
-        if (this.hasAttribute(attr)) {
-          initialData[attr] = this.getAttribute(attr);
-        }
-      }
-
-      // Create reactive data model
-      this.data = createComponentModel(this, initialData);
-
-      // Handle script execution with access to data model
-      if (this.scriptElement.textContent) {
-        const scriptFunction = new Function(
-          "data",
-          this.scriptElement.textContent
-        );
-        scriptFunction.call(this, this.data); // Pass data model to the component script
-      }
     }
 
-    // Called when the element is removed from the DOM
-    disconnectedCallback() {
-      logger.log("disconnectedCallback", this);
-    }
+    _processTemplate(content) {
+      // Process text nodes for interpolation
+      const textNodes = this._getAllTextNodes(content);
 
-    // property
-    static get observedAttributes() {
-      return componentBindings; // Return the attributes to be observed
-    }
-
-    // Called when one of the element's watched attributes change.
-    // For an attribute to be watched, you must add it to the component class's static
-    attributeChangedCallback(name, oldValue, newValue) {
-      logger.log(
-        `🪵 ===> Attribute changed: ${name}, Old value: ${oldValue}, New value: ${newValue}`
-      );
-      // Update the DOM with the new attribute value
-      this._updateBindings(name, newValue);
-    }
-
-    _findBindingNodes(root, propName) {
-      const nodes = [];
-
-      // First, check for already tracked bindings
-      const trackedElements = root.querySelectorAll(`[data-bind-${propName}]`);
-      trackedElements.forEach((element) => {
-        const textNode = Array.from(element.childNodes).find(
-          (node) => node.nodeType === Node.TEXT_NODE
-        );
-        if (textNode) {
-          nodes.push(textNode);
+      textNodes.forEach((node) => {
+        const text = node.textContent;
+        if (text.includes("{") && text.includes("}")) {
+          node.textContent = text.replace(/{([^}]+)}/g, (match, key) => {
+            // First check component state
+            if (this.state[key] !== undefined) {
+              return this.state[key];
+            }
+            // Then check if it's an attribute from the parent
+            else if (this.hasAttribute(key)) {
+              return this.getAttribute(key);
+            }
+            // Otherwise return the original binding
+            return match;
+          });
         }
       });
 
-      // If we found tracked bindings, return them
-      if (nodes.length > 0) {
-        return nodes;
-      }
+      // Process attributes for event binding
+      // TODO: work on events
+      const elementsWithEvents = content.querySelectorAll("*[onclick]");
+      elementsWithEvents.forEach((el) => {
+        const onclickAttr = el.getAttribute("onclick");
+        if (onclickAttr.includes("{") && onclickAttr.includes("}")) {
+          // Extract just the function call from "{handleClick()}"
+          const funcCall = onclickAttr.replace(/{([^}]+)}/g, "$1").trim();
 
-      // Otherwise, search for new bindings
+          // Extract function name by removing parentheses and arguments
+          const funcName = funcCall.split("(")[0].trim();
+
+          el.removeAttribute("onclick");
+          el.addEventListener("click", (event) => {
+            console.log("Click handler for", funcName, "State:", this.state);
+
+            // Check if function exists in state
+            if (typeof this.state[funcName] === "function") {
+              try {
+                // Create a function context with state variables as local variables
+                const fnContext = { ...this.state };
+                const result = this.state[funcName].call(fnContext, event);
+
+                // Update any modified values back to state
+                for (const key in fnContext) {
+                  if (fnContext[key] !== this.state[key]) {
+                    this.state[key] = fnContext[key];
+                  }
+                }
+              } catch (error) {
+                console.error(`Error executing ${funcName}:`, error);
+              }
+            } else {
+              console.error(
+                `Function "${funcName}" not found in component state:`,
+                this.state
+              );
+            }
+          });
+        }
+      });
+    }
+
+    _getAllTextNodes(node) {
+      const textNodes = [];
       const walker = document.createTreeWalker(
-        root,
+        node,
         NodeFilter.SHOW_TEXT,
         null,
         false
       );
 
-      let node;
-      while ((node = walker.nextNode())) {
-        if (node.textContent.includes(`{${propName}}`)) {
-          // Store original content on the first encounter
-          if (!node.parentElement.hasAttribute("data-original")) {
-            node.parentElement.setAttribute("data-original", node.textContent);
-          }
-
-          // Mark this element as containing a binding for this property
-          node.parentElement.setAttribute(`data-bind-${propName}`, "true");
-
-          nodes.push(node);
-        }
+      let currentNode;
+      while ((currentNode = walker.nextNode())) {
+        textNodes.push(currentNode);
       }
 
-      return nodes;
+      return textNodes;
     }
 
-    _updateBindings(propName, value) {
-      const root = this.shadowRoot || this;
-      const bindingNodes = this._findBindingNodes(root, propName);
+    _update() {
+      // Clone template content
+      const templateContent = template.content.cloneNode(true);
 
-      bindingNodes.forEach((node) => {
-        // Get original template content with bindings
-        const originalContent =
-          node.parentElement.getAttribute("data-original") || node.textContent;
-
-        // Make a copy to work with
-        let newContent = originalContent;
-
-        // Create a map of all active property values
-        const propertyValues = {};
-        if (this.data) {
-          Object.keys(this.data).forEach((key) => {
-            propertyValues[key] = this.data[key];
-          });
+      // Clear the shadowRoot
+      if (this.shadowRoot) {
+        while (this.shadowRoot.firstChild) {
+          this.shadowRoot.removeChild(this.shadowRoot.firstChild);
         }
 
-        // Override with the property being updated
-        propertyValues[propName] = value;
+        // Process the template with updated state
+        this._processTemplate(templateContent);
 
-        // Replace all binding expressions
-        for (const [prop, val] of Object.entries(propertyValues)) {
-          newContent = newContent.replace(
-            new RegExp(`{${prop}}`, "g"),
-            val ?? ""
-          );
-        }
-
-        // Update the text content
-        node.textContent = newContent;
-      });
+        // Add back to the DOM
+        this.shadowRoot.appendChild(this.styleElement);
+        this.shadowRoot.appendChild(templateContent);
+      } else {
+        // Non-shadow DOM case
+        this.innerHTML = "";
+        this._processTemplate(templateContent);
+        this.appendChild(this.styleElement);
+        this.appendChild(templateContent);
+      }
     }
 
-    _processEventBindings(content) {
-      // Find all elements with attributes that start with @
-      const elements = content.querySelectorAll("*");
-      elements.forEach((element) => {
-        // Check each attribute for event bindings
-        Array.from(element.attributes).forEach((attr) => {
-          if (attr.name.startsWith("@")) {
-            const eventName = attr.name.substring(1); // Remove the @ prefix
-            const methodName = attr.value;
+    // Called when the element is removed from the DOM
+    // disconnectedCallback() {
+    //   logger.log("disconnectedCallback", this);
+    // }
 
-            // Store the event binding info as a data attribute
-            element.setAttribute(`data-event-${eventName}`, methodName);
+    // property
+    // static get observedAttributes() {
+    //   return componentBindings; // Return the attributes to be observed
+    // }
 
-            // Remove the original @event attribute to avoid HTML validation errors
-            element.removeAttribute(attr.name);
-
-            // Add event listener that will connect to the method once available
-            element.addEventListener(eventName, (event) => {
-              // The method should be available on the component instance
-              if (typeof this[methodName] === "function") {
-                this[methodName].call(this, event);
-              } else {
-                logger.warn(
-                  `Method ${methodName} not found for ${eventName} event`
-                );
-              }
-            });
-          }
-        });
-      });
-    }
+    // Called when one of the element's watched attributes change.
+    // For an attribute to be watched, you must add it to the component class's static
+    // attributeChangedCallback(name, oldValue, newValue) {
+    //   logger.log(
+    //     `🪵 ===> Attribute changed: ${name}, Old value: ${oldValue}, New value: ${newValue}`
+    //   );
+    //   // Update the DOM with the new attribute value
+    //   this._updateBindings(name, newValue);
+    // }
   }
 
   customElements.define(tagName, ComponentElement);

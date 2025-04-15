@@ -28,8 +28,8 @@ class Ladrillos {
 
       const template = document.createElement("template");
       template.innerHTML = component
-        .replace(/<script.*?<\/script>/g, "")
-        .replace(/<style.*?<\/style>/g, "");
+        .replace(/<script>([\s\S]*?)<\/script>/g, "")
+        .replace(/<style>([\s\S]*?)<\/style>/g, "");
 
       // Parse the template, script and style
       const scriptMatch = component.match(/<script>([\s\S]*?)<\/script>/);
@@ -40,7 +40,7 @@ class Ladrillos {
 
       this.components[name] = {
         tagName: name,
-        template: template.innerHTML, // TODO: extract text nodes
+        template,
         script: scriptContent,
         style: styleContent,
       };
