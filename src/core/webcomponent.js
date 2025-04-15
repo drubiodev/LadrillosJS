@@ -49,9 +49,7 @@ export const defineWebComponent = (component, useShadowDOM) => {
       this.state = {}; // Initialize state
 
       this.styleElement = document.createElement("style");
-      // this.scriptElement = document.createElement("script");
       this.styleElement.textContent = style || "";
-      // this.scriptElement.textContent = script || "";
     }
 
     // Called when the element is first added to the DOM
@@ -96,8 +94,7 @@ export const defineWebComponent = (component, useShadowDOM) => {
 
       if (this.shadowRoot) {
         // Add the style element first
-        this.shadowRoot.appendChild(this.styleElement); // Updated reference
-
+        this.shadowRoot.appendChild(this.styleElement);
         // Add the processed template content
         this.shadowRoot.appendChild(templateContent);
       } else {
@@ -143,21 +140,15 @@ export const defineWebComponent = (component, useShadowDOM) => {
 
           el.removeAttribute("onclick");
           el.addEventListener("click", (event) => {
-            console.log("Click handler for", funcName, "State:", this.state);
-
+            // console.log("Click handler for", funcName, "State:", this.state);
             // Check if function exists in state
             if (typeof this.state[funcName] === "function") {
               try {
-                // Create a function context with state variables as local variables
-                const fnContext = { ...this.state };
-                const result = this.state[funcName].call(fnContext, event);
+                const result = this.state[funcName].call();
 
-                // Update any modified values back to state
-                for (const key in fnContext) {
-                  if (fnContext[key] !== this.state[key]) {
-                    this.state[key] = fnContext[key];
-                  }
-                }
+                Object.keys(result).forEach((key) => {
+                  this.state[key] = result[key];
+                });
               } catch (error) {
                 console.error(`Error executing ${funcName}:`, error);
               }

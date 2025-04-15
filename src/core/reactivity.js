@@ -1,7 +1,6 @@
 export function createReactiveState(component, initialState = {}) {
   return new Proxy(initialState, {
     set(target, property, value) {
-      console.log(`Setting ${property} to ${value}`);
       const oldValue = target[property];
       target[property] = value;
 
