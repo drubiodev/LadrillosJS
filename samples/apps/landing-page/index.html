@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LadrillosJS · Modern UI Framework</title>
+
+    <style>
+      :root {
+        --primary: #e3583e;
+        --accent: #1ca7c1;
+        --bg: #f9fafb;
+        --text: #1f2937;
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family: sans-serif;
+        background: var(--bg);
+        color: var(--text);
+      }
+      nav {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1rem 2rem;
+        background: #f8f7f5;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      }
+      nav ul {
+        display: flex;
+        gap: 1.5rem;
+        list-style: none;
+      }
+      nav a {
+        text-decoration: none;
+        color: var(--text);
+        font-weight: 500;
+      }
+      nav .btn {
+        padding: 0.5rem 1rem;
+        background: var(--primary);
+        color: #fff;
+        border-radius: 0.375rem;
+      }
+
+      .hero {
+        text-align: center;
+        padding: 4rem 2rem;
+      }
+      .hero h1 {
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin-bottom: 1rem;
+      }
+      .hero p {
+        font-size: 1.125rem;
+        margin-bottom: 2rem;
+        color: #4b5563;
+      }
+      .hero .btn {
+        font-size: 1rem;
+      }
+
+      .features {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 2rem;
+        padding: 3rem 2rem;
+      }
+
+      .cta {
+        background: var(--primary);
+        color: #fff;
+        text-align: center;
+        padding: 3rem 2rem;
+      }
+      .cta h2 {
+        font-size: 2rem;
+        margin-bottom: 1rem;
+      }
+      .cta .btn {
+        background: #fff;
+        color: var(--primary);
+      }
+
+      footer {
+        padding: 2rem;
+        text-align: center;
+        color: #9ca3af;
+        font-size: 0.875rem;
+      }
+    </style>
+  </head>
+  <body>
+    <nav>
+      <logo-component></logo-component>
+      <ul>
+        <li><a href="/">Home</a></li>
+        <li><a href="#">Docs</a></li>
+        <li><a href="#">GitHub</a></li>
+        <li><a href="#" class="btn">Get Started</a></li>
+      </ul>
+    </nav>
+
+    <section class="hero">
+      <h1>Build Fast, Modular UIs</h1>
+      <p>
+        LadrillosJS is a lightweight, component‑based framework that helps you
+        create beautiful web apps in minutes.
+      </p>
+      <a href="#" class="btn">Get Started</a>
+    </section>
+
+    <section class="features">
+      <feature-component>
+        <h3>Lightweight</h3>
+        <p slot="text">Under 10kb gzipped—no bloat, just performance.</p>
+      </feature-component>
+
+      <feature-component>
+        <h3>Modular</h3>
+        <p slot="text">Pick and choose only the components you need.</p>
+      </feature-component>
+
+      <feature-component>
+        <h3>Easy to Use</h3>
+        <p slot="text">Familiar HTML-centric API with minimal boilerplate.</p>
+      </feature-component>
+    </section>
+
+    <section class="cta">
+      <h2>Ready to get started?</h2>
+      <a href="#" class="btn">Download LadrillosJS</a>
+    </section>
+
+    <footer>
+      &copy; 2025 LadrillosJS · MIT License · <a href="#">Privacy</a> ·
+      <a href="#">Terms</a>
+    </footer>
+
+    <script type="module">
+      import { ladrillos } from "../../../src/core/main.js";
+      ladrillos.registerComponent("logo-component", "components/logo.html");
+      ladrillos.registerComponent(
+        "feature-component",
+        "components/feature.html"
+      );
+    </script>
+  </body>
+</html>

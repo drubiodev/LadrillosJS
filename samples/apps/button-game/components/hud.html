@@ -1,0 +1,19 @@
+<style>
+  #hud {
+    position: fixed;
+    top: 1rem;
+    left: 1rem;
+    background: var(--hud-bg);
+    padding: 0.5rem 1rem;
+    border-radius: 0.5rem;
+    box-shadow: 0 2px 8px var(--shadow);
+    font-size: 1rem;
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+  }
+</style>
+
+<div id="hud">
+  Time: <span id="time">{time}</span>s | Score: <span id="score">{score}</span>
+</div>

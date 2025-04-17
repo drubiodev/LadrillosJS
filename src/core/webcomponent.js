@@ -25,18 +25,17 @@ export const defineWebComponent = (component, useShadowDOM) => {
 
   const { tagName, template, script, style } = component;
 
-  // const extractBindings = (template) => {
-  //   const regex = /{(.*?)}/g;
-  //   const attributes = new Set();
-  //   let match;
-  //   while ((match = regex.exec(template)) !== null) {
-  //     attributes.add(match[1].trim().toLocaleLowerCase());
-  //   }
-  //   return Array.from(attributes);
-  // };
+  const extractBindings = (tpl) => {
+    const regex = /{(.*?)}/g;
+    const attrs = new Set();
+    let m;
+    while ((m = regex.exec(tpl.innerHTML)) !== null) {
+      attrs.add(m[1].trim().toLowerCase());
+    }
+    return Array.from(attrs);
+  };
 
-  // // Get bindings from the template
-  // const componentBindings = extractBindings(template);
+  const componentBindings = extractBindings(template);
 
   class ComponentElement extends HTMLElement {
     constructor() {
@@ -181,19 +180,15 @@ export const defineWebComponent = (component, useShadowDOM) => {
     // }
 
     // property
-    // static get observedAttributes() {
-    //   return componentBindings; // Return the attributes to be observed
-    // }
+    static get observedAttributes() {
+      return componentBindings; // Return the attributes to be observed
+    }
 
-    // Called when one of the element's watched attributes change.
-    // For an attribute to be watched, you must add it to the component class's static
-    // attributeChangedCallback(name, oldValue, newValue) {
-    //   logger.log(
-    //     `🪵 ===> Attribute changed: ${name}, Old value: ${oldValue}, New value: ${newValue}`
-    //   );
-    //   // Update the DOM with the new attribute value
-    //   this._updateBindings(name, newValue);
-    // }
+    attributeChangedCallback(name, oldVal, newVal) {
+      if (oldVal !== newVal) {
+        this.state[name] = newVal;
+      }
+    }
   }
 
   customElements.define(tagName, ComponentElement);

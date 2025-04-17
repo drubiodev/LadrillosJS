@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Catch Me If You Can</title>
+    <style>
+      :root {
+        --bg: #f0f2f5;
+        --primary: #6200ea;
+        --primary-hover: #7f39fb;
+        --text: #333;
+        --hud-bg: rgba(255, 255, 255, 0.85);
+        --shadow: rgba(0, 0, 0, 0.1);
+        --transition: 0.3s ease;
+      }
+
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+
+      body {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        margin: 0;
+        background-color: var(--bg);
+        font-family: "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        color: var(--text);
+        overflow: hidden;
+      }
+
+      #gameBtn {
+        position: absolute;
+        top: 0;
+        left: 0;
+        background: var(--primary);
+        border: none;
+        border-radius: 0.75rem;
+        padding: 1rem 2rem;
+        font-size: 1.25rem;
+        color: #fff;
+        cursor: pointer;
+        box-shadow: 0 4px 12px var(--shadow);
+        transition: transform var(--transition), background var(--transition),
+          box-shadow var(--transition);
+      }
+
+      #gameBtn:hover {
+        background: var(--primary-hover);
+        transform: translateY(-3px);
+        box-shadow: 0 6px 16px var(--shadow);
+      }
+
+      #gameBtn:focus {
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(98, 0, 234, 0.4);
+      }
+
+      #gameBtn:disabled {
+        background: #ccc;
+        cursor: default;
+        transform: none;
+        box-shadow: none;
+      }
+    </style>
+  </head>
+  <body>
+    <hud-component></hud-component>
+    <button id="gameBtn">Catch Me!</button>
+
+    <script type="module">
+      import { ladrillos } from "../../../src/core/main.js";
+      ladrillos.registerComponent("hud-component", "components/hud.html");
+    </script>
+
+    <script>
+      const hud = document.querySelector("hud-component");
+      const btn = document.getElementById("gameBtn");
+
+      let score = 0,
+        timeLeft = 10,
+        timer;
+
+      hud.setAttribute("time", timeLeft);
+      hud.setAttribute("score", score);
+
+      function moveButton() {
+        const x = Math.random() * (window.innerWidth - btn.offsetWidth);
+        const y = Math.random() * (window.innerHeight - btn.offsetHeight);
+        btn.style.transform = `translate(${x}px, ${y}px)`;
+      }
+
+      btn.addEventListener("click", () => {
+        if (timeLeft <= 0) return;
+        score++;
+        hud.setAttribute("score", score);
+        moveButton();
+      });
+
+      function countdown() {
+        timeLeft--;
+        hud.setAttribute("time", timeLeft);
+        if (timeLeft <= 0) {
+          clearInterval(timer);
+          btn.disabled = true;
+          btn.textContent = "Game Over!";
+        }
+      }
+
+      // init
+      moveButton();
+      timer = setInterval(countdown, 1000);
+    </script>
+  </body>
+</html>
