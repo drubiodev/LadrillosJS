@@ -56,39 +56,28 @@ export const defineWebComponent = (component, useShadowDOM) => {
     connectedCallback() {
       // Clone template content
       const templateContent = template.content.cloneNode(true);
+      // empty state
+      this.state = createReactiveState(this, {});
 
-      //hold all the script variables
-      const componentContext = {};
-      const scriptWithReturn = `
-        ${script}
-        
-        // Return all declared variables and functions as an object
-        return { 
-          ${
-            script
-              .match(/\b(?:let|const|var)\s+(\w+)/g)
-              ?.map((v) => v.replace(/\b(?:let|const|var)\s+/, ""))
-              ?.join(", ") || ""
-          },
-          ${
-            script
-              .match(/function\s+(\w+)/g)
-              ?.map((f) => f.replace(/function\s+/, ""))
-              ?.join(", ") || ""
-          }
-        };
+      this._initializing = true;
+
+      const cleanedScript = script
+        .replace(/\b(?:const|let|var)\s+([\w$]+)\s*=/g, "state.$1 =")
+        .replace(/function\s+([\w$]+)\s*\(/g, "state.$1 = function (");
+
+      const initScript = `
+      with (state) {
+      ${cleanedScript}
+      }
       `;
 
       try {
-        // Execute script and capture all variables and functions
-        const scriptResult = new Function(scriptWithReturn)();
-        Object.assign(componentContext, scriptResult);
-      } catch (error) {
-        console.error("Error executing component script:", error);
+        new Function("state", initScript)(this.state);
+      } catch (e) {
+        console.error("Error initializing component script:", e);
+      } finally {
+        this._initializing = false;
       }
-
-      // Create reactive state
-      this.state = createReactiveState(this, componentContext);
 
       this._processTemplate(templateContent);
 
@@ -126,40 +115,21 @@ export const defineWebComponent = (component, useShadowDOM) => {
         }
       });
 
-      // Process attributes for event binding
-      // TODO: work on events
-      const elementsWithEvents = content.querySelectorAll("*[onclick]");
-      elementsWithEvents.forEach((el) => {
-        const onclickAttr = el.getAttribute("onclick");
-        if (onclickAttr.includes("{") && onclickAttr.includes("}")) {
-          // Extract just the function call from "{handleClick()}"
-          const funcCall = onclickAttr.replace(/{([^}]+)}/g, "$1").trim();
-
-          // Extract function name by removing parentheses and arguments
-          const funcName = funcCall.split("(")[0].trim();
-
-          el.removeAttribute("onclick");
-          el.addEventListener("click", (event) => {
-            // console.log("Click handler for", funcName, "State:", this.state);
-            // Check if function exists in state
-            if (typeof this.state[funcName] === "function") {
-              try {
-                const result = this.state[funcName].call();
-
-                Object.keys(result).forEach((key) => {
-                  this.state[key] = result[key];
-                });
-              } catch (error) {
-                console.error(`Error executing ${funcName}:`, error);
-              }
-            } else {
-              console.error(
-                `Function "${funcName}" not found in component state:`,
-                this.state
-              );
+      content.querySelectorAll("*[onclick]").forEach((el) => {
+        const call = el.getAttribute("onclick").match(/{\s*([\w$]+)\(\)\s*}/);
+        if (!call) return;
+        const fnName = call[1];
+        el.removeAttribute("onclick");
+        el.addEventListener("click", () => {
+          const fn = this.state[fnName];
+          if (typeof fn === "function") {
+            try {
+              fn(); // mutate state inside your handler
+            } catch (err) {
+              console.error(`Error in handler ${fnName}:`, err);
             }
-          });
-        }
+          }
+        });
       });
     }
 

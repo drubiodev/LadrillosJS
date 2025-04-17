@@ -1,11 +1,10 @@
 export function createReactiveState(component, initialState = {}) {
   return new Proxy(initialState, {
     set(target, property, value) {
-      const oldValue = target[property];
+      const old = target[property];
       target[property] = value;
 
-      // Only trigger update if value actually changed
-      if (oldValue !== value) {
+      if (old !== value && !component._initializing) {
         component._update();
       }
       return true;

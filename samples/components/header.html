@@ -41,17 +41,12 @@
   let text = "Welcome to my app!";
   let clickCount = 0;
 
-  function handleClick() {
-    clickCount++; // Remove "this." - access the variable directly
+  const handleClick = () => {
+    clickCount++;
+    console.log("handleClick() clicked", this);
 
-    // You can update multiple state values
     if (clickCount > 10) {
-      text = "You clicked a lot!"; // Update text directly, not message
+      text = "You clicked a lot!";
     }
-
-    return {
-      text: text,
-      clickCount: clickCount,
-    };
-  }
+  };
 </script>
