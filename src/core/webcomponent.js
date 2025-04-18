@@ -37,16 +37,19 @@ export const defineWebComponent = (component, useShadowDOM) => {
 
   const componentBindings = extractBindings(template);
 
+  const cleanedScript = script
+    .replace(/\b(?:const|let|var)\s+([\w$]+)\s*=/g, "state.$1 =")
+    .replace(/function\s+([\w$]+)\s*\(/g, "state.$1 = function (");
+
+  const initFn = script
+    ? new Function("state", `with(state){${cleanedScript}}`)
+    : () => {};
+
   class ComponentElement extends HTMLElement {
     constructor() {
       super();
-
-      if (useShadowDOM) {
-        this.attachShadow({ mode: "open" });
-      }
-
+      if (useShadowDOM) this.attachShadow({ mode: "open" });
       this.state = {}; // Initialize state
-
       this.styleElement = document.createElement("style");
       this.styleElement.textContent = style || "";
     }
@@ -60,18 +63,7 @@ export const defineWebComponent = (component, useShadowDOM) => {
 
       this._initializing = true;
 
-      const cleanedScript = script
-        .replace(/\b(?:const|let|var)\s+([\w$]+)\s*=/g, "state.$1 =")
-        .replace(/function\s+([\w$]+)\s*\(/g, "state.$1 = function (");
-
-      const initScript = `
-      with (state) {
-      ${cleanedScript}
-      }
-      `;
-
       try {
-        const initFn = new Function("state", initScript);
         initFn.call(this, this.state);
       } catch (e) {
         console.error("Error initializing component script:", e);
@@ -151,27 +143,18 @@ export const defineWebComponent = (component, useShadowDOM) => {
     }
 
     _update() {
-      // Clone template content
-      const templateContent = template.content.cloneNode(true);
+      // similar fast‑clear + re‑render
+      const tpl = template.content.cloneNode(true);
+      this._processTemplate(tpl);
 
-      // Clear the shadowRoot
       if (this.shadowRoot) {
-        while (this.shadowRoot.firstChild) {
-          this.shadowRoot.removeChild(this.shadowRoot.firstChild);
-        }
-
-        // Process the template with updated state
-        this._processTemplate(templateContent);
-
-        // Add back to the DOM
+        this.shadowRoot.innerHTML = "";
         this.shadowRoot.appendChild(this.styleElement);
-        this.shadowRoot.appendChild(templateContent);
+        this.shadowRoot.appendChild(tpl);
       } else {
-        // Non-shadow DOM case
         this.innerHTML = "";
-        this._processTemplate(templateContent);
         this.appendChild(this.styleElement);
-        this.appendChild(templateContent);
+        this.appendChild(tpl);
       }
     }
 
@@ -204,6 +187,5 @@ export const defineWebComponent = (component, useShadowDOM) => {
   }
 
   customElements.define(tagName, ComponentElement);
-
   logger.log(`Web component defined: <${tagName}></${tagName}>`);
 };
