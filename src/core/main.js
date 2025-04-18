@@ -4,66 +4,74 @@ import { logger } from "../utils/logger.js";
  * @fileoverview Ladrillos main module
  * @typedef {import('../types/LadrilloTypes').LadrillosComponent} LadrillosComponent
  */
-
 class Ladrillos {
   constructor() {
-    /**
-     * Registered components collection
-     * @type {Object.<string, LadrillosComponent>}
-     * @private
-     */
+    /** @type {Object.<string, LadrillosComponent>} */
     this.components = {};
+    /** @private Map<string, string> */
+    this._cache = new Map();
   }
 
+  static _SCRIPT_ALL = /<script>([\s\S]*?)<\/script>/g;
+  static _STYLE_ALL = /<style>([\s\S]*?)<\/style>/g;
+  static _SCRIPT_ONE = /<script>([\s\S]*?)<\/script>/;
+  static _STYLE_ONE = /<style>([\s\S]*?)<\/style>/;
+
   /**
-   * Registers a component by loading it from a file path
-   * @param {string} name - Component name/tag
-   * @param {string} path - Path to the component file
-   * @param {boolean} [useShadowDOM=true] - Whether to use Shadow DOM
+   * @param {string} name
+   * @param {string} path
+   * @param {boolean} [useShadowDOM=true]
    * @returns {Promise<void>}
    */
   async registerComponent(name, path, useShadowDOM = true) {
+    // skip if already registered
+    if (this.components[name]) {
+      logger.log(`Component ${name} already registered, skipping.`);
+      return;
+    }
+
     try {
-      const component = await fetch(path).then((res) => res.text());
+      // fetch & cache component text
+      let source = this._cache.get(path);
+      if (!source) {
+        const res = await fetch(path);
+        source = await res.text();
+        this._cache.set(path, source);
+      }
+
+      // strip out script and style tags
+      const cleanHTML = source
+        .replace(Ladrillos._SCRIPT_ALL, "")
+        .replace(Ladrillos._STYLE_ALL, "");
 
       const template = document.createElement("template");
-      template.innerHTML = component
-        .replace(/<script>([\s\S]*?)<\/script>/g, "")
-        .replace(/<style>([\s\S]*?)<\/style>/g, "");
+      template.innerHTML = cleanHTML;
 
-      // Parse the template, script and style
-      const scriptMatch = component.match(/<script>([\s\S]*?)<\/script>/);
-      const styleMatch = component.match(/<style>([\s\S]*?)<\/style>/);
-
-      const scriptContent = scriptMatch ? scriptMatch[1].trim() : "";
-      const styleContent = styleMatch ? styleMatch[1].trim() : "";
+      const scriptContent = Ladrillos._SCRIPT_ONE.exec(source);
+      const styleContent = Ladrillos._STYLE_ONE.exec(source);
 
       this.components[name] = {
         tagName: name,
         template,
-        script: scriptContent,
-        style: styleContent,
+        script: scriptContent?.[1].trim() || "",
+        style: styleContent?.[1].trim() || "",
       };
 
       this._defineWebComponent(name, useShadowDOM);
       logger.log(`Component ${name} registered successfully`);
-    } catch (error) {
-      logger.error(`Failed to register component ${name}:`, error);
+    } catch (err) {
+      logger.error(`Failed to register component ${name}:`, err);
     }
   }
 
   /**
-   * Defines a registered component as a web component
-   * @param {string} name - Name of the component to define
-   * @param {boolean} useShadowDOM - Whether to use Shadow DOM
-   * @returns {Promise<void>}
    * @private
+   * @param {string} name
+   * @param {boolean} useShadowDOM
    */
   async _defineWebComponent(name, useShadowDOM) {
     const { defineWebComponent } = await import("./webcomponent.js");
-    const component = this.components[name];
-
-    defineWebComponent(component, useShadowDOM);
+    defineWebComponent(this.components[name], useShadowDOM);
   }
 }
 
