@@ -4,9 +4,57 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>LadrillosJS - Samples</title>
+    <style>
+      /* Reset & box‑sizing */
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        height: 100%;
+      }
+      /* Center container */
+      body {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #f0f2f5;
+        font-family: "Segoe UI", Tahoma, sans-serif;
+      }
+      /* Link wrapper */
+      nav {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+        width: 100%;
+        max-width: 360px;
+        text-align: center;
+      }
+      /* Link cards */
+      a {
+        display: block;
+        padding: 1rem 1.5rem;
+        background: #fff;
+        color: #333;
+        text-decoration: none;
+        font-size: 1.1rem;
+        border-radius: 0.5rem;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        transition: transform 0.2s, box-shadow 0.2s;
+      }
+      a:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 6px 15px rgba(0, 0, 0, 0.15);
+      }
+    </style>
   </head>
   <body>
-    <a href="./apps/landing-page/index.html">About</a>
-    <a href="./apps/button-game/index.html">Button Game</a>
+    <nav>
+      <a href="./apps/landing-page/index.html">About</a>
+      <a href="./apps/simple-button/index.html">Simple Button</a>
+      <a href="./apps/button-game/index.html">Button Game</a>
+    </nav>
   </body>
 </html>

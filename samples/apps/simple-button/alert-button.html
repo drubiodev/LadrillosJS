@@ -1,0 +1,45 @@
+<style>
+  button {
+    background: var(--btn-bg);
+    color: var(--btn-color);
+    padding: var(--btn-padding);
+    border: none;
+    border-radius: var(--btn-radius);
+    box-shadow: var(--btn-shadow);
+    font-size: 1rem;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    transition: var(--btn-transition);
+  }
+
+  button:hover {
+    background: var(--btn-hover-bg);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.12);
+  }
+
+  button:active {
+    transform: translateY(0);
+    box-shadow: var(--btn-shadow);
+    opacity: 0.9;
+  }
+
+  button:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(26, 115, 232, 0.4);
+  }
+</style>
+<button onclick="{increaseCount()}">Clicked: {count}</button>
+
+<script>
+  const count = 0;
+
+  const increaseCount = () => {
+    count++;
+
+    if (count >= 10) {
+      alert("to many clicks");
+    }
+  };
+</script>
