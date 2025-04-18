@@ -17,6 +17,18 @@ A lightweight, zero-dependency web component framework for building modular web 
 npm install ladrillosjs
 ```
 
+#### cdn
+
+```js
+<script src="https://cdn.jsdelivr.net/npm/ladrillosjs@0.1.1"></script>
+ <script type="module">
+      ladrillosjs.ladrillos.registerComponent(
+        "alert-button",
+        "alert-button.html"
+      );
+    </script>
+```
+
 ### 2. Create index.html file
 
 ```html
