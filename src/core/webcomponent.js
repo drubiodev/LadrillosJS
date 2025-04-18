@@ -71,7 +71,8 @@ export const defineWebComponent = (component, useShadowDOM) => {
       `;
 
       try {
-        new Function("state", initScript)(this.state);
+        const initFn = new Function("state", initScript);
+        initFn.call(this, this.state);
       } catch (e) {
         console.error("Error initializing component script:", e);
       } finally {
@@ -188,6 +189,17 @@ export const defineWebComponent = (component, useShadowDOM) => {
       if (oldVal !== newVal) {
         this.state[name] = newVal;
       }
+    }
+
+    emit(name, detail) {
+      const data = detail ?? this.state;
+
+      this.dispatchEvent(
+        new CustomEvent(name, {
+          detail: data,
+          bubbles: true,
+        })
+      );
     }
   }
 

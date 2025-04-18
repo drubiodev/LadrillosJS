@@ -87,6 +87,10 @@
       hud.setAttribute("time", timeLeft);
       hud.setAttribute("score", score);
 
+      hud.addEventListener("timeEnded", ({ detail }) => {
+        console.log(detail);
+      });
+
       function moveButton() {
         const x = Math.random() * (window.innerWidth - btn.offsetWidth);
         const y = Math.random() * (window.innerHeight - btn.offsetHeight);

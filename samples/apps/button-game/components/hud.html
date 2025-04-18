@@ -17,3 +17,11 @@
 <div id="hud">
   Time: <span id="time">{time}</span>s | Score: <span id="score">{score}</span>
 </div>
+
+<button onclick="{sayHi()}">emit</button>
+
+<script>
+  const sayHi = () => {
+    this.emit("timeEnded");
+  };
+</script>
