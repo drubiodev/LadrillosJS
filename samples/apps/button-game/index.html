@@ -2,6 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Catch Me If You Can</title>
     <style>
       :root {
@@ -88,7 +89,7 @@
       hud.setAttribute("score", score);
 
       hud.addEventListener("timeEnded", ({ detail }) => {
-        console.log(detail);
+        alert(JSON.stringify(detail));
       });
 
       function moveButton() {
