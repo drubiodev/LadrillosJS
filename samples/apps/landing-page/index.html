@@ -22,30 +22,6 @@
         background: var(--bg);
         color: var(--text);
       }
-      nav {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 1rem 2rem;
-        background: #f8f7f5;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-      }
-      nav ul {
-        display: flex;
-        gap: 1.5rem;
-        list-style: none;
-      }
-      nav a {
-        text-decoration: none;
-        color: var(--text);
-        font-weight: 500;
-      }
-      nav .btn {
-        padding: 0.5rem 1rem;
-        background: var(--primary);
-        color: #fff;
-        border-radius: 0.375rem;
-      }
 
       .hero {
         text-align: center;
@@ -96,15 +72,9 @@
     </style>
   </head>
   <body>
-    <nav>
+    <nav-component>
       <logo-component></logo-component>
-      <ul>
-        <li><a href="/">Home</a></li>
-        <li><a href="#">Docs</a></li>
-        <li><a href="#">GitHub</a></li>
-        <li><a href="#" class="btn">Get Started</a></li>
-      </ul>
-    </nav>
+    </nav-component>
 
     <section class="hero">
       <h1>Build Fast, Modular UIs</h1>
@@ -144,6 +114,7 @@
 
     <script type="module">
       import { ladrillos } from "../../../src/core/main.js";
+      ladrillos.registerComponent("nav-component", "components/nav.html");
       ladrillos.registerComponent("logo-component", "components/logo.html");
       ladrillos.registerComponent(
         "feature-component",
