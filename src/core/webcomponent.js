@@ -118,14 +118,23 @@ export const defineWebComponent = (component, useShadowDOM) => {
       // reset rendering state
       this._textBindings = {};
       this._origText = new Map();
-      // Clone template content
-      const templateContent = template.content.cloneNode(true);
-      // empty state
-      this.state = createReactiveState(this, {});
 
+      // clone template
+      const templateContent = template.content.cloneNode(true);
+      // append style + content
+      if (this.shadowRoot) {
+        this.shadowRoot.appendChild(this.styleElement);
+        this.shadowRoot.appendChild(templateContent);
+      } else {
+        this.appendChild(this.styleElement);
+        this.appendChild(templateContent);
+      }
+
+      // create proxy‐state
+      this.state = createReactiveState(this, {});
       this._initializing = true;
 
-      // Run script to populate state
+      // now that DOM is stamped, run the user script
       try {
         initFn.call(this, this.state);
       } catch (e) {
@@ -134,18 +143,8 @@ export const defineWebComponent = (component, useShadowDOM) => {
         this._initializing = false;
       }
 
-      this._processTemplate(templateContent);
-
-      if (this.shadowRoot) {
-        // Add the style element first
-        this.shadowRoot.appendChild(this.styleElement);
-        // Add the processed template content
-        this.shadowRoot.appendChild(templateContent);
-      } else {
-        // Fallback for when not using shadow DOM
-        this.appendChild(this.styleElement);
-        this.appendChild(templateContent);
-      }
+      const root = this.shadowRoot || this;
+      this._processTemplate(root);
     }
 
     _processTemplate(content) {
@@ -284,6 +283,20 @@ export const defineWebComponent = (component, useShadowDOM) => {
           bubbles: true,
         })
       );
+    }
+
+    querySelector(selector) {
+      if (this.shadowRoot) {
+        return this.shadowRoot.querySelector(selector);
+      }
+      return super.querySelector(selector);
+    }
+
+    querySelectorAll(selector) {
+      if (this.shadowRoot) {
+        return this.shadowRoot.querySelectorAll(selector);
+      }
+      return super.querySelectorAll(selector);
     }
   }
 

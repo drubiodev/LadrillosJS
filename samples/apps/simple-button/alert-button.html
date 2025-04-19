@@ -30,6 +30,7 @@
     box-shadow: 0 0 0 3px rgba(26, 115, 232, 0.4);
   }
 </style>
+<p></p>
 <label for="buttonName">Button Name:</label>
 <input onkeyup="{updateName()}" type="text" name="buttonName" id="buttonName" />
 
@@ -39,6 +40,8 @@
   const title = "Clicked";
   const count = 0;
 
+  const p = this.querySelector("p");
+
   function updateName() {
     title = this.value;
   }
@@ -47,7 +50,7 @@
     count++;
 
     if (count >= 10) {
-      alert("to many clicks");
+      p.textContent = "to many clicks";
     }
   };
 </script>
