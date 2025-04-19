@@ -30,11 +30,18 @@
     box-shadow: 0 0 0 3px rgba(26, 115, 232, 0.4);
   }
 </style>
+<label for="buttonName">Button Name:</label>
+<input onkeyup="{updateName()}" type="text" name="buttonName" id="buttonName" />
+
 <button onclick="{increaseCount()}">{title}: {count}</button>
 
 <script>
   const title = "Clicked";
   const count = 0;
+
+  function updateName() {
+    title = this.value;
+  }
 
   const increaseCount = () => {
     count++;

@@ -73,6 +73,22 @@ export const defineWebComponent = (component, useShadowDOM) => {
     ? new Function("state", `with(state){${cleanedScript}}`)
     : () => {};
 
+  // Process the template to extract event bindings
+  const eventBindings = [];
+  template.content.querySelectorAll("*").forEach((el) => {
+    Array.from(el.attributes).forEach((attr) => {
+      if (!attr.name.startsWith("on")) return;
+      const evt = attr.name.slice(2);
+      const m = attr.value.match(/{\s*([\w$]+)\(\)\s*}/);
+      if (!m) return;
+      const fnName = m[1];
+      // mark the element in the template
+      el.dataset._evtIndex = eventBindings.length;
+      eventBindings.push({ evt, fnName });
+      el.removeAttribute(attr.name);
+    });
+  });
+
   /**
    * Core class for all LadrillosJS components.
    * Extends HTMLElement to provide reactive state, templating and event binding.
@@ -146,19 +162,15 @@ export const defineWebComponent = (component, useShadowDOM) => {
         }
       });
 
-      content.querySelectorAll("*[onclick]").forEach((el) => {
-        const call = el.getAttribute("onclick").match(/{\s*([\w$]+)\(\)\s*}/);
-        if (!call) return;
-        const fnName = call[1];
-        el.removeAttribute("onclick");
-        el.addEventListener("click", () => {
-          const fn = this.state[fnName];
+      // handle event bindings
+      eventBindings.forEach((b, idx) => {
+        const el = content.querySelector(`[data-_evt-index="${idx}"]`);
+        el.removeAttribute("data-_evt-index");
+        el.addEventListener(b.evt, (e) => {
+          const fn = this.state[b.fnName];
           if (typeof fn === "function") {
-            try {
-              fn(); // mutate state inside your handler
-            } catch (err) {
-              console.error(`Error in handler ${fnName}:`, err);
-            }
+            // call the handler with the element as `this`
+            fn.call(el, e);
           }
         });
       });
