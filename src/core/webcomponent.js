@@ -100,6 +100,11 @@ export const defineWebComponent = (component, useShadowDOM) => {
       this.state = {}; // Initialize state
       this.styleElement = document.createElement("style");
       this.styleElement.textContent = style || "";
+
+      // track text‐bindings
+      this._textBindings = {};
+      // store original template text for each node
+      this._origText = new Map();
     }
 
     /**
@@ -110,6 +115,9 @@ export const defineWebComponent = (component, useShadowDOM) => {
      * - Appends style + content to (shadow) root
      */
     connectedCallback() {
+      // reset rendering state
+      this._textBindings = {};
+      this._origText = new Map();
       // Clone template content
       const templateContent = template.content.cloneNode(true);
       // empty state
@@ -148,15 +156,18 @@ export const defineWebComponent = (component, useShadowDOM) => {
       textNodes.forEach((node) => {
         const text = node.textContent;
         if (text.includes("{") && text.includes("}")) {
+          this._origText.set(node, text);
+
           node.textContent = text.replace(/{([^}]+)}/g, (match, key) => {
-            // binds value to state or attribute
-            // attribute takes precedence over state
+            key = key.trim();
+            this._textBindings[key] = this._textBindings[key] || [];
+            this._textBindings[key].push(node);
+
             if (this.hasAttribute(key)) {
               return this.getAttribute(key);
             } else if (this.state[key] !== undefined) {
               return this.state[key];
             }
-            // Otherwise return the original binding
             return match;
           });
         }
@@ -216,6 +227,20 @@ export const defineWebComponent = (component, useShadowDOM) => {
         this.appendChild(this.styleElement);
         this.appendChild(tpl);
       }
+    }
+
+    // only update the nodes bound to a single key
+    _updateBinding(key) {
+      (this._textBindings[key] || []).forEach((node) => {
+        const orig = this._origText.get(node) || "";
+        node.textContent = orig.replace(/{([^}]+)}/g, (match, k) => {
+          k = k.trim();
+          if (this.hasAttribute(k)) {
+            return this.getAttribute(k);
+          }
+          return this.state[k];
+        });
+      });
     }
 
     /**

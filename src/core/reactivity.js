@@ -16,7 +16,11 @@ export function createReactiveState(component, initialState = {}) {
       target[property] = value;
 
       if (old !== value && !component._initializing) {
-        component._update();
+        if (typeof component._updateBinding === "function") {
+          component._updateBinding(property, value);
+        } else {
+          component._update();
+        }
       }
       return true;
     },
