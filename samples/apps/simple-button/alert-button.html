@@ -30,9 +30,10 @@
     box-shadow: 0 0 0 3px rgba(26, 115, 232, 0.4);
   }
 </style>
-<button onclick="{increaseCount()}">Clicked: {count}</button>
+<button onclick="{increaseCount()}">{title}: {count}</button>
 
 <script>
+  const title = "Clicked";
   const count = 0;
 
   const increaseCount = () => {

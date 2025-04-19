@@ -5,11 +5,11 @@ import { logger } from "../utils/logger.js";
  * @typedef {import('../types/LadrilloTypes').LadrillosComponent} LadrillosComponent
  */
 class Ladrillos {
+  #cache = new Map();
+
   constructor() {
     /** @type {Object.<string, LadrillosComponent>} */
     this.components = {};
-    /** @private Map<string, string> */
-    this._cache = new Map();
   }
 
   static _SCRIPT_ALL = /<script>([\s\S]*?)<\/script>/g;
@@ -32,11 +32,12 @@ class Ladrillos {
 
     try {
       // fetch & cache component text
-      let source = this._cache.get(path);
+      let source = this.#cache.get(path);
+
       if (!source) {
         const res = await fetch(path);
         source = await res.text();
-        this._cache.set(path, source);
+        this.#cache.set(path, source);
       }
 
       // strip out script and style tags
