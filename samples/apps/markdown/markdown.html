@@ -1,0 +1,165 @@
+<style>
+  /* Reset & Base */
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+    color: #555;
+  }
+
+  /* Editor */
+  #markdown-editor {
+    width: 100%;
+    height: 80vh;
+    padding: 1rem;
+    border: none;
+    border-radius: 8px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+    font-family: "Consolas", monospace;
+    font-size: 1rem;
+    line-height: 1.5;
+    resize: none;
+    background: #fff;
+    color: #222;
+    overflow: auto;
+    outline: 1px solid #eee;
+  }
+
+  /* Viewer */
+  #html-wrapper {
+    width: 100%;
+    max-width: 600px;
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+    padding: 1.5rem;
+    height: 80vh;
+    overflow-y: auto;
+    outline: 1px solid #eee;
+  }
+
+  #html-output h1,
+  #html-output h2,
+  #html-output h3,
+  #html-output h4,
+  #html-output h5,
+  #html-output h6 {
+    margin-top: 1.5rem;
+    margin-bottom: 0.75rem;
+    font-weight: 600;
+    color: #333;
+  }
+
+  #html-output p {
+    margin-bottom: 1rem;
+    line-height: 1.6;
+  }
+
+  #html-output ul {
+    list-style: disc inside;
+    margin-bottom: 1rem;
+  }
+
+  #html-output li {
+    margin-bottom: 0.5rem;
+  }
+
+  #html-output strong {
+    font-weight: 700;
+    color: #222;
+  }
+
+  #html-output em {
+    font-style: italic;
+    color: #444;
+  }
+
+  /* Scrollbar */
+  #markdown-editor::-webkit-scrollbar,
+  #html-wrapper::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  #markdown-editor::-webkit-scrollbar-thumb,
+  #html-wrapper::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 4px;
+  }
+
+  #markdown-editor::-webkit-scrollbar-track,
+  #html-wrapper::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  /* Responsive */
+  @media (max-width: 900px) {
+    body {
+      flex-direction: column;
+      align-items: stretch;
+    }
+    #markdown-editor,
+    #html-wrapper {
+      width: 100%;
+      height: 60vh;
+    }
+  }
+  .markdown-component {
+    display: flex;
+    gap: 1rem;
+    padding: 1rem;
+    align-items: center;
+    justify-content: center;
+  }
+</style>
+
+<h1>Simple Markdown Editor</h1>
+<div class="markdown-component">
+  <div id="editor-wrapper">
+    <textarea
+      id="markdown-editor"
+      onkeyup="{parseMarkdown()}"
+      placeholder="Enter Markdown here..."
+    ></textarea>
+  </div>
+
+  <div id="html-wrapper">
+    <div id="html-output"></div>
+  </div>
+</div>
+
+<script>
+  const editor = this.querySelector("#markdown-editor");
+  const output = this.querySelector("#html-output");
+
+  console.log(editor);
+  const parseMarkdown = () => {
+    const text = editor.value;
+
+    // headings
+    text = text
+      .replace(/^###### (.*)$/gm, "<h6>$1</h6>")
+      .replace(/^##### (.*)$/gm, "<h5>$1</h5>")
+      .replace(/^#### (.*)$/gm, "<h4>$1</h4>")
+      .replace(/^### (.*)$/gm, "<h3>$1</h3>")
+      .replace(/^## (.*)$/gm, "<h2>$1</h2>")
+      .replace(/^# (.*)$/gm, "<h1>$1</h1>");
+    // bold & italic
+    text = text
+      .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+      .replace(/\*(.+?)\*/g, "<em>$1</em>");
+    // unordered lists
+    if (text.match(/^\s*-\s+/m)) {
+      text = text
+        .replace(/^\s*-\s+(.*)$/gm, "<li>$1</li>")
+        .replace(/(<li>.*<\/li>)/gms, "<ul>$1</ul>");
+    }
+    output.innerHTML = text;
+    return text;
+  };
+</script>
