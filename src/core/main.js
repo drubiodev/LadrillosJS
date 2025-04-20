@@ -41,23 +41,65 @@ class Ladrillos {
       }
 
       const noHtmlComments = source.replace(/<!--[\s\S]*?-->/g, "");
-      const cleanHTML = noHtmlComments
-        .replace(Ladrillos._SCRIPT_ALL, "")
-        .replace(Ladrillos._STYLE_ALL, "");
 
-      const template = document.createElement("template");
-      template.innerHTML = cleanHTML;
+      // parse the HTML so we can handle multiple <script> (inline & external) and <style> tags
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(noHtmlComments, "text/html");
 
-      const scriptMatch = Ladrillos._SCRIPT_ONE.exec(source);
-      const rawScript = scriptMatch?.[1] || "";
-      const script = rawScript
-        // strip JS block and line comments
+      // extract and concatenate all scripts (inline & external)
+      let script = "";
+      const scriptEls = Array.from(doc.querySelectorAll("script"));
+
+      for (const el of scriptEls) {
+        if (el.src) {
+          const src = el.getAttribute("src");
+          let scriptUrl;
+          try {
+            scriptUrl = new URL(src, path).href;
+          } catch (urlErr) {
+            console.error(
+              `Invalid script URL "${src}" (base "${path}") – skipping:`,
+              urlErr
+            );
+            el.remove();
+            continue;
+          }
+
+          try {
+            const res = await fetch(scriptUrl);
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            script += "\n" + (await res.text());
+          } catch (fetchErr) {
+            console.error(
+              `Could not load script at ${scriptUrl} – skipping:`,
+              fetchErr
+            );
+          }
+        } else {
+          script += "\n" + el.textContent;
+        }
+
+        el.remove();
+      }
+
+      // strip JS comments
+      script = script
         .replace(/\/\*[\s\S]*?\*\//g, "")
         .replace(/\/\/.*$/gm, "")
         .trim();
 
-      const styleMatch = Ladrillos._STYLE_ONE.exec(source);
-      const style = styleMatch?.[1].trim() || "";
+      // extract all styles
+      let style = "";
+      const styleEls = Array.from(doc.querySelectorAll("style"));
+      for (const el of styleEls) {
+        style += "\n" + el.textContent;
+        el.remove();
+      }
+      style = style.trim();
+
+      // the remaining HTML is your template
+      const template = document.createElement("template");
+      template.innerHTML = doc.body.innerHTML;
 
       this.components[name] = {
         tagName: name,
