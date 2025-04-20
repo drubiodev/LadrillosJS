@@ -40,22 +40,30 @@ class Ladrillos {
         this.#cache.set(path, source);
       }
 
-      // strip out script and style tags
-      const cleanHTML = source
+      const noHtmlComments = source.replace(/<!--[\s\S]*?-->/g, "");
+      const cleanHTML = noHtmlComments
         .replace(Ladrillos._SCRIPT_ALL, "")
         .replace(Ladrillos._STYLE_ALL, "");
 
       const template = document.createElement("template");
       template.innerHTML = cleanHTML;
 
-      const scriptContent = Ladrillos._SCRIPT_ONE.exec(source);
-      const styleContent = Ladrillos._STYLE_ONE.exec(source);
+      const scriptMatch = Ladrillos._SCRIPT_ONE.exec(source);
+      const rawScript = scriptMatch?.[1] || "";
+      const script = rawScript
+        // strip JS block and line comments
+        .replace(/\/\*[\s\S]*?\*\//g, "")
+        .replace(/\/\/.*$/gm, "")
+        .trim();
+
+      const styleMatch = Ladrillos._STYLE_ONE.exec(source);
+      const style = styleMatch?.[1].trim() || "";
 
       this.components[name] = {
         tagName: name,
         template,
-        script: scriptContent?.[1].trim() || "",
-        style: styleContent?.[1].trim() || "",
+        script,
+        style,
       };
 
       this._defineWebComponent(name, useShadowDOM);
