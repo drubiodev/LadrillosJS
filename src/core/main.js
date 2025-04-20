@@ -105,7 +105,7 @@ class Ladrillos {
           styleUrl = href + "?raw"; // append ?raw to the URL to fetch the raw content
         } catch (urlErr) {
           console.error(
-            `Invalid stylesheet URL "${href}" (base "${path}") – skipping:`,
+            `Invalid stylesheet URL "${href}" (base "${path}") - skipping:`,
             urlErr
           );
           el.remove();
@@ -118,7 +118,7 @@ class Ladrillos {
           style += "\n" + (await res.text());
         } catch (fetchErr) {
           console.error(
-            `Could not load stylesheet at ${styleUrl} – skipping:`,
+            `Could not load stylesheet at ${styleUrl} - skipping:`,
             fetchErr
           );
         }
