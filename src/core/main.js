@@ -48,17 +48,22 @@ class Ladrillos {
 
       // extract and concatenate all scripts (inline & external)
       let script = "";
-      const scriptEls = Array.from(doc.querySelectorAll("script"));
+      const scriptEls = Array.from(
+        doc.querySelectorAll("script:not([type='module'])")
+      );
 
       for (const el of scriptEls) {
         if (el.src) {
           const src = el.getAttribute("src");
           let scriptUrl;
           try {
-            scriptUrl = new URL(src, path).href;
+            console.log(`Loading script from ${src}`);
+            console.log(`Base URL: ${path}`);
+            // scriptUrl = new URL(src, path).href;
+            scriptUrl = src;
           } catch (urlErr) {
             console.error(
-              `Invalid script URL "${src}" (base "${path}") – skipping:`,
+              `Invalid script URL "${src}" (base "${path}") - skipping:`,
               urlErr
             );
             el.remove();
@@ -71,7 +76,7 @@ class Ladrillos {
             script += "\n" + (await res.text());
           } catch (fetchErr) {
             console.error(
-              `Could not load script at ${scriptUrl} – skipping:`,
+              `Could not load script at ${scriptUrl} - skipping:`,
               fetchErr
             );
           }
