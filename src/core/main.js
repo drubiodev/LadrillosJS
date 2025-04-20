@@ -102,7 +102,7 @@ class Ladrillos {
         const href = el.getAttribute("href");
         let styleUrl;
         try {
-          styleUrl = href;
+          styleUrl = href + "?raw";
         } catch (urlErr) {
           console.error(
             `Invalid stylesheet URL "${href}" (base "${path}") - skipping:`,

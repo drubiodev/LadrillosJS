@@ -8,7 +8,7 @@ export const logger = {
    * @param {any[]} args - Additional arguments to log
    */
   log(message, ...args) {
-    if (import.meta.env.DEV) {
+    if (import.meta.env?.DEV) {
       console.log(message, ...args);
     }
   },
@@ -28,7 +28,7 @@ export const logger = {
    * @param {any[]} args - Additional arguments to log
    */
   warn(message, ...args) {
-    if (import.meta.env.DEV) {
+    if (import.meta.env?.DEV) {
       console.warn(message, ...args);
     }
   },
