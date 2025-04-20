@@ -105,6 +105,9 @@ export const defineWebComponent = (component, useShadowDOM) => {
       this._textBindings = {};
       // store original template text for each node
       this._origText = new Map();
+      this._hasConnected = false;
+      this._isUpdating = false;
+      this._isBinding = false;
     }
 
     /**
@@ -115,6 +118,9 @@ export const defineWebComponent = (component, useShadowDOM) => {
      * - Appends style + content to (shadow) root
      */
     connectedCallback() {
+      // guard against recursive re‑entry
+      if (this._hasConnected) return;
+      this._hasConnected = true;
       // reset rendering state
       this._textBindings = {};
       this._origText = new Map();
@@ -221,38 +227,51 @@ export const defineWebComponent = (component, useShadowDOM) => {
      * Usually called by reactive state on mutation.
      */
     _update() {
-      const tpl = template.content.cloneNode(true);
-      this._processTemplate(tpl);
+      if (this._isUpdating) return;
+      this._isUpdating = true;
+      try {
+        const tpl = template.content.cloneNode(true);
+        this._processTemplate(tpl);
 
-      if (this.shadowRoot) {
-        this.shadowRoot.innerHTML = "";
-        this.shadowRoot.appendChild(this.styleElement);
-        this.shadowRoot.appendChild(tpl);
-      } else {
-        this.innerHTML = "";
-        this.appendChild(this.styleElement);
-        this.appendChild(tpl);
+        if (this.shadowRoot) {
+          this.shadowRoot.innerHTML = "";
+          this.shadowRoot.appendChild(this.styleElement);
+          this.shadowRoot.appendChild(tpl);
+        } else {
+          this.innerHTML = "";
+          this.appendChild(this.styleElement);
+          this.appendChild(tpl);
+        }
+      } finally {
+        this._isUpdating = false;
       }
     }
 
     // only update the nodes bound to a single key
     _updateBinding(key) {
-      (this._textBindings[key] || []).forEach((node) => {
-        const orig = this._origText.get(node) || "";
-        node.textContent = orig.replace(/{([^}]+)}/g, (match, k) => {
-          k = k.trim();
-          if (this.hasAttribute(k)) {
-            return this.getAttribute(k);
-          }
-          return this.state[k];
+      if (this._isBinding) return;
+      this._isBinding = true;
+      try {
+        (this._textBindings[key] || []).forEach((node) => {
+          const orig = this._origText.get(node) || "";
+          node.textContent = orig.replace(/{([^}]+)}/g, (match, k) => {
+            k = k.trim();
+            if (this.hasAttribute(k)) {
+              return this.getAttribute(k);
+            }
+            return this.state[k];
+          });
         });
-      });
+      } finally {
+        this._isBinding = false;
+      }
     }
 
     /**
      * Called when the element is removed from the DOM
      */
     disconnectedCallback() {
+      this._hasConnected = false;
       logger.log("disconnectedCallback", this);
     }
 
