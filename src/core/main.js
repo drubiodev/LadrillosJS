@@ -57,9 +57,6 @@ class Ladrillos {
           const src = el.getAttribute("src");
           let scriptUrl;
           try {
-            console.log(`Loading script from ${src}`);
-            console.log(`Base URL: ${path}`);
-            // scriptUrl = new URL(src, path).href;
             scriptUrl = src;
           } catch (urlErr) {
             console.error(
@@ -95,6 +92,41 @@ class Ladrillos {
 
       // extract all styles
       let style = "";
+
+      // find all <link rel="stylesheet">
+      const linkEls = Array.from(
+        doc.querySelectorAll("link[rel='stylesheet']")
+      );
+
+      for (const el of linkEls) {
+        const href = el.getAttribute("href");
+        let styleUrl;
+        try {
+          styleUrl = href + "?raw"; // append ?raw to the URL to fetch the raw content
+        } catch (urlErr) {
+          console.error(
+            `Invalid stylesheet URL "${href}" (base "${path}") – skipping:`,
+            urlErr
+          );
+          el.remove();
+          continue;
+        }
+
+        try {
+          const res = await fetch(styleUrl);
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          style += "\n" + (await res.text());
+        } catch (fetchErr) {
+          console.error(
+            `Could not load stylesheet at ${styleUrl} – skipping:`,
+            fetchErr
+          );
+        }
+
+        el.remove();
+      }
+
+      // find all <style> tags
       const styleEls = Array.from(doc.querySelectorAll("style"));
       for (const el of styleEls) {
         style += "\n" + el.textContent;
