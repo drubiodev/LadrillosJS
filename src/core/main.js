@@ -1,5 +1,7 @@
 import { logger } from "../utils/logger.js";
 
+const scriptsToIgnore = ["___vscode_livepreview_injected_script"];
+
 /**
  * @fileoverview Ladrillos main module
  * @typedef {import('../types/LadrilloTypes').LadrillosComponent} LadrillosComponent
@@ -53,8 +55,16 @@ class Ladrillos {
       );
 
       for (const el of scriptEls) {
-        if (el.src) {
-          const src = el.getAttribute("src");
+        const src = el.getAttribute("src");
+
+        // skip anything whose src contains an entry from scriptsToIgnore
+        if (src && scriptsToIgnore.some((ignore) => src.includes(ignore))) {
+          logger.log(`Skipping ignored script "${src}"`);
+          el.remove();
+          continue;
+        }
+
+        if (src) {
           let scriptUrl;
           try {
             scriptUrl = src;
