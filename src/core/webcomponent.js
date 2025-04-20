@@ -121,6 +121,13 @@ export const defineWebComponent = (component, useShadowDOM) => {
 
       // clone template
       const templateContent = template.content.cloneNode(true);
+
+      if (this.shadowRoot) {
+        this.shadowRoot.innerHTML = "";
+      } else {
+        this.innerHTML = "";
+      }
+
       // append style + content
       if (this.shadowRoot) {
         this.shadowRoot.appendChild(this.styleElement);
@@ -130,11 +137,11 @@ export const defineWebComponent = (component, useShadowDOM) => {
         this.appendChild(templateContent);
       }
 
-      // create proxy‐state
+      // create proxy‑state
       this.state = createReactiveState(this, {});
       this._initializing = true;
 
-      // now that DOM is stamped, run the user script
+      //run user script
       try {
         initFn.call(this, this.state);
       } catch (e) {
