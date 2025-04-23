@@ -24,6 +24,9 @@ export const defineWebComponent = (component, useShadowDOM) => {
   }
 
   const { tagName, template, script, style, externalScripts } = component;
+  const BINDING_REGEX = /{(.*?)}/g;
+  const EVENT_REGEX = /{\s*([\w$]+)\(\)\s*}/;
+
   /**
    * Extracts all binding placeholders from the given HTML template.
    *
@@ -36,12 +39,10 @@ export const defineWebComponent = (component, useShadowDOM) => {
    * @returns {string[]} Array of unique binding names for observedAttributes.
    */
   const extractBindings = (tpl) => {
-    const regex = /{(.*?)}/g;
     const attrs = new Set();
-    let m;
-    while ((m = regex.exec(tpl.innerHTML)) !== null) {
-      attrs.add(m[1].trim().toLowerCase());
-    }
+    tpl.innerHTML.replace(BINDING_REGEX, (_, prop) =>
+      attrs.add(prop.trim().toLowerCase())
+    );
     return Array.from(attrs);
   };
 
@@ -77,20 +78,23 @@ export const defineWebComponent = (component, useShadowDOM) => {
     : () => {};
 
   // Process the template to extract event bindings
-  const eventBindings = [];
-  template.content.querySelectorAll("*").forEach((el) => {
-    Array.from(el.attributes).forEach((attr) => {
-      if (!attr.name.startsWith("on")) return;
-      const evt = attr.name.slice(2);
-      const m = attr.value.match(/{\s*([\w$]+)\(\)\s*}/);
-      if (!m) return;
-      const fnName = m[1];
-      // mark the element in the template
-      el.dataset._evtIndex = eventBindings.length;
-      eventBindings.push({ evt, fnName });
-      el.removeAttribute(attr.name);
+  const extractEventBindings = (template) => {
+    const bindings = [];
+    template.content.querySelectorAll("*").forEach((el) => {
+      Array.from(el.attributes).forEach((attr) => {
+        if (!attr.name.startsWith("on")) return;
+        const evt = attr.name.slice(2);
+        const m = attr.value.match(EVENT_REGEX);
+        if (!m) return;
+        el.dataset._evtIndex = bindings.length;
+        bindings.push({ evt, fnName: m[1] });
+        el.removeAttribute(attr.name);
+      });
     });
-  });
+    return bindings;
+  };
+
+  const eventBindings = extractEventBindings(template);
 
   /**
    * Core class for all LadrillosJS components.
@@ -267,14 +271,12 @@ export const defineWebComponent = (component, useShadowDOM) => {
       if (this._isBinding) return;
       this._isBinding = true;
       try {
-        (this._textBindings[key] || []).forEach((node) => {
+        const nodes = this._textBindings[key] || [];
+        nodes.forEach((node) => {
           const orig = this._origText.get(node) || "";
-          node.textContent = orig.replace(/{([^}]+)}/g, (match, k) => {
+          node.textContent = orig.replace(BINDING_REGEX, (_, k) => {
             k = k.trim();
-            if (this.hasAttribute(k)) {
-              return this.getAttribute(k);
-            }
-            return this.state[k];
+            return this.hasAttribute(k) ? this.getAttribute(k) : this.state[k];
           });
         });
       } finally {
@@ -288,6 +290,12 @@ export const defineWebComponent = (component, useShadowDOM) => {
      */
     disconnectedCallback() {
       this._hasConnected = false;
+      eventBindings.forEach((b, idx) => {
+        const el = (this.shadowRoot || this).querySelector(
+          `[data-_evt-index="${idx}"]`
+        );
+        if (el) el.removeEventListener(b.evt, this.state[b.fnName]);
+      });
       logger.log("disconnectedCallback", this);
     }
 

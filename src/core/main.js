@@ -65,6 +65,17 @@ class Ladrillos {
         doc.querySelectorAll("script:not([type='module']):not([external])")
       );
 
+      async function safeFetch(url) {
+        try {
+          const res = await fetch(url);
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          return await res.text();
+        } catch (err) {
+          logger.error(`Failed to fetch resource at ${url}:`, err);
+          return "";
+        }
+      }
+
       for (const el of scriptEls) {
         const src = el.getAttribute("src");
 
@@ -76,28 +87,7 @@ class Ladrillos {
         }
 
         if (src) {
-          let scriptUrl;
-          try {
-            scriptUrl = src;
-          } catch (urlErr) {
-            console.error(
-              `Invalid script URL "${src}" (base "${path}") - skipping:`,
-              urlErr
-            );
-            el.remove();
-            continue;
-          }
-
-          try {
-            const res = await fetch(scriptUrl);
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            script += "\n" + (await res.text());
-          } catch (fetchErr) {
-            console.error(
-              `Could not load script at ${scriptUrl} - skipping:`,
-              fetchErr
-            );
-          }
+          script += "\n" + (await safeFetch(src));
         } else {
           script += "\n" + el.textContent;
         }
@@ -122,29 +112,9 @@ class Ladrillos {
 
       for (const el of linkEls) {
         const href = el.getAttribute("href");
-        let styleUrl;
-        try {
-          styleUrl = href + "?raw";
-        } catch (urlErr) {
-          console.error(
-            `Invalid stylesheet URL "${href}" (base "${path}") - skipping:`,
-            urlErr
-          );
-          el.remove();
-          continue;
+        if (href) {
+          style += "\n" + (await safeFetch(href + "?raw"));
         }
-
-        try {
-          const res = await fetch(styleUrl);
-          if (!res.ok) throw new Error(`HTTP ${res.status}`);
-          style += "\n" + (await res.text());
-        } catch (fetchErr) {
-          console.error(
-            `Could not load stylesheet at ${styleUrl} - skipping:`,
-            fetchErr
-          );
-        }
-
         el.remove();
       }
 
