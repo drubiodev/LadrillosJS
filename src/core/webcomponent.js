@@ -264,6 +264,7 @@ export const defineWebComponent = (component, useShadowDOM) => {
         });
       } finally {
         this._isBinding = false;
+        this.emit(key, this.state[key]);
       }
     }
 
