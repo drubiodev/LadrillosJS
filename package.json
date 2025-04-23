@@ -1,6 +1,6 @@
 {
   "name": "ladrillosjs",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "description": "A lightweight, zero-dependency web component framework for building modular web applications.",
   "repository": {
     "type": "git",
