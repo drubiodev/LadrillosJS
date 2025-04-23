@@ -1,0 +1,22 @@
+<!-- <link
+  rel="stylesheet"
+  href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css"
+/>
+
+<script
+  src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"
+  external
+></script> -->
+
+<slot></slot>
+
+<pre><code class="language-go">{code}</code></pre>
+
+<script>
+  const lang = this.getAttribute("language")?.trim() || "";
+  const code = this.textContent.trim();
+  this.textContent = ""; // clear light‑DOM
+
+  // const hljs = window.hljs;
+  // hljs.highlightElement(this.shadowRoot.querySelector("code"));
+</script>
