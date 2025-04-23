@@ -33,6 +33,7 @@ class Ladrillos {
     }
 
     try {
+      const externalScripts = [];
       // fetch & cache component text
       let source = this.#cache.get(path);
 
@@ -48,10 +49,20 @@ class Ladrillos {
       const parser = new DOMParser();
       const doc = parser.parseFromString(noHtmlComments, "text/html");
 
+      // 1) Handle <script external="true"> ➞ load globally, then remove
+      Array.from(doc.querySelectorAll("script[external]")).forEach((extEl) => {
+        const src = extEl.getAttribute("src");
+        if (src) {
+          externalScripts.push(src);
+        }
+        extEl.remove();
+      });
+
       // extract and concatenate all scripts (inline & external)
       let script = "";
+      // 2) Now grab only the local scripts for state‑injection
       const scriptEls = Array.from(
-        doc.querySelectorAll("script:not([type='module'])")
+        doc.querySelectorAll("script:not([type='module']):not([external])")
       );
 
       for (const el of scriptEls) {
@@ -153,6 +164,7 @@ class Ladrillos {
         template,
         script,
         style,
+        externalScripts,
       };
 
       this._defineWebComponent(name, useShadowDOM);

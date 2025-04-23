@@ -23,8 +23,7 @@ export const defineWebComponent = (component, useShadowDOM) => {
     return;
   }
 
-  const { tagName, template, script, style } = component;
-
+  const { tagName, template, script, style, externalScripts } = component;
   /**
    * Extracts all binding placeholders from the given HTML template.
    *
@@ -59,7 +58,11 @@ export const defineWebComponent = (component, useShadowDOM) => {
    */
   const cleanedScript = script
     .replace(/\b(?:const|let|var)\s+([\w$]+)\s*=/g, "state.$1 =")
-    .replace(/function\s+([\w$]+)\s*\(/g, "state.$1 = function (");
+    .replace(/function\s+([\w$]+)\s*\(/g, "state.$1 = function (")
+    .replace(
+      /\bclass\s+([\w$]+)\s*(extends\s+[\w$]+\s*)?{/g,
+      "state.$1 = class $1 $2{"
+    );
 
   /**
    * Creates the component’s initialization function.
@@ -99,6 +102,7 @@ export const defineWebComponent = (component, useShadowDOM) => {
       if (useShadowDOM) this.attachShadow({ mode: "open" });
       this.state = {}; // Initialize state
       this.styleElement = document.createElement("style");
+      this.scriptElement = document.createElement("script");
       this.styleElement.textContent = style || "";
 
       // track text‐bindings
@@ -134,8 +138,19 @@ export const defineWebComponent = (component, useShadowDOM) => {
         this.innerHTML = "";
       }
 
+      externalScripts.forEach((src) => {
+        const script = document.createElement("script");
+        script.src = src;
+        script.onload = () => {
+          logger.log(`Loaded external script: ${src}`);
+        };
+        // this.scriptElement.appendChild(script);
+        document.head.appendChild(script);
+      });
+
       // append style + content
       if (this.shadowRoot) {
+        this.shadowRoot.appendChild(this.scriptElement);
         this.shadowRoot.appendChild(this.styleElement);
         this.shadowRoot.appendChild(templateContent);
       } else {
