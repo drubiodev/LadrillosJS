@@ -108,7 +108,8 @@ class Ladrillos {
       // strip JS comments
       script = script
         .replace(/\/\*[\s\S]*?\*\//g, "")
-        .replace(/\/\/.*$/gm, "")
+        // preserve “://” but remove other //comments
+        .replace(/(^|[^:])\/\/.*$/gm, "$1")
         .trim();
 
       // extract all styles
