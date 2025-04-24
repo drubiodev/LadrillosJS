@@ -58,7 +58,6 @@ class Ladrillos {
       const scripts = [];
       const externalScripts = [];
       for (const el of doc.querySelectorAll("script")) {
-        console.log(doc);
         if (el.src)
           externalScripts.push({ src: el.src, type: el.type ?? null });
         else if (el.textContent)

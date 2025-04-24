@@ -38,8 +38,41 @@ export const defineWebComponent = (component, useShadowDOM) => {
       } else {
         this.innerHTML = template;
       }
-      // this._scanBindings();
-      // this._render();
+      this._scanBindings();
+      this._render();
+    }
+
+    _scanBindings() {
+      // 1) text bindings {{prop}}
+      const walker = document.createTreeWalker(
+        this.shadowRoot,
+        NodeFilter.SHOW_TEXT,
+        null,
+        false
+      );
+      let node;
+      while ((node = walker.nextNode())) {
+        const m = node.textContent.match(/{\s*([\w.]+)\s*}/);
+        if (m) {
+          this._bindings.push({
+            node,
+            template: node.textContent,
+            key: m[1],
+          });
+        }
+      }
+      // 2) event bindings data-on<event>="handler"
+      this.shadowRoot.querySelectorAll("[data-onclick]").forEach((el) => {
+        const fn = el.getAttribute("data-onclick");
+        el.addEventListener("click", (e) => this[fn]?.(e));
+      });
+    }
+
+    _render() {
+      this._bindings.forEach(({ node, template, key }) => {
+        const val = this.state[key] ?? "";
+        node.textContent = template.replace(/{\s*[\w.]+\s*}/, val);
+      });
     }
 
     _loadStyles() {
@@ -55,7 +88,6 @@ export const defineWebComponent = (component, useShadowDOM) => {
     async _loadScript() {
       // 1) load external scripts sequentially
       for (const s of externalScripts) {
-        console.log("external script", s);
         await new Promise((resolve, reject) => {
           const ext = document.createElement("script");
           ext.src = s.src;
@@ -71,7 +103,6 @@ export const defineWebComponent = (component, useShadowDOM) => {
 
       // 2) execute inline scripts with proper `this`
       scripts.forEach((s) => {
-        console.log("script", s);
         if (s.type === "module") {
           // still inject real modules if you need import/exports
           const moduleEl = document.createElement("script");
@@ -83,6 +114,11 @@ export const defineWebComponent = (component, useShadowDOM) => {
           new Function(s.content).call(this);
         }
       });
+    }
+
+    setState(partial) {
+      Object.assign(this.state, partial);
+      this._render();
     }
   }
 

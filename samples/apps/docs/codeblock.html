@@ -29,10 +29,6 @@
 </script>
 
 <script>
-  const test = "not-code-block";
-</script>
-
-<script>
   const code = this.shadowRoot.querySelectorAll("pre code");
 
   code.forEach((block) => {
@@ -44,4 +40,6 @@
   });
 
   const appName = "code-block";
+
+  this.setState({ appName: appName });
 </script>
