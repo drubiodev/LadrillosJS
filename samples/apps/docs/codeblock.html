@@ -17,13 +17,16 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
 
 <h1>{appName}</h1>
+<input type="text" oninput="sayHello" />
+<p>notState = {notState} + test: {test}</p>
 <label>filename: {filename}</label>
+<p>this is the file: {filename} + another file {filename}</p>
 <pre><code class="language-html">...</code></pre>
 <test-component></test-component>
 <h2>Slot</h2>
 <slot></slot>
 
-<button onclick="sayHello">say hello</button>
+<button onclick="sayHello2">say hello</button>
 
 <script type="module">
   import { ladrillos } from "../../../src/core/main.js";
@@ -31,9 +34,13 @@
 </script>
 
 <script src="./code.js" type="component"></script>
+
 <script>
   const code = this.shadowRoot.querySelectorAll("pre code");
 
+  const test = () => "test".replace(/t/g, "T");
+
+  const notState = "notState";
   code.forEach((block) => {
     if (hljs.highlightElement) {
       hljs.highlightElement(block);
@@ -44,5 +51,16 @@
 
   const appName = "code-block";
 
-  this.setState({ appName: appName, count: 0, sayHello: () => alert("Hello") });
+  const sayHello = (e) => {
+    this.setState({ appName: e.target.value });
+  };
+
+  const sayHello2 = (e) => {
+    alert("Button: " + e.target.textContent);
+  };
+
+  this.setState({
+    sayHello,
+    sayHello2,
+  });
 </script>

@@ -36,7 +36,6 @@ export const defineWebComponent = (component, useShadowDOM) => {
         });
       });
 
-      // Start observing with configuration
       this.observer.observe(this, {
         attributes: true, // Watch for attribute changes
         attributeOldValue: true, // Track old values too
@@ -49,6 +48,7 @@ export const defineWebComponent = (component, useShadowDOM) => {
       this._loadTemplate();
       this._loadStyles();
       this._loadScript();
+      this._render();
     }
 
     handleAttributeChange(name, value) {
@@ -56,8 +56,13 @@ export const defineWebComponent = (component, useShadowDOM) => {
     }
 
     disconnectedCallback() {
-      // Clean up the observer when element is removed
+      // clean up the attribute observer
       this.observer.disconnect();
+      // remove all event listeners we added
+      this._eventBindings.forEach(({ element, event, listener }) => {
+        element.removeEventListener(event, listener);
+      });
+      this._eventBindings = [];
     }
 
     _loadTemplate() {
@@ -67,11 +72,9 @@ export const defineWebComponent = (component, useShadowDOM) => {
         this.innerHTML = template;
       }
       this._scanBindings();
-      this._render();
     }
 
     _scanBindings() {
-      // 1) text bindings {prop}
       const walker = document.createTreeWalker(
         this.shadowRoot,
         NodeFilter.SHOW_TEXT,
@@ -80,16 +83,17 @@ export const defineWebComponent = (component, useShadowDOM) => {
       );
       let node;
       while ((node = walker.nextNode())) {
-        const m = node.textContent.match(/{\s*([\w.]+)\s*}/);
-        if (m) {
-          this._bindings.push({
+        const matches = [...node.textContent.matchAll(/{([^}]+)}/g)];
+        if (matches.length) {
+          const group = matches.map(([, key]) => ({
             node,
             template: node.textContent,
-            key: m[1],
-          });
+            key: key.trim(),
+          }));
+          this._bindings.push(group);
         }
       }
-      // 2) event bindings data-on<event>="handler"
+
       this._getEventBindings();
     }
 
@@ -99,34 +103,27 @@ export const defineWebComponent = (component, useShadowDOM) => {
         Array.from(el.attributes).forEach((attr) => {
           if (!attr.name.startsWith("on")) return;
 
-          const eventType = attr.name.slice(2); // "onclick" -> "click"
+          const eventType = attr.name.slice(2);
           const handlerCode = attr.value;
-
-          // Remove the original attribute
           el.removeAttribute(attr.name);
 
-          // Handle both function references and function calls
-          el.addEventListener(eventType, (event) => {
-            // Check if it's a direct function reference or a function call
+          // create and keep a reference to the listener
+          const listener = (event) => {
             if (handlerCode.includes("(")) {
-              // It's a function call like "hola()" or "setName('Daniel')"
-              // Create a function that executes the code in component context
               new Function(`return ${handlerCode}`).call(this);
             } else {
-              // It's a function reference like "increment" or "sayHello"
               if (typeof this[handlerCode] === "function") {
                 this[handlerCode](event);
               } else if (typeof this.state[handlerCode] === "function") {
                 this.state[handlerCode](event);
               }
             }
-          });
+          };
 
-          this._eventBindings.push({
-            element: el,
-            event: eventType,
-            handler: handlerCode,
-          });
+          el.addEventListener(eventType, listener);
+
+          // store the element, event type and listener reference
+          this._eventBindings.push({ element: el, event: eventType, listener });
         });
       });
     }
@@ -136,9 +133,38 @@ export const defineWebComponent = (component, useShadowDOM) => {
         this.state[name] = this.getAttribute(name);
       });
 
-      this._bindings.forEach(({ node, template, key }) => {
-        const val = this.state[key] ?? "";
-        node.textContent = template.replace(/{\s*[\w.]+\s*}/, val);
+      this._bindings.forEach((binding) => {
+        if (Array.isArray(binding)) {
+          const { node, template } = binding[0];
+          const data = {};
+          binding.forEach(({ key }) => {
+            data[key] = this.state[key] ?? "";
+          });
+          node.textContent = this._renderTemplate(template, data);
+        } else {
+          // backwards‑compat single key (if any)
+          const { node, template, key } = binding;
+          const data = { [key]: this.state[key] ?? "" };
+          node.textContent = this._renderTemplate(template, data);
+        }
+      });
+    }
+
+    _renderTemplate(template, data) {
+      return template.replace(/\{\s*([\w.]+)\s*}/g, (_, key) => {
+        let value = data[key];
+
+        // if the data value is a function, call it (in component context)
+        if (typeof value === "function") {
+          try {
+            value = value.call(this);
+          } catch (e) {
+            value = "";
+          }
+        }
+
+        // fall back to empty string for null/undefined
+        return value != null ? value : "";
       });
     }
 
@@ -153,21 +179,17 @@ export const defineWebComponent = (component, useShadowDOM) => {
     }
 
     async _loadScript() {
-      // 1) load external scripts sequentially
       for (const s of externalScripts) {
         if (s.type === "component") {
-          // fetch and run in the context of this component
           const res = await fetch(s.src);
           const srcText = await res.text();
           new Function(srcText).call(this);
-          logger.log(`Executed component‑scoped script: ${s.src}`);
         } else {
           await new Promise((resolve, reject) => {
             const ext = document.createElement("script");
             ext.src = s.src;
             if (s.type) ext.type = s.type;
             ext.onload = () => {
-              logger.log(`Loaded external script: ${s.src}`);
               resolve();
             };
             ext.onerror = reject;
@@ -176,7 +198,6 @@ export const defineWebComponent = (component, useShadowDOM) => {
         }
       }
 
-      // 2) execute inline scripts with proper `this`
       scripts.forEach((s) => {
         if (s.type === "module") {
           const moduleEl = document.createElement("script");
@@ -184,9 +205,39 @@ export const defineWebComponent = (component, useShadowDOM) => {
           moduleEl.textContent = s.content;
           (this.shadowRoot ?? this).appendChild(moduleEl);
         } else {
+          // extract all variables from the script and bindings along with there values
+          const varRegex =
+            /(?:const|let|var)\s+([a-zA-Z_$][0-9a-zA-Z_$]*)\s*=\s*([^;]+)/g;
+          let match;
+          while ((match = varRegex.exec(s.content)) !== null) {
+            const varName = match[1];
+            const varValueExpr = match[2].trim();
+            let varValue;
+
+            // evaluate the variable value expression in the component context
+            try {
+              varValue = new Function(`return (${varValueExpr});`).call(this);
+            } catch (e) {
+              // fallback to the raw string if evaluation fails
+              varValue = varValueExpr;
+            }
+
+            if (
+              this._bindings.some((b) =>
+                Array.isArray(b)
+                  ? b.some(({ key }) => key === varName)
+                  : b.key === varName
+              )
+            ) {
+              this.state[varName] = varValue;
+            }
+          }
+
           new Function(s.content).call(this);
         }
       });
+
+      this._render();
     }
 
     // --- public APIs
@@ -195,9 +246,21 @@ export const defineWebComponent = (component, useShadowDOM) => {
       this._render();
     }
 
-    bindMethod(name, fn) {
-      this[name] = fn.bind(this);
-      return this;
+    querySelector(selector) {
+      console.log("querySelector", selector);
+      if (useShadowDOM) {
+        return this.shadowRoot.querySelector(selector);
+      } else {
+        return this.querySelector(selector);
+      }
+    }
+
+    querySelectorAll(selector) {
+      if (useShadowDOM) {
+        return this.shadowRoot.querySelectorAll(selector);
+      } else {
+        return this.querySelectorAll(selector);
+      }
     }
   }
 
