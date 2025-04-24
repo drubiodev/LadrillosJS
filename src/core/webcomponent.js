@@ -24,13 +24,40 @@ export const defineWebComponent = (component, useShadowDOM) => {
       this.state = {};
       this._bindings = [];
       this._eventBindings = [];
-      console.log(this.getAttributeNames());
+
+      // Set up MutationObserver to watch all attribute changes
+      this.observer = new MutationObserver((mutations) => {
+        mutations.forEach((mutation) => {
+          if (mutation.type === "attributes") {
+            const attributeName = mutation.attributeName;
+            const newValue = this.getAttribute(attributeName);
+            this.handleAttributeChange(attributeName, newValue);
+          }
+        });
+      });
+
+      // Start observing with configuration
+      this.observer.observe(this, {
+        attributes: true, // Watch for attribute changes
+        attributeOldValue: true, // Track old values too
+      });
+
+      this._render();
     }
 
     connectedCallback() {
       this._loadTemplate();
       this._loadStyles();
       this._loadScript();
+    }
+
+    handleAttributeChange(name, value) {
+      this._render();
+    }
+
+    disconnectedCallback() {
+      // Clean up the observer when element is removed
+      this.observer.disconnect();
     }
 
     _loadTemplate() {
@@ -44,7 +71,7 @@ export const defineWebComponent = (component, useShadowDOM) => {
     }
 
     _scanBindings() {
-      // 1) text bindings {{prop}}
+      // 1) text bindings {prop}
       const walker = document.createTreeWalker(
         this.shadowRoot,
         NodeFilter.SHOW_TEXT,
@@ -79,6 +106,10 @@ export const defineWebComponent = (component, useShadowDOM) => {
     }
 
     _render() {
+      this.getAttributeNames().forEach((name) => {
+        this.state[name] = this.getAttribute(name);
+      });
+
       this._bindings.forEach(({ node, template, key }) => {
         const val = this.state[key] ?? "";
         node.textContent = template.replace(/{\s*[\w.]+\s*}/, val);

@@ -10,9 +10,21 @@
       package main import "fmt" func main() { fmt.Println("Hello, World!") }
     </code-block>
 
+    <button id="btn">change me</button>
+
     <script type="module">
       import { ladrillos } from "../../../src/core/main.js";
       ladrillos.registerComponent("code-block", "codeblock.html");
+    </script>
+
+    <script>
+      const codeBlock = document.querySelector("code-block");
+      const btn = document.querySelector("#btn");
+
+      const changeLang = () => {
+        codeBlock.setAttribute("filename", "javascript");
+      };
+      btn.addEventListener("click", changeLang);
     </script>
   </body>
 </html>
