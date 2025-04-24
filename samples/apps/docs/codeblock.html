@@ -23,22 +23,11 @@
 <h2>Slot</h2>
 <slot></slot>
 
-<button onclick="increment">Click: {count}</button>
-<button onclick="setName('Daniel')">Name: {name}</button>
 <button onclick="sayHello">say hello</button>
-<button onclick="hola()">hola</button>
 
 <script type="module">
   import { ladrillos } from "../../../src/core/main.js";
   ladrillos.registerComponent("test-component", "test.html");
-
-  const setName = (name) => {
-    this.setState({ name: name });
-  };
-
-  function hola() {
-    console.log("Hola");
-  }
 </script>
 
 <script src="./code.js" type="component"></script>
@@ -56,18 +45,4 @@
   const appName = "code-block";
 
   this.setState({ appName: appName, count: 0, sayHello: () => alert("Hello") });
-
-  const increment = () => {
-    const c = this.state.count + 1;
-    this.setState({ count: c });
-  };
-
-  // setInterval(() => {
-  //   const c = this.state.count + 1;
-  //   this.setState({ count: c });
-  // }, 1000);
-
-  // const setName = (name) => {
-  //   this.setState({ name: name });
-  // };
 </script>

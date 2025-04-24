@@ -94,15 +94,41 @@ export const defineWebComponent = (component, useShadowDOM) => {
     }
 
     _getEventBindings() {
-      // (this.shadowRoot ?? this).querySelectorAll("*").forEach((el) => {
-      //   Array.from(el.attributes).forEach((attr) => {
-      //     if (!attr.name.startsWith("on")) return;
-      //     const evt = attr.name.slice(2);
-      //     console.log(evt, attr.value);
-      //     el.removeAttribute(attr.name);
-      //   });
-      // });
-      // console.log("Event bindings:", this._eventBindings);
+      const root = this.shadowRoot ?? this;
+      root.querySelectorAll("*").forEach((el) => {
+        Array.from(el.attributes).forEach((attr) => {
+          if (!attr.name.startsWith("on")) return;
+
+          const eventType = attr.name.slice(2); // "onclick" -> "click"
+          const handlerCode = attr.value;
+
+          // Remove the original attribute
+          el.removeAttribute(attr.name);
+
+          // Handle both function references and function calls
+          el.addEventListener(eventType, (event) => {
+            // Check if it's a direct function reference or a function call
+            if (handlerCode.includes("(")) {
+              // It's a function call like "hola()" or "setName('Daniel')"
+              // Create a function that executes the code in component context
+              new Function(`return ${handlerCode}`).call(this);
+            } else {
+              // It's a function reference like "increment" or "sayHello"
+              if (typeof this[handlerCode] === "function") {
+                this[handlerCode](event);
+              } else if (typeof this.state[handlerCode] === "function") {
+                this.state[handlerCode](event);
+              }
+            }
+          });
+
+          this._eventBindings.push({
+            element: el,
+            event: eventType,
+            handler: handlerCode,
+          });
+        });
+      });
     }
 
     _render() {
@@ -167,6 +193,11 @@ export const defineWebComponent = (component, useShadowDOM) => {
     setState(partial) {
       Object.assign(this.state, partial);
       this._render();
+    }
+
+    bindMethod(name, fn) {
+      this[name] = fn.bind(this);
+      return this;
     }
   }
 
