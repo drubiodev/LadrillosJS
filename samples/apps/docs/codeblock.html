@@ -1,22 +1,47 @@
-<!-- <link
+<style>
+  h1 {
+    color: #61dafb;
+  }
+
+  label {
+    display: block;
+    margin-bottom: 10px;
+    color: #e06c75;
+  }
+</style>
+
+<link
   rel="stylesheet"
   href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css"
 />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
 
-<script
-  src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"
-  external
-></script> -->
-
+<h1>{appName}</h1>
+<label>filename: {filename}</label>
+<pre><code class="language-html">...</code></pre>
+<test-component></test-component>
+<h2>Slot</h2>
 <slot></slot>
 
-<pre><code class="language-go">{code}</code></pre>
+<script type="module">
+  import { ladrillos } from "../../../src/core/main.js";
+  ladrillos.registerComponent("test-component", "test.html");
+</script>
 
 <script>
-  const lang = this.getAttribute("language")?.trim() || "";
-  const code = this.textContent.trim();
-  this.textContent = ""; // clear light‑DOM
+  const test = "not-code-block";
+</script>
 
-  // const hljs = window.hljs;
-  // hljs.highlightElement(this.shadowRoot.querySelector("code"));
+<script>
+  const code = this.shadowRoot.querySelectorAll("pre code");
+
+  code.forEach((block) => {
+    if (hljs.highlightElement) {
+      hljs.highlightElement(block);
+    } else if (hljs.highlightBlock) {
+      hljs.highlightBlock(block);
+    }
+  });
+
+  const appName = "code-block";
 </script>
