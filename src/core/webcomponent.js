@@ -1,5 +1,4 @@
 import { logger } from "../utils/logger.js";
-import { createReactiveState } from "./reactivity.js";
 
 /**
  * @fileoverview Web component definition utilities
@@ -24,6 +23,8 @@ export const defineWebComponent = (component, useShadowDOM) => {
       if (useShadowDOM) this.attachShadow({ mode: "open" });
       this.state = {};
       this._bindings = [];
+      this._eventBindings = [];
+      console.log(this.getAttributeNames());
     }
 
     connectedCallback() {
@@ -62,10 +63,19 @@ export const defineWebComponent = (component, useShadowDOM) => {
         }
       }
       // 2) event bindings data-on<event>="handler"
-      this.shadowRoot.querySelectorAll("[data-onclick]").forEach((el) => {
-        const fn = el.getAttribute("data-onclick");
-        el.addEventListener("click", (e) => this[fn]?.(e));
-      });
+      this._getEventBindings();
+    }
+
+    _getEventBindings() {
+      // (this.shadowRoot ?? this).querySelectorAll("*").forEach((el) => {
+      //   Array.from(el.attributes).forEach((attr) => {
+      //     if (!attr.name.startsWith("on")) return;
+      //     const evt = attr.name.slice(2);
+      //     console.log(evt, attr.value);
+      //     el.removeAttribute(attr.name);
+      //   });
+      // });
+      // console.log("Event bindings:", this._eventBindings);
     }
 
     _render() {
@@ -88,34 +98,41 @@ export const defineWebComponent = (component, useShadowDOM) => {
     async _loadScript() {
       // 1) load external scripts sequentially
       for (const s of externalScripts) {
-        await new Promise((resolve, reject) => {
-          const ext = document.createElement("script");
-          ext.src = s.src;
-          if (s.type) ext.type = s.type;
-          ext.onload = () => {
-            logger.log(`Loaded external script: ${s.src}`);
-            resolve();
-          };
-          ext.onerror = reject;
-          document.head.appendChild(ext);
-        });
+        if (s.type === "component") {
+          // fetch and run in the context of this component
+          const res = await fetch(s.src);
+          const srcText = await res.text();
+          new Function(srcText).call(this);
+          logger.log(`Executed component‑scoped script: ${s.src}`);
+        } else {
+          await new Promise((resolve, reject) => {
+            const ext = document.createElement("script");
+            ext.src = s.src;
+            if (s.type) ext.type = s.type;
+            ext.onload = () => {
+              logger.log(`Loaded external script: ${s.src}`);
+              resolve();
+            };
+            ext.onerror = reject;
+            document.head.appendChild(ext);
+          });
+        }
       }
 
       // 2) execute inline scripts with proper `this`
       scripts.forEach((s) => {
         if (s.type === "module") {
-          // still inject real modules if you need import/exports
           const moduleEl = document.createElement("script");
           moduleEl.type = "module";
           moduleEl.textContent = s.content;
           (this.shadowRoot ?? this).appendChild(moduleEl);
         } else {
-          // run as a Function, binding `this` → the component instance
           new Function(s.content).call(this);
         }
       });
     }
 
+    // --- public APIs
     setState(partial) {
       Object.assign(this.state, partial);
       this._render();
