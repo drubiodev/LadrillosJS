@@ -102,7 +102,6 @@ export const defineWebComponent = (component, useShadowDOM) => {
       root.querySelectorAll("*").forEach((el) => {
         Array.from(el.attributes).forEach((attr) => {
           if (!attr.name.startsWith("on")) return;
-
           const eventType = attr.name.slice(2);
           const handlerCode = attr.value;
           el.removeAttribute(attr.name);
@@ -123,7 +122,12 @@ export const defineWebComponent = (component, useShadowDOM) => {
           el.addEventListener(eventType, listener);
 
           // store the element, event type and listener reference
-          this._eventBindings.push({ element: el, event: eventType, listener });
+          this._eventBindings.push({
+            key: handlerCode,
+            element: el,
+            event: eventType,
+            listener,
+          });
         });
       });
     }
@@ -183,6 +187,48 @@ export const defineWebComponent = (component, useShadowDOM) => {
         if (s.type === "component") {
           const res = await fetch(s.src);
           const srcText = await res.text();
+          const varRegex =
+            /(?:const|let|var)\s+([a-zA-Z_$][0-9a-zA-Z_$]*)\s*=\s*([\s\S]+?);/g;
+          const arrowBodyRegex = /=>\s*{([\s\S]*)};/g;
+          let match;
+          let varName;
+          while ((match = varRegex.exec(srcText)) !== null) {
+            varName = match[1].trim();
+            const varValueExpr = match[2].trim();
+            let varValue;
+
+            // evaluate the variable value expression in the component context
+            try {
+              varValue = new Function(`return (${varValueExpr});`).call(this);
+            } catch (e) {
+              // fallback to the raw string if evaluation fails
+              while ((match = arrowBodyRegex.exec(srcText)) !== null) {
+                const varValueExpr = match[1].trim();
+
+                try {
+                  varValue = new Function(`${varValueExpr}`).bind(this);
+                } catch (e) {
+                  console.error(e);
+                  varValue = varValueExpr;
+                }
+              }
+            }
+
+            if (this._eventBindings.some(({ key }) => key === varName)) {
+              this.state[varName] = varValue;
+            }
+
+            if (
+              this._bindings.some((b) =>
+                Array.isArray(b)
+                  ? b.some(({ key }) => key === varName)
+                  : b.key === varName
+              )
+            ) {
+              this.state[varName] = varValue;
+            }
+          }
+
           new Function(srcText).call(this);
         } else {
           await new Promise((resolve, reject) => {
@@ -207,7 +253,8 @@ export const defineWebComponent = (component, useShadowDOM) => {
         } else {
           // extract all variables from the script and bindings along with there values
           const varRegex =
-            /(?:const|let|var)\s+([a-zA-Z_$][0-9a-zA-Z_$]*)\s*=\s*([^;]+)/g;
+            /(?:const|let|var)\s+([a-zA-Z_$][0-9a-zA-Z_$]*)\s*=\s*([\s\S]+?);/g;
+          const arrowBodyRegex = /=>\s*{([\s\S]*)};/g;
           let match;
           while ((match = varRegex.exec(s.content)) !== null) {
             const varName = match[1];
@@ -219,7 +266,20 @@ export const defineWebComponent = (component, useShadowDOM) => {
               varValue = new Function(`return (${varValueExpr});`).call(this);
             } catch (e) {
               // fallback to the raw string if evaluation fails
-              varValue = varValueExpr;
+              while ((match = arrowBodyRegex.exec(srcText)) !== null) {
+                const varValueExpr = match[1].trim();
+
+                try {
+                  varValue = new Function(`${varValueExpr}`).bind(this);
+                } catch (e) {
+                  console.error(e);
+                  varValue = varValueExpr;
+                }
+              }
+            }
+
+            if (this._eventBindings.some(({ key }) => key === varName)) {
+              this.state[varName] = varValue;
             }
 
             if (
@@ -247,7 +307,6 @@ export const defineWebComponent = (component, useShadowDOM) => {
     }
 
     querySelector(selector) {
-      console.log("querySelector", selector);
       if (useShadowDOM) {
         return this.shadowRoot.querySelector(selector);
       } else {
