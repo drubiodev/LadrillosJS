@@ -4,8 +4,22 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Getting Started</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 0;
+        padding: 20px;
+      }
+      h1 {
+        color: #333;
+      }
+      p {
+        color: #555;
+      }
+    </style>
   </head>
   <body>
+    <alert-component timeout="5"></alert-component>
     <h1>Getting Started</h1>
 
     <p>to create a element create a new file</p>
@@ -28,6 +42,7 @@
     <script type="module">
       import { registerComponent } from "../../../src/index.js";
       registerComponent("code-block", "codeblock.html");
+      registerComponent("alert-component", "alert.html");
     </script>
   </body>
 </html>

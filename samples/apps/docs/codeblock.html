@@ -24,6 +24,19 @@
     padding: 0.5em 1em;
     font-size: 0.875em;
     border-bottom: 1px solid #3a3f4b;
+    position: relative; /* allow absolutely‑positioned button */
+  }
+
+  .copy-button {
+    position: absolute;
+    right: 1em;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    color: #61dafb;
+    cursor: pointer;
+    font-size: 0.875em;
   }
 
   pre {
@@ -32,24 +45,22 @@
     overflow: auto;
   }
 </style>
-
-<div class="code-container" onclick="alert">
-  <div class="code-header">{filename}</div>
+<div class="code-container">
+  <div class="code-header">
+    {filename}
+    <button class="copy-button" onclick="copyCode">Copy</button>
+  </div>
   <pre><code id="code" class="language-html"></code></pre>
 </div>
 <slot></slot>
-<button onclick="log">clickme</button>
 
 <script>
   const codeElement = this.querySelector("pre code");
 
-  const alert = () => {
-    console.log("alert");
-  };
-
-  const log = () => {
-    this.setState({ filename: "hi" });
-    console.log("alert2");
+  const copyCode = () => {
+    navigator.clipboard.writeText(this.innerHTML).then(() => {
+      this.emit("copied", { message: "Code copied to clipboard!" });
+    });
   };
 
   codeElement.textContent = this.innerHTML;

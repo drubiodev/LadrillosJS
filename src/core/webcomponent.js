@@ -263,7 +263,6 @@ export const defineWebComponent = (component, useShadowDOM) => {
         }
       }
 
-      // 2) Now collect top‑level vars & arrow‑fns
       let match;
       while ((match = varRegex.exec(srcText))) {
         const [, name, expr] = match;
@@ -271,8 +270,10 @@ export const defineWebComponent = (component, useShadowDOM) => {
         const value = this._evalExpression(
           expr.trim(),
           srcText,
-          arrowBodyRegex
+          arrowBodyRegex,
+          name
         );
+
         if (typeof value === "function") {
           this[name] = value.bind(this);
         } else {
@@ -280,27 +281,28 @@ export const defineWebComponent = (component, useShadowDOM) => {
         }
       }
 
-      // 3) Finally execute the full script in component context
       new Function(srcText).call(this);
     }
-    _evalExpression(expr, fullText, arrowRe) {
+
+    _evalExpression(expr, fullText, arrowRe, name) {
       try {
         // try as normal JS expr
         return new Function(`return (${expr});`).call(this);
       } catch {
-        // fallback: see if it's an arrow fn body
         let m, last;
         while ((m = arrowRe.exec(fullText))) {
           last = m[1].trim();
-        }
-        if (last) {
-          try {
-            return new Function(last).bind(this);
-          } catch (e) {
-            console.error(e);
-            return last;
+          if (last) {
+            // try to eval the last arrow body as a function
+            try {
+              return new Function(`${last}`).bind(this);
+            } catch (e) {
+              console.error(e);
+              return last;
+            }
           }
         }
+
         return expr;
       }
     }
@@ -310,6 +312,7 @@ export const defineWebComponent = (component, useShadowDOM) => {
       const inTemplates = this._bindings.some((b) =>
         Array.isArray(b) ? b.some((x) => x.key === varName) : b.key === varName
       );
+
       return inEvents || inTemplates;
     }
 
@@ -325,25 +328,58 @@ export const defineWebComponent = (component, useShadowDOM) => {
     }
 
     // --- public APIs
+
+    /**
+     * Dispatch a custom event from the component.
+     *
+     * @param {string} name  Event name
+     * @param {*} [detail]   Payload; defaults to full component state
+     */
+    emit(name, detail) {
+      const data = detail ?? this.state;
+
+      this.dispatchEvent(
+        new CustomEvent(name, {
+          detail: data,
+          bubbles: true,
+        })
+      );
+    }
+
+    /**
+     * Listen for a custom event from the component.
+     * @param {string} name  Event name
+     * @param {function} handler  Callback function to handle the event
+     */
+    listen(name, handler) {
+      const listener = (e) => handler(e.detail);
+      document.addEventListener(name, listener);
+      this._eventBindings.push({
+        element: document,
+        event: name,
+        listener,
+      });
+    }
+
+    /**
+     * Set the component state and re-render the component.
+     * This method merges the new state with the existing state.
+     * It does not replace the entire state object.
+     * @param {*} partial
+     */
     setState(partial) {
       Object.assign(this.state, partial);
       this._render();
     }
 
     querySelector(selector) {
-      if (useShadowDOM) {
-        return this.shadowRoot.querySelector(selector);
-      } else {
-        return this.querySelector(selector);
-      }
+      const root = useShadowDOM ? this.shadowRoot : this;
+      return root.querySelector(selector);
     }
 
     querySelectorAll(selector) {
-      if (useShadowDOM) {
-        return this.shadowRoot.querySelectorAll(selector);
-      } else {
-        return this.querySelectorAll(selector);
-      }
+      const root = useShadowDOM ? this.shadowRoot : this;
+      return root.querySelectorAll(selector);
     }
   }
 
