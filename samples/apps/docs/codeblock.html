@@ -21,7 +21,7 @@
 <p>notState = {notState} + test: {test}</p>
 <label>filename: {filename}</label>
 <p>this is the file: {filename} + another file {filename}</p>
-<pre><code class="language-html">...</code></pre>
+<pre><code class="language-html" id="c">...</code></pre>
 <test-component></test-component>
 <h2>Slot</h2>
 <slot></slot>
@@ -37,6 +37,10 @@
 
 <script>
   const code = this.shadowRoot.querySelectorAll("pre code");
+  const c = this.shadowRoot.querySelector("#c");
+
+  console.log(this.innerHTML);
+  c.innerHTML = this.innerHTML.replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
   const test = () => "test".replace(/t/g, "T");
 
