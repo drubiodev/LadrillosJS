@@ -29,8 +29,8 @@
 <button onclick="sayHello2">say hello</button>
 
 <script type="module">
-  import { ladrillos } from "../../../src/core/main.js";
-  ladrillos.registerComponent("test-component", "test.html");
+  import { registerComponent } from "../../../src/index.js";
+  registerComponent("test-component", "test.html");
 </script>
 
 <script src="./code.js" type="component"></script>

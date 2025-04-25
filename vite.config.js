@@ -13,7 +13,7 @@ module.exports = defineConfig(({ command }) => {
     return {
       build: {
         lib: {
-          entry: path.resolve(__dirname, "src/core/main.js"),
+          entry: path.resolve(__dirname, "src/index.js"),
           name: "ladrillosjs",
           formats: ["es", "umd", "cjs"],
           fileName: (fmt) => `ladrillosjs.${fmt}.js`,
