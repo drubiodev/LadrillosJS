@@ -1,70 +1,60 @@
-<style>
-  h1 {
-    color: #61dafb;
-  }
-
-  label {
-    display: block;
-    margin-bottom: 10px;
-    color: #e06c75;
-  }
-</style>
-
 <link
   rel="stylesheet"
   href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css"
 />
 <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
 
-<h1>{appName}</h1>
-<input type="text" oninput="sayHello" />
-<p>notState = {notState} + test: {test}</p>
-<label>filename: {filename}</label>
-<p>this is the file: {filename} + another file {filename}</p>
-<pre><code class="language-html" id="c">...</code></pre>
-<test-component></test-component>
-<h2>Slot</h2>
+<style>
+  :host {
+    display: block;
+    margin: 1em 0;
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  }
+
+  .code-container {
+    background: #282c34;
+    border-radius: 8px;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+    overflow: hidden;
+  }
+
+  .code-header {
+    background: #21252b;
+    color: #ffffff;
+    padding: 0.5em 1em;
+    font-size: 0.875em;
+    border-bottom: 1px solid #3a3f4b;
+  }
+
+  pre {
+    margin: 0;
+    padding: 1em;
+    overflow: auto;
+  }
+</style>
+
+<div class="code-container" onclick="alert">
+  <div class="code-header">{filename}</div>
+  <pre><code id="code" class="language-html"></code></pre>
+</div>
 <slot></slot>
-
-<button onclick="sayHello2">say hello</button>
-
-<script type="module">
-  import { registerComponent } from "../../../src/index.js";
-  registerComponent("test-component", "test.html");
-</script>
-
-<script src="./code.js" type="component"></script>
+<button onclick="log">clickme</button>
 
 <script>
-  const code = this.shadowRoot.querySelectorAll("pre code");
-  const c = this.shadowRoot.querySelector("#c");
+  const codeElement = this.querySelector("pre code");
 
-  console.log(this.innerHTML);
-  c.innerHTML = this.innerHTML.replace(/</g, "&lt;").replace(/>/g, "&gt;");
-
-  const test = () => "test".replace(/t/g, "T");
-
-  const notState = "notState";
-  code.forEach((block) => {
-    if (hljs.highlightElement) {
-      hljs.highlightElement(block);
-    } else if (hljs.highlightBlock) {
-      hljs.highlightBlock(block);
-    }
-  });
-
-  const appName = "code-block";
-
-  const sayHello = (e) => {
-    this.setState({ appName: e.target.value });
+  const alert = () => {
+    console.log("alert");
   };
 
-  const sayHello2 = (e) => {
-    alert("Button: " + e.target.textContent);
+  const log = () => {
+    this.setState({ filename: "hi" });
+    console.log("alert2");
   };
 
-  this.setState({
-    sayHello,
-    sayHello2,
-  });
+  codeElement.textContent = this.innerHTML;
+  hljs.highlightElement(codeElement);
+
+  const slotEl = this.querySelector("slot");
+  if (slotEl) slotEl.remove();
 </script>

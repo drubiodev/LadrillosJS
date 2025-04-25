@@ -48,10 +48,13 @@ export const defineWebComponent = (component, useShadowDOM) => {
       this._loadTemplate();
       this._loadStyles();
       this._loadScript();
+      this._initializeStateFromAttributes();
       this._render();
     }
 
     handleAttributeChange(name, value) {
+      // sync the changed attribute into state, then re‐render
+      this.state[name] = value;
       this._render();
     }
 
@@ -132,11 +135,13 @@ export const defineWebComponent = (component, useShadowDOM) => {
       });
     }
 
-    _render() {
+    _initializeStateFromAttributes() {
       this.getAttributeNames().forEach((name) => {
         this.state[name] = this.getAttribute(name);
       });
+    }
 
+    _render() {
       this._bindings.forEach((binding) => {
         if (Array.isArray(binding)) {
           const { node, template } = binding[0];

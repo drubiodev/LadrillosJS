@@ -3,37 +3,31 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Document</title>
+    <title>Getting Started</title>
   </head>
   <body>
-    <code-block filename="hello.go">
+    <h1>Getting Started</h1>
+
+    <p>to create a element create a new file</p>
+    <code-block filename="test.html">
       <p>
-        Lorem ipsum dolor sit, amet consectetur adipisicing elit. Libero quidem
-        quo totam veritatis recusandae voluptate ipsum facilis dolore
-        repudiandae sapiente dolor natus, iusto aperiam. Quod dolore sequi
-        necessitatibus nulla voluptatem?
+        Lorem ipsum dolor sit amet consectetur adipisicing elit. Corporis, esse
+        sit nulla alias dolorum et doloribus aliquid maxime natus quibusdam
+        deserunt necessitatibus voluptate ratione animi consequuntur commodi
+        molestiae nam sed!
       </p>
-      <script>
-        const name = "code-block";
-      </script>
     </code-block>
 
-    <button id="btn">change me</button>
+    <p>then add a script file</p>
+    <code-block filename="test.js">
+      <script>
+        const name = "hello";
+      </script>
+    </code-block>
 
     <script type="module">
       import { registerComponent } from "../../../src/index.js";
       registerComponent("code-block", "codeblock.html");
-    </script>
-
-    <script>
-      const codeBlock = document.querySelector("code-block");
-      const btn = document.querySelector("#btn");
-
-      const changeLang = () => {
-        codeBlock.setAttribute("filename", "javascript");
-      };
-
-      btn.addEventListener("click", changeLang);
     </script>
   </body>
 </html>
