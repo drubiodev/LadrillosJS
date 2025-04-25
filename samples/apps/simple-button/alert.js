@@ -4,13 +4,13 @@ let count = 0; // changed const → let
 function updateName() {
   title = this.value;
 }
-const p = this.querySelector("p");
+this.p = this.querySelector("p");
 // replace arrow fn with a named function
 const increaseCount = () => {
   this.setState({ count: this.state.count + 1 });
 
   if (this.state.count >= 10) {
-    p.textContent = "too many clicks";
+    this.p.textContent = "too many clicks";
   }
 };
 
