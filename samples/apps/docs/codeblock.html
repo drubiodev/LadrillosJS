@@ -58,11 +58,35 @@
   const codeElement = this.querySelector("pre code");
 
   const copyCode = () => {
-    navigator.clipboard.writeText(this.innerHTML).then(() => {
-      this.emit("copied", { message: "Code copied to clipboard!" });
-    });
-  };
+    const text = this.innerHTML;
 
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      return navigator.clipboard
+        .writeText(text)
+        .then(() =>
+          this.emit("copied", { message: "Code copied to clipboard!" })
+        )
+        .catch((err) => console.error("Clipboard API failed:", err));
+    }
+
+    // iOS / fallback for older browsers
+    const textarea = document.createElement("textarea");
+    textarea.value = text;
+    textarea.setAttribute("readonly", "");
+    textarea.style.position = "absolute";
+    textarea.style.left = "-9999px";
+    document.body.appendChild(textarea);
+    textarea.select();
+
+    try {
+      document.execCommand("copy");
+      this.emit("copied", { message: "Code copied to clipboard!" });
+    } catch (err) {
+      console.error("execCommand fallback failed:", err);
+    }
+
+    document.body.removeChild(textarea);
+  };
   codeElement.textContent = this.innerHTML;
   hljs.highlightElement(codeElement);
 
