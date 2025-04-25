@@ -183,121 +183,140 @@ export const defineWebComponent = (component, useShadowDOM) => {
     }
 
     async _loadScript() {
+      // external scripts
       for (const s of externalScripts) {
         if (s.type === "component") {
           const res = await fetch(s.src);
           const srcText = await res.text();
-          const varRegex =
-            /(?:const|let|var)\s+([a-zA-Z_$][0-9a-zA-Z_$]*)\s*=\s*([\s\S]+?);/g;
-          const arrowBodyRegex = /=>\s*{([\s\S]*)};/g;
-          let match;
-          let varName;
-          while ((match = varRegex.exec(srcText)) !== null) {
-            varName = match[1].trim();
-            const varValueExpr = match[2].trim();
-            let varValue;
-
-            // evaluate the variable value expression in the component context
-            try {
-              varValue = new Function(`return (${varValueExpr});`).call(this);
-            } catch (e) {
-              // fallback to the raw string if evaluation fails
-              while ((match = arrowBodyRegex.exec(srcText)) !== null) {
-                const varValueExpr = match[1].trim();
-
-                try {
-                  varValue = new Function(`${varValueExpr}`).bind(this);
-                } catch (e) {
-                  console.error(e);
-                  varValue = varValueExpr;
-                }
-              }
-            }
-
-            if (this._eventBindings.some(({ key }) => key === varName)) {
-              this.state[varName] = varValue;
-            }
-
-            if (
-              this._bindings.some((b) =>
-                Array.isArray(b)
-                  ? b.some(({ key }) => key === varName)
-                  : b.key === varName
-              )
-            ) {
-              this.state[varName] = varValue;
-            }
-          }
-
-          new Function(srcText).call(this);
+          this._processScriptText(srcText);
         } else {
-          await new Promise((resolve, reject) => {
-            const ext = document.createElement("script");
-            ext.src = s.src;
-            if (s.type) ext.type = s.type;
-            ext.onload = () => {
-              resolve();
-            };
-            ext.onerror = reject;
-            document.head.appendChild(ext);
-          });
+          await this._injectScriptTag(s.src, s.type);
         }
       }
 
-      scripts.forEach((s) => {
+      // inline scripts
+      for (const s of scripts) {
         if (s.type === "module") {
           const moduleEl = document.createElement("script");
           moduleEl.type = "module";
           moduleEl.textContent = s.content;
           (this.shadowRoot ?? this).appendChild(moduleEl);
         } else {
-          // extract all variables from the script and bindings along with there values
-          const varRegex =
-            /(?:const|let|var)\s+([a-zA-Z_$][0-9a-zA-Z_$]*)\s*=\s*([\s\S]+?);/g;
-          const arrowBodyRegex = /=>\s*{([\s\S]*)};/g;
-          let match;
-          while ((match = varRegex.exec(s.content)) !== null) {
-            const varName = match[1];
-            const varValueExpr = match[2].trim();
-            let varValue;
-
-            // evaluate the variable value expression in the component context
-            try {
-              varValue = new Function(`return (${varValueExpr});`).call(this);
-            } catch (e) {
-              // fallback to the raw string if evaluation fails
-              while ((match = arrowBodyRegex.exec(srcText)) !== null) {
-                const varValueExpr = match[1].trim();
-
-                try {
-                  varValue = new Function(`${varValueExpr}`).bind(this);
-                } catch (e) {
-                  console.error(e);
-                  varValue = varValueExpr;
-                }
-              }
-            }
-
-            if (this._eventBindings.some(({ key }) => key === varName)) {
-              this.state[varName] = varValue;
-            }
-
-            if (
-              this._bindings.some((b) =>
-                Array.isArray(b)
-                  ? b.some(({ key }) => key === varName)
-                  : b.key === varName
-              )
-            ) {
-              this.state[varName] = varValue;
-            }
-          }
-
-          new Function(s.content).call(this);
+          this._processScriptText(s.content);
         }
-      });
+      }
 
       this._render();
+    }
+
+    /**
+     * Finds all top‑level vars in `srcText`, evaluates them into this.state
+     * if they're bound, then execs the script in component context.
+     */
+    _processScriptText(srcText) {
+      const varRegex =
+        /(?:const|let|var)\s+([$_A-Za-z][$_A-Za-z0-9]*)\s*=\s*([\s\S]+?);/g;
+      const arrowBodyRegex = /=>\s*{([\s\S]*?)};/g;
+
+      // 1) Pull out all top‑level "function name(...) { ... }"
+      const funcs = {};
+      let scanIdx = 0;
+      while ((scanIdx = srcText.indexOf("function ", scanIdx)) !== -1) {
+        // match the "function name(...){"
+        const sig =
+          /^function\s+([$_A-Za-z][$_A-Za-z0-9]*)\s*\([^)]*\)\s*{/.exec(
+            srcText.slice(scanIdx)
+          );
+        if (!sig) {
+          scanIdx += 8;
+          continue;
+        }
+        const name = sig[1];
+        // find the matching closing brace
+        let depth = 0,
+          i = scanIdx + sig[0].length - 1;
+        do {
+          if (srcText[i] === "{") depth++;
+          else if (srcText[i] === "}") depth--;
+          i++;
+        } while (i < srcText.length && depth > 0);
+        funcs[name] = srcText.slice(scanIdx, i);
+        scanIdx = i;
+      }
+
+      // bind any of those functions that are used in bindings/events
+      for (const name in funcs) {
+        if (this._isBound(name)) {
+          try {
+            const fn = new Function(`return (${funcs[name]});`)
+              .call(this)
+              .bind(this);
+            this[name] = fn;
+          } catch (e) {
+            console.error("failed to eval function", name, e);
+          }
+        }
+      }
+
+      // 2) Now collect top‑level vars & arrow‑fns
+      let match;
+      while ((match = varRegex.exec(srcText))) {
+        const [, name, expr] = match;
+        if (!this._isBound(name)) continue;
+        const value = this._evalExpression(
+          expr.trim(),
+          srcText,
+          arrowBodyRegex
+        );
+        if (typeof value === "function") {
+          this[name] = value.bind(this);
+        } else {
+          this.state[name] = value;
+        }
+      }
+
+      // 3) Finally execute the full script in component context
+      new Function(srcText).call(this);
+    }
+    _evalExpression(expr, fullText, arrowRe) {
+      try {
+        // try as normal JS expr
+        return new Function(`return (${expr});`).call(this);
+      } catch {
+        // fallback: see if it's an arrow fn body
+        let m, last;
+        while ((m = arrowRe.exec(fullText))) {
+          last = m[1].trim();
+        }
+        if (last) {
+          try {
+            return new Function(last).bind(this);
+          } catch (e) {
+            console.error(e);
+            return last;
+          }
+        }
+        return expr;
+      }
+    }
+
+    _isBound(varName) {
+      const inEvents = this._eventBindings.some((b) => b.key === varName);
+      const inTemplates = this._bindings.some((b) =>
+        Array.isArray(b) ? b.some((x) => x.key === varName) : b.key === varName
+      );
+      return inEvents || inTemplates;
+    }
+
+    _injectScriptTag(src, type) {
+      return new Promise((resolve, reject) => {
+        const el = document.createElement("script");
+        el.src = src;
+        if (type) el.type = type;
+        el.onload = resolve;
+        el.onerror = reject;
+        document.head.appendChild(el);
+      });
     }
 
     // --- public APIs
