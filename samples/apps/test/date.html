@@ -1,0 +1,16 @@
+<p>Name: {name}, age: {age}</p>
+<p>{formattedDate} - {formattedTime}</p>
+<test-component></test-component>
+
+<script type="module">
+  import { registerComponent } from "../../../src/index.js";
+  registerComponent("test-component", "test.html");
+</script>
+
+<script type="module" component src="./date.js"></script>
+
+<script src="./name.js" component></script>
+
+<script>
+  const name = "Daniel";
+</script>

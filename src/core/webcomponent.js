@@ -191,9 +191,26 @@ export const defineWebComponent = (component, useShadowDOM) => {
       // external scripts
       for (const s of externalScripts) {
         if (s.type === "component") {
-          const res = await fetch(s.src);
-          const srcText = await res.text();
-          this._processScriptText(srcText);
+          try {
+            // dynamic‐import your module so that native `import` works
+            const moduleUrl = new URL(s.src, import.meta.url).href;
+            const mod = await import(moduleUrl);
+            // if you do export default or export function in date.js, call it:
+            if (typeof mod.default === "function") {
+              mod.default.call(this);
+            } else if (typeof mod.init === "function") {
+              mod.init.call(this);
+            } else {
+              await fetch(moduleUrl)
+                .then((response) => response.text())
+                .then((text) => this._processScriptText(text));
+              console.warn(
+                `Module ${s.src} does not export a default function or init function.`
+              );
+            }
+          } catch (err) {
+            console.error(`Failed to load component module ${s.src}`, err);
+          }
         } else {
           await this._injectScriptTag(s.src, s.type);
         }
