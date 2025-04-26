@@ -87,7 +87,10 @@
 
     document.body.removeChild(textarea);
   };
-  codeElement.textContent = this.innerHTML;
+
+  const innerRe = /(?<=<template\b[^>]*>)[\s\S]*?(?=<\/template>)/gi;
+  const html = this.innerHTML.match(innerRe);
+  codeElement.textContent = html;
   hljs.highlightElement(codeElement);
 
   const slotEl = this.querySelector("slot");
