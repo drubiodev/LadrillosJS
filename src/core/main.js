@@ -58,16 +58,21 @@ class Ladrillos {
       const scripts = [];
       const externalScripts = [];
       for (const el of doc.querySelectorAll("script")) {
-        if (el.src)
+        if (el.src) {
           externalScripts.push({
             src: el.src,
-            type: el.hasAttribute("component") ? "component" : el.type ?? null,
+            type: el.type ?? null,
+            bind: el.hasAttribute("bind"),
           });
-        else if (el.textContent)
+        } else if (el.textContent) {
+          let content = el.textContent.trim();
+          // strip JavaScript comments (single‑line and block)
+          content = content.replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, "").trim();
           scripts.push({
-            content: el.textContent.trim(),
+            content,
             type: el.type ?? null,
           });
+        }
         el.remove();
       }
 
@@ -78,7 +83,12 @@ class Ladrillos {
         link.remove();
       }
       for (const styleEl of doc.querySelectorAll("style")) {
-        if (styleEl.textContent) style += "\n" + styleEl.textContent.trim();
+        if (styleEl.textContent) {
+          let css = styleEl.textContent.trim();
+          // strip CSS comments
+          css = css.replace(/\/\*[\s\S]*?\*\//g, "").trim();
+          style += "\n" + css;
+        }
         styleEl.remove();
       }
       style = style.trim();

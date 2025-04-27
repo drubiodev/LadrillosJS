@@ -190,27 +190,31 @@ export const defineWebComponent = (component, useShadowDOM) => {
     async _loadScript() {
       // external scripts
       for (const s of externalScripts) {
-        if (s.type === "component") {
+        const scriptURL = new URL(s.src, import.meta.url).href;
+        if (s.type === "module" && s?.bind) {
           try {
-            // dynamic‐import your module so that native `import` works
-            const moduleUrl = new URL(s.src, import.meta.url).href;
-            const mod = await import(moduleUrl);
+            const mod = await import(scriptURL);
 
             if (typeof mod.default === "function") {
               mod.default.call(this);
             } else if (typeof mod.init === "function") {
               mod.init.call(this);
             } else {
-              await fetch(moduleUrl)
-                .then((response) => response.text())
-                .then((text) => this._processScriptText(text));
-              logger.warn(
+              logger.error(
                 `Module ${s.src} does not export a default function or init function.`
               );
             }
           } catch (err) {
             console.error(`Failed to load component module ${s.src}`, err);
           }
+        } else if (s?.bind) {
+          await fetch(scriptURL)
+            .then((response) => response.text())
+            .then((text) =>
+              this._processScriptText(
+                text.replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, "").trim()
+              )
+            );
         } else {
           await this._injectScriptTag(s.src, s.type);
         }
@@ -283,6 +287,7 @@ export const defineWebComponent = (component, useShadowDOM) => {
       let match;
       while ((match = varRegex.exec(srcText))) {
         const [, name, expr] = match;
+
         if (!this._isBound(name)) continue;
         const value = this._evalExpression(
           expr.trim(),
