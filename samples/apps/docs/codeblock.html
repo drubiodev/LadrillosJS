@@ -58,11 +58,12 @@
   const codeElement = this.querySelector("pre code");
 
   const copyCode = () => {
-    const text = this.innerHTML;
+    const innerRe = /(?<=<template\b[^>]*>)[\s\S]*?(?=<\/template>)/gi;
+    const html = this.innerHTML.match(innerRe);
 
     if (navigator.clipboard && navigator.clipboard.writeText) {
       return navigator.clipboard
-        .writeText(text)
+        .writeText(html)
         .then(() =>
           this.emit("copied", { message: "Code copied to clipboard!" })
         )
