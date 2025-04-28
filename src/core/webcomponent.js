@@ -208,6 +208,19 @@ export const defineWebComponent = (component, useShadowDOM) => {
           }
         }
       });
+
+      const root = useShadowDOM ? this.shadowRoot : this;
+      root.querySelectorAll("*").forEach((el) => {
+        Array.from(el.attributes).forEach((attr) => {
+          const m = attr.value.match(/^\{\s*([\w.]+)\s*\}$/);
+          if (m) {
+            const key = m[1];
+            const val = key.split(".").reduce((o, p) => o?.[p], this.state);
+            if (val != null) el.setAttribute(attr.name, val);
+            else el.removeAttribute(attr.name);
+          }
+        });
+      });
     }
 
     _renderTemplate(template, data) {

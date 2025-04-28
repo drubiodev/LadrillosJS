@@ -35,16 +35,23 @@
     font-weight: 600;
     color: var(--accent-color);
   }
+
+  .phone-card__image {
+    width: 100%;
+
+    border-bottom: 1px solid var(--divider-color);
+    margin-bottom: 1rem;
+  }
 </style>
 
 <li data-id="{item.id}" class="phone-card">
   <div class="phone-card__info">
+    <img src="{item.image}" alt="{item.name}" class="phone-card__image" />
     <h2 class="phone-card__name">{item.name}</h2>
-    <span class="phone-card__price">{item.data.price}</span>
+    <span class="phone-card__price">{item.price}</span>
   </div>
 </li>
 
 <script>
   const name = this.state.item.name;
-  console.log(this.state.item);
 </script>
