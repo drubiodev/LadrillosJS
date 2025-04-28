@@ -1,0 +1,21 @@
+<style>
+  h1 {
+    text-align: center;
+    font-size: 2.5rem;
+    font-weight: 300;
+    margin-bottom: 2rem;
+  }
+
+  .phone-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 2rem;
+    list-style: none;
+    padding: 0;
+  }
+</style>
+
+<h1>Tech Store</h1>
+{phones}
+
+<script type="module" src="./app.js" bind></script>

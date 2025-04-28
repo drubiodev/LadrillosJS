@@ -54,6 +54,37 @@ export const defineWebComponent = (component, useShadowDOM) => {
 
     handleAttributeChange(name, value) {
       // sync the changed attribute into state, then re‐render
+
+      if (value && value.startsWith("{") && value.endsWith("}")) {
+        try {
+          value = JSON.parse(value);
+        } catch (e) {
+          logger.error(`Failed to parse JSON for attribute ${name}`, e);
+        }
+      } else if (value && value.startsWith("[")) {
+        try {
+          value = JSON.parse(value);
+        } catch (e) {
+          logger.error(`Failed to parse JSON for attribute ${name}`, e);
+        }
+      } else if (value === "true") {
+        value = true;
+      } else if (value === "false") {
+        value = false;
+      } else if (value === "null") {
+        value = null;
+      } else if (value === "undefined") {
+        value = undefined;
+      } else if (!isNaN(value)) {
+        value = parseFloat(value);
+      } else if (value === "") {
+        value = null;
+      } else if (value === "[]") {
+        value = [];
+      } else if (value === "{}") {
+        value = {};
+      }
+
       this.state[name] = value;
       this._render();
     }
@@ -137,31 +168,53 @@ export const defineWebComponent = (component, useShadowDOM) => {
 
     _initializeStateFromAttributes() {
       this.getAttributeNames().forEach((name) => {
-        this.state[name] = this.getAttribute(name);
+        const raw = this.getAttribute(name);
+        // re‑use your parsing logic
+        this.handleAttributeChange(name, raw);
       });
     }
 
     _render() {
       this._bindings.forEach((binding) => {
-        if (Array.isArray(binding)) {
-          const { node, template } = binding[0];
-          const data = {};
-          binding.forEach(({ key }) => {
-            data[key] = this.state[key] ?? "";
-          });
-          node.textContent = this._renderTemplate(template, data);
+        // unify array / single binding
+        const items = Array.isArray(binding) ? binding : [binding];
+        const { node, template } = items[0];
+        // collect data
+        const data = {};
+        items.forEach(({ key }) => {
+          data[key] = this.state[key] ?? "";
+        });
+        const rendered = this._renderTemplate(template, data);
+        const isHTML = /<[a-z][\s\S]*>/i.test(rendered);
+
+        if (isHTML) {
+          // build a fragment from the HTML string
+          const frag = document
+            .createRange()
+            .createContextualFragment(rendered);
+          if (node.nodeType === Node.TEXT_NODE) {
+            // replace the placeholder text node with the fragment
+            node.replaceWith(frag);
+          } else {
+            // if it was an element, just set innerHTML
+            node.innerHTML = rendered;
+          }
         } else {
-          // backwards‑compat single key (if any)
-          const { node, template, key } = binding;
-          const data = { [key]: this.state[key] ?? "" };
-          node.textContent = this._renderTemplate(template, data);
+          // plain text
+          if (node.nodeType === Node.TEXT_NODE) {
+            node.textContent = rendered;
+          } else {
+            node.textContent = rendered;
+          }
         }
       });
     }
 
     _renderTemplate(template, data) {
       return template.replace(/\{\s*([\w.]+)\s*}/g, (_, key) => {
-        let value = data[key];
+        const value = key
+          .split(".")
+          .reduce((acc, prop) => acc?.[prop], this.state);
 
         // if the data value is a function, call it (in component context)
         if (typeof value === "function") {
