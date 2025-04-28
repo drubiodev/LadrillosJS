@@ -4,6 +4,8 @@
 
 A lightweight, zero-dependency web component framework for building modular web applications.
 
+"I designed this framework to empower developers with the ability to componentize their code efficiently and effectively, without the need for a full-scale framework. By focusing on simplicity and leveraging core web fundamentals, my goal was to create a lightweight and accessible solution that enhances development while staying true to the basics."
+
 ## Getting Starting with samples
 
 1. `npm install`
@@ -11,114 +13,73 @@ A lightweight, zero-dependency web component framework for building modular web 
 
 ## Usage
 
-### 1. Install & import
+### Install & import
 
 ```bash
 npm install ladrillosjs
 ```
 
-#### cdn
+### cdn
 
 ```js
-<script src="https://cdn.jsdelivr.net/npm/ladrillosjs@0.1.1"></script>
- <script type="module">
-      ladrillosjs.ladrillos.registerComponent(
-        "alert-button",
-        "alert-button.html"
-      );
-    </script>
+<script defer src="https://cdn.jsdelivr.net/npm/ladrillosjs"></script>
 ```
 
-### 2. Create index.html file
+## First Component
 
-```html
-<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Hello World</title>
-    <style>
-      :root {
-        --btn-bg: #1a73e8;
-        --btn-color: #ffffff;
-        --btn-padding: 0.75rem 1.5rem;
-        --btn-radius: 0.375rem;
-        --btn-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        --btn-hover-bg: #1669c1;
-        --btn-transition: background-color 0.2s ease, transform 0.2s ease,
-          box-shadow 0.2s ease;
-      }
-      body {
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        height: 100vh;
-        margin: 0;
-      }
-    </style>
-  </head>
-  <body>
-    <!-- Add component -->
-    <alert-button></alert-button>
-    <script type="module">
-      // import framework
-      import { ladrillos } from "ladrillosjs";
-      // register component (name, location)
-      ladrillos.registerComponent("alert-button", "alert-button.html");
-    </script>
-  </body>
-</html>
-```
+A component in LadrillosJS is a reusable custom HTML element that bundles its own template, logic (bindings) and styles into a single file.
 
-### 3. Create a component
+To create your first component, follow these steps:
 
-Create `alert-button.html`
+1. Create an HTML file that defines your component’s template, script bindings and CSS. For example:
 
-```html
-<style>
-  button {
-    background: var(--btn-bg);
-    color: var(--btn-color);
-    padding: var(--btn-padding);
-    border: none;
-    border-radius: var(--btn-radius);
-    box-shadow: var(--btn-shadow);
-    font-size: 1rem;
-    font-weight: 600;
-    letter-spacing: 0.5px;
-    cursor: pointer;
-    transition: var(--btn-transition);
-  }
+   ```html
+   <!-- filepath: samples/hello.html -->
 
-  button:hover {
-    background: var(--btn-hover-bg);
-    transform: translateY(-1px);
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.12);
-  }
+   <p>Hello, LadrillosJS!</p>
+   <button onclick="increment">Clicked {count} times</button>
 
-  button:active {
-    transform: translateY(0);
-    box-shadow: var(--btn-shadow);
-    opacity: 0.9;
-  }
+   <script>
+     // declare a bound variable
+     let count = 0;
 
-  button:focus {
-    outline: none;
-    box-shadow: 0 0 0 3px rgba(26, 115, 232, 0.4);
-  }
-</style>
-<button onclick="{increaseCount()}">Clicked: {count}</button>
+     // declare a handler for the button click
+     const increment = () => {
+       count++;
+       // update component state and re-render
+       this.setState({ count });
+     };
+   </script>
 
-<script>
-  const count = 0;
+   <style>
+     p {
+       font-size: 1.25rem;
+       color: #1a73e8;
+     }
+     button {
+       margin-top: 0.5rem;
+       padding: 0.5rem 1rem;
+     }
+   </style>
+   ```
 
-  const increaseCount = () => {
-    count++;
+2. Import and register your component in the page where you want to use it:
 
-    if (count >= 10) {
-      alert("to many clicks");
-    }
-  };
-</script>
-```
+   ```html
+   <!-- import -->
+   <script type="module">
+     import { registerComponent } from "ladrillosjs";
+
+     registerComponent("hello-world", "hello-world.html");
+   </script>
+
+   <!-- CDN -->
+   <script type="module">
+     ladrillosjs.registerComponent("hello-world", "hello-world.html");
+   </script>
+   ```
+
+   ```html
+   <!-- then use it in markup -->
+   <hello-world></hello-world>
+   ```
