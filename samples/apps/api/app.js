@@ -20,16 +20,13 @@ async function callAPI() {
 export default function () {
   this.setState({ beers: "loading..." });
   callAPI().then((beers) => {
-    const ul = document.createElement("ul");
-    ul.classList.add("phone-list");
+    const cardsHtml = beers
+      .map(
+        (item) =>
+          `<card-component item='${JSON.stringify(item)}'></card-component>`
+      )
+      .join("");
 
-    beers.forEach((item) => {
-      const card = document.createElement("card-component");
-      // assign the raw JS object to a property
-      card.setAttribute("item", JSON.stringify(item));
-      ul.appendChild(card);
-    });
-
-    this.setState({ beers: ul.outerHTML });
+    this.setState({ beers: cardsHtml });
   });
 }
