@@ -21,6 +21,7 @@ export const defineWebComponent = (component, useShadowDOM) => {
     constructor() {
       super();
       if (useShadowDOM) this.attachShadow({ mode: "open" });
+      this.root = useShadowDOM ? this.shadowRoot : document;
       this.state = {};
       this._bindings = [];
       this._eventBindings = [];
@@ -110,7 +111,7 @@ export const defineWebComponent = (component, useShadowDOM) => {
 
     _scanBindings() {
       const walker = document.createTreeWalker(
-        this.shadowRoot,
+        this.root,
         NodeFilter.SHOW_TEXT,
         null,
         false
@@ -247,9 +248,9 @@ export const defineWebComponent = (component, useShadowDOM) => {
       const styleElement = document.createElement("style");
       styleElement.textContent = style;
       if (useShadowDOM) {
-        this.shadowRoot.appendChild(styleElement);
+        this.root.appendChild(styleElement);
       } else {
-        this.appendChild(styleElement);
+        this.root.head.appendChild(styleElement);
       }
     }
 
@@ -461,13 +462,11 @@ export const defineWebComponent = (component, useShadowDOM) => {
     }
 
     querySelector(selector) {
-      const root = useShadowDOM ? this.shadowRoot : this;
-      return root.querySelector(selector);
+      return this.root.querySelector(selector);
     }
 
     querySelectorAll(selector) {
-      const root = useShadowDOM ? this.shadowRoot : this;
-      return root.querySelectorAll(selector);
+      return this.root.querySelectorAll(selector);
     }
   }
 
