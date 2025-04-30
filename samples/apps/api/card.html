@@ -37,21 +37,20 @@
   }
 
   .phone-card__image {
-    width: 100%;
-
-    border-bottom: 1px solid var(--divider-color);
+    width: 30%;
     margin-bottom: 1rem;
+    margin: 0 auto;
   }
 </style>
 
-<li data-id="{item.id}" class="phone-card">
+<li data-id="{data-item.id}" class="phone-card">
   <div class="phone-card__info">
-    <img src="{item.image}" alt="{item.name}" class="phone-card__image" />
-    <h2 class="phone-card__name">{item.name}</h2>
-    <span class="phone-card__price">{item.price}</span>
+    <img src="{image}" alt="{data-item.name}" class="phone-card__image" />
+    <h2 class="phone-card__name">{data-item.name}</h2>
+    <span class="phone-card__price">{data-item.price}</span>
   </div>
 </li>
 
 <script>
-  const name = this.state.item.name;
+  const image = this.state["data-item"].image;
 </script>

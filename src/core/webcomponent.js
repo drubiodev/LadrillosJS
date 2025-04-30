@@ -42,7 +42,7 @@ export const defineWebComponent = (component, useShadowDOM) => {
         attributeOldValue: true, // Track old values too
       });
 
-      this._render();
+      // this._render();
     }
 
     connectedCallback() {
@@ -50,7 +50,7 @@ export const defineWebComponent = (component, useShadowDOM) => {
       this._loadStyles();
       this._loadScript();
       this._initializeStateFromAttributes();
-      this._render();
+      // this._render();
     }
 
     handleAttributeChange(name, value) {
@@ -116,6 +116,7 @@ export const defineWebComponent = (component, useShadowDOM) => {
         null,
         false
       );
+
       let node;
       while ((node = walker.nextNode())) {
         const matches = [...node.textContent.matchAll(/{([^}]+)}/g)];
@@ -129,12 +130,27 @@ export const defineWebComponent = (component, useShadowDOM) => {
         }
       }
 
+      this.root.querySelectorAll("*").forEach((el) => {
+        Array.from(el.attributes).forEach((attr) => {
+          const matches = [...attr.value.matchAll(/{([^}]+)}/g)];
+          if (matches.length) {
+            matches.forEach(([, key]) => {
+              this._bindings.push({
+                element: el,
+                attrName: attr.name,
+                template: attr.value,
+                key: key.trim(),
+              });
+            });
+          }
+        });
+      });
+
       this._getEventBindings();
     }
 
     _getEventBindings() {
-      const root = this.shadowRoot ?? this;
-      root.querySelectorAll("*").forEach((el) => {
+      this.root.querySelectorAll("*").forEach((el) => {
         Array.from(el.attributes).forEach((attr) => {
           if (!attr.name.startsWith("on")) return;
           const eventType = attr.name.slice(2);
@@ -180,6 +196,7 @@ export const defineWebComponent = (component, useShadowDOM) => {
         // unify array / single binding
         const items = Array.isArray(binding) ? binding : [binding];
         const { node, template } = items[0];
+        if (!node) return;
         // collect data
         const data = {};
         items.forEach(({ key }) => {
@@ -202,7 +219,7 @@ export const defineWebComponent = (component, useShadowDOM) => {
           }
         } else {
           // plain text
-          if (node.nodeType === Node.TEXT_NODE) {
+          if (node?.nodeType === Node.TEXT_NODE) {
             node.textContent = rendered;
           } else {
             node.textContent = rendered;
@@ -210,22 +227,18 @@ export const defineWebComponent = (component, useShadowDOM) => {
         }
       });
 
-      const root = useShadowDOM ? this.shadowRoot : this;
-      root.querySelectorAll("*").forEach((el) => {
-        Array.from(el.attributes).forEach((attr) => {
-          const m = attr.value.match(/^\{\s*([\w.]+)\s*\}$/);
-          if (m) {
-            const key = m[1];
-            const val = key.split(".").reduce((o, p) => o?.[p], this.state);
-            if (val != null) el.setAttribute(attr.name, val);
-            else el.removeAttribute(attr.name);
-          }
+      this._bindings
+        .filter((b) => b.element)
+        .forEach(({ element, attrName, template, key }) => {
+          const val = key.split(".").reduce((o, p) => o?.[p], this.state) ?? "";
+
+          const regex = new RegExp(`\\{\\s*${key}\\s*\\}`, "g");
+          element.setAttribute(attrName, template.replace(regex, val));
         });
-      });
     }
 
     _renderTemplate(template, data) {
-      return template.replace(/\{\s*([\w.]+)\s*}/g, (_, key) => {
+      return template.replace(/\{\s*([-\w.]+)\s*}/g, (_, key) => {
         const value = key
           .split(".")
           .reduce((acc, prop) => acc?.[prop], this.state);

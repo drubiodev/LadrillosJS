@@ -23,7 +23,9 @@ export default function () {
     const cardsHtml = beers
       .map(
         (item) =>
-          `<card-component item='${JSON.stringify(item)}'></card-component>`
+          `<card-component data-item='${JSON.stringify(
+            item
+          )}'></card-component>`
       )
       .join("");
 
