@@ -15,7 +15,7 @@
   spellcheck="true"
   contenteditable="true"
   tabindex="1"
-  value="{title}"
+  data-bind="title"
 ></h1>
 <div
   id="note-text"
@@ -25,13 +25,8 @@
   contenteditable="true"
   tabindex="2"
   placeholder="enter note text"
+  data-bind="note"
 ></div>
-<button id="save-note-btn" tabindex="3">Save</button>
+<button id="save-note-btn" tabindex="3" onclick="save">Save</button>
 
 <script src="./js/app.js" bind></script>
-
-<script>
-  setTimeout(() => {
-    console.log(this.state);
-  }, 5000);
-</script>

@@ -50,6 +50,7 @@ export const defineWebComponent = (component, useShadowDOM) => {
       this._loadStyles();
       this._loadScript();
       this._initializeStateFromAttributes();
+      this._setupTwoWayBindings();
       // this._render();
     }
 
@@ -196,6 +197,29 @@ export const defineWebComponent = (component, useShadowDOM) => {
       });
     }
 
+    _setupTwoWayBindings() {
+      const elems = this.root.querySelectorAll("[data-bind]");
+      elems.forEach((el) => {
+        const key = el.getAttribute("data-bind");
+        const isEditable = el.isContentEditable;
+        const isFormEl = "value" in el;
+        const eventType = isEditable || isFormEl ? "input" : "change";
+        const listener = () => {
+          const newVal = isEditable
+            ? el.innerText
+            : isFormEl
+            ? el.value
+            : el.textContent;
+          this.setState({ [key]: newVal });
+        };
+        el.addEventListener(eventType, listener);
+        this._eventBindings.push({ element: el, event: eventType, listener });
+        this._bindings.push({
+          key,
+        });
+      });
+    }
+
     _render() {
       this._bindings.forEach((binding) => {
         // unify array / single binding
@@ -240,6 +264,18 @@ export const defineWebComponent = (component, useShadowDOM) => {
           const regex = new RegExp(`\\{\\s*${key}\\s*\\}`, "g");
           element.setAttribute(attrName, template.replace(regex, val));
         });
+
+      this.root.querySelectorAll("[data-bind]").forEach((el) => {
+        const key = el.getAttribute("data-bind");
+        const val = this.state[key] ?? "";
+        if (el.isContentEditable) {
+          if (el.innerText !== val) el.innerText = val;
+        } else if ("value" in el) {
+          if (el.value !== val) el.value = val;
+        } else {
+          if (el.textContent !== val) el.textContent = val;
+        }
+      });
     }
 
     _renderTemplate(template, data) {
