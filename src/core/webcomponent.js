@@ -154,25 +154,30 @@ export const defineWebComponent = (component, useShadowDOM) => {
         Array.from(el.attributes).forEach((attr) => {
           if (!attr.name.startsWith("on")) return;
           const eventType = attr.name.slice(2);
-          const handlerCode = attr.value;
+          const handlerCode = attr.value.trim();
           el.removeAttribute(attr.name);
 
           // create and keep a reference to the listener
-          const listener = (event) => {
-            if (handlerCode.includes("(")) {
-              new Function(`return ${handlerCode}`).call(this);
-            } else {
-              if (typeof this[handlerCode] === "function") {
-                this[handlerCode](event);
-              } else if (typeof this.state[handlerCode] === "function") {
-                this.state[handlerCode](event);
+          let listener;
+          const code = handlerCode.trim();
+          // arrow → (e) => …
+          if (/^\([^)]*\)\s*=>/.test(code)) {
+            const fn = new Function(`return (${code})`).call(this);
+            listener = (e) => fn(e);
+          } else if (code.includes("(")) {
+            listener = () => new Function(`return ${code}`).call(this);
+          } else {
+            listener = (e) => {
+              if (typeof this[code] === "function") {
+                this[code](e);
+              } else if (typeof this.state[code] === "function") {
+                this.state[code](e);
               }
-            }
-          };
+            };
+          }
 
           el.addEventListener(eventType, listener);
 
-          // store the element, event type and listener reference
           this._eventBindings.push({
             key: handlerCode,
             element: el,
