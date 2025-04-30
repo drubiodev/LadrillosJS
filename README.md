@@ -144,3 +144,30 @@ this.listen("event-name", (payload) => {
   console.log(payload); // Access the emitted data
 });
 ```
+
+## Two‑Way Binding
+
+LadrillosJS provides built‑in two‑way data binding for form controls and contenteditable elements via the `data-bind` attribute.  
+When a component is initialized, any element with `data-bind="key"` will:
+
+- Push its initial value/content into `this.state.key`.
+- Listen for user input (e.g. `input` or `change` events) and update `this.state.key` automatically.
+- Re-render whenever you call `this.setState({ key: newValue })`, updating the element’s value or innerText.
+
+Usage example:
+
+```html
+<!-- In your component HTML -->
+<input type="text" placeholder="Username" data-bind="username" />
+<div contenteditable="true" placeholder="About you…" data-bind="bio"></div>
+<button onclick="submit">Submit</button>
+
+<script>
+  const submit = () => {
+    console.log("Username:", this.state.username);
+    console.log("Bio:", this.state.bio);
+    // reset state
+    this.setState({ username: "", bio: "" });
+  };
+</script>
+```
