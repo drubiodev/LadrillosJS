@@ -21,7 +21,9 @@ export const defineWebComponent = (component, useShadowDOM) => {
     constructor() {
       super();
       if (useShadowDOM) this.attachShadow({ mode: "open" });
+      // set root
       this.root = useShadowDOM ? this.shadowRoot : document;
+      // initialize state and bindings
       this.state = {};
       this._bindings = [];
       this._eventBindings = [];
@@ -32,7 +34,7 @@ export const defineWebComponent = (component, useShadowDOM) => {
           if (mutation.type === "attributes") {
             const attributeName = mutation.attributeName;
             const newValue = this.getAttribute(attributeName);
-            this.handleAttributeChange(attributeName, newValue);
+            this._handleAttributeChange(attributeName, newValue);
           }
         });
       });
@@ -41,56 +43,28 @@ export const defineWebComponent = (component, useShadowDOM) => {
         attributes: true, // Watch for attribute changes
         attributeOldValue: true, // Track old values too
       });
-
-      // this._render();
     }
 
+    static #parseAttributeValue(raw) {
+      if (raw === "") return null;
+      if (raw === "undefined") return undefined;
+      try {
+        return JSON.parse(raw);
+      } catch {
+        return raw;
+      }
+    }
+
+    // Invoked when the custom element is first connected to the document's DOM.
     connectedCallback() {
       this._loadTemplate();
       this._loadStyles();
       this._loadScript();
       this._initializeStateFromAttributes();
       this._setupTwoWayBindings();
-      // this._render();
     }
 
-    handleAttributeChange(name, value) {
-      // sync the changed attribute into state, then re‐render
-
-      if (value && value.startsWith("{") && value.endsWith("}")) {
-        try {
-          value = JSON.parse(value);
-        } catch (e) {
-          logger.error(`Failed to parse JSON for attribute ${name}`, e);
-        }
-      } else if (value && value.startsWith("[")) {
-        try {
-          value = JSON.parse(value);
-        } catch (e) {
-          logger.error(`Failed to parse JSON for attribute ${name}`, e);
-        }
-      } else if (value === "true") {
-        value = true;
-      } else if (value === "false") {
-        value = false;
-      } else if (value === "null") {
-        value = null;
-      } else if (value === "undefined") {
-        value = undefined;
-      } else if (!isNaN(value)) {
-        value = parseFloat(value);
-      } else if (value === "") {
-        value = null;
-      } else if (value === "[]") {
-        value = [];
-      } else if (value === "{}") {
-        value = {};
-      }
-
-      this.state[name] = value;
-      this._render();
-    }
-
+    // Invoked when the custom element is disconnected from the document's DOM.
     disconnectedCallback() {
       // clean up the attribute observer
       this.observer.disconnect();
@@ -101,6 +75,14 @@ export const defineWebComponent = (component, useShadowDOM) => {
       this._eventBindings = [];
     }
 
+    // Invoked when attributes are changed.
+    _handleAttributeChange(name, raw) {
+      const value = ComponentElement.#parseAttributeValue(raw);
+      this.state[name] = value;
+      this._render();
+    }
+
+    // sets template to innerHTML or shadowRoot.innerHTML
     _loadTemplate() {
       if (useShadowDOM) {
         this.shadowRoot.innerHTML = template;
@@ -110,6 +92,8 @@ export const defineWebComponent = (component, useShadowDOM) => {
       this._scanBindings();
     }
 
+    // scans the template for bindings and event handlers
+    // and stores them in this._bindings and this._eventBindings
     _scanBindings() {
       const walker = document.createTreeWalker(
         this.root,
@@ -119,6 +103,9 @@ export const defineWebComponent = (component, useShadowDOM) => {
       );
 
       let node;
+
+      // scan for text nodes with bindings
+      // e.g. {name} or {name.first}
       while ((node = walker.nextNode())) {
         const matches = [...node.textContent.matchAll(/{([^}]+)}/g)];
         if (matches.length) {
@@ -131,6 +118,8 @@ export const defineWebComponent = (component, useShadowDOM) => {
         }
       }
 
+      // scan for attributes with bindings
+      // e.g. data-bind="{name}" or value="{name.first}"
       this.root.querySelectorAll("*").forEach((el) => {
         Array.from(el.attributes).forEach((attr) => {
           const matches = [...attr.value.matchAll(/{([^}]+)}/g)];
@@ -150,6 +139,8 @@ export const defineWebComponent = (component, useShadowDOM) => {
       this._getEventBindings();
     }
 
+    // scans the template for event handlers and stores them in this._eventBindings
+    // e.g. onclick="handleClick"
     _getEventBindings() {
       this.root.querySelectorAll("*").forEach((el) => {
         Array.from(el.attributes).forEach((attr) => {
@@ -189,14 +180,91 @@ export const defineWebComponent = (component, useShadowDOM) => {
       });
     }
 
+    // loads the styles into the shadowRoot or document head
+    _loadStyles() {
+      const styleElement = document.createElement("style");
+      styleElement.textContent = style;
+      if (useShadowDOM) {
+        this.root.appendChild(styleElement);
+      } else {
+        this.root.head.appendChild(styleElement);
+      }
+    }
+
+    // loads the external scripts and inline scripts
+    // and binds them to the component context
+    async _loadScript() {
+      // external scripts
+      for (const s of externalScripts) {
+        const scriptURL = new URL(s.src, import.meta.url).href;
+        if (s.type === "module" && s?.bind) {
+          try {
+            const mod = await import(scriptURL);
+
+            if (typeof mod.default === "function") {
+              mod.default.call(this);
+            } else if (typeof mod.init === "function") {
+              mod.init.call(this);
+            } else {
+              logger.error(
+                `Module ${s.src} does not export a default function or init function.`
+              );
+            }
+          } catch (err) {
+            console.error(`Failed to load component module ${s.src}`, err);
+          }
+        } else if (s?.bind) {
+          await fetch(scriptURL)
+            .then((response) => response.text())
+            .then((text) =>
+              this._processScriptText(
+                text.replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, "").trim()
+              )
+            );
+        } else {
+          await this._injectScriptTag(s.src, s.type);
+        }
+      }
+
+      // inline scripts
+      for (const s of scripts) {
+        if (s.type === "module") {
+          const moduleEl = document.createElement("script");
+          moduleEl.type = "module";
+          moduleEl.textContent = s.content;
+          (this.shadowRoot ?? this).appendChild(moduleEl);
+        } else {
+          this._processScriptText(s.content);
+        }
+      }
+
+      this._render();
+    }
+
+    // injects a script tag into the document head
+    // and returns a promise that resolves when the script is loaded
+    _injectScriptTag(src, type) {
+      return new Promise((resolve, reject) => {
+        const el = document.createElement("script");
+        el.src = src;
+        if (type) el.type = type;
+        el.onload = resolve;
+        el.onerror = reject;
+        document.head.appendChild(el);
+      });
+    }
+
+    // initializes the state from the attributes
     _initializeStateFromAttributes() {
       this.getAttributeNames().forEach((name) => {
         const raw = this.getAttribute(name);
         // re‑use your parsing logic
-        this.handleAttributeChange(name, raw);
+        this._handleAttributeChange(name, raw);
       });
     }
 
+    // sets up two-way bindings for editable elements
+    // e.g. <input data-bind="name" value="{name}">
     _setupTwoWayBindings() {
       const elems = this.root.querySelectorAll("[data-bind]");
       elems.forEach((el) => {
@@ -220,6 +288,8 @@ export const defineWebComponent = (component, useShadowDOM) => {
       });
     }
 
+    // renders the component by replacing the bindings with their values
+    // and executing the event handlers
     _render() {
       this._bindings.forEach((binding) => {
         // unify array / single binding
@@ -278,6 +348,8 @@ export const defineWebComponent = (component, useShadowDOM) => {
       });
     }
 
+    // replaces the template with the data values
+    // e.g. {name} → "John Doe"
     _renderTemplate(template, data) {
       return template.replace(/\{\s*([-\w.]+)\s*}/g, (_, key) => {
         let value = key
@@ -296,64 +368,6 @@ export const defineWebComponent = (component, useShadowDOM) => {
         // fall back to empty string for null/undefined
         return value != null ? value : "";
       });
-    }
-
-    _loadStyles() {
-      const styleElement = document.createElement("style");
-      styleElement.textContent = style;
-      if (useShadowDOM) {
-        this.root.appendChild(styleElement);
-      } else {
-        this.root.head.appendChild(styleElement);
-      }
-    }
-
-    async _loadScript() {
-      // external scripts
-      for (const s of externalScripts) {
-        const scriptURL = new URL(s.src, import.meta.url).href;
-        if (s.type === "module" && s?.bind) {
-          try {
-            const mod = await import(scriptURL);
-
-            if (typeof mod.default === "function") {
-              mod.default.call(this);
-            } else if (typeof mod.init === "function") {
-              mod.init.call(this);
-            } else {
-              logger.error(
-                `Module ${s.src} does not export a default function or init function.`
-              );
-            }
-          } catch (err) {
-            console.error(`Failed to load component module ${s.src}`, err);
-          }
-        } else if (s?.bind) {
-          await fetch(scriptURL)
-            .then((response) => response.text())
-            .then((text) =>
-              this._processScriptText(
-                text.replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, "").trim()
-              )
-            );
-        } else {
-          await this._injectScriptTag(s.src, s.type);
-        }
-      }
-
-      // inline scripts
-      for (const s of scripts) {
-        if (s.type === "module") {
-          const moduleEl = document.createElement("script");
-          moduleEl.type = "module";
-          moduleEl.textContent = s.content;
-          (this.shadowRoot ?? this).appendChild(moduleEl);
-        } else {
-          this._processScriptText(s.content);
-        }
-      }
-
-      this._render();
     }
 
     /**
@@ -427,6 +441,8 @@ export const defineWebComponent = (component, useShadowDOM) => {
       new Function(srcText).call(this);
     }
 
+    // evaluates the expression in the context of the component
+    // and returns the result. If it fails, it tries to find the last arrow body
     _evalExpression(expr, fullText, arrowRe, name) {
       try {
         // try as normal JS expr
@@ -450,6 +466,9 @@ export const defineWebComponent = (component, useShadowDOM) => {
       }
     }
 
+    // checks if the variable is bound in the template or event handlers
+    // e.g. {name} or onclick="handleClick"
+    // or data-bind="name" or value="{name}"
     _isBound(varName) {
       const inEvents = this._eventBindings.some((b) => b.key === varName);
       const inTemplates = this._bindings.some((b) =>
@@ -457,17 +476,6 @@ export const defineWebComponent = (component, useShadowDOM) => {
       );
 
       return inEvents || inTemplates;
-    }
-
-    _injectScriptTag(src, type) {
-      return new Promise((resolve, reject) => {
-        const el = document.createElement("script");
-        el.src = src;
-        if (type) el.type = type;
-        el.onload = resolve;
-        el.onerror = reject;
-        document.head.appendChild(el);
-      });
     }
 
     // --- public APIs

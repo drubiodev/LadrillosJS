@@ -116,7 +116,6 @@ class Ladrillos {
    * @param {number} [concurrency=5] max simultaneous registrations
    */
   async registerComponents(components, concurrency = 5) {
-    console.log(components);
     const tasks = components.map(
       ({ name, path, useShadowDOM }) =>
         () =>
