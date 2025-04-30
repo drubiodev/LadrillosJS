@@ -112,13 +112,13 @@ class Ladrillos {
 
   /**
    * Registers multiple components with optional concurrency throttling.
-   * @param {{name: string, path: string}[]} components
+   * @param {{name: string, path: string,useShadowDOM:boolean}[]} components
    * @param {number} [concurrency=5] max simultaneous registrations
-   * @param {boolean} [useShadowDOM=true]
    */
-  async registerComponents(components, concurrency = 5, useShadowDOM = true) {
+  async registerComponents(components, concurrency = 5) {
+    console.log(components);
     const tasks = components.map(
-      ({ name, path }) =>
+      ({ name, path, useShadowDOM }) =>
         () =>
           this.registerComponent(name, path, useShadowDOM)
     );
