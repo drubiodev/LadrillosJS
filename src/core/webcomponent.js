@@ -280,7 +280,7 @@ export const defineWebComponent = (component, useShadowDOM) => {
 
     _renderTemplate(template, data) {
       return template.replace(/\{\s*([-\w.]+)\s*}/g, (_, key) => {
-        const value = key
+        let value = key
           .split(".")
           .reduce((acc, prop) => acc?.[prop], this.state);
 

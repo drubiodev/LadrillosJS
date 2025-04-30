@@ -110,6 +110,56 @@ class Ladrillos {
     }
   }
 
+  /**
+   * Registers multiple components with optional concurrency throttling.
+   * @param {{name: string, path: string}[]} components
+   * @param {number} [concurrency=5] max simultaneous registrations
+   * @param {boolean} [useShadowDOM=true]
+   */
+  async registerComponents(components, concurrency = 5, useShadowDOM = true) {
+    const tasks = components.map(
+      ({ name, path }) =>
+        () =>
+          this.registerComponent(name, path, useShadowDOM)
+    );
+
+    const results = await this._runWithConcurrency(tasks, concurrency);
+
+    results.forEach((r, i) => {
+      if (r.status === "rejected") {
+        const { name } = components[i];
+        logger.error(`registration failed for ${name}:`, r.reason);
+      }
+    });
+
+    return results;
+  }
+
+  /** @private */
+  async _runWithConcurrency(tasks, limit) {
+    const results = [];
+    const executing = [];
+    for (const fn of tasks) {
+      let tracker;
+      // start the task
+      const p = fn();
+      results.push(p);
+
+      // when it settles, remove from the executing pool
+      tracker = p.then(() => {
+        executing.splice(executing.indexOf(tracker), 1);
+      });
+      executing.push(tracker);
+
+      //if limit hit, then wait for one to finish
+      if (executing.length >= limit) {
+        await Promise.race(executing);
+      }
+    }
+
+    return Promise.allSettled(results);
+  }
+
   /** @private */
   async _defineWebComponent(name, useShadowDOM) {
     const { defineWebComponent } = await import("./webcomponent.js");

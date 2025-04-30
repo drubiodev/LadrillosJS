@@ -44,9 +44,12 @@
     </code-block>
 
     <script type="module">
-      import { registerComponent } from "../../../src/index.js";
-      registerComponent("code-block", "codeblock.html");
-      registerComponent("alert-component", "alert.html");
+      import { registerComponents } from "../../../src/index.js";
+
+      await registerComponents([
+        { name: "code-block", path: "codeblock.html" },
+        { name: "alert-component", path: "alert.html" },
+      ]);
     </script>
   </body>
 </html>

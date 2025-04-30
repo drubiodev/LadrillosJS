@@ -76,9 +76,35 @@ To create your first component, follow these steps:
      registerComponent("hello-world", "hello-world.html");
    </script>
 
+   <!-- import multiple components -->
+   <script type="module">
+     import { registerComponents } from "ladrillosjs";
+
+     await registerComponents(
+       [
+         { name: "my-widget", path: "/components/widget.html" },
+         { name: "my-card", path: "/components/card.html" },
+         // …
+       ],
+       10 // sets 10 parallel fetches - defaults to 5
+     );
+   </script>
+
    <!-- CDN -->
    <script type="module">
      ladrillosjs.registerComponent("hello-world", "hello-world.html");
+   </script>
+
+   <!-- CDN multiple components -->
+   <script type="module">
+     await ladrillos.registerComponents(
+       [
+         { name: "my-widget", path: "/components/widget.html" },
+         { name: "my-card", path: "/components/card.html" },
+         // …
+       ],
+       10 // sets 10 parallel fetches - defaults to 5
+     );
    </script>
    ```
 
