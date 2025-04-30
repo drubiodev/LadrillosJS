@@ -1,11 +1,10 @@
-let title = "Clicked";
 let count = 0;
 
-function updateName() {
-  const title = this.querySelector("input").value;
-  console.log(title);
-  this.setState({ title });
-}
+// function updateName() {
+//   const title = this.querySelector("input").value;
+//   console.log(title);
+//   this.setState({ title });
+// }
 
 this.p = this.querySelector("p");
 

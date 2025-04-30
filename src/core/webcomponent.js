@@ -267,11 +267,15 @@ export const defineWebComponent = (component, useShadowDOM) => {
     // e.g. <input data-bind="name" value="{name}">
     _setupTwoWayBindings() {
       const elems = this.root.querySelectorAll("[data-bind]");
+      const initialState = {};
+
       elems.forEach((el) => {
         const key = el.getAttribute("data-bind");
         const isEditable = el.isContentEditable;
         const isFormEl = "value" in el;
         const eventType = isEditable || isFormEl ? "input" : "change";
+
+        // keep state in sync with UI
         const listener = () => {
           const newVal = isEditable
             ? el.innerText
@@ -280,12 +284,28 @@ export const defineWebComponent = (component, useShadowDOM) => {
             : el.textContent;
           this.setState({ [key]: newVal });
         };
+
         el.addEventListener(eventType, listener);
         this._eventBindings.push({ element: el, event: eventType, listener });
-        this._bindings.push({
-          key,
-        });
+
+        // compute attrName & template so render() can replace
+        const attrName = isFormEl ? "value" : undefined;
+        const template = isFormEl
+          ? el.getAttribute("value") || `{${key}}`
+          : isEditable
+          ? el.innerHTML
+          : el.textContent;
+
+        this._bindings.push({ element: el, key, attrName, template });
+
+        initialState[key] = isFormEl
+          ? el.value
+          : isEditable
+          ? el.innerText
+          : el.textContent;
       });
+
+      this.setState(initialState);
     }
 
     // renders the component by replacing the bindings with their values
