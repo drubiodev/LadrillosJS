@@ -115,6 +115,11 @@ Component attributes sync to `this.state` automatically and can be reference by 
 
 - Inline scripts (no src) are parsed, top‑level bindings registered, then executed in component context.
 - External scripts with `bind` attribute are fetched, and processed exactly like inline scripts.
+
+```js
+<script src="path_to_file.js" bind></script>
+```
+
 - External scripts without bind are injected via a `<script>` tag (for non‑module, or third‑party scripts).
 - `type="module"` scripts (inline or external) are added to the shadow/root as real modules.
 
