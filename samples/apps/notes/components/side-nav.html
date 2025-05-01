@@ -9,8 +9,9 @@
 </nav>
 
 <script>
-  const createNote = () => {
-    console.log("create note");
-  };
-  console.log(this);
+  // when someone adds a note, pull the new array in
+  this.listen("noteAdded", ({ notes }) => {
+    this.setState({ notes });
+    console.log("note added", notes);
+  });
 </script>

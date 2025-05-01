@@ -1,0 +1,48 @@
+[contenteditable] {
+  display: block;
+  background: var(--card-bg);
+  border: 1px solid #e5e7eb;
+  border-radius: var(--border-radius);
+  padding: 12px;
+  box-shadow: var(--shadow);
+  transition: border-color 0.2s, box-shadow 0.2s;
+  min-height: 2em;
+  margin-bottom: 16px;
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+[contenteditable]:empty:after {
+  content: attr(placeholder);
+  color: var(--placeholder-color);
+}
+
+[contenteditable]:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.2);
+}
+
+#note-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+#note-text {
+  min-height: 200px;
+}
+
+button#save-note-btn {
+  background: #4338ca;
+  color: #ffffff;
+  border: none;
+  border-radius: var(--border-radius);
+  padding: 10px 20px;
+  font-size: 1rem;
+  cursor: pointer;
+  width: 100%;
+}
+
+button#save-note-btn:active {
+  background: #3730a3;
+}

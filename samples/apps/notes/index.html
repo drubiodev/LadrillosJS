@@ -4,14 +4,41 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Notes-App</title>
+    <style>
+      :root {
+        --bg-color: #f8f9fa;
+        --card-bg: #ffffff;
+        --primary-color: #4f46e5;
+        --text-color: #1f2937;
+        --placeholder-color: #9ca3af;
+        --border-radius: 8px;
+        --shadow: 0 1px 2px rgba(0, 0, 0, 0.05), 0 2px 4px rgba(0, 0, 0, 0.05);
+        --font-family: "Inter", sans‑serif;
+      }
+      body {
+        display: flex;
+        height: 100vh;
+        margin: 0;
+      }
+      side-nav {
+        width: 250px;
+        flex-shrink: 0;
+      }
+      main {
+        flex: 1;
+        padding: 1rem;
+      }
+    </style>
     <script type="module">
-      import { registerComponent } from "../../../src/index.js";
-      registerComponent("side-nav", "components/side-nav.html");
-      registerComponent("create-note", "components/create-note.html");
+      import { registerComponents } from "../../../src/index.js";
+      await registerComponents([
+        { name: "side-nav", path: "components/side-nav.html" },
+        { name: "create-note", path: "components/create-note.html" },
+      ]);
     </script>
   </head>
   <body>
-    <!-- <side-nav></side-nav> -->
+    <side-nav></side-nav>
     <main>
       <create-note></create-note>
     </main>
