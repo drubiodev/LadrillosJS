@@ -4,20 +4,8 @@
   <h1>&lt;Note App/&gt;</h1>
   <button id="add-note-btn" onclick="createNote">Create Note</button>
   <ul>
-    {notes}
+    {test}
   </ul>
 </nav>
 
-<script type="module">
-  import { notesStore } from "../stores/notesStore.js";
-
-  // this.state = { notes: [] };
-  // this.renderNotes = () =>
-  //   this.state.notes.map((n) => `<li>${n.title}</li>`).join("");
-
-  // const unsubscribe = notesStore.subscribe((s) => {
-  //   this.setState({ notes: s.notes });
-  // });
-
-  // call unsubscribe() in disconnectedCallback if you need cleanup
-</script>
+<script type="module" src="./js/side.js" bind></script>
