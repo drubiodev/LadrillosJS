@@ -8,10 +8,16 @@
   </ul>
 </nav>
 
-<script>
-  // when someone adds a note, pull the new array in
-  this.listen("noteAdded", ({ notes }) => {
-    this.setState({ notes });
-    console.log("note added", notes);
-  });
+<script type="module">
+  import { notesStore } from "../stores/notesStore.js";
+
+  // this.state = { notes: [] };
+  // this.renderNotes = () =>
+  //   this.state.notes.map((n) => `<li>${n.title}</li>`).join("");
+
+  // const unsubscribe = notesStore.subscribe((s) => {
+  //   this.setState({ notes: s.notes });
+  // });
+
+  // call unsubscribe() in disconnectedCallback if you need cleanup
 </script>
