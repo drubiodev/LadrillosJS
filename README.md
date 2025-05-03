@@ -8,8 +8,19 @@ A lightweight, zero-dependency web component framework for building modular web 
 
 ## Getting Starting with samples
 
-1. `npm install`
-2. `npm run dev`
+The repository includes several example applications that demonstrate various features:
+
+- **Notes App**: Example of using stores for state management
+- **Markdown Editor**: Simple markdown-to-HTML converter
+- **API Example**: Fetching and displaying data from an external API
+- **Button Game**: Interactive game demonstrating component events
+- **Simple Button**: Basic component with state and event handling
+
+To run the examples:
+
+1. Clone the repository
+2. Run `npm install`
+3. Run `npm run dev`
 
 ## Usage
 
@@ -18,8 +29,6 @@ A lightweight, zero-dependency web component framework for building modular web 
 ```bash
 npm install ladrillosjs
 ```
-
-This will spin up Vite with the `samples` folder as the web root.
 
 ### cdn
 
@@ -142,6 +151,25 @@ Component attributes sync to `this.state` automatically and can be reference by 
 - Inline scripts (no src) are parsed, top‑level bindings registered, then executed in component context.
 - External scripts with `bind` attribute are fetched, and processed exactly like inline scripts.
 
+- For external module scripts with `bind` attribute, you must export a default function where methods are defined on the component instance:
+
+```js
+// component-logic.js
+export default function () {
+  this.handleClick = () => {
+    console.log("Button clicked");
+    this.setState({ clicked: true });
+  };
+}
+```
+
+```html
+<!-- In your component HTML -->
+<button onclick="handleClick">Click me</button>
+
+<script src="component-logic.js" type="module" bind></script>
+```
+
 ```js
 <script src="path_to_file.js" bind></script>
 ```
@@ -196,4 +224,48 @@ Usage example:
     this.setState({ username: "", bio: "" });
   };
 </script>
+```
+
+## State Management with Stores
+
+LadrillosJS provides a simple store implementation for managing shared state across components:
+
+- `createStore(initialState)`: Creates a new store with the specified initial state
+- `getState()`: Returns the current state of the store
+- `setState(partial)`: Updates store state by merging partial object and notifies subscribers
+- `subscribe(fn)`: Registers a callback function that executes immediately and on every state change
+
+```js
+import { createStore } from "ladrillosjs";
+
+// Create a store with initial state
+export const notesStore = createStore({ notes: [] });
+
+// Update store state
+export function addNote(note) {
+  const { notes } = notesStore.getState();
+  notesStore.setState({ notes: [...notes, note] });
+}
+```
+
+### add to store
+
+```js
+import { addNote } from "../stores/notesStore.js";
+
+export default function () {
+  this.save = () => {
+    const id = Math.floor(Math.random() * 1000);
+    addNote({ id: 123, title: "my note", note: "my note content" });
+  };
+}
+```
+
+### subscribing to store changes
+
+```js
+import { notesStore } from "../stores/notesStore.js";
+notesStore.subscribe(({ notes }) => {
+  console.log("Notes updated:", notes);
+});
 ```
