@@ -513,6 +513,7 @@ export const defineWebComponent = (component, useShadowDOM) => {
         new CustomEvent(name, {
           detail: data,
           bubbles: true,
+          composed: true,
         })
       );
     }

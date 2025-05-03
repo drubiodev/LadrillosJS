@@ -41,24 +41,6 @@ ul {
   overflow-y: auto;
 }
 
-ul li {
-  padding: 10px;
-  margin-bottom: 0.5rem;
-  border-radius: 4px;
-  color: #555;
-  cursor: pointer;
-  transition: background-color 0.2s ease;
-}
-
-ul li:hover {
-  background-color: #e6e6e6;
-}
-
-ul li.active {
-  background-color: #0078d4;
-  color: #fff;
-}
-
 /* Optional: custom scroll bar */
 ul::-webkit-scrollbar {
   width: 6px;

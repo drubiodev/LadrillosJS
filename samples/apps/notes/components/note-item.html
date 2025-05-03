@@ -1,0 +1,27 @@
+<style>
+  li {
+    padding: 10px;
+    margin-bottom: 0.5rem;
+    border-radius: 4px;
+    color: #555;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+  }
+
+  li:hover {
+    background-color: #e6e6e6;
+  }
+
+  li.active {
+    background-color: #0078d4;
+    color: #fff;
+  }
+</style>
+
+<li onclick="loadNote">{data-note.title}</li>
+
+<script>
+  const loadNote = () => {
+    this.emit("loadNote", this.state["data-note"].id);
+  };
+</script>
