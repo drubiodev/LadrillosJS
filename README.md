@@ -269,3 +269,29 @@ notesStore.subscribe(({ notes }) => {
   console.log("Notes updated:", notes);
 });
 ```
+
+## Conditional Rendering
+
+LadrillosJS supports declarative conditional rendering in your component’s template using `data-if`, `data-else-if`, and `data-else` attributes. Only the first matching block in each group will be shown; `data-else` serves as a fallback.
+
+Usage example:
+
+```html
+<p>Clicked {count} times</p>
+
+<div data-if="count < 5">Keep going!</div>
+<div data-else-if="count < 10">Almost there!</div>
+<div data-else>Done clicking!</div>
+
+<button onclick="increment">Click me</button>
+
+<script>
+  // initialize state
+  const count = 0;
+
+  // event handler
+  const increment = () => {
+    this.setState({ count: this.state.count + 1 });
+  };
+</script>
+```

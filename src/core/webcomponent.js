@@ -27,6 +27,7 @@ export const defineWebComponent = (component, useShadowDOM) => {
       this.state = {};
       this._bindings = [];
       this._eventBindings = [];
+      this._conditionals = [];
 
       // Set up MutationObserver to watch all attribute changes
       this.observer = new MutationObserver((mutations) => {
@@ -66,6 +67,7 @@ export const defineWebComponent = (component, useShadowDOM) => {
 
     // Invoked when the custom element is disconnected from the document's DOM.
     disconnectedCallback() {
+      console.log("Component disconnected:", this.tagName);
       // clean up the attribute observer
       this.observer.disconnect();
       // remove all event listeners we added
@@ -137,6 +139,7 @@ export const defineWebComponent = (component, useShadowDOM) => {
       });
 
       this._getEventBindings();
+      this._scanConditionals();
     }
 
     // scans the template for event handlers and stores them in this._eventBindings
@@ -152,7 +155,7 @@ export const defineWebComponent = (component, useShadowDOM) => {
           // create and keep a reference to the listener
           let listener;
           const code = handlerCode.trim();
-          // arrow → (e) => …
+          // arrow => (e) => …
           if (/^\([^)]*\)\s*=>/.test(code)) {
             const fn = new Function(`return (${code})`).call(this);
             listener = (e) => fn(e);
@@ -178,6 +181,25 @@ export const defineWebComponent = (component, useShadowDOM) => {
           });
         });
       });
+    }
+
+    // scans the template for conditional elements and stores them in this._conditionals
+    // e.g. data-if, data-else-if, data-else
+    _scanConditionals() {
+      const all = Array.from(
+        this.root.querySelectorAll("[data-if], [data-else-if], [data-else]")
+      );
+      this._conditionals = [];
+      let group = [];
+      all.forEach((el) => {
+        if (el.hasAttribute("data-if")) {
+          if (group.length) this._conditionals.push(group);
+          group = [el];
+        } else {
+          group.push(el);
+        }
+      });
+      if (group.length) this._conditionals.push(group);
     }
 
     // loads the styles into the shadowRoot or document head
@@ -311,6 +333,8 @@ export const defineWebComponent = (component, useShadowDOM) => {
     // renders the component by replacing the bindings with their values
     // and executing the event handlers
     _render() {
+      this._applyConditionals();
+
       this._bindings.forEach((binding) => {
         // unify array / single binding
         const items = Array.isArray(binding) ? binding : [binding];
@@ -368,8 +392,40 @@ export const defineWebComponent = (component, useShadowDOM) => {
       });
     }
 
+    // applies the conditionals to the elements
+    _applyConditionals() {
+      for (const group of this._conditionals) {
+        let shown = false;
+        for (const el of group) {
+          let expr =
+            el.getAttribute("data-if") ??
+            el.getAttribute("data-else-if") ??
+            null;
+          let result = false;
+          if (expr) {
+            try {
+              // evaluate against this.state
+              result = Function(
+                "state",
+                `with(state){return(${expr})}`
+              )(this.state);
+            } catch {}
+          } else {
+            // data-else
+            result = true;
+          }
+          if (!shown && result) {
+            el.style.display = "";
+            shown = true;
+          } else {
+            el.style.display = "none";
+          }
+        }
+      }
+    }
+
     // replaces the template with the data values
-    // e.g. {name} → "John Doe"
+    // e.g. {name} => "John Doe"
     _renderTemplate(template, data) {
       return template.replace(/\{\s*([-\w.]+)\s*}/g, (_, key) => {
         let value = key
