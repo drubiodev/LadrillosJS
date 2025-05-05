@@ -186,20 +186,37 @@ export const defineWebComponent = (component, useShadowDOM) => {
     // scans the template for conditional elements and stores them in this._conditionals
     // e.g. data-if, data-else-if, data-else
     _scanConditionals() {
-      const all = Array.from(
+      // clear and prepare placeholders
+      this._conditionals = [];
+      const nodes = Array.from(
         this.root.querySelectorAll("[data-if], [data-else-if], [data-else]")
       );
-      this._conditionals = [];
       let group = [];
-      all.forEach((el) => {
-        if (el.hasAttribute("data-if")) {
-          if (group.length) this._conditionals.push(group);
-          group = [el];
-        } else {
-          group.push(el);
+      nodes.forEach((el) => {
+        const isIf = el.hasAttribute("data-if");
+        if (isIf && group.length) {
+          this._conditionals.push(group);
+          group = [];
         }
+        const type = isIf
+          ? "if"
+          : el.hasAttribute("data-else-if")
+          ? "else-if"
+          : "else";
+
+        const expr =
+          type === "else"
+            ? null
+            : el.getAttribute(type === "if" ? "data-if" : "data-else-if");
+        const placeholder = document.createComment(`ladrillos-${type}`);
+        // insert placeholder, detach the real node
+        el.parentNode.insertBefore(placeholder, el);
+        el.remove();
+        group.push({ el, type, expr, placeholder });
       });
-      if (group.length) this._conditionals.push(group);
+      if (group.length) {
+        this._conditionals.push(group);
+      }
     }
 
     // loads the styles into the shadowRoot or document head
@@ -394,34 +411,38 @@ export const defineWebComponent = (component, useShadowDOM) => {
 
     // applies the conditionals to the elements
     _applyConditionals() {
-      for (const group of this._conditionals) {
-        let shown = false;
-        for (const el of group) {
-          let expr =
-            el.getAttribute("data-if") ??
-            el.getAttribute("data-else-if") ??
-            null;
-          let result = false;
-          if (expr) {
+      this._conditionals.forEach((group) => {
+        let matched = false;
+        group.forEach(({ el, type, expr, placeholder }) => {
+          let shouldShow = false;
+          if (type === "else") {
+            shouldShow = !matched;
+          } else {
             try {
-              // evaluate against this.state
-              result = Function(
+              shouldShow = Function(
                 "state",
                 `with(state){return(${expr})}`
               )(this.state);
-            } catch {}
-          } else {
-            // data-else
-            result = true;
+            } catch {
+              shouldShow = false;
+            }
           }
-          if (!shown && result) {
-            el.style.display = "";
-            shown = true;
+          if (shouldShow && !matched) {
+            // mount
+            if (!el.isConnected && placeholder.parentNode) {
+              placeholder.parentNode.insertBefore(el, placeholder.nextSibling);
+            }
+            placeholder.remove();
+            matched = true;
           } else {
-            el.style.display = "none";
+            // unmount
+            if (el.isConnected && el.parentNode) {
+              el.parentNode.insertBefore(placeholder, el);
+              el.remove();
+            }
           }
-        }
-      }
+        });
+      });
     }
 
     // replaces the template with the data values
