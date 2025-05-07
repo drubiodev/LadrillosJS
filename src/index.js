@@ -1,9 +1,14 @@
 import { ladrillos } from "./core/main.js";
 
-/** ES‑module exports */
+/**
+ * @type {typeof ladrillos.registerComponent}
+ */
 export const registerComponent = (...args) =>
   ladrillos.registerComponent(...args);
 
+/**
+ * @type {typeof ladrillos.registerComponents}
+ */
 export const registerComponents = (...args) =>
   ladrillos.registerComponents(...args);
 

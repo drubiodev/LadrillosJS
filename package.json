@@ -9,6 +9,7 @@
   "files": [
     "dist"
   ],
+  "types": "dist/index.d.ts",
   "main": "./dist/ladrillosjs.cjs.js",
   "module": "./src/index.js",
   "browser": "./dist/ladrillosjs.umd.js",
@@ -21,9 +22,10 @@
     }
   },
   "scripts": {
-    "prepare": "npm run build",
+    "prepare": "npm run build && npm run build:types",
     "dev": "vite",
     "build": "vite build",
+    "build:types": "tsc -p tsconfig.json",
     "preview": "vite preview",
     "test": "vitest",
     "test:coverage": "vitest --coverage"
@@ -36,6 +38,7 @@
   "devDependencies": {
     "@vitest/coverage-v8": "^3.1.2",
     "jsdom": "^26.1.0",
+    "typescript": "^5.8.3",
     "vite": "^6.2.5",
     "vitest": "^3.1.2"
   }
