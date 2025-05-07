@@ -295,3 +295,60 @@ Usage example:
   };
 </script>
 ```
+
+## Using Slots
+
+LadrillosJS fully supports the native Web Components `<slot>` API for default and named slots, allowing you to project markup into your component.
+
+### Default Slot
+
+Define a `<slot>` in your component HTML:
+
+```html
+<!-- card.html -->
+<div class="card">
+  <header>{title}</header>
+  <div class="body">
+    <slot></slot>
+  </div>
+</div>
+```
+
+Use it by placing content between your custom-tag:
+
+```html
+<card-component title="Welcome">
+  <p>This paragraph is rendered inside the card body.</p>
+</card-component>
+```
+
+### Named Slots
+
+You can target multiple insertion points by naming slots:
+
+```html
+<!-- panel.html -->
+<div class="panel">
+  <section class="header">
+    <slot name="header"></slot>
+  </section>
+  <section class="content">
+    <slot></slot>
+    <!-- default slot -->
+  </section>
+  <section class="footer">
+    <slot name="footer"></slot>
+  </section>
+</div>
+```
+
+And supply content for each slot:
+
+```html
+<panel-component>
+  <h2 slot="header">Panel Title</h2>
+  <!-- goes into default slot -->
+  <p>This is the main content of the panel.</p>
+  <button slot="footer">Close</button>
+</panel-component>
+```
