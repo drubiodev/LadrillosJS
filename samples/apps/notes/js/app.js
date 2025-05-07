@@ -2,16 +2,17 @@ import { addNote, notesStore } from "../stores/notesStore.js";
 
 export default function () {
   this.save = () => {
-    const { title, note } = this.state;
+    const { myNote } = this.state;
     const id = Math.floor(Math.random() * 1000);
-    addNote({ id, title, note });
-    this.setState({ title: "", note: "" });
+    myNote.id = id;
+    addNote(myNote);
+    this.setState({ myNote: {} });
   };
 
   this.listen("loadNote", (id) => {
     notesStore.getState().notes.forEach((note) => {
       if (note.id === id) {
-        this.setState({ title: note.title, note: note.note });
+        this.setState({ myNote: note });
       }
     });
   });

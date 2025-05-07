@@ -302,11 +302,48 @@ export const defineWebComponent = (component, useShadowDOM) => {
       });
     }
 
+    /**
+     * Set a nested value on this.state and re-render.
+     * @param {string} path  dot-delimited path
+     * @param {*} value
+     */
+    _setNestedState(path, value) {
+      const keys = path.split(".");
+      let target = this.state;
+
+      // walk/create intermediate objects
+      for (let i = 0; i < keys.length - 1; i++) {
+        const k = keys[i];
+        if (typeof target[k] !== "object" || target[k] === null) {
+          target[k] = {};
+        }
+        target = target[k];
+      }
+      // set the leaf
+      target[keys[keys.length - 1]] = value;
+      this._render();
+    }
+
     // sets up two-way bindings for editable elements
     // e.g. <input data-bind="name" value="{name}">
     _setupTwoWayBindings() {
       const elems = this.root.querySelectorAll("[data-bind]");
       const initialState = {};
+
+      // helper to build nested objects by path
+      const assignNested = (obj, path, value) => {
+        const keys = path.split(".");
+        let target = obj;
+        // walk/create intermediate objects
+        for (let i = 0; i < keys.length - 1; i++) {
+          const k = keys[i];
+          if (typeof target[k] !== "object" || target[k] === null) {
+            target[k] = {};
+          }
+          target = target[k];
+        }
+        target[keys[keys.length - 1]] = value;
+      };
 
       elems.forEach((el) => {
         const key = el.getAttribute("data-bind");
@@ -321,7 +358,8 @@ export const defineWebComponent = (component, useShadowDOM) => {
             : isFormEl
             ? el.value
             : el.textContent;
-          this.setState({ [key]: newVal });
+
+          this._setNestedState(key, newVal);
         };
 
         el.addEventListener(eventType, listener);
@@ -337,11 +375,11 @@ export const defineWebComponent = (component, useShadowDOM) => {
 
         this._bindings.push({ element: el, key, attrName, template });
 
-        initialState[key] = isFormEl
-          ? el.value
-          : isEditable
-          ? el.innerText
-          : el.textContent;
+        assignNested(
+          initialState,
+          key,
+          isFormEl ? el.value : isEditable ? el.innerText : el.textContent
+        );
       });
 
       this.setState(initialState);
@@ -398,7 +436,11 @@ export const defineWebComponent = (component, useShadowDOM) => {
 
       this.root.querySelectorAll("[data-bind]").forEach((el) => {
         const key = el.getAttribute("data-bind");
-        const val = this.state[key] ?? "";
+        // support nested paths like "test.user.name"
+        const val =
+          key.split(".").reduce((obj, segment) => obj?.[segment], this.state) ??
+          "";
+
         if (el.isContentEditable) {
           if (el.innerText !== val) el.innerText = val;
         } else if ("value" in el) {
