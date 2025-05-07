@@ -1,8 +1,11 @@
 <link rel="stylesheet" href="styles.css" type="text/css" />
-<p></p>
+
+<p data-if="count > 10">You Clicked {title} button more than 10 times</p>
+<p data-if="count === 15">You Clicked {title} button 15 times</p>
+
 <label for="buttonName">Button Name:</label>
-<input onkeyup="{updateName()}" type="text" name="buttonName" id="buttonName" />
+<input type="text" id="buttonName" value="hello" data-bind="title" />
 
-<button onclick="{increaseCount()}">{title}: {count}</button>
+<button onclick="increaseCount">{title}: {count}</button>
 
-<script src="alert.js"></script>
+<script src="alert.js" bind></script>

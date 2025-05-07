@@ -1,6 +1,6 @@
 {
   "name": "ladrillosjs",
-  "version": "0.1.8",
+  "version": "1.0.0-rc.12",
   "description": "A lightweight, zero-dependency web component framework for building modular web applications.",
   "repository": {
     "type": "git",
@@ -9,20 +9,26 @@
   "files": [
     "dist"
   ],
+  "types": "dist/index.d.ts",
   "main": "./dist/ladrillosjs.cjs.js",
-  "module": "./dist/ladrillosjs.es.js",
+  "module": "./src/index.js",
   "browser": "./dist/ladrillosjs.umd.js",
+  "unpkg": "./dist/ladrillosjs.umd.js",
   "exports": {
     ".": {
-      "import": "./dist/ladrillosjs.es.js",
+      "browser": "./dist/ladrillosjs.umd.js",
+      "import": "./src/index.js",
       "require": "./dist/ladrillosjs.cjs.js"
     }
   },
   "scripts": {
-    "prepare": "npm run build",
+    "prepare": "npm run build && npm run build:types",
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "build:types": "tsc -p tsconfig.json",
+    "preview": "vite preview",
+    "test": "vitest",
+    "test:coverage": "vitest --coverage"
   },
   "keywords": [
     "webcomponents"
@@ -30,6 +36,10 @@
   "author": "Daniel Rubio",
   "license": "MIT",
   "devDependencies": {
-    "vite": "^6.2.5"
+    "@vitest/coverage-v8": "^3.1.2",
+    "jsdom": "^26.1.0",
+    "typescript": "^5.8.3",
+    "vite": "^6.2.5",
+    "vitest": "^3.1.2"
   }
 }

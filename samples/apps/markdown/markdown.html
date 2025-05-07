@@ -123,7 +123,7 @@
   <div id="editor-wrapper">
     <textarea
       id="markdown-editor"
-      onkeyup="{parseMarkdown()}"
+      onkeyup="parseMarkdown"
       placeholder="Enter Markdown here..."
     ></textarea>
   </div>
@@ -134,12 +134,11 @@
 </div>
 
 <script>
-  const editor = this.querySelector("#markdown-editor");
-  const output = this.querySelector("#html-output");
+  this.editor = this.querySelector("#markdown-editor");
+  this.output = this.querySelector("#html-output");
 
-  console.log(editor);
   const parseMarkdown = () => {
-    const text = editor.value;
+    let text = this.editor.value;
 
     // headings
     text = text
@@ -159,7 +158,7 @@
         .replace(/^\s*-\s+(.*)$/gm, "<li>$1</li>")
         .replace(/(<li>.*<\/li>)/gms, "<ul>$1</ul>");
     }
-    output.innerHTML = text;
-    return text;
+
+    this.output.innerHTML = text;
   };
 </script>

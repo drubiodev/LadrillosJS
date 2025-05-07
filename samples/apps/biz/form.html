@@ -1,0 +1,180 @@
+<style>
+  .business-card {
+    padding: 4rem 0;
+    max-width: 500px;
+    margin: 0 auto;
+    position: relative;
+  }
+
+  .edit-btn {
+    position: absolute;
+    top: 2rem;
+    right: 1rem;
+    padding: 0.5rem 0.75rem;
+    background-color: var(--primary-color);
+    color: #1f1f1f;
+    border: none;
+    border-radius: 4px;
+    font-size: 0.875rem;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.3s ease, background-color 0.3s ease;
+  }
+
+  .business-card .card {
+    display: flex;
+    align-items: center;
+    background: var(--secondary-color);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  .card-avatar {
+    width: 120px;
+    height: 120px;
+    object-fit: cover;
+    border-radius: 50%;
+    margin: 1rem;
+  }
+
+  .card-details {
+    padding: 1rem 2rem;
+  }
+
+  .card-details h2 {
+    margin: 0;
+    font-size: 1.5rem;
+    color: var(--primary-color);
+  }
+
+  .card-details .role {
+    margin: 0.25rem 0 1rem;
+    font-weight: 500;
+    color: #666;
+  }
+
+  .contact-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  .contact-list li {
+    margin-bottom: 0.5rem;
+  }
+
+  .contact-list a {
+    color: var(--primary-color);
+    text-decoration: none;
+  }
+
+  .social-links {
+    margin-top: 1rem;
+  }
+
+  .social-links a {
+    margin-right: 1rem;
+    font-size: 1.25rem;
+    color: var(--primary-color);
+    text-decoration: none;
+  }
+
+  .business-card:hover .edit-btn {
+    opacity: 1;
+  }
+
+  .edit-btn:hover {
+    background-color: #0056b3; /* or another darker shade */
+    color: #fdfdfd;
+  }
+
+  [contenteditable="true"] {
+    border: 1px dashed #ccc;
+    padding: 5px;
+    min-height: 20px;
+    outline: none; /* Removes default focus outline */
+  }
+
+  [contenteditable="true"]:focus {
+    border-color: #007bff; /* Changes border when active */
+    background-color: #f8f9fa;
+  }
+
+  /* Responsive */
+  @media (max-width: 600px) {
+    .business-card .card {
+      flex-direction: column;
+      text-align: center;
+    }
+    .card-avatar {
+      margin: 1rem auto 0;
+    }
+  }
+</style>
+
+<section class="business-card">
+  <button class="edit-btn" onclick="editMode">
+    <span data-if="editMode">save</span>
+    <span data-else>edit</span>
+  </button>
+  <div class="card">
+    <img
+      src="https://placehold.co/120x120/000000/FFF"
+      alt="Profile Photo"
+      class="card-avatar"
+    />
+    <div class="card-details">
+      <h2 contenteditable="false" data-bind="user.name">John Doe</h2>
+      <p class="role" contenteditable="false" data-bind="user.role">
+        Frontend Developer
+      </p>
+      <ul class="contact-list">
+        <li>
+          Email:
+          <a
+            href="mailto:john@example.com"
+            contenteditable="false"
+            data-bind="user.email"
+            >john@example.com</a
+          >
+        </li>
+        <li>
+          Phone:
+          <span contenteditable="false" data-bind="user.phone"
+            >(123) 456-7890</span
+          >
+        </li>
+        <li>
+          Website:
+          <a
+            href="https://johndoe.com"
+            contenteditable="false"
+            data-bind="user.site"
+            >johndoe.com</a
+          >
+        </li>
+      </ul>
+      <div class="social-links">
+        <a href="#" aria-label="LinkedIn">🔗</a>
+        <a href="#" aria-label="GitHub">🐙</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+  this.setState({ editMode: false });
+
+  const editMode = () => {
+    if (this.state.editMode) {
+      alert(JSON.stringify(this.state.user, null, 2));
+    }
+
+    this.querySelectorAll("[contenteditable]").forEach((el) => {
+      el.setAttribute("contenteditable", !this.state.editMode);
+    });
+    this.state.editMode = !this.state.editMode;
+  };
+</script>

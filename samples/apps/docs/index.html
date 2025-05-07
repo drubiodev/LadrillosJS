@@ -3,16 +3,53 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Document</title>
+    <title>Getting Started</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 0;
+        padding: 20px;
+      }
+      h1 {
+        color: #333;
+      }
+      p {
+        color: #555;
+      }
+    </style>
   </head>
   <body>
-    <code-block language="go">
-      package main import "fmt" func main() { fmt.Println("Hello, World!") }
+    <alert-component data-timeout="5"></alert-component>
+    <h1>Getting Started</h1>
+
+    <p>to create a element create a new file</p>
+    <code-block filename="test.html">
+      <template>
+        <p>
+          Lorem ipsum dolor sit amet consectetur adipisicing elit. Corporis,
+          esse sit nulla alias dolorum et doloribus aliquid maxime natus
+          quibusdam deserunt necessitatibus voluptate ratione animi consequuntur
+          commodi molestiae nam sed!
+        </p>
+      </template>
+    </code-block>
+
+    <p>then add a script file</p>
+    <code-block filename="test.js">
+      <template>
+        <script>
+          const name = "hello";
+        </script>
+      </template>
     </code-block>
 
     <script type="module">
-      import { ladrillos } from "../../../src/core/main.js";
-      ladrillos.registerComponent("code-block", "codeblock.html");
+      import { registerComponents } from "ladrillosjs";
+
+      await registerComponents([
+        { name: "code-block", path: "codeblock.html" },
+        { name: "alert-component", path: "alert.html" },
+      ]);
     </script>
   </body>
 </html>

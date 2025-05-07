@@ -4,121 +4,351 @@
 
 A lightweight, zero-dependency web component framework for building modular web applications.
 
+"I designed this framework to empower developers with the ability to componentize their code efficiently and effectively, without the need for a full-scale framework. By focusing on simplicity and leveraging core web fundamentals, my goal was to create a lightweight and accessible solution that enhances development while staying true to the basics."
+
 ## Getting Starting with samples
 
-1. `npm install`
-2. `npm run dev`
+The repository includes several example applications that demonstrate various features:
+
+- **Notes App**: Example of using stores for state management
+- **Markdown Editor**: Simple markdown-to-HTML converter
+- **API Example**: Fetching and displaying data from an external API
+- **Button Game**: Interactive game demonstrating component events
+- **Simple Button**: Basic component with state and event handling
+
+To run the examples:
+
+1. Clone the repository
+2. Run `npm install`
+3. Run `npm run dev`
 
 ## Usage
 
-### 1. Install & import
+### Install & import
 
 ```bash
 npm install ladrillosjs
 ```
 
-#### cdn
+### cdn
 
 ```js
-<script src="https://cdn.jsdelivr.net/npm/ladrillosjs@0.1.1"></script>
- <script type="module">
-      ladrillosjs.ladrillos.registerComponent(
-        "alert-button",
-        "alert-button.html"
-      );
-    </script>
+<script defer src="https://cdn.jsdelivr.net/npm/ladrillosjs"></script>
 ```
 
-### 2. Create index.html file
+## First Component
+
+A component in LadrillosJS is a reusable custom HTML element that bundles its own template, logic (bindings) and styles into a single file.
+
+To create your first component, follow these steps:
+
+1. Create an HTML file that defines your component’s template, script bindings and CSS. For example:
+
+   ```html
+   <!-- hello.html -->
+
+   <p>Hello, LadrillosJS!</p>
+   <button onclick="increment">Clicked {count} times</button>
+
+   <script>
+     // declare a bound variable
+     let count = 0;
+
+     // declare a handler for the button click
+     const increment = () => {
+       count++;
+       // update component state and re-render
+       this.setState({ count });
+     };
+   </script>
+
+   <style>
+     /* component‐scoped CSS */
+     p {
+       font-size: 1.25rem;
+       color: #1a73e8;
+     }
+     button {
+       margin-top: 0.5rem;
+       padding: 0.5rem 1rem;
+     }
+   </style>
+   ```
+
+2. Import and register your component in the page where you want to use it:
+
+   ```html
+   <!-- import -->
+   <script type="module">
+     import { registerComponent } from "ladrillosjs";
+
+     registerComponent("hello-world", "hello-world.html");
+   </script>
+
+   <!-- import multiple components -->
+   <script type="module">
+     import { registerComponents } from "ladrillosjs";
+
+     await registerComponents(
+       [
+         { name: "my-widget", path: "/components/widget.html" },
+         { name: "my-card", path: "/components/card.html" },
+         // …
+       ],
+       10 // sets 10 parallel fetches - defaults to 5
+     );
+   </script>
+
+   <!-- CDN -->
+   <script type="module">
+     ladrillosjs.registerComponent("hello-world", "hello-world.html");
+   </script>
+
+   <!-- CDN multiple components -->
+   <script type="module">
+     await ladrillos.registerComponents(
+       [
+         { name: "my-widget", path: "/components/widget.html" },
+         { name: "my-card", path: "/components/card.html" },
+         // …
+       ],
+       10 // sets 10 parallel fetches - defaults to 5
+     );
+   </script>
+   ```
+
+   ```html
+   <!-- then use it in markup -->
+   <hello-world></hello-world>
+   ```
+
+Under the hood, LadrillosJS will fetch, parse and cache hello.html, then define a `<hello-world>`.
+
+- Template placeholders `{…}` automatically bind to this.state.
+- Top‐level `let/const/function` in your `<script>` block are hoisted and initialized into `this.state` if they appear in a template or event.
+- Event attributes like `onclick="increment"` register listeners under the hood.
+
+## Binding Variables & Events
+
+- To bind data into your markup, wrap state keys in `{}`
 
 ```html
-<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Hello World</title>
-    <style>
-      :root {
-        --btn-bg: #1a73e8;
-        --btn-color: #ffffff;
-        --btn-padding: 0.75rem 1.5rem;
-        --btn-radius: 0.375rem;
-        --btn-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        --btn-hover-bg: #1669c1;
-        --btn-transition: background-color 0.2s ease, transform 0.2s ease,
-          box-shadow 0.2s ease;
-      }
-      body {
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        height: 100vh;
-        margin: 0;
-      }
-    </style>
-  </head>
-  <body>
-    <!-- Add component -->
-    <alert-button></alert-button>
-    <script type="module">
-      // import framework
-      import { ladrillos } from "ladrillosjs";
-      // register component (name, location)
-      ladrillos.registerComponent("alert-button", "alert-button.html");
-    </script>
-  </body>
-</html>
+<span>{user.name}</span>
 ```
 
-### 3. Create a component
-
-Create `alert-button.html`
+- To bind an event, prefix an attribute with `on`:
 
 ```html
-<style>
-  button {
-    background: var(--btn-bg);
-    color: var(--btn-color);
-    padding: var(--btn-padding);
-    border: none;
-    border-radius: var(--btn-radius);
-    box-shadow: var(--btn-shadow);
-    font-size: 1rem;
-    font-weight: 600;
-    letter-spacing: 0.5px;
-    cursor: pointer;
-    transition: var(--btn-transition);
-  }
+<button onclick="doSomething">Do it</button>
+```
 
-  button:hover {
-    background: var(--btn-hover-bg);
-    transform: translateY(-1px);
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.12);
-  }
+## Initializing from Attributes
 
-  button:active {
-    transform: translateY(0);
-    box-shadow: var(--btn-shadow);
-    opacity: 0.9;
-  }
+Component attributes sync to `this.state` automatically and can be reference by using `this.state["some-prop"]` in your template or code.
 
-  button:focus {
-    outline: none;
-    box-shadow: 0 0 0 3px rgba(26, 115, 232, 0.4);
-  }
-</style>
-<button onclick="{increaseCount()}">Clicked: {count}</button>
+## Internal vs. External Scripts
+
+- Inline scripts (no src) are parsed, top‑level bindings registered, then executed in component context.
+- External scripts with `bind` attribute are fetched, and processed exactly like inline scripts.
+
+- For external module scripts with `bind` attribute, you must export a default function where methods are defined on the component instance:
+
+```js
+// component-logic.js
+export default function () {
+  this.handleClick = () => {
+    console.log("Button clicked");
+    this.setState({ clicked: true });
+  };
+}
+```
+
+```html
+<!-- In your component HTML -->
+<button onclick="handleClick">Click me</button>
+
+<script src="component-logic.js" type="module" bind></script>
+```
+
+```js
+<script src="path_to_file.js" bind></script>
+```
+
+- External scripts without bind are injected via a `<script>` tag (for non‑module, or third‑party scripts).
+- `type="module"` scripts (inline or external) are added to the shadow/root as real modules.
+
+## Managing State
+
+To manage state in LadrillosJS, you can use the `this.setState()` method to update the component's state. The `this.state` object holds the component's state variables, and you can modify them as needed.
+
+When you call `this.setState({ key: value, … })`, LadrillosJS will automatically re-render the component with the updated state.
+
+## Emitting
+
+To emit events from your component, you can use the `this.emit()` method. This allows you to trigger custom events that can be listened to by parent components or other parts of your application. If you don't pass a second argument, the event will be emitted with the component's state as the data.
+
+```js
+this.emit("event-name", { some: "data" });
+```
+
+To listen to emitted events, you can use the `this.listen()` method on the component instance:
+
+```js
+this.listen("event-name", (payload) => {
+  console.log(payload); // Access the emitted data
+});
+```
+
+## Two‑Way Binding
+
+LadrillosJS provides built‑in two‑way data binding for form controls and contenteditable elements via the `data-bind` attribute.  
+When a component is initialized, any element with `data-bind="key"` will:
+
+- Push its initial value/content into `this.state.key`.
+- Listen for user input (e.g. `input` or `change` events) and update `this.state.key` automatically.
+- Re-render whenever you call `this.setState({ key: newValue })`, updating the element’s value or innerText.
+
+Usage example:
+
+```html
+<!-- In your component HTML -->
+<input type="text" placeholder="Username" data-bind="username" />
+<div contenteditable="true" placeholder="About you…" data-bind="bio"></div>
+<button onclick="submit">Submit</button>
 
 <script>
-  const count = 0;
-
-  const increaseCount = () => {
-    count++;
-
-    if (count >= 10) {
-      alert("to many clicks");
-    }
+  const submit = () => {
+    console.log("Username:", this.state.username);
+    console.log("Bio:", this.state.bio);
+    // reset state
+    this.setState({ username: "", bio: "" });
   };
 </script>
+```
+
+## State Management with Stores
+
+LadrillosJS provides a simple store implementation for managing shared state across components:
+
+- `createStore(initialState)`: Creates a new store with the specified initial state
+- `getState()`: Returns the current state of the store
+- `setState(partial)`: Updates store state by merging partial object and notifies subscribers
+- `subscribe(fn)`: Registers a callback function that executes immediately and on every state change
+
+```js
+import { createStore } from "ladrillosjs";
+
+// Create a store with initial state
+export const notesStore = createStore({ notes: [] });
+
+// Update store state
+export function addNote(note) {
+  const { notes } = notesStore.getState();
+  notesStore.setState({ notes: [...notes, note] });
+}
+```
+
+### add to store
+
+```js
+import { addNote } from "../stores/notesStore.js";
+
+export default function () {
+  this.save = () => {
+    const id = Math.floor(Math.random() * 1000);
+    addNote({ id: 123, title: "my note", note: "my note content" });
+  };
+}
+```
+
+### subscribing to store changes
+
+```js
+import { notesStore } from "../stores/notesStore.js";
+notesStore.subscribe(({ notes }) => {
+  console.log("Notes updated:", notes);
+});
+```
+
+## Conditional Rendering
+
+LadrillosJS supports declarative conditional rendering in your component’s template using `data-if`, `data-else-if`, and `data-else` attributes. Only the first matching block in each group will be shown; `data-else` serves as a fallback.
+
+Usage example:
+
+```html
+<p>Clicked {count} times</p>
+
+<div data-if="count < 5">Keep going!</div>
+<div data-else-if="count < 10">Almost there!</div>
+<div data-else>Done clicking!</div>
+
+<button onclick="increment">Click me</button>
+
+<script>
+  // initialize state
+  const count = 0;
+
+  // event handler
+  const increment = () => {
+    this.setState({ count: this.state.count + 1 });
+  };
+</script>
+```
+
+## Using Slots
+
+LadrillosJS fully supports the native Web Components `<slot>` API for default and named slots, allowing you to project markup into your component.
+
+### Default Slot
+
+Define a `<slot>` in your component HTML:
+
+```html
+<!-- card.html -->
+<div class="card">
+  <header>{title}</header>
+  <div class="body">
+    <slot></slot>
+  </div>
+</div>
+```
+
+Use it by placing content between your custom-tag:
+
+```html
+<card-component title="Welcome">
+  <p>This paragraph is rendered inside the card body.</p>
+</card-component>
+```
+
+### Named Slots
+
+You can target multiple insertion points by naming slots:
+
+```html
+<!-- panel.html -->
+<div class="panel">
+  <section class="header">
+    <slot name="header"></slot>
+  </section>
+  <section class="content">
+    <slot></slot>
+    <!-- default slot -->
+  </section>
+  <section class="footer">
+    <slot name="footer"></slot>
+  </section>
+</div>
+```
+
+And supply content for each slot:
+
+```html
+<panel-component>
+  <h2 slot="header">Panel Title</h2>
+  <!-- goes into default slot -->
+  <p>This is the main content of the panel.</p>
+  <button slot="footer">Close</button>
+</panel-component>
 ```

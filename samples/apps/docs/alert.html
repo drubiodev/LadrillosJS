@@ -1,0 +1,66 @@
+<style>
+  .alert-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 1.5rem;
+    background: #f0f4ff;
+    color: #1e3a8a;
+    border-left: 4px solid #3b82f6;
+    border-radius: 4px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+    margin: 1rem 0;
+    font-family: sans-serif;
+    position: relative;
+    display: none;
+  }
+  .alert-banner p {
+    margin: 0;
+    flex: 1;
+  }
+  .alert-banner .close-btn {
+    background: transparent;
+    border: none;
+    font-size: 1.25rem;
+    line-height: 1;
+    color: inherit;
+    cursor: pointer;
+    padding: 0;
+    margin-left: 1rem;
+    transition: color 0.2s ease;
+  }
+  .alert-banner .close-btn:hover {
+    color: #3b82f6;
+  }
+</style>
+
+<div class="alert-banner">
+  <p>{message}</p>
+  <button class="close-btn" aria-label="Close">&times;</button>
+</div>
+
+<script>
+  const banner = this.querySelector(".alert-banner");
+  const closeBtn = banner.querySelector(".close-btn");
+
+  closeBtn.addEventListener("click", () => {
+    banner.style.transition = "opacity 0.3s";
+    banner.style.opacity = "0";
+    setTimeout(() => (banner.style.display = "none"), 250);
+  });
+
+  this.listen("copied", (data) => {
+    this.setState({ message: data.message });
+    banner.style.display = "flex";
+    banner.style.opacity = "1";
+    startDismissing();
+  });
+
+  const startDismissing = () => {
+    setTimeout(() => {
+      banner.style.transition = "opacity 0.5s";
+      banner.style.opacity = "0";
+      setTimeout(() => (banner.style.display = "none"), 500);
+    }, this.state["data-timeout"] * 1000);
+  };
+</script>

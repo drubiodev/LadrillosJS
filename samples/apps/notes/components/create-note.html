@@ -1,0 +1,23 @@
+<link rel="stylesheet" href="./css/create-note.css" />
+
+<h1
+  placeholder="New Note Title"
+  id="note-title"
+  spellcheck="true"
+  contenteditable="true"
+  tabindex="1"
+  data-bind="myNote.title"
+></h1>
+<div
+  id="note-text"
+  role="textbox"
+  aria-multiline="true"
+  aria-label="Note content"
+  contenteditable="true"
+  tabindex="2"
+  placeholder="enter note text"
+  data-bind="myNote.note.text"
+></div>
+<button id="save-note-btn" tabindex="3" onclick="save">Save</button>
+
+<script type="module" src="./js/app.js" bind></script>

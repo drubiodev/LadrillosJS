@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Beers</title>
+    <style>
+      :root {
+        --bg-color: #f9f9f9;
+        --card-bg: #fff;
+        --text-color: #1d1d1f;
+        --accent-color: #0071e3;
+        --radius: 12px;
+        --shadow-light: rgba(0, 0, 0, 0.04);
+        --shadow-strong: rgba(0, 0, 0, 0.1);
+      }
+
+      *,
+      *::before,
+      *::after {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        background: var(--bg-color);
+        color: var(--text-color);
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          sans-serif;
+        line-height: 1.6;
+        padding: 2rem;
+      }
+    </style>
+  </head>
+  <body>
+    <beers-component></beers-component>
+
+    <script type="module">
+      import { registerComponent } from "ladrillosjs";
+      registerComponent("beers-component", "beers.html");
+    </script>
+  </body>
+</html>
