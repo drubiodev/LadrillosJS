@@ -24,7 +24,15 @@ export const defineWebComponent = (component, useShadowDOM) => {
       // set root
       this.root = useShadowDOM ? this.shadowRoot : document;
       // initialize state and bindings
-      this.state = {};
+      const internalState = {};
+      this.state = new Proxy(internalState, {
+        set: (target, prop, value) => {
+          target[prop] = value;
+          // automatically re-render on any direct assignment
+          this._render();
+          return true;
+        },
+      });
       this._bindings = [];
       this._eventBindings = [];
       this._conditionals = [];
@@ -38,6 +46,23 @@ export const defineWebComponent = (component, useShadowDOM) => {
             this._handleAttributeChange(attributeName, newValue);
           }
         });
+      });
+
+      this.elementObserver = new MutationObserver((mutations) => {
+        for (const m of mutations) {
+          if (m.attributeName === "contenteditable") {
+            const el = /** @type {HTMLElement} */ (m.target);
+            // only bind if it's now editable and has a data-bind
+            if (el.isContentEditable && el.hasAttribute("data-bind")) {
+              this._bindTwoWayForElement(el);
+            }
+          }
+        }
+      });
+      this.elementObserver.observe(this.root, {
+        attributes: true,
+        subtree: true,
+        attributeFilter: ["contenteditable"],
       });
 
       this.observer.observe(this, {
@@ -324,6 +349,44 @@ export const defineWebComponent = (component, useShadowDOM) => {
       this._render();
     }
 
+    _bindTwoWayForElement(el) {
+      const key = el.getAttribute("data-bind");
+      const isEditable = el.isContentEditable;
+      const isFormEl = "value" in el;
+      const eventType = isEditable || isFormEl ? "input" : "change";
+
+      // listener to sync UI → state
+      const listener = () => {
+        const newVal = isEditable
+          ? el.innerText
+          : isFormEl
+          ? el.value
+          : el.textContent;
+        this._setNestedState(key, newVal);
+      };
+
+      el.addEventListener(eventType, listener);
+      this._eventBindings.push({ element: el, event: eventType, listener });
+
+      // add a binding so render() keeps it in sync
+      const attrName = isFormEl ? "value" : undefined;
+      const template = isFormEl
+        ? el.getAttribute("value") || `{${key}}`
+        : isEditable
+        ? el.innerHTML
+        : el.textContent;
+      this._bindings.push({ element: el, key, attrName, template });
+
+      // initialize the state for that key if not already set
+      const initVal = isFormEl
+        ? el.value
+        : isEditable
+        ? el.innerText
+        : el.textContent;
+      this.state = Object.assign({}, this.state, {}); // force proxy
+      this._setNestedState(key, initVal);
+    }
+
     // sets up two-way bindings for editable elements
     // e.g. <input data-bind="name" value="{name}">
     _setupTwoWayBindings() {
@@ -334,7 +397,6 @@ export const defineWebComponent = (component, useShadowDOM) => {
       const assignNested = (obj, path, value) => {
         const keys = path.split(".");
         let target = obj;
-        // walk/create intermediate objects
         for (let i = 0; i < keys.length - 1; i++) {
           const k = keys[i];
           if (typeof target[k] !== "object" || target[k] === null) {
@@ -345,44 +407,26 @@ export const defineWebComponent = (component, useShadowDOM) => {
         target[keys[keys.length - 1]] = value;
       };
 
+      // 1) collect all initial values from the DOM
       elems.forEach((el) => {
         const key = el.getAttribute("data-bind");
         const isEditable = el.isContentEditable;
         const isFormEl = "value" in el;
-        const eventType = isEditable || isFormEl ? "input" : "change";
-
-        // keep state in sync with UI
-        const listener = () => {
-          const newVal = isEditable
-            ? el.innerText
-            : isFormEl
-            ? el.value
-            : el.textContent;
-
-          this._setNestedState(key, newVal);
-        };
-
-        el.addEventListener(eventType, listener);
-        this._eventBindings.push({ element: el, event: eventType, listener });
-
-        // compute attrName & template so render() can replace
-        const attrName = isFormEl ? "value" : undefined;
-        const template = isFormEl
-          ? el.getAttribute("value") || `{${key}}`
-          : isEditable
-          ? el.innerHTML
-          : el.textContent;
-
-        this._bindings.push({ element: el, key, attrName, template });
-
-        assignNested(
-          initialState,
-          key,
-          isFormEl ? el.value : isEditable ? el.innerText : el.textContent
-        );
+        const initVal = isEditable
+          ? el.innerText.trim()
+          : isFormEl
+          ? el.value
+          : el.textContent.trim();
+        assignNested(initialState, key, initVal);
       });
 
+      // 2) seed state once (this.render() will pick up these values)
       this.setState(initialState);
+
+      // 3) now hook up two-way binding on each element
+      elems.forEach((el) => {
+        this._bindTwoWayForElement(el);
+      });
     }
 
     // renders the component by replacing the bindings with their values
