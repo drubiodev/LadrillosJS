@@ -21,12 +21,11 @@ export default function () {
   this.setState({ beers: "loading..." });
   callAPI().then((beers) => {
     const cardsHtml = beers
-      .map(
-        (item) =>
-          `<card-component data-item='${JSON.stringify(
-            item
-          )}'></card-component>`
-      )
+      .map((item) => {
+        return `<card-component data-item="${this.stringify(
+          item
+        )}"></card-component>`;
+      })
       .join("");
 
     this.setState({ beers: cardsHtml });

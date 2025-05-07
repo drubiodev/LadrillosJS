@@ -1,4 +1,5 @@
 import { logger } from "../utils/logger.js";
+import { stringify } from "../utils/stringify.js";
 
 /**
  * @fileoverview Web component definition utilities
@@ -23,6 +24,7 @@ export const defineWebComponent = (component, useShadowDOM) => {
       if (useShadowDOM) this.attachShadow({ mode: "open" });
       // set root
       this.root = useShadowDOM ? this.shadowRoot : document;
+      this.stringify = stringify;
       // initialize state and bindings
       const internalState = {};
       this.state = new Proxy(internalState, {
@@ -334,6 +336,7 @@ export const defineWebComponent = (component, useShadowDOM) => {
     // initializes the state from the attributes
     _initializeStateFromAttributes() {
       this.getAttributeNames().forEach((name) => {
+        console.log(name);
         const raw = this.getAttribute(name);
         // re‑use your parsing logic
         this._handleAttributeChange(name, raw);

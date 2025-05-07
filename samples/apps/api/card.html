@@ -1,5 +1,5 @@
 <style>
-  .phone-card {
+  .beer-card {
     background: var(--card-bg);
     border-radius: var(--radius);
     overflow: hidden;
@@ -9,12 +9,12 @@
     flex-direction: column;
     cursor: pointer;
   }
-  .phone-card:hover {
+  .beer-card:hover {
     transform: translateY(-8px);
     box-shadow: 0 10px 30px var(--shadow-strong);
   }
 
-  .phone-card__info {
+  .beer-card__info {
     padding: 1.5rem;
     text-align: center;
     flex: 1;
@@ -23,31 +23,31 @@
     justify-content: center;
   }
 
-  .phone-card__name {
+  .beer-card__name {
     font-size: 1.25rem;
     font-weight: 500;
     color: var(--text-color);
     margin-bottom: 0.75rem;
   }
 
-  .phone-card__price {
+  .beer-card__price {
     font-size: 1rem;
     font-weight: 600;
     color: var(--accent-color);
   }
 
-  .phone-card__image {
+  .beer-card__image {
     width: 30%;
     margin-bottom: 1rem;
     margin: 0 auto;
   }
 </style>
 
-<li data-id="{data-item.id}" class="phone-card">
-  <div class="phone-card__info">
-    <img src="{image}" alt="{data-item.name}" class="phone-card__image" />
-    <h2 class="phone-card__name">{data-item.name}</h2>
-    <span class="phone-card__price">{data-item.price}</span>
+<li data-id="{data-item.id}" class="beer-card">
+  <div class="beer-card__info">
+    <img src="{image}" alt="{data-item.name}" class="beer-card__image" />
+    <h2 class="beer-card__name">{data-item.name}</h2>
+    <span class="beer-card__price">{data-item.price}</span>
   </div>
 </li>
 
