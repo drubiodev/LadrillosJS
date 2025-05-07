@@ -37,38 +37,7 @@ export const defineWebComponent = (component, useShadowDOM) => {
       this._eventBindings = [];
       this._conditionals = [];
 
-      // Set up MutationObserver to watch all attribute changes
-      this.observer = new MutationObserver((mutations) => {
-        mutations.forEach((mutation) => {
-          if (mutation.type === "attributes") {
-            const attributeName = mutation.attributeName;
-            const newValue = this.getAttribute(attributeName);
-            this._handleAttributeChange(attributeName, newValue);
-          }
-        });
-      });
-
-      this.elementObserver = new MutationObserver((mutations) => {
-        for (const m of mutations) {
-          if (m.attributeName === "contenteditable") {
-            const el = /** @type {HTMLElement} */ (m.target);
-            // only bind if it's now editable and has a data-bind
-            if (el.isContentEditable && el.hasAttribute("data-bind")) {
-              this._bindTwoWayForElement(el);
-            }
-          }
-        }
-      });
-      this.elementObserver.observe(this.root, {
-        attributes: true,
-        subtree: true,
-        attributeFilter: ["contenteditable"],
-      });
-
-      this.observer.observe(this, {
-        attributes: true, // Watch for attribute changes
-        attributeOldValue: true, // Track old values too
-      });
+      this._initObservers();
     }
 
     static #parseAttributeValue(raw) {
@@ -100,6 +69,50 @@ export const defineWebComponent = (component, useShadowDOM) => {
         element.removeEventListener(event, listener);
       });
       this._eventBindings = [];
+    }
+
+    _initObservers() {
+      // attribute observer
+      this.observer = this._createObserver(
+        (mutations) => {
+          mutations.forEach((m) => {
+            if (m.type === "attributes") {
+              const name = m.attributeName;
+              const value = this.getAttribute(name);
+              this._handleAttributeChange(name, value);
+            }
+          });
+        },
+        this,
+        { attributes: true, attributeOldValue: true }
+      );
+
+      // contenteditable observer
+      this.elementObserver = this._createObserver(
+        (mutations) => {
+          for (const m of mutations) {
+            if (m.attributeName === "contenteditable") {
+              const el = /** @type {HTMLElement} */ (m.target);
+              if (el.isContentEditable && el.hasAttribute("data-bind")) {
+                this._bindTwoWayForElement(el);
+              }
+            }
+          }
+        },
+        this.root,
+        {
+          attributes: true,
+          subtree: true,
+          attributeFilter: ["contenteditable"],
+        }
+      );
+    }
+
+    // creates a MutationObserver and binds it to the target element
+    _createObserver(callback, target, options) {
+      const obs = new MutationObserver(callback.bind(this));
+      obs.observe(target, options);
+      return obs;
     }
 
     // Invoked when attributes are changed.
