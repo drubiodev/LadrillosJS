@@ -336,7 +336,6 @@ export const defineWebComponent = (component, useShadowDOM) => {
     // initializes the state from the attributes
     _initializeStateFromAttributes() {
       this.getAttributeNames().forEach((name) => {
-        console.log(name);
         const raw = this.getAttribute(name);
         // re‑use your parsing logic
         this._handleAttributeChange(name, raw);
