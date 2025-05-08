@@ -1,20 +1,70 @@
 <style>
-  .todo-list {
-    max-width: 400px;
-    margin: auto;
-    padding: 20px;
-    border: 1px solid #ccc;
-    border-radius: 5px;
+  /* Import a modern font */
+  @import url("https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap");
+
+  .todo-list-container {
+    /* Renamed for clarity, assuming this is the main wrapper */
+    font-family: "Roboto", sans-serif;
+    max-width: 500px;
+    margin: 40px auto;
+    padding: 25px;
+    background-color: #ffffff;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    color: #333;
   }
-  input,
-  button {
-    margin-top: 10px;
+
+  .todo-list-container h1 {
+    /* Assuming you might add a title inside the component */
+    text-align: center;
+    color: #2c3e50;
+    margin-bottom: 25px;
+    font-weight: 500;
+  }
+
+  .todo-list-input-group {
+    display: flex;
+    gap: 10px; /* Space between input and button */
+    margin-bottom: 20px; /* Space before the list items */
+  }
+
+  .todo-list-container input[type="text"] {
+    flex-grow: 1;
+    padding: 12px 15px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 16px;
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+  }
+
+  .todo-list-container input[type="text"]:focus {
+    border-color: #007bff;
+    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+    outline: none;
+  }
+
+  .todo-list-container button {
+    padding: 12px 20px;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 16px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+  }
+
+  .todo-list-container button:hover {
+    background-color: #0056b3;
   }
 </style>
 
-<div class="todo-list">
-  <input type="text" placeholder="Add a new todo" data-bind="text" />
-  <button onclick="addTodo">Add</button>
+<div class="todo-list-container">
+  <div class="todo-list-input-group">
+    <input type="text" placeholder="Add a new todo" data-bind="text" />
+    <button onclick="addTodo">Add</button>
+  </div>
   <slot></slot>
 </div>
 

@@ -1,13 +1,49 @@
 <style>
+  :host {
+    /* Style the component host itself */
+    display: block;
+    font-family: "Roboto", sans-serif;
+  }
+
   .todo-item {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 8px;
-    border-bottom: 1px solid #ccc;
+    padding: 12px 15px;
+    background-color: #f9f9f9;
+    border: 1px solid #eee;
+    border-radius: 6px;
+    margin-bottom: 10px;
+    transition: background-color 0.2s ease, box-shadow 0.2s ease;
+    color: #333;
   }
-  button {
-    margin-left: 10px;
+
+  .todo-item:hover {
+    background-color: #f1f1f1;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+  }
+
+  .todo-item span {
+    flex-grow: 1;
+    font-size: 16px;
+    line-height: 1.5;
+  }
+
+  .todo-item button {
+    background-color: #dc3545;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    padding: 8px 12px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    margin-left: 15px;
+    transition: background-color 0.3s ease;
+  }
+
+  .todo-item button:hover {
+    background-color: #c82333;
   }
 </style>
 
