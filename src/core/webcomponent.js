@@ -56,8 +56,8 @@ export const defineWebComponent = (component, useShadowDOM) => {
     connectedCallback() {
       this._loadTemplate();
       this._loadStyles();
-      this._loadScript();
       this._initializeStateFromAttributes();
+      this._loadScript();
       this._setupTwoWayBindings();
     }
 
