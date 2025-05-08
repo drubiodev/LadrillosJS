@@ -62,13 +62,24 @@
 
 <div class="todo-list-container">
   <div class="todo-list-input-group">
-    <input type="text" placeholder="Add a new todo" data-bind="text" />
+    <input
+      type="text"
+      placeholder="Add a new todo"
+      data-bind="text"
+      onkeyup="testEvent"
+    />
     <button onclick="addTodo">Add</button>
   </div>
   <slot></slot>
 </div>
 
 <script>
+  const testEvent = (event) => {
+    if (event.key === "Enter") {
+      this.addTodo();
+    }
+  };
+
   const addTodo = () => {
     let text = this.state.text.trim();
     if (!text) return;
@@ -76,6 +87,6 @@
     const todoItem = document.createElement("todo-item");
     todoItem.setAttribute("text", text);
     this.appendChild(todoItem);
-    this.state.text = "";
+    this.setState({ text: "" });
   };
 </script>

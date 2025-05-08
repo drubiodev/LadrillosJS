@@ -38,6 +38,7 @@ export const defineWebComponent = (component, useShadowDOM) => {
       this._bindings = [];
       this._eventBindings = [];
       this._conditionals = [];
+      this._functions = new Map();
 
       this._initObservers();
     }
@@ -202,10 +203,17 @@ export const defineWebComponent = (component, useShadowDOM) => {
             listener = () => new Function(`return ${code}`).call(this);
           } else {
             listener = (e) => {
-              if (typeof this[code] === "function") {
-                this[code](e);
-              } else if (typeof this.state[code] === "function") {
-                this.state[code](e);
+              const func = this._functions.get(code);
+              if (func) {
+                const fn = new Function("event", func.replace("=>", "")).bind(
+                  this
+                );
+                return fn(e);
+              }
+
+              const fn = this[code];
+              if (typeof fn === "function") {
+                return fn.call(this, e);
               }
             };
           }
@@ -647,6 +655,7 @@ export const defineWebComponent = (component, useShadowDOM) => {
       } catch {
         let m, last;
         while ((m = arrowRe.exec(fullText))) {
+          this._functions.set(name, m[0]);
           last = m[1].trim();
           if (last) {
             // try to eval the last arrow body as a function
