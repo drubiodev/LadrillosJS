@@ -63,7 +63,6 @@ export const defineWebComponent = (component, useShadowDOM) => {
 
     // Invoked when the custom element is disconnected from the document's DOM.
     disconnectedCallback() {
-      console.log("Component disconnected:", this.tagName);
       // clean up the attribute observer
       this.observer.disconnect();
       // remove all event listeners we added

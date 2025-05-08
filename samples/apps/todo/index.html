@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+    <script type="module">
+      import { registerComponents } from "ladrillosjs";
+      registerComponents([
+        {
+          name: "todo-list",
+          path: "todo-list.html",
+        },
+        {
+          name: "todo-item",
+          path: "todo-item.html",
+        },
+      ]);
+    </script>
+  </head>
+  <body>
+    <h1>Todo</h1>
+
+    <todo-list>
+      <todo-item text="Learn LadrillosJS"></todo-item>
+      <todo-item text="Build a Todo App"></todo-item>
+      <todo-item text="Deploy to Production"></todo-item>
+    </todo-list>
+  </body>
+</html>

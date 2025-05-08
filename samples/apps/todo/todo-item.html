@@ -1,0 +1,23 @@
+<style>
+  .todo-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px;
+    border-bottom: 1px solid #ccc;
+  }
+  button {
+    margin-left: 10px;
+  }
+</style>
+
+<div class="todo-item">
+  <span>{text}</span>
+  <button onclick="removeTodo">Delete</button>
+</div>
+
+<script>
+  const removeTodo = () => {
+    this.remove();
+  };
+</script>
