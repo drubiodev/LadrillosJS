@@ -106,7 +106,7 @@ To create your first component, follow these steps:
 
    <!-- CDN multiple components -->
    <script type="module">
-     await ladrillos.registerComponents(
+     await ladrillosjs.registerComponents(
        [
          { name: "my-widget", path: "/components/widget.html" },
          { name: "my-card", path: "/components/card.html" },
