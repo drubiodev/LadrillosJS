@@ -168,10 +168,10 @@ With LadrillosJS, the same component can be defined much more concisely and decl
 <button onclick="increment">Clicked: {count}</button>
 
 <script>
-  // Initialize state
-  this.setState({ count: 0 });
+  // Declare state variables
+  const count = 0;
 
-  // Event handler
+  // Event handler for button click
   const increment = () => {
     this.state.count++;
   };
@@ -182,7 +182,7 @@ Key simplifications with LadrillosJS include:
 
 - **Declarative Syntax**: HTML-centric templating with simple data binding (`{count}`).
 - **Reduced Boilerplate**: No need for manual class definition, `constructor`, `super()`, `attachShadow`, or `customElements.define` (LadrillosJS handles this).
-- **Reactive State**: State is easily declared (e.g., `let count = 0;`) and updated via `this.setState()`.
+- **Reactive State**: State is easily declared (e.g., `const count = 0;`) and updated via `this.setState()`.
 - **Simplified Events**: Event handling is direct (`onclick="increment"`).
 - **Scoped Logic**: The script within the component file is naturally scoped to the component instance.
 
