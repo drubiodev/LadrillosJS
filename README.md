@@ -128,6 +128,66 @@ Under the hood, LadrillosJS will fetch, parse and cache hello.html, then define 
 - Top‐level `let/const/function` in your `<script>` block are hoisted and initialized into `this.state` if they appear in a template or event.
 - Event attributes like `onclick="increment"` register listeners under the hood.
 
+## How LadrillosJS Simplifies Web Component Creation
+
+LadrillosJS aims to reduce the boilerplate and complexity often associated with standard Web Components. Here's a comparison using a simple counter button example:
+
+### Standard Web Component Approach
+
+Creating a button that increments a counter on click using standard Web Component APIs involves defining a class, managing the shadow DOM, and manually updating the DOM.
+
+```javascript
+class ButtonCount extends HTMLElement {
+  constructor() {
+    super();
+    this.count = 0;
+    this.attachShadow({ mode: "open" });
+
+    this.button = document.createElement("button");
+    this.button.textContent = `Clicked: ${this.count}`;
+    this.button.addEventListener("click", this.increment.bind(this));
+
+    this.shadowRoot.appendChild(this.button);
+  }
+
+  increment() {
+    this.count++;
+    this.button.textContent = `Clicked: ${this.count}`;
+  }
+}
+
+customElements.define("button-count", ButtonCount);
+```
+
+### LadrillosJS Approach
+
+With LadrillosJS, the same component can be defined much more concisely and declaratively within a single file (e.g., `my-counter-button.html`). LadrillosJS handles the underlying custom element registration, shadow DOM, and reactive updates.
+
+```html
+<!-- my-counter-button.html -->
+<button onclick="increment">Clicked: {count}</button>
+
+<script>
+  // Initialize state
+  this.setState({ count: 0 });
+
+  // Event handler
+  const increment = () => {
+    this.state.count++;
+  };
+</script>
+```
+
+Key simplifications with LadrillosJS include:
+
+- **Declarative Syntax**: HTML-centric templating with simple data binding (`{count}`).
+- **Reduced Boilerplate**: No need for manual class definition, `constructor`, `super()`, `attachShadow`, or `customElements.define` (LadrillosJS handles this).
+- **Reactive State**: State is easily declared (e.g., `let count = 0;`) and updated via `this.setState()`.
+- **Simplified Events**: Event handling is direct (`onclick="increment"`).
+- **Scoped Logic**: The script within the component file is naturally scoped to the component instance.
+
+This approach allows developers to focus more on the component's structure and logic rather than the underlying Web Component machinery.
+
 ## Binding Variables & Events
 
 - To bind data into your markup, wrap state keys in `{}`
