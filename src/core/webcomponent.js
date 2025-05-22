@@ -431,7 +431,6 @@ export const defineWebComponent = (component, useShadowDOM) => {
         : isEditable
         ? el.innerText
         : el.textContent;
-      this.state = Object.assign({}, this.state, {}); // force proxy
       this._setNestedState(key, initVal);
     }
 
