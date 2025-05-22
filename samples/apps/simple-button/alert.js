@@ -1,5 +1,5 @@
-const count = 0;
+let count = 0;
 
 const increaseCount = () => {
-  this.setState({ count: this.state.count + 1 });
+  this.state.count++;
 };
