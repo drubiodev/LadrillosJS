@@ -603,36 +603,45 @@ export const defineWebComponent = (component, useShadowDOM) => {
 
     /**
      * 1. Identifies top-level function declarations (e.g., `function foo(){}` or `const foo = ()=>{}`).
-     * 2. Appends assignments to `this` for these functions if they are used in bindings or event handlers (e.g., `this.foo = foo;`).
-     * 3. Executes the combined script in the component's context (`this`).
-     * This allows functions to access lexical scope and be available as component methods.
+     * 2. Identifies top-level variable declarations (e.g., `const bar = 123;`).
+     * 3. Appends assignments to `this` for bound functions (e.g., `this.foo = foo;`).
+     * 4. Appends initialization for `this.state` for bound variables if not already set in state (e.g., `if(typeof this.state.bar === 'undefined') this.state.bar = bar;`).
+     * 5. Executes the combined script in the component's context (`this`).
      */
     _processScriptText(srcText) {
-      const potentialFunctionNames = new Set();
+      const declaredIdentifiers = new Set();
 
       // Regex for: function funcName(...)
-      // Catches "function funcName ("
       const classicFuncRegex = /\bfunction\s+([a-zA-Z_$][0-9a-zA-Z_$]*)\s*\(/g;
       let match;
       while ((match = classicFuncRegex.exec(srcText)) !== null) {
-        potentialFunctionNames.add(match[1]);
+        declaredIdentifiers.add(match[1]);
       }
 
-      // Regex for: const/let/var funcName = function... OR const/let/var funcName = (...) => ...
-      // Catches "const funcName =" or "let funcName =" or "var funcName ="
-      // when followed by "function" or an arrow function structure.
-      const varFuncRegex =
-        /\b(const|let|var)\s+([a-zA-Z_$][0-9a-zA-Z_$]*)\s*=\s*(?:function\b|(?:\([^)]*\)|[a-zA-Z_$][0-9a-zA-Z_$]*)\s*=>)/g;
-      while ((match = varFuncRegex.exec(srcText)) !== null) {
-        potentialFunctionNames.add(match[2]); // Group 2 is the function name
+      // Regex for: const/let/var identifier = ...
+      // This will catch both function assignments (const foo = () => {})
+      // and simple variable assignments (const bar = 123;).
+      const varDeclRegex =
+        /\b(const|let|var)\s+([a-zA-Z_$][0-9a-zA-Z_$]*)\s*=/g;
+      while ((match = varDeclRegex.exec(srcText)) !== null) {
+        declaredIdentifiers.add(match[2]); // Group 2 is the identifier name
       }
 
       let assignments = "";
-      if (potentialFunctionNames.size > 0) {
-        assignments = "\n\n// --- Auto-assigned by LadrillosJS Framework ---\n";
-        potentialFunctionNames.forEach((name) => {
-          // Assign to 'this' if the name is bound in the template/events and it's a function at runtime
-          assignments += `if (typeof ${name} === 'function' && this._isBound('${name}')) { try { this.${name} = ${name}; } catch(e) { console.warn('LadrillosJS: Failed to assign ${name} to component context.', e); }}\n`;
+      if (declaredIdentifiers.size > 0) {
+        assignments =
+          "\n\n// --- Auto-processed by LadrillosJS Framework ---\n";
+        declaredIdentifiers.forEach((name) => {
+          // Process only identifiers that are bound (used in template or event handlers)
+          assignments += `if (this._isBound('${name}')) {\n`;
+          assignments += `  if (typeof ${name} === 'function') {\n`;
+          assignments += `    try { this.${name} = ${name}; } catch(e) { console.warn('LadrillosJS: Failed to assign function ${name} to component context.', e); }\n`;
+          assignments += `  } else if (typeof ${name} !== 'undefined' && typeof this.state.${name} === 'undefined') {\n`;
+          // Initialize state if it's a non-function, bound, defined in script, and not already in state
+          // This assignment will trigger the state proxy and a re-render.
+          assignments += `    try { this.state.${name} = ${name}; } catch(e) { console.warn('LadrillosJS: Failed to initialize state for ${name} from script.', e); }\n`;
+          assignments += `  }\n`;
+          assignments += `}\n`;
         });
       }
 
@@ -640,9 +649,14 @@ export const defineWebComponent = (component, useShadowDOM) => {
 
       try {
         new Function(scriptToExecute).call(this);
+        // Note: Explicit this._render() call is not needed here because assignments to
+        // this.state (e.g., this.state.name = name) will be caught by the Proxy,
+        // which already triggers this._render().
       } catch (e) {
+        // Log the error and the script that was attempted
         logger.error("Error executing component script:", e);
-        logger.error(
+        console.error(
+          // Use console.error for better visibility of the script in dev tools
           "LadrillosJS: Error executing component script. Processed script was:\n---\n" +
             scriptToExecute +
             "\n---\nError details:",
