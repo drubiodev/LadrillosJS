@@ -38,7 +38,7 @@ export const defineWebComponent = (component, useShadowDOM) => {
       this._bindings = [];
       this._eventBindings = [];
       this._conditionals = [];
-      this._functions = new Map();
+      // this._functions = new Map();
 
       this._initObservers();
     }
@@ -195,25 +195,51 @@ export const defineWebComponent = (component, useShadowDOM) => {
           // create and keep a reference to the listener
           let listener;
           const code = handlerCode.trim();
-          // arrow => (e) => …
-          if (/^\([^)]*\)\s*=>/.test(code)) {
-            const fn = new Function(`return (${code})`).call(this);
-            listener = (e) => fn(e);
-          } else if (code.includes("(")) {
-            listener = () => new Function(`return ${code}`).call(this);
-          } else {
-            listener = (e) => {
-              const func = this._functions.get(code);
-              if (func) {
-                const fn = new Function("event", func.replace("=>", "")).bind(
-                  this
-                );
-                return fn(e);
-              }
 
-              const fn = this[code];
+          // Case 1: Inline arrow function e.g., onclick="(event) => console.log(event.target)"
+          if (/^\([^)]*\)\s*=>/.test(code)) {
+            try {
+              const funcCreator = new Function("event", `return (${code});`);
+              const actualFunc = funcCreator.call(this);
+              listener = (e) => actualFunc(e);
+            } catch (e) {
+              logger.error(
+                `Error parsing inline arrow function handler: ${code}`,
+                e
+              );
+              listener = () => {};
+            }
+          }
+          // Case 2: Function call expression e.g., onclick="myFunction(arg1, event)" or "alert('hello')"
+          else if (code.includes("(") && code.includes(")")) {
+            listener = (event) => {
+              try {
+                new Function("event", code).call(this, event);
+              } catch (e) {
+                logger.error(
+                  `Error executing inline event handler: ${code}`,
+                  e
+                );
+              }
+            };
+          } // Case 3: Named handler e.g., onclick="myFunction"
+          else {
+            listener = (event) => {
+              const fn = this[code]; // 'code' is the handlerName e.g. "myFunction""
               if (typeof fn === "function") {
-                return fn.call(this, e);
+                try {
+                  return fn.call(this, event);
+                } catch (e) {
+                  logger.error(
+                    `Error executing event handler method: ${code}`,
+                    e
+                  );
+                }
+              } else {
+                logger.warn(
+                  `Event handler method "${code}" not found on component. Available methods on 'this':`,
+                  Object.keys(this).filter((k) => typeof this[k] === "function")
+                );
               }
             };
           }
@@ -297,7 +323,7 @@ export const defineWebComponent = (component, useShadowDOM) => {
               );
             }
           } catch (err) {
-            console.error(`Failed to load component module ${s.src}`, err);
+            logger.error(`Failed to load component module ${s.src}`, err);
           }
         } else if (s?.bind) {
           await fetch(scriptURL)
@@ -576,74 +602,53 @@ export const defineWebComponent = (component, useShadowDOM) => {
     }
 
     /**
-     * Finds all top‑level vars in `srcText`, evaluates them into this.state
-     * if they're bound, then execs the script in component context.
+     * 1. Identifies top-level function declarations (e.g., `function foo(){}` or `const foo = ()=>{}`).
+     * 2. Appends assignments to `this` for these functions if they are used in bindings or event handlers (e.g., `this.foo = foo;`).
+     * 3. Executes the combined script in the component's context (`this`).
+     * This allows functions to access lexical scope and be available as component methods.
      */
     _processScriptText(srcText) {
-      const varRegex =
-        /(?:const|let|var)\s+([$_A-Za-z][$_A-Za-z0-9]*)\s*=\s*([\s\S]+?);/g;
-      const arrowBodyRegex = /=>\s*{([\s\S]*?)};/g;
+      const potentialFunctionNames = new Set();
 
-      // 1) Pull out all top‑level "function name(...) { ... }"
-      const funcs = {};
-      let scanIdx = 0;
-      while ((scanIdx = srcText.indexOf("function ", scanIdx)) !== -1) {
-        // match the "function name(...){"
-        const sig =
-          /^function\s+([$_A-Za-z][$_A-Za-z0-9]*)\s*\([^)]*\)\s*{/.exec(
-            srcText.slice(scanIdx)
-          );
-        if (!sig) {
-          scanIdx += 8;
-          continue;
-        }
-        const name = sig[1];
-        // find the matching closing brace
-        let depth = 0,
-          i = scanIdx + sig[0].length - 1;
-        do {
-          if (srcText[i] === "{") depth++;
-          else if (srcText[i] === "}") depth--;
-          i++;
-        } while (i < srcText.length && depth > 0);
-        funcs[name] = srcText.slice(scanIdx, i);
-        scanIdx = i;
-      }
-
-      // bind any of those functions that are used in bindings/events
-      for (const name in funcs) {
-        if (this._isBound(name)) {
-          try {
-            const fn = new Function(`return (${funcs[name]});`)
-              .call(this)
-              .bind(this);
-            this[name] = fn;
-          } catch (e) {
-            console.error("failed to eval function", name, e);
-          }
-        }
-      }
-
+      // Regex for: function funcName(...)
+      // Catches "function funcName ("
+      const classicFuncRegex = /\bfunction\s+([a-zA-Z_$][0-9a-zA-Z_$]*)\s*\(/g;
       let match;
-      while ((match = varRegex.exec(srcText))) {
-        const [, name, expr] = match;
-
-        if (!this._isBound(name)) continue;
-        const value = this._evalExpression(
-          expr.trim(),
-          srcText,
-          arrowBodyRegex,
-          name
-        );
-
-        if (typeof value === "function") {
-          this[name] = value.bind(this);
-        } else {
-          this.state[name] = value;
-        }
+      while ((match = classicFuncRegex.exec(srcText)) !== null) {
+        potentialFunctionNames.add(match[1]);
       }
 
-      new Function(srcText).call(this);
+      // Regex for: const/let/var funcName = function... OR const/let/var funcName = (...) => ...
+      // Catches "const funcName =" or "let funcName =" or "var funcName ="
+      // when followed by "function" or an arrow function structure.
+      const varFuncRegex =
+        /\b(const|let|var)\s+([a-zA-Z_$][0-9a-zA-Z_$]*)\s*=\s*(?:function\b|(?:\([^)]*\)|[a-zA-Z_$][0-9a-zA-Z_$]*)\s*=>)/g;
+      while ((match = varFuncRegex.exec(srcText)) !== null) {
+        potentialFunctionNames.add(match[2]); // Group 2 is the function name
+      }
+
+      let assignments = "";
+      if (potentialFunctionNames.size > 0) {
+        assignments = "\n\n// --- Auto-assigned by LadrillosJS Framework ---\n";
+        potentialFunctionNames.forEach((name) => {
+          // Assign to 'this' if the name is bound in the template/events and it's a function at runtime
+          assignments += `if (typeof ${name} === 'function' && this._isBound('${name}')) { try { this.${name} = ${name}; } catch(e) { console.warn('LadrillosJS: Failed to assign ${name} to component context.', e); }}\n`;
+        });
+      }
+
+      const scriptToExecute = srcText + assignments;
+
+      try {
+        new Function(scriptToExecute).call(this);
+      } catch (e) {
+        logger.error("Error executing component script:", e);
+        logger.error(
+          "LadrillosJS: Error executing component script. Processed script was:\n---\n" +
+            scriptToExecute +
+            "\n---\nError details:",
+          e
+        );
+      }
     }
 
     // evaluates the expression in the context of the component
@@ -662,7 +667,7 @@ export const defineWebComponent = (component, useShadowDOM) => {
             try {
               return new Function(`${last}`).bind(this);
             } catch (e) {
-              console.error(e);
+              logger.error(e);
               return last;
             }
           }
