@@ -294,6 +294,7 @@ export const defineWebComponent = (component, useShadowDOM) => {
 
     // loads the styles into the shadowRoot or document head
     _loadStyles() {
+      if (!style) return;
       const styleElement = document.createElement("style");
       styleElement.textContent = style;
       if (useShadowDOM) {

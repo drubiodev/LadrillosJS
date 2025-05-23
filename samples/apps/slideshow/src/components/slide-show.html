@@ -1,18 +1,9 @@
-<!-- filepath: ladrillos-slideshow-app/src/components/slide-show.html -->
+<link rel="stylesheet" href="./src/css/slideshow.css" />
+
 <div class="slideshow">
   <div class="slides">
-    <div class="slide" data-if="currentSlide === 0">
-      <h2>Slide 1 Title</h2>
-      <p>Content for Slide 1.</p>
-    </div>
-    <div class="slide" data-if="currentSlide === 1">
-      <h2>Slide 2 Title</h2>
-      <p>Content for Slide 2.</p>
-    </div>
-    <div class="slide" data-if="currentSlide === 2">
-      <h2>Slide 3 Title</h2>
-      <p>Content for Slide 3.</p>
-    </div>
+    <intro-slide class="slide" data-if="currentSlide === 0"></intro-slide>
+    <code-slide class="slide" data-if="currentSlide === 1"></code-slide>
   </div>
 
   <button class="prev" onclick="prevSlide" aria-label="Previous slide">
@@ -47,108 +38,12 @@
   </button>
 </div>
 
-<script>
-  const totalSlides = 3;
-
-  this.setState({
-    currentSlide: 0,
-  });
-
-  const nextSlide = () => {
-    this.state.currentSlide = (this.state.currentSlide + 1) % totalSlides;
-  };
-
-  const prevSlide = () => {
-    this.state.currentSlide =
-      (this.state.currentSlide - 1 + totalSlides) % totalSlides;
-  };
-  console.log(this);
-
-  document.addEventListener("keyup", (event) => {
-    if (event.key === "ArrowRight") {
-      nextSlide();
-    } else if (event.key === "ArrowLeft") {
-      prevSlide();
-    }
-  });
+<script type="module">
+  import { registerComponents } from "ladrillosjs";
+  registerComponents([
+    { name: "intro-slide", path: "./src/components/slides/intro-slide.html" },
+    { name: "code-slide", path: "./src/components/slides/code-slide.html" },
+  ]);
 </script>
 
-<style>
-  .slideshow {
-    box-sizing: border-box;
-    position: relative;
-    width: 100%;
-    height: 100%;
-    padding: 1rem;
-    overflow: hidden; /* Ensures buttons stay within bounds if absolutely positioned */
-    font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-    background-color: #f8f7f5;
-    border-top: 5px solid #f64b30;
-  }
-
-  .slides {
-    position: relative; /* Needed for absolute positioning of slides */
-    width: 100%;
-    height: 100%; /* Or a fixed height like 300px */
-  }
-
-  .slide h2 {
-    color: #333;
-    margin-top: 0;
-    font-size: 2.2em;
-    font-weight: 600;
-    margin-bottom: 15px;
-  }
-
-  .slide p {
-    color: #555;
-    font-size: 1.1em;
-    line-height: 1.6;
-    max-width: 90%;
-  }
-
-  .slideshow button {
-    position: absolute;
-    bottom: 20px;
-    z-index: 10; /* Ensure buttons are above slides */
-    background-color: transparent; /* Sleek: remove background */
-    color: #333; /* Icon color, adjust as needed */
-    border: none;
-    padding: 10px; /* Adjust padding for icon */
-    margin: 0 10px;
-    border-radius: 50%; /* Circular buttons for a modern look */
-    cursor: pointer;
-    font-size: 0.95em;
-    font-weight: 500;
-    transition: opacity 0.3s ease-in-out, color 0.3s ease, transform 0.2s ease;
-    opacity: 0.6; /* Slightly visible initially */
-    transform: translateY(10px); /* Slight upward movement on hover */
-    display: flex; /* For centering the SVG icon */
-    align-items: center; /* For centering the SVG icon */
-    justify-content: center; /* For centering the SVG icon */
-  }
-
-  .slideshow:hover button {
-    opacity: 1; /* Visible on slideshow hover */
-    transform: translateY(0);
-  }
-
-  .slideshow button:hover {
-    color: #007bff; /* Change icon color on hover, adjust as needed */
-    /* background-color: rgba(0, 0, 0, 0.1); Optional: subtle background on hover */
-  }
-
-  .slideshow button:active {
-    transform: translateY(0) scale(0.9); /* Click effect, slightly more pronounced */
-  }
-
-  .slideshow button.prev {
-    /* Class for previous button */
-    left: 20px;
-  }
-
-  .slideshow button.next {
-    /* Class for next button */
-    right: 20px;
-  }
-</style>
+<script src="./src/js/slide.js" bind></script>

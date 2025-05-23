@@ -1,0 +1,90 @@
+<h1>How LadrillosJS Simplifies Web Component Creation</h1>
+
+<div class="wrapper">
+  <section>
+    <code-block filename="ButtonCount.js">
+      <template>
+        <script>
+          class ButtonCount extends HTMLElement {
+            constructor() {
+              super();
+              this.count = 0;
+              this.attachShadow({ mode: "open" });
+
+              this.button = document.createElement("button");
+              this.button.textContent = `Clicked: ${this.count}`;
+              this.button.addEventListener("click", this.increment.bind(this));
+
+              this.shadowRoot.appendChild(this.button);
+            }
+
+            increment() {
+              this.count++;
+              this.button.textContent = `Clicked: ${this.count}`;
+            }
+          }
+
+          customElements.define("button-count", ButtonCount);
+        </script>
+      </template>
+    </code-block>
+    <button-count></button-count>
+  </section>
+
+  <section>
+    <code-block filename="button-count.html">
+      <template>
+        <button onclick="increment">Clicked: {count}</button>
+
+        <script>
+          let count = 0;
+
+          const increment = () => {
+            this.state.count++;
+          };
+        </script>
+      </template>
+    </code-block>
+    <l-button-count></l-button-count>
+  </section>
+</div>
+
+<script type="module">
+  import { registerComponent } from "ladrillosjs";
+  registerComponent("code-block", "./src/components/codeblock.html");
+  registerComponent("l-button-count", "./src/components/button-count.html");
+</script>
+
+<style>
+  h1 {
+    border-left: 5px solid var(--main-color);
+    padding-left: 1rem;
+  }
+  .wrapper {
+    display: flex;
+    justify-content: space-evenly;
+  }
+</style>
+
+<script>
+  class ButtonCount extends HTMLElement {
+    constructor() {
+      super();
+      this.count = 0;
+      this.attachShadow({ mode: "open" });
+
+      this.button = document.createElement("button");
+      this.button.textContent = `Clicked: ${this.count}`;
+      this.button.addEventListener("click", this.increment.bind(this));
+
+      this.shadowRoot.appendChild(this.button);
+    }
+
+    increment() {
+      this.count++;
+      this.button.textContent = `Clicked: ${this.count}`;
+    }
+  }
+
+  customElements.define("button-count", ButtonCount);
+</script>

@@ -1,0 +1,53 @@
+<link
+  rel="stylesheet"
+  href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css"
+/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+
+<style>
+  :host {
+    display: block;
+    margin: 1em 0;
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  }
+
+  .code-container {
+    background: #282c34;
+    border-radius: 8px;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+    overflow: hidden;
+    max-width: 800px;
+  }
+
+  .code-header {
+    background: #21252b;
+    color: #ffffff;
+    padding: 0.5em 1em;
+    font-size: 0.875em;
+    border-bottom: 1px solid #3a3f4b;
+    position: relative; /* allow absolutely‑positioned button */
+  }
+
+  pre {
+    margin: 0;
+    padding: 1em;
+    overflow: auto;
+  }
+</style>
+<div class="code-container">
+  <div class="code-header">{filename}</div>
+  <pre><code id="code" class="language-html"></code></pre>
+</div>
+<slot></slot>
+
+<script>
+  const codeElement = this.querySelector("pre code");
+
+  const innerRe = /(?<=<template\b[^>]*>)[\s\S]*?(?=<\/template>)/gi;
+  const html = this.innerHTML.match(innerRe);
+  codeElement.textContent = html;
+  hljs.highlightElement(codeElement);
+
+  const slotEl = this.querySelector("slot");
+  if (slotEl) slotEl.remove();
+</script>
