@@ -624,7 +624,7 @@ export const defineWebComponent = (component, useShadowDOM) => {
       const varDeclRegex =
         /\b(const|let|var)\s+([a-zA-Z_$][0-9a-zA-Z_$]*)\s*=/g;
       while ((match = varDeclRegex.exec(srcText)) !== null) {
-        declaredIdentifiers.add(match[2]); // Group 2 is the identifier name
+        declaredIdentifiers.add(match[2]);
       }
 
       let assignments = "";
@@ -632,13 +632,10 @@ export const defineWebComponent = (component, useShadowDOM) => {
         assignments =
           "\n\n// --- Auto-processed by LadrillosJS Framework ---\n";
         declaredIdentifiers.forEach((name) => {
-          // Process only identifiers that are bound (used in template or event handlers)
           assignments += `if (this._isBound('${name}')) {\n`;
           assignments += `  if (typeof ${name} === 'function') {\n`;
           assignments += `    try { this.${name} = ${name}; } catch(e) { console.warn('LadrillosJS: Failed to assign function ${name} to component context.', e); }\n`;
           assignments += `  } else if (typeof ${name} !== 'undefined' && typeof this.state.${name} === 'undefined') {\n`;
-          // Initialize state if it's a non-function, bound, defined in script, and not already in state
-          // This assignment will trigger the state proxy and a re-render.
           assignments += `    try { this.state.${name} = ${name}; } catch(e) { console.warn('LadrillosJS: Failed to initialize state for ${name} from script.', e); }\n`;
           assignments += `  }\n`;
           assignments += `}\n`;
@@ -649,14 +646,9 @@ export const defineWebComponent = (component, useShadowDOM) => {
 
       try {
         new Function(scriptToExecute).call(this);
-        // Note: Explicit this._render() call is not needed here because assignments to
-        // this.state (e.g., this.state.name = name) will be caught by the Proxy,
-        // which already triggers this._render().
       } catch (e) {
-        // Log the error and the script that was attempted
         logger.error("Error executing component script:", e);
         console.error(
-          // Use console.error for better visibility of the script in dev tools
           "LadrillosJS: Error executing component script. Processed script was:\n---\n" +
             scriptToExecute +
             "\n---\nError details:",
