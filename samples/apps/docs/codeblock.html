@@ -46,6 +46,7 @@
     overflow: auto;
   }
 </style>
+
 <div class="code-container">
   <div class="code-header">
     {filename}
@@ -53,15 +54,20 @@
   </div>
   <pre><code id="code" class="language-html"></code></pre>
 </div>
+
 <slot></slot>
 
 <script>
   const codeElement = this.querySelector("pre code");
+  const innerRe = /(?<=<template\b[^>]*>)[\s\S]*?(?=<\/template>)/gi;
+  const html = this.innerHTML.match(innerRe);
+  codeElement.textContent = html;
+  hljs.highlightElement(codeElement);
+
+  const slotEl = this.querySelector("slot");
+  if (slotEl) slotEl.remove();
 
   const copyCode = () => {
-    const innerRe = /(?<=<template\b[^>]*>)[\s\S]*?(?=<\/template>)/gi;
-    const html = this.innerHTML.match(innerRe);
-
     if (navigator.clipboard && navigator.clipboard.writeText) {
       return navigator.clipboard
         .writeText(html)
@@ -89,12 +95,4 @@
 
     document.body.removeChild(textarea);
   };
-
-  const innerRe = /(?<=<template\b[^>]*>)[\s\S]*?(?=<\/template>)/gi;
-  const html = this.innerHTML.match(innerRe);
-  codeElement.textContent = html;
-  hljs.highlightElement(codeElement);
-
-  const slotEl = this.querySelector("slot");
-  if (slotEl) slotEl.remove();
 </script>
