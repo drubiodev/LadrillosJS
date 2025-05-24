@@ -4,6 +4,7 @@
   <div class="slides">
     <intro-slide class="slide" data-if="currentSlide === 0"></intro-slide>
     <code-slide class="slide" data-if="currentSlide === 1"></code-slide>
+    <social-slide class="slide" data-if="currentSlide === 2"></social-slide>
   </div>
 
   <button class="prev" onclick="prevSlide" aria-label="Previous slide">
@@ -43,6 +44,10 @@
   registerComponents([
     { name: "intro-slide", path: "./src/components/slides/intro-slide.html" },
     { name: "code-slide", path: "./src/components/slides/code-slide.html" },
+    {
+      name: "social-slide",
+      path: "./src/components/slides/socials-slide.html",
+    },
   ]);
 </script>
 

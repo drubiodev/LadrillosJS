@@ -16,19 +16,8 @@
   height: 100%; /* Or a fixed height like 300px */
 }
 
-.slide h2 {
+.slide {
   color: #333;
-  margin-top: 0;
-  font-size: 2.2em;
-  font-weight: 600;
-  margin-bottom: 15px;
-}
-
-.slide p {
-  color: #555;
-  font-size: 1.1em;
-  line-height: 1.6;
-  max-width: 90%;
 }
 
 .slideshow button {
