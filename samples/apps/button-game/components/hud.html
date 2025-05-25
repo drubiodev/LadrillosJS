@@ -18,10 +18,10 @@
   Time: <span id="time">{time}</span>s | Score: <span id="score">{score}</span>
 </div>
 
-<button onclick="sayHi">emit</button>
+<button onclick="showResults">emit</button>
 
 <script>
-  const sayHi = () => {
+  const showResults = () => {
     this.emit("timeEnded");
   };
 </script>
