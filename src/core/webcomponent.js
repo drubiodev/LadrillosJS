@@ -734,7 +734,17 @@ export const defineWebComponent = (component, useShadowDOM) => {
     // e.g. {name} or onclick="handleClick"
     // or data-bind="name" or value="{name}"
     _isBound(varName) {
-      const inEvents = this._eventBindings.some((b) => b.key === varName);
+      const inEvents = this._eventBindings.some((b) => {
+        if (!b.key) return false;
+
+        if (b.key === varName) return true;
+
+        const functionCallMatch = b.key.match(
+          /^([a-zA-Z_$][0-9a-zA-Z_$]*)\s*\(/
+        );
+        return functionCallMatch && functionCallMatch[1] === varName;
+      });
+
       const inTemplates = this._bindings.some((b) =>
         Array.isArray(b) ? b.some((x) => x.key === varName) : b.key === varName
       );
