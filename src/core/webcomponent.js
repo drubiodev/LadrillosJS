@@ -214,7 +214,54 @@ export const defineWebComponent = (component, useShadowDOM) => {
           else if (code.includes("(") && code.includes(")")) {
             listener = (event) => {
               try {
-                new Function("event", code).call(this, event);
+                // Parse function call to extract name and arguments
+                const match = code.match(
+                  /^([a-zA-Z_$][0-9a-zA-Z_$]*)\s*\((.*)\)$/
+                );
+
+                if (match) {
+                  const [, funcName, argsString] = match;
+
+                  // Check if function exists in component context
+                  const fn = this[funcName] || this.state[funcName];
+
+                  if (typeof fn === "function") {
+                    // Parse arguments safely
+                    let args = [];
+                    if (argsString.trim()) {
+                      try {
+                        // Create a function that returns the arguments as an array
+                        args = new Function(
+                          "event",
+                          `return [${argsString}]`
+                        ).call(this, event);
+                      } catch (e) {
+                        logger.error(
+                          `Error parsing arguments for ${funcName}:`,
+                          e
+                        );
+                        args = [];
+                      }
+                    }
+
+                    // Call the function with parsed arguments
+                    return fn.apply(this, args);
+                  } else {
+                    logger.warn(
+                      `Function "${funcName}" not found in component context. Available functions:`,
+                      Object.keys(this)
+                        .filter((k) => typeof this[k] === "function")
+                        .concat(
+                          Object.keys(this.state).filter(
+                            (k) => typeof this.state[k] === "function"
+                          )
+                        )
+                    );
+                  }
+                } else {
+                  // Fallback for other expressions (like alert('hello'))
+                  new Function("event", code).call(this, event);
+                }
               } catch (e) {
                 logger.error(
                   `Error executing inline event handler: ${code}`,
