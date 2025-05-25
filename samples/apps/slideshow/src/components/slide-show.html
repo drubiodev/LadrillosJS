@@ -4,7 +4,11 @@
   <div class="slides">
     <intro-slide class="slide" data-if="currentSlide === 0"></intro-slide>
     <code-slide class="slide" data-if="currentSlide === 1"></code-slide>
-    <social-slide class="slide" data-if="currentSlide === 2"></social-slide>
+    <getting-started-1
+      class="slide"
+      data-if="currentSlide === 2"
+    ></getting-started-1>
+    <social-slide class="slide" data-if="currentSlide === 3"></social-slide>
   </div>
 
   <button class="prev" onclick="prevSlide" aria-label="Previous slide">
@@ -47,6 +51,10 @@
     {
       name: "social-slide",
       path: "./src/components/slides/socials-slide.html",
+    },
+    {
+      name: "getting-started-1",
+      path: "./src/components/slides/getting-started-slide-1.html",
     },
   ]);
 </script>

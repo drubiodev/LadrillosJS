@@ -1,4 +1,4 @@
-const totalSlides = 3;
+const totalSlides = 4;
 
 this.setState({
   currentSlide: 2,

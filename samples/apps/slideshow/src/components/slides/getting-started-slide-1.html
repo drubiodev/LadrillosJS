@@ -1,0 +1,34 @@
+<h1>Registering your first component</h1>
+
+<div class="wrapper">
+  <section>
+    <code-block filename="index.html">
+      <template>
+        <script src="https://cdn.jsdelivr.net/npm/ladrillosjs"></script>
+        <script>
+          ladrillosjs.registerComponent("mood-tracker", "./mood-tracker.html");
+        </script>
+
+        // use component
+        <mood-tracker></mood-tracker>
+      </template>
+    </code-block>
+    <mood-tracker></mood-tracker>
+  </section>
+</div>
+
+<script type="module">
+  import { registerComponent } from "ladrillosjs";
+  registerComponent("code-block", "./src/components/codeblock.html");
+  registerComponent("mood-tracker", "./src/components/mood-tracker.html");
+</script>
+<style>
+  h1 {
+    border-left: 5px solid var(--main-color);
+    padding-left: 1rem;
+  }
+  .wrapper {
+    display: flex;
+    justify-content: space-evenly;
+  }
+</style>
