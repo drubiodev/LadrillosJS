@@ -88,7 +88,7 @@
       hud.setAttribute("time", timeLeft);
       hud.setAttribute("score", score);
 
-      hud.addEventListener("timeEnded", ({ detail }) => {
+      document.addEventListener("timeEnded", ({ detail }) => {
         alert(JSON.stringify(detail));
       });
 

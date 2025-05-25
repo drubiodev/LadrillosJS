@@ -1,12 +1,7 @@
-import { registerComponent } from "../../../src/index.js";
+import { registerComponent } from "ladrillosjs";
 registerComponent("card-component", "card.html");
 
 const url = "https://api.sampleapis.com/beers/ale";
-
-document.head.insertAdjacentHTML(
-  "beforeend",
-  '<link rel="preconnect" href="https://api.sampleapis.com" crossorigin>'
-);
 
 async function callAPI() {
   const response = await fetch(url);
@@ -40,6 +35,7 @@ function checkImage(url, callback) {
 
 export default function () {
   this.setState({ beers: "loading..." });
+
   callAPI().then((beers) => {
     const cardsHtml = beers
       .map((item) => {
