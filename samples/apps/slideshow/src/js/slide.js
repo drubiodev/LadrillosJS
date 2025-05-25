@@ -1,7 +1,7 @@
 const totalSlides = 4;
 
 this.setState({
-  currentSlide: 2,
+  currentSlide: 0,
 });
 
 const nextSlide = () => {
