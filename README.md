@@ -291,10 +291,17 @@ Show/hide elements based on state:
   <button data-if="!isLoggedIn" onclick="login">Login</button>
   <button data-else onclick="logout">Logout</button>
 </div>
-
 <script>
-  let items = [];
-  let isLoggedIn = false;
+  const items = ["apple", "banana", "orange"];
+  const isLoggedIn = false;
+
+  function login() {
+    this.state.isLoggedIn = true;
+  }
+
+  function logout() {
+    this.state.isLoggedIn = false;
+  }
 </script>
 ```
 

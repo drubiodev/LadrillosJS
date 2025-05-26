@@ -758,7 +758,18 @@ export const defineWebComponent = (component, useShadowDOM) => {
         }
       });
 
-      return inEvents || inTemplates;
+      // Check conditionals for variable usage
+      const inConditionals = this._conditionals.some((group) =>
+        group.some(({ expr }) => {
+          if (!expr) return false;
+          // Check if the variable name appears in the expression
+          // This regex looks for the variable as a whole word
+          const regex = new RegExp(`\\b${varName}\\b`);
+          return regex.test(expr);
+        })
+      );
+
+      return inEvents || inTemplates || inConditionals;
     }
 
     // --- public APIs
