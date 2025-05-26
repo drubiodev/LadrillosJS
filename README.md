@@ -205,10 +205,7 @@ Multiple ways to handle events:
 
 ```html
 <!-- Method reference -->
-<button onclick="handleClick">Click me</button>
-
-<!-- Inline expression -->
-<button onclick="this.state.count++">Increment</button>
+<button onclick="handleClick">Click me: {count}</button>
 
 <!-- Function with arguments -->
 <button onclick="addItem('Hello', 123)">Add Item</button>
@@ -217,12 +214,17 @@ Multiple ways to handle events:
 <button onclick="(e) => console.log(e.target)">Log Target</button>
 
 <script>
+  const count = 0;
+  this.setState({ items: [] });
+
   const handleClick = (event) => {
     console.log("Clicked!", event);
+    this.state.count++;
   };
 
   const addItem = (name, value) => {
-    this.state.items = [...this.state.items, { name, value }];
+    this.setState({ items: [...this.state.items, { name, value }] });
+    console.log(this.state.items);
   };
 </script>
 ```
