@@ -630,6 +630,7 @@ export const defineWebComponent = (component, useShadowDOM) => {
     // e.g. {name} => "John Doe"
     _renderTemplate(template, data) {
       return template.replace(/\{\s*([-\w.]+)\s*}/g, (_, key) => {
+        // Use the key to look up the value in state, supporting nested paths
         let value = key
           .split(".")
           .reduce((acc, prop) => acc?.[prop], this.state);
@@ -745,9 +746,17 @@ export const defineWebComponent = (component, useShadowDOM) => {
         return functionCallMatch && functionCallMatch[1] === varName;
       });
 
-      const inTemplates = this._bindings.some((b) =>
-        Array.isArray(b) ? b.some((x) => x.key === varName) : b.key === varName
-      );
+      const inTemplates = this._bindings.some((b) => {
+        if (Array.isArray(b)) {
+          return b.some((x) => {
+            // Check if varName is used directly or as root of a nested path
+            return x.key === varName || x.key.startsWith(varName + ".");
+          });
+        } else {
+          // Check if varName is used directly or as root of a nested path
+          return b.key === varName || b.key.startsWith(varName + ".");
+        }
+      });
 
       return inEvents || inTemplates;
     }
