@@ -22,15 +22,13 @@
     // Clear previous timer
     clearInterval(timer);
 
-    this.setState({
-      mood: newMood,
-      color: newColor,
-      seconds: 0,
-    });
+    mood = newMood;
+    color = newColor;
+    seconds = 0;
 
     // Start counting
     timer = setInterval(() => {
-      this.state.seconds++;
+      seconds++;
     }, 1000);
   };
 </script>

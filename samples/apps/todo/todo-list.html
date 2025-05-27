@@ -81,12 +81,12 @@
   };
 
   const addTodo = () => {
-    let text = this.state.text.trim();
+    let text = text.trim();
     if (!text) return;
 
     const todoItem = document.createElement("todo-item");
     todoItem.setAttribute("text", text);
     this.appendChild(todoItem);
-    this.setState({ text: "" });
+    text = ""; // Clear input after adding
   };
 </script>
