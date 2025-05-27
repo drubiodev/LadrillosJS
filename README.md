@@ -105,8 +105,8 @@ Create `hello-world.html`:
 
   // Event handler
   const greet = () => {
-    this.state.count++;
-    this.state.name = prompt("What's your name?") || "World";
+    count++;
+    name = prompt("What's your name?") || "World";
   };
 </script>
 
@@ -185,16 +185,17 @@ Components have reactive state that automatically triggers re-renders:
 </div>
 
 <script>
+  const date = new Date(Date.now());
+  const formattedDate = date.toLocaleDateString("en-US"); // Format: MM/DD/YYYY
   // Initial state
   let score = 0;
-  let user = { name: "Player 1" };
+  let user = {
+    name: "Player 1",
+  };
 
   const updateScore = () => {
     // Update state and trigger re-render
-    this.setState({
-      score: this.state.score + 1,
-      user: { ...this.state.user, lastPlayed: Date.now() },
-    });
+    score++;
   };
 </script>
 ```
@@ -219,60 +220,13 @@ Multiple ways to handle events:
 
   const handleClick = (event) => {
     console.log("Clicked!", event);
-    this.state.count++;
+    count++;
   };
 
   const addItem = (name, value) => {
     this.setState({ items: [...this.state.items, { name, value }] });
-    console.log(this.state.items);
   };
 </script>
-```
-
-### Data Binding
-
-#### Template Bindings
-
-Use `{}` to bind state values in templates:
-
-```html
-<div>
-  <h1>{title}</h1>
-  <p>{user.bio}</p>
-  <img src="{user.avatar}" alt="{user.name}" />
-  <span class="status-{status}">{statusText}</span>
-</div>
-```
-
-#### Two-Way Data Binding
-
-Use `data-bind` for automatic two-way binding:
-
-```html
-<form>
-  <input type="text" data-bind="user.name" placeholder="Name" />
-  <input type="email" data-bind="user.email" placeholder="Email" />
-  <textarea data-bind="user.bio" placeholder="Bio"></textarea>
-
-  <!-- Works with contenteditable -->
-  <div contenteditable="true" data-bind="content"></div>
-
-  <button onclick="save">Save</button>
-</form>
-
-<script>
-  const save = () => {
-    console.log("Saving:", this.state.user);
-    // State is automatically synced with form inputs
-  };
-</script>
-```
-
-### Conditional Rendering
-
-Show/hide elements based on state:
-
-```html
 <div>
   <h1>Shopping Cart ({items.length} items)</h1>
 
@@ -296,11 +250,11 @@ Show/hide elements based on state:
   const isLoggedIn = false;
 
   function login() {
-    this.state.isLoggedIn = true;
+    isLoggedIn = true;
   }
 
   function logout() {
-    this.state.isLoggedIn = false;
+    isLoggedIn = false;
   }
 </script>
 ```
