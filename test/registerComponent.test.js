@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { ladrillos } from "../src/core/main.js";
+import { registerComponent } from "ladrillosjs";
 
 describe("Ladrillos core", () => {
   beforeEach(() => {
@@ -17,7 +17,7 @@ describe("Ladrillos core", () => {
     );
 
     const tag = `test-comp-${Date.now()}`;
-    await ladrillos.registerComponent(tag, "/test.html");
+    await registerComponent(tag, "/test.html");
     expect(customElements.get(tag)).toBeDefined();
   });
 
@@ -30,8 +30,8 @@ describe("Ladrillos core", () => {
     vi.stubGlobal("fetch", mockFetch);
 
     const tag = `cache-${Date.now()}`;
-    await ladrillos.registerComponent(tag, "/cache.html");
-    await ladrillos.registerComponent(tag, "/cache.html");
+    await registerComponent(tag, "/cache.html");
+    await registerComponent(tag, "/cache.html");
     expect(mockFetch).toHaveBeenCalledTimes(1);
   });
 });
