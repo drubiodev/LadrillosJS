@@ -670,6 +670,75 @@ export const defineWebComponent = (component, useShadowDOM) => {
       const boundVariables = new Set();
       const stateVariables = new Set();
 
+      // Helper function to check if a position is inside a string literal
+      const isInsideString = (text, position) => {
+        let inSingleQuote = false;
+        let inDoubleQuote = false;
+        let inTemplateLiteral = false;
+        let isEscaped = false;
+
+        for (let i = 0; i < position; i++) {
+          const char = text[i];
+          if (isEscaped) {
+            isEscaped = false;
+            continue;
+          }
+          if (char === "\\") {
+            isEscaped = true;
+            continue;
+          }
+          // Only toggle if not within other quote types for simplicity,
+          // assuming non-nested differing quotes for this check.
+          if (char === "'" && !inDoubleQuote && !inTemplateLiteral) {
+            inSingleQuote = !inSingleQuote;
+          } else if (char === '"' && !inSingleQuote && !inTemplateLiteral) {
+            inDoubleQuote = !inDoubleQuote;
+          } else if (char === "`" && !inSingleQuote && !inDoubleQuote) {
+            // Basic template literal check, doesn't handle nested expressions within templates perfectly for this context.
+            inTemplateLiteral = !inTemplateLiteral;
+          }
+        }
+        return inSingleQuote || inDoubleQuote || inTemplateLiteral;
+      };
+
+      // Helper function for context-aware replacement
+      const replaceWithContext = (currentText, regex, replacerCallback) => {
+        let newText = currentText;
+        const matches = [];
+        let matchResult;
+
+        // Reset regex state for global regexes before each new pass
+        regex.lastIndex = 0;
+
+        while ((matchResult = regex.exec(newText)) !== null) {
+          matches.push({
+            index: matchResult.index,
+            length: matchResult[0].length,
+            originalContent: matchResult[0],
+            groups: matchResult.slice(1), // Capture groups
+          });
+        }
+
+        // Iterate backwards to avoid index shifting issues during replacement
+        for (let i = matches.length - 1; i >= 0; i--) {
+          const m = matches[i];
+          if (!isInsideString(newText, m.index)) {
+            // Pass original match, capture groups, index, and the current state of newText
+            const replacement = replacerCallback(
+              m.originalContent,
+              ...m.groups,
+              m.index,
+              newText
+            );
+            newText =
+              newText.substring(0, m.index) +
+              replacement +
+              newText.substring(m.index + m.length);
+          }
+        }
+        return newText;
+      };
+
       // Collect variables that are already in state (from attributes)
       Object.keys(this.state).forEach((key) => {
         if (this._isBound(key)) {
@@ -685,8 +754,6 @@ export const defineWebComponent = (component, useShadowDOM) => {
       }
 
       // Regex for: const/let/var identifier = ...
-      // This will catch both function assignments (const foo = () => {})
-      // and simple variable assignments (const bar = 123;).
       const varDeclRegex =
         /\b(const|let|var)\s+([a-zA-Z_$][0-9a-zA-Z_$]*)\s*=/g;
       while ((match = varDeclRegex.exec(srcText)) !== null) {
@@ -696,7 +763,6 @@ export const defineWebComponent = (component, useShadowDOM) => {
       // Check which variables are bound (non-functions)
       declaredIdentifiers.forEach((name) => {
         if (this._isBound(name)) {
-          // Check if it's likely a variable (not a function)
           const funcPattern = new RegExp(
             `\\b${name}\\s*=\\s*(?:function|\\([^)]*\\)\\s*=>|[^=]+=>)`,
             "g"
@@ -711,81 +777,87 @@ export const defineWebComponent = (component, useShadowDOM) => {
         }
       });
 
-      // Transform the source text to replace direct variable operations with this.state operations
       let transformedSrc = srcText;
+      const allStateVarsToTransform = new Set([
+        ...boundVariables,
+        ...stateVariables,
+      ]);
 
-      // Combine all variables that need state transformation
-      const allStateVariables = new Set([...boundVariables, ...stateVariables]);
-
-      // Transform increment/decrement operations for all state variables
-      allStateVariables.forEach((varName) => {
-        // Skip if it's a declared identifier in this script
-        if (declaredIdentifiers.has(varName) && !boundVariables.has(varName)) {
-          return;
-        }
-
+      allStateVarsToTransform.forEach((varName) => {
         // Pre-increment/decrement: ++varName, --varName
-        transformedSrc = transformedSrc.replace(
-          new RegExp(`\\b(\\+\\+|\\-\\-)\\s*${varName}\\b`, "g"),
-          `$1this.state.${varName}`
+        // Added (^|\\W) to ensure varName is a whole word, not part of another.
+        transformedSrc = replaceWithContext(
+          transformedSrc,
+          new RegExp(`(^|\\W)(\\+\\+|\\-\\-)\\s*${varName}\\b`, "g"),
+          (original, prefix, op) => `${prefix}${op}this.state.${varName}`
         );
 
         // Post-increment/decrement: varName++, varName--
-        transformedSrc = transformedSrc.replace(
-          new RegExp(`\\b${varName}\\s*(\\+\\+|\\-\\-)`, "g"),
-          `this.state.${varName}$1`
+        transformedSrc = replaceWithContext(
+          transformedSrc,
+          new RegExp(`\\b${varName}\\s*(\\+\\+|\\-\\-)(?!\\.)`, "g"), // (?!\\.) to avoid issues if varName itself could be part of obj.prop++
+          (original, op) => `this.state.${varName}${op}`
         );
 
-        // Compound assignments: +=, -=, *=, /=, etc.
-        transformedSrc = transformedSrc.replace(
-          new RegExp(`\\b${varName}\\s*([+\\-*/%&|^]|<<|>>|>>>)?=(?!=)`, "g"),
-          (match, op, offset) => {
-            // Check if this is part of a declaration
-            const lineStart = transformedSrc.lastIndexOf("\n", offset) + 1;
-            const beforeMatch = transformedSrc.substring(lineStart, offset);
-            if (/\b(?:const|let|var)\s+$/.test(beforeMatch)) {
-              return match; // This is the declaration, don't transform
+        // Compound assignments: varName += value, etc.
+        // Using (^|\\W) to ensure varName is standalone.
+        transformedSrc = replaceWithContext(
+          transformedSrc,
+          new RegExp(
+            `(^|\\W)${varName}\\s*([+\\-*/%&|^]|<<|>>|>>>)?=(?!=)`,
+            "g"
+          ),
+          (original, prefix, opStr, index, currentFullText) => {
+            const effectiveMatchStart = index + prefix.length;
+            let lookbehind = currentFullText.substring(
+              Math.max(0, effectiveMatchStart - 10),
+              effectiveMatchStart
+            );
+            if (/\b(const|let|var)\s+$/.test(lookbehind)) {
+              return original;
             }
-            return `this.state.${varName} ${op || ""}=`;
+            return `${prefix}this.state.${varName} ${opStr || ""}=`;
           }
         );
 
         // References in expressions (but not on left side of assignment and not in declarations)
+        // This is your existing complex regex and callback, now wrapped.
         const referenceRegex = new RegExp(
-          `\\b${varName}\\b(?!\\s*[+\\-*/%&|^]?=)`,
+          `\\b${varName}\\b(?!\\s*[+\\-*/%&|^]?=)`, // Your original regex for this part
           "g"
         );
-        transformedSrc = transformedSrc.replace(
+        transformedSrc = replaceWithContext(
+          transformedSrc,
           referenceRegex,
-          (match, offset) => {
+          // This is your existing callback logic for referenceRegex
+          (originalMatch, index, currentFullText) => {
             // Check if this is already part of this.state.varName
-            const before = transformedSrc.substring(
-              Math.max(0, offset - 11),
-              offset
+            const before = currentFullText.substring(
+              Math.max(0, index - 11),
+              index
             );
             if (before.endsWith("this.state.")) {
-              return match; // Already transformed
+              return originalMatch; // Already transformed
             }
 
             // Check if this is part of a class declaration
-            const classBefore = transformedSrc.substring(
-              Math.max(0, offset - 10),
-              offset
+            const classBefore = currentFullText.substring(
+              Math.max(0, index - 10),
+              index
             );
             if (/\bclass\s+$/.test(classBefore)) {
-              return match; // This is a class name, don't transform
+              return originalMatch;
             }
 
             // Check if this is after 'extends' keyword
-            const extendsBefore = transformedSrc.substring(
-              Math.max(0, offset - 20),
-              offset
+            const extendsBefore = currentFullText.substring(
+              Math.max(0, index - 20),
+              index
             );
             if (/\bextends\s+$/.test(extendsBefore)) {
-              return match; // This is after extends, don't transform
+              return originalMatch;
             }
 
-            // Check if this matches a JavaScript keyword
             const jsKeywords = [
               "break",
               "case",
@@ -822,46 +894,55 @@ export const defineWebComponent = (component, useShadowDOM) => {
               "with",
               "yield",
             ];
-            if (jsKeywords.includes(match)) {
-              return match; // This is a keyword, don't transform
+            if (jsKeywords.includes(originalMatch)) {
+              return originalMatch;
             }
 
-            // Check if this is inside a property access (like this.state["data-note"])
-            // Look for patterns like .state[" or state[" or state['
-            const contextBefore = transformedSrc.substring(
-              Math.max(0, offset - 20),
-              offset
+            const contextBefore = currentFullText.substring(
+              Math.max(0, index - 20),
+              index
             );
-            const contextAfter = transformedSrc.substring(
-              offset + match.length,
-              Math.min(transformedSrc.length, offset + match.length + 10)
+            const contextAfter = currentFullText.substring(
+              index + originalMatch.length,
+              Math.min(
+                currentFullText.length,
+                index + originalMatch.length + 10
+              )
             );
 
-            // Don't transform if this appears to be inside a string literal
             if (
               /\.state\[['"]\s*$/.test(contextBefore) ||
               /state\[['"]\s*$/.test(contextBefore) ||
-              /^\s*-/.test(contextAfter)
+              /^\s*-/.test(contextAfter) // Example: data-test-id
             ) {
-              return match;
+              return originalMatch;
             }
 
-            // Check if this is after a closing bracket followed by a dot (like ["data-item"].image)
-            // Look backwards for patterns like ].varName or "].varName
-            const extendedBefore = transformedSrc.substring(
-              Math.max(0, offset - 50),
-              offset
+            const extendedBefore = currentFullText.substring(
+              Math.max(0, index - 50),
+              index
             );
             if (/\]\s*\.\s*$/.test(extendedBefore)) {
-              return match; // This is a property access after bracket notation
+              return originalMatch;
             }
 
-            // Check if it's in a declaration
-            const lineStart = transformedSrc.lastIndexOf("\n", offset) + 1;
-            const beforeMatch = transformedSrc.substring(lineStart, offset);
-            if (/\b(?:const|let|var)\s+$/.test(beforeMatch)) {
-              return match; // This is the declaration, don't transform
+            const lineStart = currentFullText.lastIndexOf("\n", index) + 1;
+            const beforeMatchText = currentFullText.substring(lineStart, index);
+            if (/\b(?:const|let|var)\s+$/.test(beforeMatchText)) {
+              return originalMatch; // This is the declaration name itself
             }
+            // Ensure it's not a property access like obj.varName
+            if (index > 0 && currentFullText[index - 1] === ".") {
+              return originalMatch;
+            }
+            // Ensure it's not a function call varName()
+            let k = index + originalMatch.length;
+            while (k < currentFullText.length && /\s/.test(currentFullText[k]))
+              k++;
+            if (k < currentFullText.length && currentFullText[k] === "(") {
+              return originalMatch;
+            }
+
             return `this.state.${varName}`;
           }
         );
@@ -875,15 +956,16 @@ export const defineWebComponent = (component, useShadowDOM) => {
           assignments += `if (this._isBound('${name}')) {\n`;
           assignments += `  if (typeof ${name} === 'function') {\n`;
           assignments += `    try { this.${name} = ${name}; } catch(e) { console.warn('LadrillosJS: Failed to assign function ${name} to component context.', e); }\n`;
-          assignments += `  } else if (typeof ${name} !== 'undefined' && typeof this.state.${name} === 'undefined') {\n`;
-          assignments += `    try { this.state.${name} = ${name}; } catch(e) { console.warn('LadrillosJS: Failed to initialize state for ${name} from script.', e); }\n`;
+          assignments += ` } else if (typeof ${name} !== 'undefined' && ${boundVariables.has(
+            name
+          )}) {\n`;
+          assignments += `    if(typeof this.state.${name} === 'undefined') { try { this.state.${name} = ${name}; } catch(e) { console.warn('LadrillosJS: Failed to initialize state for ${name} from script.', e); } }\n`;
           assignments += `  }\n`;
           assignments += `}\n`;
         });
       }
 
       const scriptToExecute = transformedSrc + assignments;
-
       try {
         new Function(scriptToExecute).call(this);
       } catch (e) {
@@ -896,7 +978,6 @@ export const defineWebComponent = (component, useShadowDOM) => {
         );
       }
     }
-
     // evaluates the expression in the context of the component
     // and returns the result. If it fails, it tries to find the last arrow body
     _evalExpression(expr, fullText, arrowRe, name) {
