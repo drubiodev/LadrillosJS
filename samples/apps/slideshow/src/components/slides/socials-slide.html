@@ -21,6 +21,48 @@
     height: auto;
   }
 
+  .npm-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.75rem;
+    margin: 1rem 0;
+  }
+
+  .npm-label {
+    font-size: 1.2rem;
+    color: #666;
+    font-weight: 500;
+  }
+
+  .npm-command {
+    display: inline-flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem 2rem;
+    background: #f5f5f5;
+    border: 2px solid #e0e0e0;
+    border-radius: 12px;
+    font-family: "Consolas", "Monaco", "Courier New", monospace;
+    font-size: 1.4rem;
+    color: #333;
+    position: relative;
+    transition: all 0.3s ease;
+  }
+
+  .npm-command:hover {
+    background: #fff;
+    border-color: #cb3837;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  }
+
+  .npm-command::before {
+    content: "$";
+    color: #cb3837;
+    font-weight: bold;
+    margin-right: 0.5rem;
+  }
+
   .social-links {
     display: flex;
     flex-direction: column;
@@ -65,6 +107,11 @@
 <div class="container">
   <div class="qr-section">
     <img src="./src/assets/ladrillosqrcode.svg" alt="LadrillosJS QR Code" />
+  </div>
+
+  <div class="npm-section">
+    <div class="npm-label">Get started with</div>
+    <div class="npm-command">npm install ladrillosjs</div>
   </div>
 
   <div class="social-links">
