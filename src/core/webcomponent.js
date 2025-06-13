@@ -659,16 +659,26 @@ export const defineWebComponent = (component, useShadowDOM) => {
     /**
      * 1. Identifies top-level function declarations (e.g., `function foo(){}` or `const foo = ()=>{}`).
      * 2. Identifies top-level variable declarations (e.g., `const bar = 123;`).
-     * 3. Transforms increment/decrement operations on bound variables to use this.state
-     * 4. Transforms references to attribute-based state variables
-     * 5. Appends assignments to `this` for bound functions (e.g., `this.foo = foo;`).
-     * 6. Appends initialization for `this.state` for bound variables if not already set in state (e.g., `if(typeof this.state.bar === 'undefined') this.state.bar = bar;`).
-     * 7. Executes the combined script in the component's context (`this`).
+     * 3. Renames function parameters that conflict with bound variables to avoid shadowing.
+     * 4. Transforms increment/decrement operations on bound variables to use this.state
+     * 5. Transforms references to attribute-based state variables
+     * 6. Replaces renamed parameter references with unique names
+     * 7. Appends assignments to `this` for bound functions (e.g., `this.foo = foo;`).
+     * 8. Appends initialization for `this.state` for bound variables if not already set in state (e.g., `if(typeof this.state.bar === 'undefined') this.state.bar = bar;`).
+     * 9. Executes the combined script in the component's context (`this`).
      */
     _processScriptText(srcText) {
       const declaredIdentifiers = new Set();
       const boundVariables = new Set();
       const stateVariables = new Set();
+      const parameterRenames = new Map(); // Track parameter renames
+
+      // Helper function to generate unique parameter names
+      const generateUniqueParamName = (originalName) => {
+        return `__param_${originalName}_${Math.random()
+          .toString(36)
+          .substr(2, 9)}`;
+      };
 
       // Helper function to check if a position is inside a string literal
       const isInsideString = (text, position) => {
@@ -687,14 +697,11 @@ export const defineWebComponent = (component, useShadowDOM) => {
             isEscaped = true;
             continue;
           }
-          // Only toggle if not within other quote types for simplicity,
-          // assuming non-nested differing quotes for this check.
           if (char === "'" && !inDoubleQuote && !inTemplateLiteral) {
             inSingleQuote = !inSingleQuote;
           } else if (char === '"' && !inSingleQuote && !inTemplateLiteral) {
             inDoubleQuote = !inDoubleQuote;
           } else if (char === "`" && !inSingleQuote && !inDoubleQuote) {
-            // Basic template literal check, doesn't handle nested expressions within templates perfectly for this context.
             inTemplateLiteral = !inTemplateLiteral;
           }
         }
@@ -707,7 +714,6 @@ export const defineWebComponent = (component, useShadowDOM) => {
         const matches = [];
         let matchResult;
 
-        // Reset regex state for global regexes before each new pass
         regex.lastIndex = 0;
 
         while ((matchResult = regex.exec(newText)) !== null) {
@@ -715,15 +721,13 @@ export const defineWebComponent = (component, useShadowDOM) => {
             index: matchResult.index,
             length: matchResult[0].length,
             originalContent: matchResult[0],
-            groups: matchResult.slice(1), // Capture groups
+            groups: matchResult.slice(1),
           });
         }
 
-        // Iterate backwards to avoid index shifting issues during replacement
         for (let i = matches.length - 1; i >= 0; i--) {
           const m = matches[i];
           if (!isInsideString(newText, m.index)) {
-            // Pass original match, capture groups, index, and the current state of newText
             const replacement = replacerCallback(
               m.originalContent,
               ...m.groups,
@@ -746,14 +750,88 @@ export const defineWebComponent = (component, useShadowDOM) => {
         }
       });
 
-      // Regex for: function funcName(...)
+      // Step 1: Rename function parameters that conflict with bound variables
+      let transformedSrc = srcText;
+
+      // Find and rename conflicting parameters in arrow function declarations
+      const functionParamRegex =
+        /\b(function\s+\w+\s*|const\s+\w+\s*=\s*|let\s+\w+\s*=\s*|var\s+\w+\s*=\s*)*\(([^)]*)\)\s*=>/g;
+      transformedSrc = replaceWithContext(
+        transformedSrc,
+        functionParamRegex,
+        (original, funcDecl, params) => {
+          if (!params || !params.trim()) return original;
+
+          const paramList = params
+            .split(",")
+            .map((p) => p.trim())
+            .filter((p) => p);
+          let hasConflict = false;
+          const renamedParams = paramList.map((param) => {
+            // Handle destructuring and default parameters - extract just the param name
+            const paramName = param
+              .split("=")[0]
+              .trim()
+              .replace(/[{}[\]]/g, "");
+
+            if (this._isBound(paramName)) {
+              hasConflict = true;
+              const uniqueName = generateUniqueParamName(paramName);
+              parameterRenames.set(paramName, uniqueName);
+              return param.replace(paramName, uniqueName);
+            }
+            return param;
+          });
+
+          if (hasConflict) {
+            return original.replace(params, renamedParams.join(", "));
+          }
+          return original;
+        }
+      );
+
+      // Also handle regular function declarations
+      const regularFunctionRegex = /\bfunction\s+(\w+)\s*\(([^)]*)\)/g;
+      transformedSrc = replaceWithContext(
+        transformedSrc,
+        regularFunctionRegex,
+        (original, funcName, params) => {
+          if (!params || !params.trim()) return original;
+
+          const paramList = params
+            .split(",")
+            .map((p) => p.trim())
+            .filter((p) => p);
+          let hasConflict = false;
+          const renamedParams = paramList.map((param) => {
+            const paramName = param
+              .split("=")[0]
+              .trim()
+              .replace(/[{}[\]]/g, "");
+
+            if (this._isBound(paramName)) {
+              hasConflict = true;
+              const uniqueName = generateUniqueParamName(paramName);
+              parameterRenames.set(paramName, uniqueName);
+              return param.replace(paramName, uniqueName);
+            }
+            return param;
+          });
+
+          if (hasConflict) {
+            return original.replace(params, renamedParams.join(", "));
+          }
+          return original;
+        }
+      );
+
+      // Continue with variable declaration identification
       const classicFuncRegex = /\bfunction\s+([a-zA-Z_$][0-9a-zA-Z_$]*)\s*\(/g;
       let match;
       while ((match = classicFuncRegex.exec(srcText)) !== null) {
         declaredIdentifiers.add(match[1]);
       }
 
-      // Regex for: const/let/var identifier = ...
       const varDeclRegex =
         /\b(const|let|var)\s+([a-zA-Z_$][0-9a-zA-Z_$]*)\s*=/g;
       while ((match = varDeclRegex.exec(srcText)) !== null) {
@@ -777,15 +855,15 @@ export const defineWebComponent = (component, useShadowDOM) => {
         }
       });
 
-      let transformedSrc = srcText;
       const allStateVarsToTransform = new Set([
         ...boundVariables,
         ...stateVariables,
       ]);
 
+      // Step 2: Transform state variable references (but exclude renamed parameters)
+      // Step 2: Transform state variable references (including renamed parameters on left side)
       allStateVarsToTransform.forEach((varName) => {
         // Pre-increment/decrement: ++varName, --varName
-        // Added (^|\\W) to ensure varName is a whole word, not part of another.
         transformedSrc = replaceWithContext(
           transformedSrc,
           new RegExp(`(^|\\W)(\\+\\+|\\-\\-)\\s*${varName}\\b`, "g"),
@@ -795,12 +873,11 @@ export const defineWebComponent = (component, useShadowDOM) => {
         // Post-increment/decrement: varName++, varName--
         transformedSrc = replaceWithContext(
           transformedSrc,
-          new RegExp(`\\b${varName}\\s*(\\+\\+|\\-\\-)(?!\\.)`, "g"), // (?!\\.) to avoid issues if varName itself could be part of obj.prop++
+          new RegExp(`\\b${varName}\\s*(\\+\\+|\\-\\-)(?!\\.)`, "g"),
           (original, op) => `this.state.${varName}${op}`
         );
 
         // Compound assignments: varName += value, etc.
-        // Using (^|\\W) to ensure varName is standalone.
         transformedSrc = replaceWithContext(
           transformedSrc,
           new RegExp(
@@ -820,8 +897,7 @@ export const defineWebComponent = (component, useShadowDOM) => {
           }
         );
 
-        // References in expressions (but not on left side of assignment and not in declarations)
-        // This is your existing complex regex and callback, now wrapped.
+        // References in expressions - but ONLY transform left-hand side assignments if this was a renamed parameter
         const referenceRegex = new RegExp(
           `\\b${varName}\\b(?!\\s*[+\\-*/%&|^]?=)`,
           "g"
@@ -836,113 +912,29 @@ export const defineWebComponent = (component, useShadowDOM) => {
               index
             );
             if (before.endsWith("this.state.")) {
-              return originalMatch; // Already transformed
-            }
-
-            // *** IMPROVED: Check if this is inside function parameters ***
-            // More comprehensive function parameter detection
-            const checkIfInsideFunctionParams = (text, position) => {
-              // Look for the pattern: (...params...) before =>
-              // or function name(...params...)
-              // or (...params...) { (for function expressions)
-
-              let openParenPos = -1;
-              let closeParenPos = -1;
-              let parenDepth = 0;
-
-              // Find the enclosing parentheses
-              for (let i = position - 1; i >= 0; i--) {
-                const char = text[i];
-                if (char === ")") parenDepth++;
-                else if (char === "(") {
-                  if (parenDepth === 0) {
-                    openParenPos = i;
-                    break;
-                  }
-                  parenDepth--;
-                }
-              }
-
-              if (openParenPos === -1) return false;
-
-              // Find the matching closing parenthesis
-              parenDepth = 0;
-              for (let i = openParenPos; i < text.length; i++) {
-                const char = text[i];
-                if (char === "(") parenDepth++;
-                else if (char === ")") {
-                  parenDepth--;
-                  if (parenDepth === 0) {
-                    closeParenPos = i;
-                    break;
-                  }
-                }
-              }
-
-              if (
-                closeParenPos === -1 ||
-                position < openParenPos ||
-                position > closeParenPos
-              ) {
-                return false;
-              }
-
-              // Check what comes before the opening parenthesis
-              const beforeParen = text
-                .substring(Math.max(0, openParenPos - 50), openParenPos)
-                .trim();
-
-              // Check what comes after the closing parenthesis
-              const afterParen = text
-                .substring(
-                  closeParenPos + 1,
-                  Math.min(text.length, closeParenPos + 20)
-                )
-                .trim();
-
-              // Function declaration: function name(
-              if (/\bfunction\s+\w*\s*$/.test(beforeParen)) {
-                return true;
-              }
-
-              // Arrow function: = ( or const name = (
-              if (/[=:]\s*$/.test(beforeParen) && /^\s*=>/.test(afterParen)) {
-                return true;
-              }
-
-              // Method definition: methodName(
-              if (
-                /\w\s*$/.test(beforeParen) &&
-                /^\s*(\{|=>)/.test(afterParen)
-              ) {
-                return true;
-              }
-
-              return false;
-            };
-
-            if (checkIfInsideFunctionParams(currentFullText, index)) {
-              return originalMatch; // Don't transform function parameters
-            }
-
-            // Check if this is part of a class declaration
-            const classBefore = currentFullText.substring(
-              Math.max(0, index - 10),
-              index
-            );
-            if (/\bclass\s+$/.test(classBefore)) {
               return originalMatch;
             }
 
-            // Check if this is after 'extends' keyword
-            const extendsBefore = currentFullText.substring(
-              Math.max(0, index - 20),
-              index
-            );
-            if (/\bextends\s+$/.test(extendsBefore)) {
-              return originalMatch;
+            // *** SPECIAL CASE: If this variable was renamed as a parameter,
+            // only transform it if it's NOT a right-hand side reference ***
+            if (parameterRenames.has(varName)) {
+              // Check if this looks like a right-hand side usage
+              const beforeVar = currentFullText.substring(
+                Math.max(0, index - 50),
+                index
+              );
+
+              // If there's an assignment operator before this variable,
+              // and this variable is after the =, it's right-hand side
+              const assignmentMatch = beforeVar.match(
+                /([+\-*/%&|^]|<<|>>|>>>)?=\s*[^=]*$/
+              );
+              if (assignmentMatch) {
+                return originalMatch; // Don't transform right-hand side parameter references
+              }
             }
 
+            // Check for JavaScript keywords
             const jsKeywords = [
               "break",
               "case",
@@ -983,44 +975,16 @@ export const defineWebComponent = (component, useShadowDOM) => {
               return originalMatch;
             }
 
-            const contextBefore = currentFullText.substring(
-              Math.max(0, index - 20),
-              index
-            );
-            const contextAfter = currentFullText.substring(
-              index + originalMatch.length,
-              Math.min(
-                currentFullText.length,
-                index + originalMatch.length + 10
-              )
-            );
-
-            if (
-              /\.state\[['"]\s*$/.test(contextBefore) ||
-              /state\[['"]\s*$/.test(contextBefore) ||
-              /^\s*-/.test(contextAfter) // Example: data-test-id
-            ) {
-              return originalMatch;
-            }
-
-            const extendedBefore = currentFullText.substring(
-              Math.max(0, index - 50),
-              index
-            );
-            if (/\]\s*\.\s*$/.test(extendedBefore)) {
-              return originalMatch;
-            }
-
             const lineStart = currentFullText.lastIndexOf("\n", index) + 1;
             const beforeMatchText = currentFullText.substring(lineStart, index);
             if (/\b(?:const|let|var)\s+$/.test(beforeMatchText)) {
-              return originalMatch; // This is the declaration name itself
+              return originalMatch;
             }
-            // Ensure it's not a property access like obj.varName
+
             if (index > 0 && currentFullText[index - 1] === ".") {
               return originalMatch;
             }
-            // Ensure it's not a function call varName()
+
             let k = index + originalMatch.length;
             while (k < currentFullText.length && /\s/.test(currentFullText[k]))
               k++;
@@ -1033,6 +997,79 @@ export const defineWebComponent = (component, useShadowDOM) => {
         );
       });
 
+      // Step 3: Replace parameter references inside function bodies AFTER state transformations
+      parameterRenames.forEach((uniqueName, originalName) => {
+        // Only replace parameter references that are NOT being assigned to (right-hand side usage)
+        const paramRefRegex = new RegExp(`\\b${originalName}\\b`, "g");
+        transformedSrc = replaceWithContext(
+          transformedSrc,
+          paramRefRegex,
+          (match, index, currentFullText) => {
+            // Check if this is inside a function body where the parameter was renamed
+            const beforeMatch = currentFullText.substring(0, index);
+
+            // Look for the renamed parameter in a function signature before this point
+            if (beforeMatch.includes(uniqueName)) {
+              // Find the function body boundaries
+              let braceCount = 0;
+              let functionStart = -1;
+
+              // Find the start of the function containing this reference
+              for (let i = beforeMatch.length - 1; i >= 0; i--) {
+                if (beforeMatch[i] === "}") braceCount++;
+                else if (beforeMatch[i] === "{") {
+                  braceCount--;
+                  if (braceCount < 0) {
+                    functionStart = i;
+                    break;
+                  }
+                }
+              }
+
+              if (functionStart !== -1) {
+                // Check if the renamed parameter is in the signature before this function body
+                const beforeFunction = beforeMatch.substring(0, functionStart);
+                const recentSignature = beforeFunction.substring(
+                  Math.max(0, beforeFunction.lastIndexOf("(", functionStart))
+                );
+
+                if (recentSignature.includes(uniqueName)) {
+                  // Check if this variable is already transformed to this.state.varName
+                  const before = currentFullText.substring(
+                    Math.max(0, index - 11),
+                    index
+                  );
+
+                  // If it's already part of this.state.varName, don't replace
+                  if (before.endsWith("this.state.")) {
+                    return match;
+                  }
+
+                  // *** NEW: Check if this is the left-hand side of an assignment ***
+                  // Look at what comes after this variable
+                  const after = currentFullText.substring(
+                    index + match.length,
+                    Math.min(currentFullText.length, index + match.length + 20)
+                  );
+
+                  // If this is followed by an assignment operator, it's likely the left side
+                  // and should have been transformed to this.state.varName already
+                  if (/^\s*([+\-*/%&|^]|<<|>>|>>>)?=(?!=)/.test(after)) {
+                    return match; // Don't replace left-hand side assignments
+                  }
+
+                  // Only replace if this is a parameter reference (right-hand side usage)
+                  return uniqueName;
+                }
+              }
+            }
+
+            return match; // Keep original if not in the right context
+          }
+        );
+      });
+
+      // Step 4: Generate assignments for binding functions and variables to component context
       let assignments = "";
       if (declaredIdentifiers.size > 0) {
         assignments =
@@ -1063,6 +1100,7 @@ export const defineWebComponent = (component, useShadowDOM) => {
         );
       }
     }
+
     // evaluates the expression in the context of the component
     // and returns the result. If it fails, it tries to find the last arrow body
     _evalExpression(expr, fullText, arrowRe, name) {
