@@ -823,13 +823,12 @@ export const defineWebComponent = (component, useShadowDOM) => {
         // References in expressions (but not on left side of assignment and not in declarations)
         // This is your existing complex regex and callback, now wrapped.
         const referenceRegex = new RegExp(
-          `\\b${varName}\\b(?!\\s*[+\\-*/%&|^]?=)`, // Your original regex for this part
+          `\\b${varName}\\b(?!\\s*[+\\-*/%&|^]?=)`,
           "g"
         );
         transformedSrc = replaceWithContext(
           transformedSrc,
           referenceRegex,
-          // This is your existing callback logic for referenceRegex
           (originalMatch, index, currentFullText) => {
             // Check if this is already part of this.state.varName
             const before = currentFullText.substring(
@@ -838,6 +837,92 @@ export const defineWebComponent = (component, useShadowDOM) => {
             );
             if (before.endsWith("this.state.")) {
               return originalMatch; // Already transformed
+            }
+
+            // *** IMPROVED: Check if this is inside function parameters ***
+            // More comprehensive function parameter detection
+            const checkIfInsideFunctionParams = (text, position) => {
+              // Look for the pattern: (...params...) before =>
+              // or function name(...params...)
+              // or (...params...) { (for function expressions)
+
+              let openParenPos = -1;
+              let closeParenPos = -1;
+              let parenDepth = 0;
+
+              // Find the enclosing parentheses
+              for (let i = position - 1; i >= 0; i--) {
+                const char = text[i];
+                if (char === ")") parenDepth++;
+                else if (char === "(") {
+                  if (parenDepth === 0) {
+                    openParenPos = i;
+                    break;
+                  }
+                  parenDepth--;
+                }
+              }
+
+              if (openParenPos === -1) return false;
+
+              // Find the matching closing parenthesis
+              parenDepth = 0;
+              for (let i = openParenPos; i < text.length; i++) {
+                const char = text[i];
+                if (char === "(") parenDepth++;
+                else if (char === ")") {
+                  parenDepth--;
+                  if (parenDepth === 0) {
+                    closeParenPos = i;
+                    break;
+                  }
+                }
+              }
+
+              if (
+                closeParenPos === -1 ||
+                position < openParenPos ||
+                position > closeParenPos
+              ) {
+                return false;
+              }
+
+              // Check what comes before the opening parenthesis
+              const beforeParen = text
+                .substring(Math.max(0, openParenPos - 50), openParenPos)
+                .trim();
+
+              // Check what comes after the closing parenthesis
+              const afterParen = text
+                .substring(
+                  closeParenPos + 1,
+                  Math.min(text.length, closeParenPos + 20)
+                )
+                .trim();
+
+              // Function declaration: function name(
+              if (/\bfunction\s+\w*\s*$/.test(beforeParen)) {
+                return true;
+              }
+
+              // Arrow function: = ( or const name = (
+              if (/[=:]\s*$/.test(beforeParen) && /^\s*=>/.test(afterParen)) {
+                return true;
+              }
+
+              // Method definition: methodName(
+              if (
+                /\w\s*$/.test(beforeParen) &&
+                /^\s*(\{|=>)/.test(afterParen)
+              ) {
+                return true;
+              }
+
+              return false;
+            };
+
+            if (checkIfInsideFunctionParams(currentFullText, index)) {
+              return originalMatch; // Don't transform function parameters
             }
 
             // Check if this is part of a class declaration
