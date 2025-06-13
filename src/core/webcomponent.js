@@ -1166,7 +1166,9 @@ export const defineWebComponent = (component, useShadowDOM) => {
           if (!expr) return false;
           // Check if the variable name appears in the expression
           // This regex looks for the variable as a whole word
-          const regex = new RegExp(`\\b${varName}\\b`);
+          // Escape special regex characters in varName
+          const escapedVarName = varName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+          const regex = new RegExp(`\\b${escapedVarName}\\b`);
           return regex.test(expr);
         })
       );
