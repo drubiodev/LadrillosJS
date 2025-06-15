@@ -915,6 +915,25 @@ export const defineWebComponent = (component, useShadowDOM) => {
               return originalMatch;
             }
 
+            // *** NEW: Check if this is an object property key ***
+            // Look for patterns like: { varName: or , varName: or \n varName:
+            const beforeContext = currentFullText.substring(
+              Math.max(0, index - 20),
+              index
+            );
+            const afterContext = currentFullText.substring(
+              index + originalMatch.length,
+              Math.min(
+                currentFullText.length,
+                index + originalMatch.length + 10
+              )
+            );
+
+            // Check if this looks like an object property key (preceded by { or , and followed by :)
+            if (/[{,]\s*$/.test(beforeContext) && /^\s*:/.test(afterContext)) {
+              return originalMatch; // Don't transform object property keys
+            }
+
             // *** SPECIAL CASE: If this variable was renamed as a parameter,
             // only transform it if it's NOT a right-hand side reference ***
             if (parameterRenames.has(varName)) {
