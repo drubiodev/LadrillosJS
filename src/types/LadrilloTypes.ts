@@ -34,3 +34,14 @@ export type RegexPatterns = {
     readonly variable: RegExp;
   };
 };
+
+export type StringifyFunction = {
+  (obj: unknown, space?: string | number): string;
+};
+
+export interface ComponentElement extends HTMLElement {
+  root: ShadowRoot | HTMLElement;
+  _bindings: unknown[];
+  _eventBindings?: unknown[];
+  _conditionals?: unknown[];
+}
