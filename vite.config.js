@@ -8,7 +8,7 @@ module.exports = defineConfig(({ command }) => {
       : {
           build: {
             lib: {
-              entry: path.resolve(__dirname, "src/index.js"),
+              entry: path.resolve(__dirname, "src/index.ts"),
               name: "ladrillosjs",
               formats: ["es", "umd", "cjs"],
               fileName: (fmt) => `ladrillosjs.${fmt}.js`,
@@ -29,7 +29,7 @@ module.exports = defineConfig(({ command }) => {
     resolve: {
       alias: {
         // allow bare‐imports against your source
-        ladrillosjs: path.resolve(__dirname, "src/index.js"),
+        ladrillosjs: path.resolve(__dirname, "src/index.ts"),
       },
     },
     server: base.server,
