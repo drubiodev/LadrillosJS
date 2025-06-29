@@ -2,6 +2,7 @@ import { LadrillosComponent, StringifyFunction } from "../types/LadrilloTypes";
 import { logger } from "../utils/logger";
 import { stringify } from "../utils/stringify";
 import { scanBindings } from "./bindings";
+import { loadComponentScript, loadExternalScripts } from "./scriptHandler";
 
 export const defineWebComponent = (
   component: LadrillosComponent,
@@ -42,6 +43,12 @@ export const defineWebComponent = (
 
     connectedCallback() {
       this._loadTemplate();
+      scanBindings(this);
+      // this._loadStyles();
+      // this._initializeStateFromAttributes();
+
+      // loadExternalScripts(this, externalScripts);
+      loadComponentScript(this, scripts);
     }
 
     // renders the component by replacing the bindings with their values
@@ -56,8 +63,28 @@ export const defineWebComponent = (
       } else {
         this.innerHTML = template;
       }
+    }
 
-      scanBindings(this);
+    // loads the styles into the shadowRoot or document head
+    _loadStyles() {
+      if (!style) return;
+      const styleElement = document.createElement("style");
+      styleElement.textContent = style;
+      if (useShadowDOM) {
+        this.root.appendChild(styleElement);
+      } else {
+        document.head.appendChild(styleElement);
+      }
+    }
+
+    // initializes the state from the attributes
+    _initializeStateFromAttributes() {
+      this.getAttributeNames().forEach((name) => {
+        const raw = this.getAttribute(name);
+        console.log(raw);
+        // re‑use your parsing logic
+        // this._handleAttributeChange(name, raw);
+      });
     }
   }
 

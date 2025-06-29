@@ -6,7 +6,7 @@ export type ScriptElement = {
 export type ExternalScriptElement = {
   src: string;
   type: string | null;
-  bind: boolean;
+  external: boolean;
 };
 
 export type LadrillosComponent = {
@@ -41,7 +41,28 @@ export type StringifyFunction = {
 
 export interface ComponentElement extends HTMLElement {
   root: ShadowRoot | HTMLElement;
+  state: {};
   _bindings: unknown[];
   _eventBindings?: unknown[];
   _conditionals?: unknown[];
+}
+
+export interface TextBinding {
+  node: Node;
+  template: string;
+  key: string;
+}
+
+export interface AttributeBinding {
+  element: Element;
+  attrName: string;
+  template: string;
+  key: string;
+}
+
+export interface EventBinding {
+  key: string;
+  element: Element;
+  event: string;
+  listener: EventListener;
 }
