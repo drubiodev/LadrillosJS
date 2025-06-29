@@ -31,6 +31,7 @@ export type RegexPatterns = {
   };
   readonly declarations: {
     readonly function: RegExp;
+    readonly arrowFunction: RegExp;
     readonly variable: RegExp;
   };
 };
@@ -39,9 +40,14 @@ export type StringifyFunction = {
   (obj: unknown, space?: string | number): string;
 };
 
-export type ComponentBindings = Map<
+export type ComponentBinding = Map<
   string,
   { key: string; node?: Node; value?: any }
+>;
+
+export type EventBinding = Map<
+  string,
+  { key: string; params?: string[]; body?: string | Function }
 >;
 
 export type ComponentState = Record<string, any>;
@@ -49,8 +55,8 @@ export type ComponentState = Record<string, any>;
 export interface ComponentElement extends HTMLElement {
   root: ShadowRoot | HTMLElement;
   state: ComponentState;
-  _bindings: ComponentBindings;
-  _eventBindings?: unknown[];
+  _bindings?: ComponentBinding;
+  _eventBindings?: EventBinding;
   _conditionals?: unknown[];
 }
 
@@ -65,11 +71,4 @@ export interface AttributeBinding {
   attrName: string;
   template: string;
   key: string;
-}
-
-export interface EventBinding {
-  key: string;
-  element: Element;
-  event: string;
-  listener: EventListener;
 }

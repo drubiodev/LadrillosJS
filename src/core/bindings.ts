@@ -5,15 +5,10 @@ import {
   TextBinding,
 } from "../types/LadrilloTypes";
 import { REGEX_PATTERNS } from "../utils/regex";
-import { logger } from "../utils/logger";
 
 export const scanBindings = (component: ComponentElement) => {
   // Ensure root exists and is valid
   if (!component.root) return;
-
-  // Initialize binding arrays if they don't exist
-  if (!component._bindings) component._bindings = new Map();
-  if (!component._eventBindings) component._eventBindings = [];
 
   // Single traversal for all binding types
   const walker = document.createTreeWalker(
@@ -55,8 +50,9 @@ const processTextBindings = (
       template: textContent,
       key: match[1].trim(),
     };
+    if (!component._bindings) component._bindings = new Map();
     component._bindings.set(match[1].trim(), binding);
-    (component.state as any)[binding.key] = "";
+    (component.state as any)[binding.key] = ""; // sets initial value
   }
 };
 
@@ -96,6 +92,8 @@ const processAttributeBindings = (
       template: attr.value,
       key: match[1].trim(),
     };
+
+    if (!component._bindings) component._bindings = new Map();
     component._bindings.set(match[1].trim(), binding);
   }
 };
@@ -106,53 +104,47 @@ const processEventBinding = (
   component: ComponentElement
 ) => {
   const eventType = attr.name.slice(2);
-  const code = attr.value.trim();
+  const funcName = attr.value.trim();
 
   // Remove the attribute to prevent default handling
   element.removeAttribute(attr.name);
 
   // Create appropriate event listener
-  const listener = createEventListener(component, code);
+  const listener = createEventListener(component, funcName);
 
   // Attach the listener
   element.addEventListener(eventType, listener);
-
-  // Store the binding for cleanup later
-  const eventBinding: EventBinding = {
-    key: code,
-    element,
-    event: eventType,
-    listener,
-  };
-
-  if (!component._eventBindings) component._eventBindings = [];
-  component._eventBindings.push(eventBinding);
 };
 
 const createEventListener = (
   component: ComponentElement,
-  code: string
+  funcName: string
 ): EventListener => {
   // Case 1: Arrow function (e.g., "(e) => console.log(e)")
-  if (REGEX_PATTERNS.arrowFunction.test(code)) {
+  // TODO:: arrow function to support custom menthods
+  if (REGEX_PATTERNS.arrowFunction.test(funcName)) {
     try {
-      const funcCreator = new Function(`return (${code});`);
+      const funcCreator = new Function(`return (${funcName});`);
       const actualFunc = funcCreator.call(component);
       return (e: Event) => actualFunc(e);
     } catch (error) {
-      logger.error(`Error parsing arrow function handler: ${code}`, error);
-      return () => {};
+      if (!component._eventBindings) component._eventBindings = new Map();
+      component._eventBindings.set(funcName, {
+        key: funcName,
+        params: [],
+        body: new Function(),
+      });
     }
   }
 
   // Case 2: Inline expressions (e.g., "alert('hi')")
   return (e: Event) => {
     try {
-      // Execute in component context, preserving event target
-      const func = new Function("event", `with(this) { ${code}; }`);
-      func.call(component, e);
+      const funcCreator = new Function(`return (${funcName});`);
+      const actualFunc = funcCreator.call(component);
+      return (e: Event) => actualFunc(e);
     } catch (error) {
-      logger.error(`Error in inline expression handler: ${code}`, error);
+      return () => {};
     }
   };
 };

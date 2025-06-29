@@ -1,7 +1,8 @@
 import {
-  ComponentBindings,
   ComponentState,
   LadrillosComponent,
+  ComponentBinding,
+  EventBinding,
 } from "../types/LadrilloTypes";
 import { logger } from "../utils/logger";
 import { scanBindings } from "./bindings";
@@ -15,7 +16,8 @@ export const defineWebComponent = (
 
   class ComponentElement extends HTMLElement {
     // properties
-    public _bindings: ComponentBindings = new Map();
+    public _bindings: ComponentBinding = new Map();
+    public _eventBindings: EventBinding = new Map();
 
     root: ShadowRoot | HTMLElement;
     state: ComponentState;
@@ -54,16 +56,14 @@ export const defineWebComponent = (
 
     // renders the component by replacing the bindings with their values
     _render(prop: string, value: any) {
-      console.log(prop, value);
-
       const binding = this._bindings.get(prop);
+
       if (!binding) {
         logger.warn(`No binding found for property: ${prop}`);
         return;
       }
 
       if (binding.node && binding.node.nodeType === Node.TEXT_NODE) {
-        console.log("Updating text node:", binding.node, "with value:", value);
         // Use the original template and replace the placeholder
         const updatedContent = (binding as any).template.replace(
           `{${prop}}`,

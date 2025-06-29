@@ -13,7 +13,10 @@ export const REGEX_PATTERNS: RegexPatterns = {
     html: /<!--[\s\S]*?-->/g,
   },
   declarations: {
-    function: /\bfunction\s+([a-zA-Z_$][0-9a-zA-Z_$]*)\s*\(/g,
-    variable: /\b(const|let|var)\s+([a-zA-Z_$][0-9a-zA-Z_$]*)\s*=/g,
+    function:
+      /\bfunction\s+([a-zA-Z_$][0-9a-zA-Z_$]*)\s*\(([^)]*)\)\s*\{([^}]*)\}/g,
+    arrowFunction:
+      /\b(const|let|var)\s+([a-zA-Z_$][0-9a-zA-Z_$]*)\s*=\s*\(([^)]*)\)\s*=>\s*(.+)/g,
+    variable: /\b(const|let|var)\s+([a-zA-Z_$][0-9a-zA-Z_$]*)\s*=\s*([^;]+)/g,
   },
 };
