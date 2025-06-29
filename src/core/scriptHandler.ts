@@ -30,5 +30,5 @@ const processComponentScript = (
 ) => {
   // console.log(component.state);
   // console.log(srcContent);
-  component.state["name"] = "caca";
+  component.state["name"] = "Daniel";
 };
