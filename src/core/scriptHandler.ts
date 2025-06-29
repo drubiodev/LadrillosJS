@@ -21,6 +21,7 @@ export const loadComponentScript = (
 ) => {
   for (const s of scripts) {
     processComponentScript(component, s.content);
+    console.log(component._eventBindings);
   }
 };
 
@@ -30,7 +31,6 @@ const processComponentScript = (
 ) => {
   // process variable declarations
   const stateBindings = Object.keys(component.state);
-
   // find all variables in srcContent
   const variableRegex = new RegExp(REGEX_PATTERNS.declarations.variable, "g");
   let match: RegExpExecArray | null;
@@ -54,7 +54,16 @@ const processComponentScript = (
     const body = match[3].trim();
 
     // TODO: implement function binding logic
-    console.log(component._eventBindings);
+    // console.log("============================");
+    // console.log(params);
+    // console.log(body);
+
+    const eventBinding = component._eventBindings?.get(functionName);
+    const fn = new Function(params, body);
+
+    eventBinding?.element.addEventListener(eventBinding.eventType, () => {
+      fn(...(eventBinding?.params || []));
+    });
   }
 };
 

@@ -47,7 +47,13 @@ export type ComponentBinding = Map<
 
 export type EventBinding = Map<
   string,
-  { key: string; params?: string[]; body?: string | Function }
+  {
+    key: string;
+    params?: string[];
+    body?: string | Function | undefined;
+    element: Element;
+    eventType: string;
+  }
 >;
 
 export type ComponentState = Record<string, any>;

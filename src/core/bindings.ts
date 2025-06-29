@@ -1,9 +1,11 @@
+import { match } from "assert";
 import {
   AttributeBinding,
   ComponentElement,
   EventBinding,
   TextBinding,
 } from "../types/LadrilloTypes";
+import { logger } from "../utils/logger";
 import { REGEX_PATTERNS } from "../utils/regex";
 
 export const scanBindings = (component: ComponentElement) => {
@@ -35,6 +37,205 @@ export const scanBindings = (component: ComponentElement) => {
   }
 };
 
+const processElementBindings = (
+  element: Element,
+  component: ComponentElement
+) => {
+  // Convert to array once to avoid repeated iteration
+  const attributes = Array.from(element.attributes);
+
+  for (const attr of attributes) {
+    // Handle data bindings
+    if (attr.value.includes("{")) {
+      processAttributeBindings(element, attr, component);
+    }
+
+    // Handle event bindings inline
+    if (attr.name.startsWith("on")) {
+      processEventBinding(element, attr, component);
+    }
+  }
+};
+
+const processEventBinding = (
+  element: Element,
+  attr: Attr,
+  component: ComponentElement
+) => {
+  const eventType = attr.name.slice(2);
+  const funcName = attr.value.trim();
+  // Remove the attribute to prevent default handling
+  element.removeAttribute(attr.name);
+  // Create appropriate event listener
+  const listener = createEventListener(eventType, element, component, funcName);
+
+  // Attach the listener
+  if (listener) {
+    element.addEventListener(eventType, listener);
+  }
+};
+
+const createEventListener = (
+  eventType: string,
+  element: Element,
+  component: ComponentElement,
+  funcName: string
+): EventListener | undefined => {
+  // Case 1: Arrow function (e.g., "(e) => console.log(e)")
+  // TODO:: arrow function to support custom menthods
+  if (REGEX_PATTERNS.arrowFunction.test(funcName)) {
+    try {
+      // Create a new function from the string
+      const funcCreator = new Function(`return (${funcName});`);
+      const actualFunc = funcCreator.call(component);
+
+      return (e: Event) => actualFunc(e);
+    } catch (error) {
+      logger.error(`Error creating arrow function listener: ${error}`);
+    }
+  } else if (REGEX_PATTERNS.functionCall.test(funcName)) {
+    let match: RegExpExecArray | null;
+    const functionRegex = new RegExp(REGEX_PATTERNS.functionCall, "g");
+
+    while ((match = functionRegex.exec(funcName)) !== null) {
+      const functionName = match[1].trim();
+      const params = parseParameters(match[2]);
+      // TODO: implement function binding logic
+      if (!component._eventBindings) component._eventBindings = new Map();
+
+      component._eventBindings.set(functionName, {
+        key: functionName,
+        params,
+        body: undefined,
+        element,
+        eventType: eventType,
+      });
+    }
+
+    // Handle function
+    return undefined;
+  }
+
+  return (e: Event) => {
+    // TODO: default event handling logic
+  };
+};
+
+/**
+ * Parses a parameter string and converts it to its appropriate JavaScript type
+ */
+const parseParameter = (param: string): any => {
+  const trimmed = param.trim();
+
+  if (!trimmed) return undefined;
+
+  // Handle null and undefined
+  if (trimmed === "null") return null;
+  if (trimmed === "undefined") return undefined;
+
+  // Handle boolean values
+  if (trimmed === "true") return true;
+  if (trimmed === "false") return false;
+
+  // Handle numbers (including negative numbers, decimals, and scientific notation)
+  if (/^-?\d+(\.\d+)?([eE][+-]?\d+)?$/.test(trimmed)) {
+    const num = Number(trimmed);
+    return isNaN(num) ? trimmed : num;
+  }
+
+  // Handle strings (remove outer quotes if present)
+  if (
+    (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+    (trimmed.startsWith("'") && trimmed.endsWith("'"))
+  ) {
+    return trimmed.slice(1, -1);
+  }
+
+  // Handle arrays
+  if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
+    try {
+      return JSON.parse(trimmed);
+    } catch {
+      return trimmed; // Return as string if parsing fails
+    }
+  }
+
+  // Handle objects
+  if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
+    try {
+      return JSON.parse(trimmed);
+    } catch {
+      return trimmed; // Return as string if parsing fails
+    }
+  }
+
+  // Handle functions (arrow functions or function expressions)
+  if (trimmed.includes("=>") || trimmed.startsWith("function")) {
+    try {
+      return new Function(`return (${trimmed});`)();
+    } catch {
+      return trimmed; // Return as string if parsing fails
+    }
+  }
+
+  // Default: return as string (unquoted)
+  return trimmed;
+};
+
+/**
+ * Splits parameters string and converts each to its appropriate type
+ */
+const parseParameters = (paramsString: string): any[] => {
+  if (!paramsString || !paramsString.trim()) return [];
+
+  const params: any[] = [];
+  let current = "";
+  let depth = 0;
+  let inString = false;
+  let stringChar = "";
+
+  for (let i = 0; i < paramsString.length; i++) {
+    const char = paramsString[i];
+    const prevChar = i > 0 ? paramsString[i - 1] : "";
+
+    // Handle string boundaries
+    if ((char === '"' || char === "'") && prevChar !== "\\") {
+      if (!inString) {
+        inString = true;
+        stringChar = char;
+      } else if (char === stringChar) {
+        inString = false;
+        stringChar = "";
+      }
+    }
+
+    if (!inString) {
+      // Track nesting depth for objects and arrays
+      if (char === "{" || char === "[" || char === "(") {
+        depth++;
+      } else if (char === "}" || char === "]" || char === ")") {
+        depth--;
+      }
+
+      // Split on comma only when not inside nested structures
+      if (char === "," && depth === 0) {
+        params.push(parseParameter(current));
+        current = "";
+        continue;
+      }
+    }
+
+    current += char;
+  }
+
+  // Add the last parameter
+  if (current.trim()) {
+    params.push(parseParameter(current));
+  }
+
+  return params;
+};
+
 const processTextBindings = (
   node: Node,
   textContent: string,
@@ -53,26 +254,6 @@ const processTextBindings = (
     if (!component._bindings) component._bindings = new Map();
     component._bindings.set(match[1].trim(), binding);
     (component.state as any)[binding.key] = ""; // sets initial value
-  }
-};
-
-const processElementBindings = (
-  element: Element,
-  component: ComponentElement
-) => {
-  // Convert to array once to avoid repeated iteration
-  const attributes = Array.from(element.attributes);
-
-  for (const attr of attributes) {
-    // Handle data bindings
-    if (attr.value.includes("{")) {
-      processAttributeBindings(element, attr, component);
-    }
-
-    // Handle event bindings inline
-    if (attr.name.startsWith("on")) {
-      processEventBinding(element, attr, component);
-    }
   }
 };
 
@@ -97,70 +278,3 @@ const processAttributeBindings = (
     component._bindings.set(match[1].trim(), binding);
   }
 };
-
-const processEventBinding = (
-  element: Element,
-  attr: Attr,
-  component: ComponentElement
-) => {
-  const eventType = attr.name.slice(2);
-  const funcName = attr.value.trim();
-
-  // Remove the attribute to prevent default handling
-  element.removeAttribute(attr.name);
-
-  // Create appropriate event listener
-  const listener = createEventListener(component, funcName);
-
-  // Attach the listener
-  element.addEventListener(eventType, listener);
-};
-
-const createEventListener = (
-  component: ComponentElement,
-  funcName: string
-): EventListener => {
-  // Case 1: Arrow function (e.g., "(e) => console.log(e)")
-  // TODO:: arrow function to support custom menthods
-  if (REGEX_PATTERNS.arrowFunction.test(funcName)) {
-    try {
-      const funcCreator = new Function(`return (${funcName});`);
-      const actualFunc = funcCreator.call(component);
-      return (e: Event) => actualFunc(e);
-    } catch (error) {
-      if (!component._eventBindings) component._eventBindings = new Map();
-      component._eventBindings.set(funcName, {
-        key: funcName,
-        params: [],
-        body: new Function(),
-      });
-    }
-  }
-
-  // Case 2: Inline expressions (e.g., "alert('hi')")
-  return (e: Event) => {
-    try {
-      const funcCreator = new Function(`return (${funcName});`);
-      const actualFunc = funcCreator.call(component);
-      return (e: Event) => actualFunc(e);
-    } catch (error) {
-      return () => {};
-    }
-  };
-};
-
-// /**
-//  * Cleanup function to remove event listeners (call this when component is destroyed)
-//  */
-// export const cleanupBindings = (component: ComponentElement) => {
-//   if (component._eventBindings) {
-//     component._eventBindings.forEach((binding) => {
-//       binding.element.removeEventListener(binding.event, binding.listener);
-//     });
-//     component._eventBindings = [];
-//   }
-
-//   if (component._bindings) {
-//     component._bindings = [];
-//   }
-// };
