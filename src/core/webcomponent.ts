@@ -1,8 +1,11 @@
-import { LadrillosComponent, StringifyFunction } from "../types/LadrilloTypes";
+import {
+  ComponentBindings,
+  ComponentState,
+  LadrillosComponent,
+} from "../types/LadrilloTypes";
 import { logger } from "../utils/logger";
-import { stringify } from "../utils/stringify";
 import { scanBindings } from "./bindings";
-import { loadComponentScript, loadExternalScripts } from "./scriptHandler";
+import { loadComponentScript } from "./scriptHandler";
 
 export const defineWebComponent = (
   component: LadrillosComponent,
@@ -12,29 +15,27 @@ export const defineWebComponent = (
 
   class ComponentElement extends HTMLElement {
     // properties
-    public _bindings: unknown[] = [];
-    public _eventBindings: unknown[] = [];
-    public _conditionals: unknown[] = [];
+    public _bindings: ComponentBindings = new Map();
 
-    stringify: StringifyFunction;
     root: ShadowRoot | HTMLElement;
-    state: {};
+    state: ComponentState;
 
     constructor() {
       super();
       if (useShadowDOM) this.attachShadow({ mode: "open" });
 
       this.root = useShadowDOM ? this.shadowRoot! : this;
-      this.stringify = stringify;
 
       // initialize state and bindings
       const internalState: { [key: string]: any } = {};
       this.state = new Proxy(internalState, {
         set: (target, prop, value) => {
           if (typeof prop === "string") {
-            target[prop] = value;
-            // automatically re-render on any direct assignment
-            this._render();
+            // Only update if value actually changed
+            if (target[prop] !== value) {
+              target[prop] = value;
+              this._render(prop, value);
+            }
           }
           return true;
         },
@@ -44,16 +45,41 @@ export const defineWebComponent = (
     connectedCallback() {
       this._loadTemplate();
       scanBindings(this);
-      // this._loadStyles();
-      // this._initializeStateFromAttributes();
-
-      // loadExternalScripts(this, externalScripts);
       loadComponentScript(this, scripts);
+      this._loadStyles();
+    }
+    disconnectedCallback() {
+      this._bindings.clear();
     }
 
     // renders the component by replacing the bindings with their values
-    _render() {
-      console.log(`Rendering component: <${tagName}>`);
+    _render(prop: string, value: any) {
+      console.log(prop, value);
+
+      const binding = this._bindings.get(prop);
+      if (!binding) {
+        logger.warn(`No binding found for property: ${prop}`);
+        return;
+      }
+
+      if (binding.node && binding.node.nodeType === Node.TEXT_NODE) {
+        console.log("Updating text node:", binding.node, "with value:", value);
+        // Use the original template and replace the placeholder
+        const updatedContent = (binding as any).template.replace(
+          `{${prop}}`,
+          value
+        );
+        (binding.node as Text).textContent = updatedContent;
+      } else if (binding.node && binding.node.nodeType === Node.ELEMENT_NODE) {
+        // For attribute bindings, use the template and replace the placeholder
+        const element = binding.node as Element;
+        const attrName = (binding as any).attrName;
+        const updatedValue = (binding as any).template.replace(
+          `{${prop}}`,
+          value
+        );
+        element.setAttribute(attrName, updatedValue);
+      }
     }
 
     // sets template to innerHTML or shadowRoot.innerHTML
@@ -68,12 +94,22 @@ export const defineWebComponent = (
     // loads the styles into the shadowRoot or document head
     _loadStyles() {
       if (!style) return;
-      const styleElement = document.createElement("style");
-      styleElement.textContent = style;
+      const styleId = `${tagName}-styles`;
+
       if (useShadowDOM) {
-        this.root.appendChild(styleElement);
+        if (!this.root.querySelector(`#${styleId}`)) {
+          const styleElement = document.createElement("style");
+          styleElement.id = styleId;
+          styleElement.textContent = style;
+          this.root.appendChild(styleElement);
+        }
       } else {
-        document.head.appendChild(styleElement);
+        if (!document.head.querySelector(`#${styleId}`)) {
+          const styleElement = document.createElement("style");
+          styleElement.id = styleId;
+          styleElement.textContent = style;
+          document.head.appendChild(styleElement);
+        }
       }
     }
 

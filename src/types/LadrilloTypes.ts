@@ -39,10 +39,17 @@ export type StringifyFunction = {
   (obj: unknown, space?: string | number): string;
 };
 
+export type ComponentBindings = Map<
+  string,
+  { key: string; node?: Node; value?: any }
+>;
+
+export type ComponentState = Record<string, any>;
+
 export interface ComponentElement extends HTMLElement {
   root: ShadowRoot | HTMLElement;
-  state: {};
-  _bindings: unknown[];
+  state: ComponentState;
+  _bindings: ComponentBindings;
   _eventBindings?: unknown[];
   _conditionals?: unknown[];
 }

@@ -28,8 +28,7 @@ const processComponentScript = (
   component: ComponentElement,
   srcContent: string
 ) => {
-  component.state["srcContent"] = srcContent;
-  console.log(component._bindings[0]);
-  console.log(component.state);
-  console.log(srcContent);
+  // console.log(component.state);
+  // console.log(srcContent);
+  component.state["name"] = "caca";
 };

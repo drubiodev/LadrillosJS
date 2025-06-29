@@ -12,7 +12,7 @@ export const scanBindings = (component: ComponentElement) => {
   if (!component.root) return;
 
   // Initialize binding arrays if they don't exist
-  if (!component._bindings) component._bindings = [];
+  if (!component._bindings) component._bindings = new Map();
   if (!component._eventBindings) component._eventBindings = [];
 
   // Single traversal for all binding types
@@ -55,7 +55,8 @@ const processTextBindings = (
       template: textContent,
       key: match[1].trim(),
     };
-    component._bindings.push(binding);
+    component._bindings.set(match[1].trim(), binding);
+    (component.state as any)[binding.key] = "";
   }
 };
 
@@ -95,7 +96,7 @@ const processAttributeBindings = (
       template: attr.value,
       key: match[1].trim(),
     };
-    component._bindings.push(binding);
+    component._bindings.set(match[1].trim(), binding);
   }
 };
 
