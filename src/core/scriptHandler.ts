@@ -20,25 +20,31 @@ export const loadComponentScript = (
   scripts: ScriptElement[]
 ) => {
   for (const s of scripts) {
-    processComponentScript(component, s.content);
-    console.log(component._eventBindings);
+    processComponentUserDefineFunctionScripts(component, s.content);
   }
+  console.log(scripts);
+  // const functionRegex = new RegExp(REGEX_PATTERNS.declarations.function, "g");
+  //    while ((match = functionRegex.exec(srcContent)) !== null) {
+  //     const functionName = match[1].trim();
+  //     const params = match[2].trim();
+  //     const body = match[3].trim();
+  //     console.log(component._eventBindings);
+  //   }
 };
 
-const processComponentScript = (
+const processComponentUserDefineFunctionScripts = (
   component: ComponentElement,
   srcContent: string
 ) => {
-  // process variable declarations
-  const stateBindings = Object.keys(component.state);
-  // find all variables in srcContent
+  // Update the component's state with variable declarations
+  // TODO: handle arrow functions
   const variableRegex = new RegExp(REGEX_PATTERNS.declarations.variable, "g");
   let match: RegExpExecArray | null;
 
   while ((match = variableRegex.exec(srcContent)) !== null) {
+    const stateBindings = Object.keys(component.state);
     const variableName = match[2].trim();
     const rawValue = match[3].trim();
-
     // Parse the value to handle strings, numbers, objects, etc.
     const parsedValue = parseVariableValue(rawValue);
 
@@ -47,23 +53,24 @@ const processComponentScript = (
     }
   }
 
+  // Process function declarations
   const functionRegex = new RegExp(REGEX_PATTERNS.declarations.function, "g");
   while ((match = functionRegex.exec(srcContent)) !== null) {
     const functionName = match[1].trim();
     const params = match[2].trim();
     const body = match[3].trim();
-
     // TODO: implement function binding logic
     // console.log("============================");
     // console.log(params);
     // console.log(body);
-
     const eventBinding = component._eventBindings?.get(functionName);
-    const fn = new Function(params, body);
+    const fn = new Function(params, body).bind(component);
 
     eventBinding?.element.addEventListener(eventBinding.eventType, () => {
       fn(...(eventBinding?.params || []));
     });
+
+    // process functions
   }
 };
 

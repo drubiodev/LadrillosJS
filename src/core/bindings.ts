@@ -3,14 +3,47 @@ import {
   AttributeBinding,
   ComponentElement,
   EventBinding,
+  ScriptElement,
   TextBinding,
 } from "../types/LadrilloTypes";
 import { logger } from "../utils/logger";
 import { REGEX_PATTERNS } from "../utils/regex";
 
-export const scanBindings = (component: ComponentElement) => {
+export const scanBindings = (
+  component: ComponentElement,
+  scripts: ScriptElement[]
+) => {
   // Ensure root exists and is valid
   if (!component.root) return;
+
+  // get User defined function names from scripts
+  if (scripts && scripts.length > 0) {
+    // Process each script to extract function declarations
+    for (const script of scripts) {
+      // Extract function names and parameters from script content
+      const functionRegex = new RegExp(
+        REGEX_PATTERNS.declarations.function,
+        "g"
+      );
+      let match: RegExpExecArray | null;
+
+      while ((match = functionRegex.exec(script.content)) !== null) {
+        // Extract function name, parameters,
+        const functionName = match[1].trim();
+        const params = match[2].trim();
+        const body = match[3].trim();
+
+        if (!component._eventBindings) component._eventBindings = new Map();
+        component._eventBindings.set(functionName, {
+          key: functionName,
+          params: parseParameters(params),
+          body,
+          element: component,
+          eventType: "",
+        });
+      }
+    }
+  }
 
   // Single traversal for all binding types
   const walker = document.createTreeWalker(
@@ -47,6 +80,7 @@ const processElementBindings = (
   for (const attr of attributes) {
     // Handle data bindings
     if (attr.value.includes("{")) {
+      // TODO: attribute bindings
       processAttributeBindings(element, attr, component);
     }
 
@@ -63,62 +97,29 @@ const processEventBinding = (
   component: ComponentElement
 ) => {
   const eventType = attr.name.slice(2);
-  const funcName = attr.value.trim();
+  const fullCall = attr.value.trim();
+
+  // Extract function name and arguments
+  const funcCallMatch = fullCall.match(/^([^(]+)(?:\(([^)]*)\))?$/);
+  const funcName = funcCallMatch ? funcCallMatch[1].trim() : fullCall;
+  const argsString = funcCallMatch ? funcCallMatch[2] || "" : "";
+
+  // Parse the arguments from the function call
+  const callArgs = argsString ? parseParameters(argsString) : [];
+
+  const funcBinding = component._eventBindings?.get(funcName);
+
+  if (!funcBinding) {
+    // no function binding so not a user defined function
+    return;
+  }
+
   // Remove the attribute to prevent default handling
   element.removeAttribute(attr.name);
-  // Create appropriate event listener
-  const listener = createEventListener(eventType, element, component, funcName);
+  funcBinding.eventType = eventType;
 
-  // Attach the listener
-  if (listener) {
-    element.addEventListener(eventType, listener);
-  }
-};
-
-const createEventListener = (
-  eventType: string,
-  element: Element,
-  component: ComponentElement,
-  funcName: string
-): EventListener | undefined => {
-  // Case 1: Arrow function (e.g., "(e) => console.log(e)")
-  // TODO:: arrow function to support custom menthods
-  if (REGEX_PATTERNS.arrowFunction.test(funcName)) {
-    try {
-      // Create a new function from the string
-      const funcCreator = new Function(`return (${funcName});`);
-      const actualFunc = funcCreator.call(component);
-
-      return (e: Event) => actualFunc(e);
-    } catch (error) {
-      logger.error(`Error creating arrow function listener: ${error}`);
-    }
-  } else if (REGEX_PATTERNS.functionCall.test(funcName)) {
-    let match: RegExpExecArray | null;
-    const functionRegex = new RegExp(REGEX_PATTERNS.functionCall, "g");
-
-    while ((match = functionRegex.exec(funcName)) !== null) {
-      const functionName = match[1].trim();
-      const params = parseParameters(match[2]);
-      // TODO: implement function binding logic
-      if (!component._eventBindings) component._eventBindings = new Map();
-
-      component._eventBindings.set(functionName, {
-        key: functionName,
-        params,
-        body: undefined,
-        element,
-        eventType: eventType,
-      });
-    }
-
-    // Handle function
-    return undefined;
-  }
-
-  return (e: Event) => {
-    // TODO: default event handling logic
-  };
+  // Store the actual call arguments to use when the event fires
+  funcBinding.params = callArgs;
 };
 
 /**

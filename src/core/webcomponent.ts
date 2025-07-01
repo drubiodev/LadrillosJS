@@ -46,10 +46,11 @@ export const defineWebComponent = (
 
     connectedCallback() {
       this._loadTemplate();
-      scanBindings(this);
+      scanBindings(this, scripts);
       loadComponentScript(this, scripts);
       this._loadStyles();
     }
+
     disconnectedCallback() {
       this._bindings.clear();
     }
