@@ -65,18 +65,60 @@ const processComponentScripts = (
       .map((param) => param.trim())
       .map((param) => generateUniqueParamName(param));
 
-    console.log(paramList);
+    // First, track which parameters are assigned to state variables
+    const paramAssignments = new Map<string, string>(); // originalParam -> stateKey
+    const stateKeys = Object.keys(component.state);
+
+    // Find assignments where parameters are assigned to state variables
+    paramList.forEach((param, index) => {
+      const originalParam = params.split(",")[index].trim();
+      stateKeys.forEach((key) => {
+        // Look for assignments like: key = originalParam or this.state.key = originalParam
+        const assignmentRegex = new RegExp(
+          `\\b(this\\.state\\.)?${key}\\s*=\\s*\\b${originalParam}\\b`,
+          "g"
+        );
+        if (assignmentRegex.test(body)) {
+          paramAssignments.set(originalParam, key);
+        }
+      });
+    });
 
     // update each param to be a unique name in the body (right side of assignments and other usages)
     paramList.forEach((param, index) => {
       const originalParam = params.split(",")[index].trim();
-      // Match parameter name on right side of assignments OR anywhere else it's used (but not on left side of assignments)
-      const regex = new RegExp(`\\b${originalParam}\\b(?!\\s*=(?!=))`, "g");
-      body = body.replace(regex, param);
+      const assignedStateKey = paramAssignments.get(originalParam);
+
+      // If parameter is NOT assigned to a state variable, replace it everywhere (left and right side)
+      if (!assignedStateKey) {
+        const regex = new RegExp(`\\b${originalParam}\\b`, "g");
+        body = body.replace(regex, param);
+      } else {
+        // If parameter IS assigned to a state variable, only replace right side and other usages
+        // Match parameter name on right side of assignments OR anywhere else it's used (but not on left side of assignments)
+        const regex = new RegExp(`\\b${originalParam}\\b(?!\\s*=(?!=))`, "g");
+
+        // Replace with unique name only if not assigned to state, or use original if it will be replaced by state
+        body = body.replace(regex, (match, offset) => {
+          // If this parameter was assigned to a state variable, we'll let the state replacement handle it
+          if (assignedStateKey) {
+            // Check if this usage comes after the assignment
+            const beforeMatch = body.substring(0, offset);
+            const assignmentPattern = new RegExp(
+              `\\b(this\\.state\\.)?${assignedStateKey}\\s*=\\s*\\b${originalParam}\\b`
+            );
+            if (assignmentPattern.test(beforeMatch)) {
+              // This usage comes after assignment, keep original name for now (will be replaced by state logic)
+              return originalParam;
+            }
+          }
+          // Use unique parameter name
+          return param;
+        });
+      }
     });
 
     // update body , if the body contains keys from the state, replace them with this.state.key
-    const stateKeys = Object.keys(component.state);
     stateKeys.forEach((key) => {
       const regex = new RegExp(`\\b${key}\\b`, "g");
       body = body.replace(regex, `this.state.${key}`);
