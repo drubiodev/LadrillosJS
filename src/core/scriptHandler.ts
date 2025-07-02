@@ -20,9 +20,8 @@ export const loadComponentScript = (
   scripts: ScriptElement[]
 ) => {
   for (const s of scripts) {
-    processComponentUserDefineFunctionScripts(component, s.content);
+    processComponentScripts(component, s.content);
   }
-  console.log(scripts);
   // const functionRegex = new RegExp(REGEX_PATTERNS.declarations.function, "g");
   //    while ((match = functionRegex.exec(srcContent)) !== null) {
   //     const functionName = match[1].trim();
@@ -32,7 +31,7 @@ export const loadComponentScript = (
   //   }
 };
 
-const processComponentUserDefineFunctionScripts = (
+const processComponentScripts = (
   component: ComponentElement,
   srcContent: string
 ) => {
@@ -58,17 +57,41 @@ const processComponentUserDefineFunctionScripts = (
   while ((match = functionRegex.exec(srcContent)) !== null) {
     const functionName = match[1].trim();
     const params = match[2].trim();
-    const body = match[3].trim();
-    // TODO: implement function binding logic
-    // console.log("============================");
-    // console.log(params);
-    // console.log(body);
-    const eventBinding = component._eventBindings?.get(functionName);
-    const fn = new Function(params, body).bind(component);
+    let body = match[3].trim();
 
-    eventBinding?.element.addEventListener(eventBinding.eventType, () => {
-      fn(...(eventBinding?.params || []));
+    // for each param split by comma generate a unique name
+    const paramList = params
+      .split(",")
+      .map((param) => param.trim())
+      .map((param) => generateUniqueParamName(param));
+
+    console.log(paramList);
+
+    // update each param to be a unique name in the body (right side of assignments and other usages)
+    paramList.forEach((param, index) => {
+      const originalParam = params.split(",")[index].trim();
+      // Match parameter name on right side of assignments OR anywhere else it's used (but not on left side of assignments)
+      const regex = new RegExp(`\\b${originalParam}\\b(?!\\s*=(?!=))`, "g");
+      body = body.replace(regex, param);
     });
+
+    // update body , if the body contains keys from the state, replace them with this.state.key
+    const stateKeys = Object.keys(component.state);
+    stateKeys.forEach((key) => {
+      const regex = new RegExp(`\\b${key}\\b`, "g");
+      body = body.replace(regex, `this.state.${key}`);
+    });
+
+    console.log(body);
+
+    const eventBinding = component._eventBindings?.get(functionName);
+    const fn = new Function(paramList.join(", "), body).bind(component);
+
+    if (eventBinding?.element && eventBinding.eventType) {
+      eventBinding.element.addEventListener(eventBinding.eventType, () => {
+        fn(...(eventBinding?.params || []));
+      });
+    }
 
     // process functions
   }
@@ -155,4 +178,11 @@ const evaluateJavaScript = (expression: string): any => {
   );
 
   return func(...Object.values(safeContext));
+};
+
+// Helper function to generate unique parameter names
+const generateUniqueParamName = (originalName: string) => {
+  return `__param_${originalName}_${Math.random()
+    .toString(36)
+    .substring(2, 9)}`;
 };

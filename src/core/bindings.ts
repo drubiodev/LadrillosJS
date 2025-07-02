@@ -38,8 +38,8 @@ export const scanBindings = (
           key: functionName,
           params: parseParameters(params),
           body,
-          element: component,
-          eventType: "",
+          element: undefined,
+          eventType: undefined,
         });
       }
     }
@@ -117,6 +117,7 @@ const processEventBinding = (
   // Remove the attribute to prevent default handling
   element.removeAttribute(attr.name);
   funcBinding.eventType = eventType;
+  funcBinding.element = element;
 
   // Store the actual call arguments to use when the event fires
   funcBinding.params = callArgs;

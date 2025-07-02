@@ -49,6 +49,8 @@ export const defineWebComponent = (
       scanBindings(this, scripts);
       loadComponentScript(this, scripts);
       this._loadStyles();
+
+      this._eventBindings.clear();
     }
 
     disconnectedCallback() {

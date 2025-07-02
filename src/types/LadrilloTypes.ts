@@ -51,8 +51,8 @@ export type EventBinding = Map<
     key: string;
     params?: string[];
     body?: string | Function | undefined;
-    element: Element;
-    eventType: string;
+    element: Element | undefined;
+    eventType: string | undefined;
   }
 >;
 
