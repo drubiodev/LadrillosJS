@@ -25,13 +25,6 @@
     font-weight: 400;
   }
 
-  .progress-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: 1rem;
-    margin-bottom: 1.5rem;
-  }
-
   .section {
     background: white;
     border: 1px solid #e2e8f0;
@@ -73,41 +66,6 @@
     flex-shrink: 0;
   }
 
-  /* Completed items */
-  .section p:nth-child(2)::before {
-    background: #22c55e;
-  }
-
-  .section p:nth-child(3)::before,
-  .section p:nth-child(4)::before,
-  .section p:nth-child(5)::before,
-  .section p:nth-child(6)::before {
-    background: #ef4444;
-  }
-
-  /* Events section - override for completed items */
-  .section:nth-child(4) p:nth-child(2)::before,
-  .section:nth-child(4) p:nth-child(3)::before,
-  .section:nth-child(4) p:nth-child(4)::before,
-  .section:nth-child(4) p:nth-child(5)::before,
-  .section:nth-child(4) p:nth-child(6)::before,
-  .section:nth-child(4) p:nth-child(7)::before {
-    background: #22c55e;
-  }
-
-  .section:nth-child(4) p:nth-child(8)::before {
-    background: #ef4444;
-  }
-
-  /* Bindings section */
-  .section:nth-child(3) p:nth-child(2)::before {
-    background: #22c55e;
-  }
-
-  .section:nth-child(3) p:nth-child(3)::before {
-    background: #ef4444;
-  }
-
   /* Buttons */
   button {
     background: #3b82f6;
@@ -130,45 +88,6 @@
     background: #1d4ed8;
   }
 
-  /* Progress indicator */
-  .progress-summary {
-    background: white;
-    border: 1px solid #e2e8f0;
-    border-radius: 8px;
-    padding: 1rem;
-    text-align: center;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-  }
-
-  .progress-summary h3 {
-    font-size: 1rem;
-    font-weight: 600;
-    color: #1e293b;
-    margin-bottom: 0.75rem;
-  }
-
-  .progress-bar {
-    background: #e2e8f0;
-    border-radius: 4px;
-    height: 6px;
-    overflow: hidden;
-    margin: 0.75rem 0;
-  }
-
-  .progress-fill {
-    background: #3b82f6;
-    height: 100%;
-    width: 71%;
-    border-radius: 4px;
-    transition: width 0.3s ease;
-  }
-
-  .progress-text {
-    font-size: 0.8rem;
-    font-weight: 500;
-    color: #64748b;
-  }
-
   /* Responsive design */
   @media (max-width: 768px) {
     body {
@@ -183,13 +102,9 @@
       font-size: 1.25rem;
     }
 
-    .progress-grid {
-      grid-template-columns: 1fr;
-      gap: 0.75rem;
-    }
-
     .section {
       padding: 0.75rem;
+      margin-bottom: 1rem;
     }
 
     .section h2 {
@@ -292,15 +207,15 @@
           (e)=>functionWithEventAndParams(e,'Hi')
         </button>
       </p>
+      <p>
+        ✅ Onkeyup Event with Function:
+        <input
+          type="text"
+          placeholder="Enter text"
+          onkeyup="functionWithEvent"
+        />
+      </p>
     </div>
-  </div>
-
-  <div class="progress-summary">
-    <h3>Overall Progress</h3>
-    <div class="progress-bar">
-      <div class="progress-fill"></div>
-    </div>
-    <p class="progress-text">10 out of 14 features completed (71%)</p>
   </div>
 </div>
 
