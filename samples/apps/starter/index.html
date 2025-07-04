@@ -8,8 +8,24 @@
       import { registerComponent } from "ladrillosjs";
       registerComponent("starter-component", "starter.html");
     </script>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          Oxygen, Ubuntu, Cantarell, sans-serif;
+        background: #f8fafc;
+        color: #334155;
+        line-height: 1.5;
+        padding: 1rem;
+      }
+    </style>
   </head>
   <body>
-    <starter-component></starter-component>
+    <starter-component param="This is a parm"></starter-component>
   </body>
 </html>
