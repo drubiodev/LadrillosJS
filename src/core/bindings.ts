@@ -316,17 +316,24 @@ const processTextBindings = (
 
   // Find all data binding expressions in the text content
   while ((match = bindingRegex.exec(textContent)) !== null) {
+    const variableKey = match[1].trim();
+
+    // Create unique binding key to handle multiple bindings for same variable
+    const bindingKey = `${variableKey}_${Date.now()}_${Math.random()
+      .toString(36)
+      .substring(2, 9)}`;
+
     const binding: TextBinding = {
       node,
       template: textContent,
-      key: match[1].trim(),
+      key: variableKey, // Keep original variable name for state lookup
     };
 
     // Initialize bindings map if needed
     if (!component._bindings) component._bindings = new Map();
 
-    // Register the binding for reactive updates
-    component._bindings.set(match[1].trim(), binding);
+    // Register the binding with unique key for reactive updates
+    component._bindings.set(bindingKey, binding);
 
     // Initialize the state property with empty string as default
     (component.state as any)[binding.key] = "";
@@ -352,17 +359,24 @@ const processAttributeBindings = (
 
   // Find all data binding expressions in the attribute value
   while ((match = bindingRegex.exec(attr.value)) !== null) {
+    const variableKey = match[1].trim();
+
+    // Create unique binding key to handle multiple bindings for same variable
+    const bindingKey = `${variableKey}_${Date.now()}_${Math.random()
+      .toString(36)
+      .substr(2, 9)}`;
+
     const binding: AttributeBinding = {
       element,
       attrName: attr.name,
       template: attr.value,
-      key: match[1].trim(),
+      key: variableKey, // Keep original variable name for state lookup
     };
 
     // Initialize bindings map if needed
     if (!component._bindings) component._bindings = new Map();
 
-    // Register the binding for reactive updates
-    component._bindings.set(match[1].trim(), binding);
+    // Register the binding with unique key for reactive updates
+    component._bindings.set(bindingKey, binding);
   }
 };

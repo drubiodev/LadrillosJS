@@ -62,7 +62,6 @@ const processComponentScripts = (
     "g"
   );
   let match: RegExpExecArray | null;
-
   while ((match = arrowFunctionRegex.exec(srcContent)) !== null) {
     const functionName = match[2].trim();
     const params = match[3].trim();
@@ -83,9 +82,73 @@ const processComponentScripts = (
 
   // Process variable declarations, excluding arrow functions already handled above
   const variableRegex = new RegExp(REGEX_PATTERNS.declarations.variable, "g");
+  const variableDeclarations: Array<{ name: string; value: string }> = [];
 
+  // Helper to check if a match is inside a function body
+  const isInsideFunctionBody = (
+    matchIndex: number,
+    srcContent: string
+  ): boolean => {
+    const beforeMatch = srcContent.substring(0, matchIndex);
+    const afterMatch = srcContent.substring(matchIndex);
+
+    // Count opening and closing braces before the match
+    let braceCount = 0;
+    let insideFunction = false;
+
+    // Check for function declarations before this point
+    const functionRegex =
+      /\bfunction\s+[a-zA-Z_$][0-9a-zA-Z_$]*\s*\([^)]*\)\s*\{/g;
+    const arrowFunctionRegex =
+      /\b(const|let|var)\s+[a-zA-Z_$][0-9a-zA-Z_$]*\s*=\s*\([^)]*\)\s*=>\s*\{/g;
+
+    let functionMatch;
+    while ((functionMatch = functionRegex.exec(beforeMatch)) !== null) {
+      const functionStart = functionMatch.index + functionMatch[0].length - 1; // Position of opening brace
+      const restOfContent = srcContent.substring(functionStart);
+
+      // Count braces to find the end of this function
+      let localBraceCount = 0;
+      for (let i = 0; i < restOfContent.length; i++) {
+        if (restOfContent[i] === "{") localBraceCount++;
+        else if (restOfContent[i] === "}") localBraceCount--;
+
+        if (localBraceCount === 0) {
+          const functionEnd = functionStart + i;
+          if (matchIndex > functionStart && matchIndex < functionEnd) {
+            return true;
+          }
+          break;
+        }
+      }
+    }
+
+    // Check for arrow functions
+    while ((functionMatch = arrowFunctionRegex.exec(beforeMatch)) !== null) {
+      const functionStart = functionMatch.index + functionMatch[0].length - 1; // Position of opening brace
+      const restOfContent = srcContent.substring(functionStart);
+
+      // Count braces to find the end of this function
+      let localBraceCount = 0;
+      for (let i = 0; i < restOfContent.length; i++) {
+        if (restOfContent[i] === "{") localBraceCount++;
+        else if (restOfContent[i] === "}") localBraceCount--;
+
+        if (localBraceCount === 0) {
+          const functionEnd = functionStart + i;
+          if (matchIndex > functionStart && matchIndex < functionEnd) {
+            return true;
+          }
+          break;
+        }
+      }
+    }
+
+    return false;
+  };
+
+  // First pass: collect all top-level variable declarations
   while ((match = variableRegex.exec(srcContent)) !== null) {
-    const stateBindings = Object.keys(component.state);
     const variableName = match[2].trim();
     const rawValue = match[3].trim();
 
@@ -94,14 +157,139 @@ const processComponentScripts = (
       continue;
     }
 
-    // Convert string representation to actual JavaScript value
-    const parsedValue = parseVariableValue(rawValue);
-
-    // Only update component state if this variable is bound to state
-    if (stateBindings.includes(variableName)) {
-      component.state[variableName] = parsedValue;
+    // Skip variables that are declared inside function bodies
+    if (isInsideFunctionBody(match.index, srcContent)) {
+      continue;
     }
+
+    variableDeclarations.push({ name: variableName, value: rawValue });
   }
+
+  // Process variables with proper dependency resolution
+  const processedVariables = new Set<string>();
+  const stateBindings = Object.keys(component.state);
+
+  // Helper to check if a value references other declared variables
+  const hasVariableReferences = (value: string): string[] => {
+    const references: string[] = [];
+    variableDeclarations.forEach((decl) => {
+      if (decl.name !== value && value.includes(decl.name)) {
+        // Check if it's a whole word match (not part of another identifier)
+        const regex = new RegExp(`\\b${decl.name}\\b`);
+        if (regex.test(value)) {
+          references.push(decl.name);
+        }
+      }
+    });
+    return references;
+  };
+
+  // Process variables in multiple passes until all are resolved
+  let maxIterations = 10; // Prevent infinite loops
+  let currentIteration = 0;
+
+  while (
+    processedVariables.size < variableDeclarations.length &&
+    currentIteration < maxIterations
+  ) {
+    let processedInThisIteration = 0;
+
+    variableDeclarations.forEach(({ name, value }) => {
+      if (!processedVariables.has(name)) {
+        const dependencies = hasVariableReferences(value);
+        const allDependenciesResolved = dependencies.every((dep) =>
+          processedVariables.has(dep)
+        );
+
+        if (allDependenciesResolved) {
+          try {
+            // Create context with all currently processed variables (both state and local)
+            const context: Record<string, any> = {};
+
+            // Add processed variables to context
+            variableDeclarations.forEach((decl) => {
+              if (processedVariables.has(decl.name)) {
+                if (stateBindings.includes(decl.name)) {
+                  // Get value from component state
+                  context[decl.name] = component.state[decl.name];
+                } else {
+                  // For non-state variables, we need to store them separately
+                  // Create a temporary store for local variables
+                  if (!component._localVariables) {
+                    component._localVariables = new Map();
+                  }
+                  context[decl.name] = component._localVariables.get(decl.name);
+                }
+              }
+            });
+
+            const parsedValue = parseVariableValue(value, context);
+
+            // Update component state if this variable is bound to state
+            if (stateBindings.includes(name)) {
+              component.state[name] = parsedValue;
+            } else {
+              // Store local variables for future reference
+              if (!component._localVariables) {
+                component._localVariables = new Map();
+              }
+              component._localVariables.set(name, parsedValue);
+            }
+            processedVariables.add(name);
+            processedInThisIteration++;
+          } catch (error) {
+            console.warn(`Failed to process variable ${name}: ${error}`);
+            processedVariables.add(name); // Mark as processed to avoid infinite loops
+          }
+        }
+      }
+    });
+
+    // If no variables were processed in this iteration, break to avoid infinite loop
+    if (processedInThisIteration === 0) {
+      break;
+    }
+
+    currentIteration++;
+  }
+
+  // Handle any remaining unprocessed variables
+  variableDeclarations.forEach(({ name, value }) => {
+    if (!processedVariables.has(name)) {
+      try {
+        // Create context with all processed variables
+        const context: Record<string, any> = {};
+
+        // Add processed variables to context
+        variableDeclarations.forEach((decl) => {
+          if (processedVariables.has(decl.name)) {
+            if (stateBindings.includes(decl.name)) {
+              context[decl.name] = component.state[decl.name];
+            } else if (component._localVariables?.has(decl.name)) {
+              context[decl.name] = component._localVariables.get(decl.name);
+            }
+          }
+        });
+
+        const parsedValue = parseVariableValue(value, context);
+
+        // Update component state if this variable is bound to state
+        if (stateBindings.includes(name)) {
+          component.state[name] = parsedValue;
+        } else {
+          // Store local variables for future reference
+          if (!component._localVariables) {
+            component._localVariables = new Map();
+          }
+          component._localVariables.set(name, parsedValue);
+        }
+      } catch (error) {
+        console.warn(
+          `Failed to process variable ${name} in final pass: ${error}`
+        );
+      }
+    }
+  });
 
   // Process traditional function declarations
   const functionRegex = new RegExp(REGEX_PATTERNS.declarations.function, "g");
@@ -110,19 +298,33 @@ const processComponentScripts = (
     const params = match[2].trim();
     let body = match[3].trim();
 
-    // Generate unique parameter names to avoid conflicts with state variables
-    const paramList = params
+    // For event handlers, preserve the first parameter name for the event object
+    const paramArray = params
       .split(",")
       .map((param) => param.trim())
-      .map((param) => generateUniqueParamName(param));
+      .filter(Boolean);
+    const paramList: string[] = [];
+
+    // Generate unique parameter names, but preserve first param for event handlers
+    paramArray.forEach((param, index) => {
+      if (index === 0) {
+        // Keep the first parameter as-is for event object
+        paramList.push(param);
+      } else {
+        // Generate unique names for other parameters to avoid conflicts
+        paramList.push(generateUniqueParamName(param));
+      }
+    });
 
     // Track which parameters are assigned to state variables for proper handling
     const paramAssignments = new Map<string, string>(); // originalParam -> stateKey
     const stateKeys = Object.keys(component.state);
 
-    // Analyze parameter usage in function body to detect state assignments
+    // Analyze parameter usage in function body to detect state assignments (skip first param as it's event)
     paramList.forEach((param, index) => {
-      const originalParam = params.split(",")[index].trim();
+      if (index === 0) return; // Skip event parameter
+
+      const originalParam = paramArray[index];
       stateKeys.forEach((key) => {
         // Look for assignments where parameters are assigned to state variables
         const assignmentRegex = new RegExp(
@@ -136,8 +338,11 @@ const processComponentScripts = (
     });
 
     // Replace parameter names in function body with unique names to prevent conflicts
+    // (skip first parameter as it's the event)
     paramList.forEach((param, index) => {
-      const originalParam = params.split(",")[index].trim();
+      if (index === 0) return; // Skip event parameter
+
+      const originalParam = paramArray[index];
       const assignedStateKey = paramAssignments.get(originalParam);
 
       // Handle parameter replacement based on whether it's assigned to state
@@ -173,9 +378,13 @@ const processComponentScripts = (
       const leftSideRegex = new RegExp(`\\b${key}\\s*=(?!=)`, "g");
       body = body.replace(leftSideRegex, `this.state.${key} =`);
 
-      // Handle right-hand side usage: avoid replacing if already this.state.key
+      // Handle right-hand side usage: avoid replacing if already this.state.key or if it's an object property
+      // Negative lookbehind: (?<!this\.state\.) - not preceded by "this.state."
+      // Negative lookbehind: (?<!\w\.) - not preceded by any word character and dot (like "e.x")
+      // Word boundary: \b - ensure we match whole words only
+      // Negative lookahead: (?!\s*[=\.]) - not followed by assignment or property access
       const rightSideRegex = new RegExp(
-        `(?<!this\\.state\\.)\\b${key}\\b(?!\\s*=(?!=))`,
+        `(?<!this\\.state\\.)(?<!\\w\\.)\\b${key}\\b(?!\\s*[=\\.])`,
         "g"
       );
       body = body.replace(rightSideRegex, `this.state.${key}`);
@@ -187,8 +396,9 @@ const processComponentScripts = (
 
     // Set up event listener if this function is bound to a DOM event
     if (eventBinding?.element && eventBinding.eventType) {
-      eventBinding.element.addEventListener(eventBinding.eventType, () => {
-        fn(...(eventBinding?.params || []));
+      eventBinding.element.addEventListener(eventBinding.eventType, (event) => {
+        // Pass the event as the first parameter, followed by any additional parameters
+        fn(event, ...(eventBinding?.params || []));
       });
     }
   }
@@ -209,19 +419,33 @@ const processArrowFunction = (
   params: string,
   body: string
 ) => {
-  // Generate unique parameter names to prevent conflicts with state variables
-  const paramList = params
+  // For event handlers, preserve the first parameter name for the event object
+  const paramArray = params
     .split(",")
     .map((param) => param.trim())
-    .map((param) => generateUniqueParamName(param));
+    .filter(Boolean);
+  const paramList: string[] = [];
+
+  // Generate unique parameter names, but preserve first param for event handlers
+  paramArray.forEach((param, index) => {
+    if (index === 0) {
+      // Keep the first parameter as-is for event object
+      paramList.push(param);
+    } else {
+      // Generate unique names for other parameters to avoid conflicts
+      paramList.push(generateUniqueParamName(param));
+    }
+  });
 
   // Track which parameters are assigned to state variables for proper handling
   const paramAssignments = new Map<string, string>(); // originalParam -> stateKey
   const stateKeys = Object.keys(component.state);
 
-  // Analyze parameter usage to detect state assignments
-  paramList.forEach((param, index) => {
-    const originalParam = params.split(",")[index].trim();
+  // Analyze parameter usage to detect state assignments (skip first param as it's event)
+  paramList.forEach((_, index) => {
+    if (index === 0) return; // Skip event parameter
+
+    const originalParam = paramArray[index];
     stateKeys.forEach((key) => {
       // Look for assignments where parameters are assigned to state variables
       const assignmentRegex = new RegExp(
@@ -235,8 +459,11 @@ const processArrowFunction = (
   });
 
   // Replace parameter names in function body with unique names to prevent conflicts
+  // (skip first parameter as it's the event)
   paramList.forEach((param, index) => {
-    const originalParam = params.split(",")[index].trim();
+    if (index === 0) return; // Skip event parameter
+
+    const originalParam = paramArray[index];
     const assignedStateKey = paramAssignments.get(originalParam);
 
     // Handle parameter replacement based on whether it's assigned to state
@@ -260,6 +487,7 @@ const processArrowFunction = (
             return originalParam;
           }
         }
+
         // Use unique parameter name to prevent conflicts
         return param;
       });
@@ -272,22 +500,26 @@ const processArrowFunction = (
     const leftSideRegex = new RegExp(`\\b${key}\\s*=(?!=)`, "g");
     body = body.replace(leftSideRegex, `this.state.${key} =`);
 
-    // Handle right-hand side usage: avoid replacing if already this.state.key
+    // Handle right-hand side usage: avoid replacing if already this.state.key or if it's an object property
+    // Negative lookbehind: (?<!this\.state\.) - not preceded by "this.state."
+    // Negative lookbehind: (?<!\w\.) - not preceded by any word character and dot (like "e.x")
+    // Word boundary: \b - ensure we match whole words only
+    // Negative lookahead: (?!\s*[=\.]) - not followed by assignment or property access
     const rightSideRegex = new RegExp(
-      `(?<!this\\.state\\.)\\b${key}\\b(?!\\s*=(?!=))`,
+      `(?<!this\\.state\\.)(?<!\\w\\.)\\b${key}\\b(?!\\s*[=\\.])`,
       "g"
     );
     body = body.replace(rightSideRegex, `this.state.${key}`);
   });
-
   // Create and bind the arrow function to the component context
   const eventBinding = component._eventBindings?.get(functionName);
   const fn = new Function(paramList.join(", "), body).bind(component);
 
   // Set up event listener if this function is bound to a DOM event
   if (eventBinding?.element && eventBinding.eventType) {
-    eventBinding.element.addEventListener(eventBinding.eventType, () => {
-      fn(...(eventBinding?.params || []));
+    eventBinding.element.addEventListener(eventBinding.eventType, (event) => {
+      // Pass the event as the first parameter, followed by any additional parameters
+      fn(event, ...(eventBinding?.params || []));
     });
   }
 };
@@ -298,9 +530,13 @@ const processArrowFunction = (
  * and JavaScript expressions. Provides safe evaluation of complex expressions.
  *
  * @param rawValue - The raw string value to parse
+ * @param context - Optional context object containing variable values for evaluation
  * @returns The parsed value with correct JavaScript type
  */
-const parseVariableValue = (rawValue: string): any => {
+const parseVariableValue = (
+  rawValue: string,
+  context: Record<string, any> = {}
+): any => {
   const trimmed = rawValue.trim();
 
   // Skip arrow functions - they should be handled by processArrowFunction
@@ -353,9 +589,23 @@ const parseVariableValue = (rawValue: string): any => {
 
   // Handle complex JavaScript expressions (method calls, operations, etc.)
   try {
-    const evalResult = evaluateJavaScript(trimmed);
+    const evalResult = evaluateJavaScript(trimmed, context);
     return evalResult;
   } catch (error) {
+    // If evaluation fails and it looks like a variable reference, check if it's in context
+    if (
+      /^[a-zA-Z_$][0-9a-zA-Z_$]*(\s*[+\-*/%]\s*[a-zA-Z_$][0-9a-zA-Z_$]*)*$/.test(
+        trimmed
+      )
+    ) {
+      // Check if it's a simple variable name that might be in context
+      if (context[trimmed] !== undefined) {
+        return context[trimmed];
+      }
+      // Return as string for variable expressions that haven't been resolved yet
+      return trimmed;
+    }
+
     console.warn(`Failed to evaluate JavaScript expression: ${trimmed}`, error);
     // Fallback: return as string to prevent breaking the application
     return trimmed;
@@ -368,9 +618,13 @@ const parseVariableValue = (rawValue: string): any => {
  * potentially dangerous global objects.
  *
  * @param expression - The JavaScript expression to evaluate
+ * @param context - Optional context object containing variable values
  * @returns The result of the evaluated expression
  */
-const evaluateJavaScript = (expression: string): any => {
+const evaluateJavaScript = (
+  expression: string,
+  context: Record<string, any> = {}
+): any => {
   // Create a safe evaluation context with common JavaScript methods
   const safeContext = {
     // String constructor and methods
@@ -387,6 +641,18 @@ const evaluateJavaScript = (expression: string): any => {
     Number: Number,
     // Boolean constructor
     Boolean: Boolean,
+    // Window object for browser APIs (only safe properties)
+    window: {
+      innerWidth: typeof window !== "undefined" ? window.innerWidth : 1920,
+      innerHeight: typeof window !== "undefined" ? window.innerHeight : 1080,
+      location:
+        typeof window !== "undefined"
+          ? window.location
+          : { href: "", host: "" },
+      console: typeof window !== "undefined" ? window.console : console,
+    },
+    // Add any provided context variables
+    ...context,
   };
 
   // Use Function constructor for safer evaluation than eval()

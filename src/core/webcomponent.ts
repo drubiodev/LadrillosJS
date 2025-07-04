@@ -59,30 +59,62 @@ export const defineWebComponent = (
 
     // renders the component by replacing the bindings with their values
     _render(prop: string, value: any) {
-      const binding = this._bindings.get(prop);
+      // Group bindings by their target node to handle multiple bindings in the same text/attribute
+      const nodeBindings = new Map<Node | Element, any[]>();
 
-      if (!binding) {
+      this._bindings.forEach((binding, bindingKey) => {
+        if (binding.key === prop) {
+          // Handle both TextBinding and AttributeBinding types
+          const target = (binding as any).node || (binding as any).element;
+          if (!nodeBindings.has(target)) {
+            nodeBindings.set(target, []);
+          }
+          nodeBindings.get(target)!.push(binding);
+        }
+      });
+
+      if (nodeBindings.size === 0) {
         logger.warn(`No binding found for property: ${prop}`);
         return;
       }
 
-      if (binding.node && binding.node.nodeType === Node.TEXT_NODE) {
-        // Use the original template and replace the placeholder
-        const updatedContent = (binding as any).template.replace(
-          `{${prop}}`,
-          value
-        );
-        (binding.node as Text).textContent = updatedContent;
-      } else if (binding.node && binding.node.nodeType === Node.ELEMENT_NODE) {
-        // For attribute bindings, use the template and replace the placeholder
-        const element = binding.node as Element;
-        const attrName = (binding as any).attrName;
-        const updatedValue = (binding as any).template.replace(
-          `{${prop}}`,
-          value
-        );
-        element.setAttribute(attrName, updatedValue);
-      }
+      // Update each node with all its bindings
+      nodeBindings.forEach((bindings, target) => {
+        const firstBinding = bindings[0];
+
+        if (target.nodeType === Node.TEXT_NODE) {
+          // For text nodes, start with the original template and replace all variables
+          let updatedContent = (firstBinding as any).template;
+
+          // Replace all state variables in the template
+          Object.keys(this.state).forEach((stateKey) => {
+            const stateValue = (this.state as any)[stateKey];
+            updatedContent = updatedContent.replace(
+              new RegExp(`\\{${stateKey}\\}`, "g"),
+              stateValue
+            );
+          });
+
+          (target as Text).textContent = updatedContent;
+        } else if (target.nodeType === Node.ELEMENT_NODE) {
+          // For attribute bindings, start with the original template and replace all variables
+          let updatedValue = (firstBinding as any).template;
+
+          // Replace all state variables in the template
+          Object.keys(this.state).forEach((stateKey) => {
+            const stateValue = (this.state as any)[stateKey];
+            updatedValue = updatedValue.replace(
+              new RegExp(`\\{${stateKey}\\}`, "g"),
+              stateValue
+            );
+          });
+
+          (target as Element).setAttribute(
+            (firstBinding as any).attrName,
+            updatedValue
+          );
+        }
+      });
     }
 
     // sets template to innerHTML or shadowRoot.innerHTML

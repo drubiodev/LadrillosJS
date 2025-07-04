@@ -64,6 +64,7 @@ export interface ComponentElement extends HTMLElement {
   _bindings?: ComponentBinding;
   _eventBindings?: EventBinding;
   _conditionals?: unknown[];
+  _localVariables?: Map<string, any>;
 }
 
 export interface TextBinding {
