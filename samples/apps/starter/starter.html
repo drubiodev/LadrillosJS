@@ -173,8 +173,9 @@
 
     <div class="section">
       <h2>Bindings</h2>
-      <p>✅ Basic Binding: const basic = "{basic}"</p>
+      <p>✅ Basic binding: const basic = "{basic}"</p>
       <p>❌ Attribute binding: passed in as attribute => {param}</p>
+      <p>❌ Object binding: {data.name}</p>
     </div>
 
     <div class="section">
@@ -216,11 +217,23 @@
         />
       </p>
     </div>
+    <div class="section">
+      <h2>Conditional Rendering</h2>
+      <p>
+        ❌ Show text based on condition: <span data-if="showDiv"> Hide Me</span>
+        <button onclick="showText = !showText">Toggle Text</button>
+      </p>
+    </div>
   </div>
 </div>
 
 <script>
   const basic = "hello";
+  const showText = true;
+
+  const data = {
+    name: "LadrillosJS",
+  };
 
   function sayHi() {
     alert(basic);
