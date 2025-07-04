@@ -356,7 +356,7 @@ const processAttributeBindings = (
   // Create fresh regex instance to avoid state conflicts between calls
   const bindingRegex = new RegExp(REGEX_PATTERNS.binding.source, "g");
   let match: RegExpExecArray | null;
-
+  console.log(attr);
   // Find all data binding expressions in the attribute value
   while ((match = bindingRegex.exec(attr.value)) !== null) {
     const variableKey = match[1].trim();

@@ -47,6 +47,7 @@ export const defineWebComponent = (
     connectedCallback() {
       this._loadTemplate();
       scanBindings(this, scripts);
+      this._initializeStateFromAttributes();
       loadComponentScript(this, scripts);
       this._loadStyles();
 
@@ -61,11 +62,11 @@ export const defineWebComponent = (
     _render(prop: string, value: any) {
       // Group bindings by their target node to handle multiple bindings in the same text/attribute
       const nodeBindings = new Map<Node | Element, any[]>();
-
       this._bindings.forEach((binding, bindingKey) => {
         if (binding.key === prop) {
           // Handle both TextBinding and AttributeBinding types
           const target = (binding as any).node || (binding as any).element;
+
           if (!nodeBindings.has(target)) {
             nodeBindings.set(target, []);
           }
@@ -152,9 +153,7 @@ export const defineWebComponent = (
     _initializeStateFromAttributes() {
       this.getAttributeNames().forEach((name) => {
         const raw = this.getAttribute(name);
-        console.log(raw);
-        // re‑use your parsing logic
-        // this._handleAttributeChange(name, raw);
+        this.state[name] = raw ? raw.trim() : "";
       });
     }
   }
