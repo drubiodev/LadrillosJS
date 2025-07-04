@@ -397,8 +397,14 @@ const processComponentScripts = (
     // Set up event listener if this function is bound to a DOM event
     if (eventBinding?.element && eventBinding.eventType) {
       eventBinding.element.addEventListener(eventBinding.eventType, (event) => {
-        // Pass the event as the first parameter, followed by any additional parameters
-        fn(event, ...(eventBinding?.params || []));
+        // If the function call has specific arguments, use those; otherwise pass the event
+        if (eventBinding.params && eventBinding.params.length > 0) {
+          // Function called with specific arguments (e.g., changeName('Daniel'))
+          fn(...eventBinding.params);
+        } else {
+          // Function called without arguments - pass the event object (e.g., drag, key)
+          fn(event);
+        }
       });
     }
   }
@@ -518,8 +524,14 @@ const processArrowFunction = (
   // Set up event listener if this function is bound to a DOM event
   if (eventBinding?.element && eventBinding.eventType) {
     eventBinding.element.addEventListener(eventBinding.eventType, (event) => {
-      // Pass the event as the first parameter, followed by any additional parameters
-      fn(event, ...(eventBinding?.params || []));
+      // If the function call has specific arguments, use those; otherwise pass the event
+      if (eventBinding.params && eventBinding.params.length > 0) {
+        // Function called with specific arguments (e.g., changeName('Daniel'))
+        fn(...eventBinding.params);
+      } else {
+        // Function called without arguments - pass the event object (e.g., drag, key)
+        fn(event);
+      }
     });
   }
 };
