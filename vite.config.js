@@ -4,7 +4,18 @@ const { defineConfig } = require("vite");
 module.exports = defineConfig(({ command }) => {
   const base =
     command === "serve"
-      ? { root: path.resolve(__dirname, "samples") }
+      ? {
+          root: path.resolve(__dirname, "samples"),
+          server: {
+            sourcemapIgnoreList: () => false,
+          },
+          build: {
+            sourcemap: true,
+          },
+          esbuild: {
+            sourcemap: true,
+          },
+        }
       : {
           build: {
             lib: {
@@ -18,6 +29,7 @@ module.exports = defineConfig(({ command }) => {
             target: "es2015",
             minify: "esbuild",
             cssMinify: true,
+            sourcemap: true,
             rollupOptions: {
               inlineDynamicImports: true,
             },
@@ -33,5 +45,11 @@ module.exports = defineConfig(({ command }) => {
       },
     },
     server: base.server,
+    css: {
+      devSourcemap: true,
+    },
+    define: {
+      __DEV__: command === "serve",
+    },
   };
 });

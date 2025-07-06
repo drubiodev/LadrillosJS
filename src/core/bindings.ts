@@ -1,4 +1,3 @@
-import { match } from "assert";
 import {
   AttributeBinding,
   ComponentElement,
@@ -26,11 +25,17 @@ export const scanBindings = (
   // Extract user-defined functions from script tags for event binding
   if (scripts && scripts.length > 0) {
     for (const script of scripts) {
-      // Setup regex patterns for function detection
+      /**
+       * Extracts user-defined functions from script content.
+       * This includes both traditional function declarations and arrow functions.
+       * The functions are stored in the component's _eventBindings map for later use.
+       */
+
       const functionRegex = new RegExp(
         REGEX_PATTERNS.declarations.function,
         "g"
       );
+
       const arrowFunctionRegex = new RegExp(
         REGEX_PATTERNS.declarations.arrowFunction,
         "g"
@@ -356,7 +361,7 @@ const processAttributeBindings = (
   // Create fresh regex instance to avoid state conflicts between calls
   const bindingRegex = new RegExp(REGEX_PATTERNS.binding.source, "g");
   let match: RegExpExecArray | null;
-  console.log(attr);
+
   // Find all data binding expressions in the attribute value
   while ((match = bindingRegex.exec(attr.value)) !== null) {
     const variableKey = match[1].trim();
@@ -364,7 +369,7 @@ const processAttributeBindings = (
     // Create unique binding key to handle multiple bindings for same variable
     const bindingKey = `${variableKey}_${Date.now()}_${Math.random()
       .toString(36)
-      .substr(2, 9)}`;
+      .substring(2, 9)}`;
 
     const binding: AttributeBinding = {
       element,

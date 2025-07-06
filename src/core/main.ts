@@ -14,22 +14,14 @@ class Ladrillos {
   // properties
   components: Record<string, LadrillosComponent>;
 
-  // private helper to fetch text or return empty string on error
-  static async #safeFetch(url: string): Promise<string> {
-    try {
-      const res = await fetch(url);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      return await res.text();
-    } catch (err) {
-      logger.error(`Failed to fetch resource at ${url}:`, err);
-      return "";
-    }
-  }
-
   constructor() {
     // Initialize the Ladrillos instance
     this.components = {};
   }
+
+  // ======================
+  // PUBLIC API METHODS
+  // ======================
 
   /**
    * Registers a component by fetching its HTML, scripts, and styles.
@@ -48,71 +40,15 @@ class Ladrillos {
     }
 
     try {
-      // fetch and cache source using cache
-      const source = await (async () => {
-        const cached = this.#getCached(path);
-        if (cached) return cached;
+      // Fetch component source with caching
+      const source = await this.#fetchComponentSource(path);
 
-        const res = await fetch(path);
-        if (!res.ok) {
-          throw new Error(
-            `Failed to fetch component at ${path}: ${res.statusText}`
-          );
-        }
+      // Parse and process the component
+      const doc = this.#parseComponentHTML(source);
+      const { scripts, externalScripts } = this.#extractScripts(doc);
+      const style = await this.#extractStyles(doc);
 
-        const text = await res.text();
-        this.#setCache(path, text);
-        return text;
-      })();
-
-      // Remove HTML comments and parse the HTML
-      const doc = this.#parser.parseFromString(
-        source.replace(REGEX_PATTERNS.comments.html, ""),
-        "text/html"
-      );
-
-      // Remove JS commenets and extract scripts
-      const scripts: ScriptElement[] = [];
-      const externalScripts: ExternalScriptElement[] = [];
-
-      for (const el of doc.querySelectorAll("script")) {
-        if (el.src) {
-          externalScripts.push({
-            src: el.src,
-            type: el.type ?? null,
-            bind: el.hasAttribute("bind"),
-          });
-        } else if (el.textContent) {
-          let content = el.textContent.trim();
-          // strip JavaScript comments (single‑line and block)
-          content = content.replace(REGEX_PATTERNS.comments.js, "").trim();
-          scripts.push({
-            content,
-            type: el.type ?? null,
-          });
-        }
-        el.remove();
-      }
-
-      // Remove css comments and extract styles
-      let style = "";
-      for (const link of doc.querySelectorAll("link[rel='stylesheet']")) {
-        const linkElement = link as HTMLLinkElement;
-        style += "\n" + (await Ladrillos.#safeFetch(`${linkElement.href}?raw`));
-        link.remove();
-      }
-      for (const styleEl of doc.querySelectorAll("style")) {
-        if (styleEl.textContent) {
-          let css = styleEl.textContent.trim();
-          // strip CSS comments
-          css = css.replace(REGEX_PATTERNS.comments.css, "").trim();
-          style += "\n" + css;
-        }
-        styleEl.remove();
-      }
-      style = style.trim();
-
-      // finalize component
+      // Store the component
       this.components[name] = {
         tagName: name,
         template: doc.body.innerHTML.trim(),
@@ -121,6 +57,7 @@ class Ladrillos {
         style,
       };
 
+      // Define the web component
       await this.#defineWebComponent(name, useShadowDOM);
       logger.log(`Component ${name} registered successfully`);
     } catch (error) {
@@ -128,6 +65,143 @@ class Ladrillos {
       return;
     }
   }
+
+  // ======================
+  // PRIVATE HELPER METHODS
+  // ======================
+
+  /**
+   * Fetches component source with caching support
+   * @param path - The file path to fetch
+   * @returns The component source content
+   */
+  async #fetchComponentSource(path: string): Promise<string> {
+    const cached = this.#getCached(path);
+    if (cached) return cached;
+
+    const res = await fetch(path);
+    if (!res.ok) {
+      throw new Error(
+        `Failed to fetch component at ${path}: ${res.statusText}`
+      );
+    }
+
+    const text = await res.text();
+    this.#setCache(path, text);
+    return text;
+  }
+
+  /**
+   * Parses HTML content and removes comments
+   * @param source - The HTML source to parse
+   * @returns Parsed DOM document
+   */
+  #parseComponentHTML(source: string): Document {
+    return this.#parser.parseFromString(
+      source.replace(REGEX_PATTERNS.comments.html, ""),
+      "text/html"
+    );
+  }
+
+  /**
+   * Extracts and processes script elements from the document
+   * @param doc - The parsed document
+   * @returns Object containing scripts and external scripts
+   */
+  #extractScripts(doc: Document): {
+    scripts: ScriptElement[];
+    externalScripts: ExternalScriptElement[];
+  } {
+    const scripts: ScriptElement[] = [];
+    const externalScripts: ExternalScriptElement[] = [];
+
+    for (const el of doc.querySelectorAll("script")) {
+      if (el.src) {
+        externalScripts.push({
+          src: el.src,
+          type: el.type ?? null,
+          external: true,
+        });
+      } else if (el.textContent) {
+        let content = el.textContent.trim();
+        // strip JavaScript comments (single‑line and block)
+        content = content.replace(REGEX_PATTERNS.comments.js, "").trim();
+        scripts.push({
+          content,
+          type: el.type ?? null,
+        });
+      }
+      el.remove();
+    }
+
+    return { scripts, externalScripts };
+  }
+
+  /**
+   * Extracts and processes style elements from the document
+   * @param doc - The parsed document
+   * @returns Concatenated CSS content
+   */
+  async #extractStyles(doc: Document): Promise<string> {
+    let style = "";
+
+    // Process external stylesheets
+    for (const link of doc.querySelectorAll("link[rel='stylesheet']")) {
+      const linkElement = link as HTMLLinkElement;
+      style += "\n" + (await this.#safeFetch(`${linkElement.href}?raw`));
+      link.remove();
+    }
+
+    // Process inline styles
+    for (const styleEl of doc.querySelectorAll("style")) {
+      if (styleEl.textContent) {
+        let css = styleEl.textContent.trim();
+        // strip CSS comments
+        css = css.replace(REGEX_PATTERNS.comments.css, "").trim();
+        style += "\n" + css;
+      }
+      styleEl.remove();
+    }
+
+    return style.trim();
+  }
+
+  /**
+   * Safe fetch helper that returns empty string on error
+   * @param url - The URL to fetch
+   * @returns The fetched content or empty string
+   */
+  async #safeFetch(url: string): Promise<string> {
+    try {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.text();
+    } catch (err) {
+      logger.error(`Failed to fetch resource at ${url}:`, err);
+      return "";
+    }
+  }
+
+  /**
+   * Defines the web component using the webcomponent module
+   * @param name - Component name
+   * @param useShadowDOM - Whether to use Shadow DOM
+   */
+  async #defineWebComponent(
+    name: string,
+    useShadowDOM: boolean
+  ): Promise<void> {
+    const { defineWebComponent } = await import("./webcomponent");
+
+    // safety check
+    if (this.components[name]) {
+      defineWebComponent(this.components[name], useShadowDOM);
+    }
+  }
+
+  // ======================
+  // CACHE MANAGEMENT
+  // ======================
 
   /**
    * LRU Cache: Gets cached content and marks it as recently used
@@ -166,19 +240,6 @@ class Ladrillos {
     }
     // Add/update as most recently used (end of Map)
     this.#cache.set(path, content);
-  }
-
-  /** @private */
-  async #defineWebComponent(
-    name: string,
-    useShadowDOM: boolean
-  ): Promise<void> {
-    const { defineWebComponent } = await import("./webcomponent");
-
-    // safety check
-    if (this.components[name]) {
-      defineWebComponent(this.components[name], useShadowDOM);
-    }
   }
 }
 

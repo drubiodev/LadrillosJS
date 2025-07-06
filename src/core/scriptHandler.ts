@@ -62,6 +62,7 @@ const processComponentScripts = (
     "g"
   );
   let match: RegExpExecArray | null;
+
   while ((match = arrowFunctionRegex.exec(srcContent)) !== null) {
     const functionName = match[2].trim();
     const params = match[3].trim();
@@ -90,11 +91,6 @@ const processComponentScripts = (
     srcContent: string
   ): boolean => {
     const beforeMatch = srcContent.substring(0, matchIndex);
-    const afterMatch = srcContent.substring(matchIndex);
-
-    // Count opening and closing braces before the match
-    let braceCount = 0;
-    let insideFunction = false;
 
     // Check for function declarations before this point
     const functionRegex =
