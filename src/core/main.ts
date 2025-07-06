@@ -145,22 +145,23 @@ class Ladrillos {
   async #extractStyles(doc: Document): Promise<string> {
     let style = "";
 
-    // Process external stylesheets
-    for (const link of doc.querySelectorAll("link[rel='stylesheet']")) {
-      const linkElement = link as HTMLLinkElement;
-      style += "\n" + (await this.#safeFetch(`${linkElement.href}?raw`));
-      link.remove();
-    }
+    // Process styles in document order (inline styles and external stylesheets)
+    const styleElements = doc.querySelectorAll("style, link[rel='stylesheet']");
 
-    // Process inline styles
-    for (const styleEl of doc.querySelectorAll("style")) {
-      if (styleEl.textContent) {
-        let css = styleEl.textContent.trim();
-        // strip CSS comments
-        css = css.replace(REGEX_PATTERNS.comments.css, "").trim();
-        style += "\n" + css;
+    for (const element of styleElements) {
+      if (element.tagName === "LINK") {
+        const linkElement = element as HTMLLinkElement;
+        style += "\n" + (await this.#safeFetch(`${linkElement.href}?raw`));
+      } else if (element.tagName === "STYLE") {
+        const styleEl = element as HTMLStyleElement;
+        if (styleEl.textContent) {
+          let css = styleEl.textContent.trim();
+          // strip CSS comments
+          css = css.replace(REGEX_PATTERNS.comments.css, "").trim();
+          style += "\n" + css;
+        }
       }
-      styleEl.remove();
+      element.remove();
     }
 
     return style.trim();
