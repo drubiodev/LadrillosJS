@@ -56,14 +56,21 @@ const processComponentScripts = (
   component: ComponentElement,
   srcContent: string
 ) => {
-  // Process arrow functions first to handle them before variable declarations
-  const arrowFunctionRegex = new RegExp(
-    REGEX_PATTERNS.declarations.arrowFunction,
-    "g"
+  // Pre-parse all matches to avoid repeated regex execution
+  const arrowFunctionMatches = Array.from(
+    srcContent.matchAll(
+      new RegExp(REGEX_PATTERNS.declarations.arrowFunction, "g")
+    )
   );
-  let match: RegExpExecArray | null;
+  const variableMatches = Array.from(
+    srcContent.matchAll(new RegExp(REGEX_PATTERNS.declarations.variable, "g"))
+  );
+  const functionMatches = Array.from(
+    srcContent.matchAll(new RegExp(REGEX_PATTERNS.declarations.function, "g"))
+  );
 
-  while ((match = arrowFunctionRegex.exec(srcContent)) !== null) {
+  // Process arrow functions first to handle them before variable declarations
+  for (const match of arrowFunctionMatches) {
     const functionName = match[2].trim();
     const params = match[3].trim();
     let body = match[4].trim();
@@ -82,47 +89,31 @@ const processComponentScripts = (
   }
 
   // Process variable declarations, excluding arrow functions already handled above
-  const variableRegex = new RegExp(REGEX_PATTERNS.declarations.variable, "g");
-  const variableDeclarations: Array<{ name: string; value: string }> = [];
+  const variableDeclarations: Array<{
+    name: string;
+    value: string;
+    index: number;
+  }> = [];
 
   // Helper to check if a match is inside a function body
   const isInsideFunctionBody = (
     matchIndex: number,
     srcContent: string
   ): boolean => {
-    const beforeMatch = srcContent.substring(0, matchIndex);
+    // Pre-compile function boundary detection for better performance
+    const functionBoundaries = [
+      ...arrowFunctionMatches.map((match) => ({
+        start: match.index! + match[0].length - 1,
+        match: match[0],
+      })),
+      ...functionMatches.map((match) => ({
+        start: match.index! + match[0].length - 1,
+        match: match[0],
+      })),
+    ];
 
-    // Check for function declarations before this point
-    const functionRegex =
-      /\bfunction\s+[a-zA-Z_$][0-9a-zA-Z_$]*\s*\([^)]*\)\s*\{/g;
-    const arrowFunctionRegex =
-      /\b(const|let|var)\s+[a-zA-Z_$][0-9a-zA-Z_$]*\s*=\s*\([^)]*\)\s*=>\s*\{/g;
-
-    let functionMatch;
-    while ((functionMatch = functionRegex.exec(beforeMatch)) !== null) {
-      const functionStart = functionMatch.index + functionMatch[0].length - 1; // Position of opening brace
-      const restOfContent = srcContent.substring(functionStart);
-
-      // Count braces to find the end of this function
-      let localBraceCount = 0;
-      for (let i = 0; i < restOfContent.length; i++) {
-        if (restOfContent[i] === "{") localBraceCount++;
-        else if (restOfContent[i] === "}") localBraceCount--;
-
-        if (localBraceCount === 0) {
-          const functionEnd = functionStart + i;
-          if (matchIndex > functionStart && matchIndex < functionEnd) {
-            return true;
-          }
-          break;
-        }
-      }
-    }
-
-    // Check for arrow functions
-    while ((functionMatch = arrowFunctionRegex.exec(beforeMatch)) !== null) {
-      const functionStart = functionMatch.index + functionMatch[0].length - 1; // Position of opening brace
-      const restOfContent = srcContent.substring(functionStart);
+    for (const boundary of functionBoundaries) {
+      const restOfContent = srcContent.substring(boundary.start);
 
       // Count braces to find the end of this function
       let localBraceCount = 0;
@@ -131,8 +122,8 @@ const processComponentScripts = (
         else if (restOfContent[i] === "}") localBraceCount--;
 
         if (localBraceCount === 0) {
-          const functionEnd = functionStart + i;
-          if (matchIndex > functionStart && matchIndex < functionEnd) {
+          const functionEnd = boundary.start + i;
+          if (matchIndex > boundary.start && matchIndex < functionEnd) {
             return true;
           }
           break;
@@ -144,7 +135,7 @@ const processComponentScripts = (
   };
 
   // First pass: collect all top-level variable declarations
-  while ((match = variableRegex.exec(srcContent)) !== null) {
+  for (const match of variableMatches) {
     const variableName = match[2].trim();
     const rawValue = match[3].trim();
 
@@ -154,11 +145,15 @@ const processComponentScripts = (
     }
 
     // Skip variables that are declared inside function bodies
-    if (isInsideFunctionBody(match.index, srcContent)) {
+    if (isInsideFunctionBody(match.index!, srcContent)) {
       continue;
     }
 
-    variableDeclarations.push({ name: variableName, value: rawValue });
+    variableDeclarations.push({
+      name: variableName,
+      value: rawValue,
+      index: match.index!,
+    });
   }
 
   // Process variables with proper dependency resolution
@@ -288,8 +283,7 @@ const processComponentScripts = (
   });
 
   // Process traditional function declarations
-  const functionRegex = new RegExp(REGEX_PATTERNS.declarations.function, "g");
-  while ((match = functionRegex.exec(srcContent)) !== null) {
+  for (const match of functionMatches) {
     const functionName = match[1].trim();
     const params = match[2].trim();
     let body = match[3].trim();
