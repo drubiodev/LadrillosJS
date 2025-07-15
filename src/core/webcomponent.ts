@@ -6,6 +6,7 @@ import {
 } from "../types/LadrilloTypes";
 import { logger } from "../utils/logger";
 import { scanBindings } from "./bindings";
+
 import { loadComponentScript } from "./scriptHandler";
 
 export const defineWebComponent = (
@@ -18,6 +19,7 @@ export const defineWebComponent = (
     // properties
     public _bindings: ComponentBinding = new Map();
     public _eventBindings: EventBinding = new Map();
+    public _constVariables = new Set();
 
     root: ShadowRoot | HTMLElement;
     state: ComponentState;
@@ -33,6 +35,24 @@ export const defineWebComponent = (
       this.state = new Proxy(internalState, {
         set: (target, prop, value) => {
           if (typeof prop === "string") {
+            const previousValue = target[prop];
+
+            // Skip constant variable check if previous value is empty, whitespace, null, or undefined
+            const isFirstTimeAssignment =
+              previousValue === undefined ||
+              previousValue === null ||
+              previousValue === "" ||
+              (typeof previousValue === "string" &&
+                previousValue.trim() === "");
+
+            if (!isFirstTimeAssignment && this._constVariables.has(prop)) {
+              const error = new TypeError(
+                `Assignment to constant variable. '${String(prop)}'`
+              );
+              error.name = "TypeError";
+              throw error;
+            }
+
             // Only update if value actually changed
             if (target[prop] !== value) {
               target[prop] = value;
@@ -46,16 +66,57 @@ export const defineWebComponent = (
 
     connectedCallback() {
       this._loadTemplate();
-      scanBindings(this, scripts);
-      this._initializeStateFromAttributes();
-      loadComponentScript(this, scripts);
-      this._loadStyles();
+      scanBindings(this);
 
-      this._eventBindings.clear();
+      // find const variables in the script
+      const constRegex = /\bconst\s+([a-zA-Z_$][0-9a-zA-Z_$]*)\s*=/g;
+      let match;
+
+      while ((match = constRegex.exec(scripts[0].content)) !== null) {
+        this._constVariables.add(match[1]);
+      }
+
+      for (const state in this.state) {
+        // Replace variable declarations (const, let, var)
+        scripts[0].content = scripts[0].content.replace(
+          new RegExp(`\\b(const|let|var)\\s+${state}\\s*=`, "g"),
+          `this.state['${state}'] =`
+        );
+
+        // Replace standalone variable assignments and references
+        scripts[0].content = scripts[0].content.replace(
+          new RegExp(`\\b${state}\\s*=`, "g"),
+          `this.state['${state}'] =`
+        );
+      }
+
+      console.log(scripts[0].content);
+      const wrappedScript = `
+         ${scripts[0].content}
+
+      const btn = this.shadowRoot?.querySelectorAll("button")[1];
+      btn?.removeAttribute("onclick");
+      btn?.addEventListener("click", sayHi.bind(this));
+
+      const btn2 = this.shadowRoot?.querySelectorAll("button")[2];
+      btn2?.removeAttribute("onclick");
+      btn2?.addEventListener("click", sayHi2.bind(this,"YOYO"));
+     
+      `;
+
+      const scriptFunction = new Function("state", wrappedScript);
+      scriptFunction.call(this);
+
+      // this._initializeStateFromAttributes();
+      // loadComponentScript(this, scripts);
+      // this._loadStyles();
+
+      // this._eventBindings.clear();
     }
 
     disconnectedCallback() {
       this._bindings.clear();
+      this._constVariables.clear();
     }
 
     // renders the component by replacing the bindings with their values
