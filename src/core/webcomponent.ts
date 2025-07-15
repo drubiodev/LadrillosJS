@@ -83,10 +83,48 @@ export const defineWebComponent = (
           `this.state['${state}'] =`
         );
 
-        // Replace standalone variable assignments and references
+        // Replace standalone variable assignments (left side)
         scripts[0].content = scripts[0].content.replace(
           new RegExp(`\\b${state}\\s*=`, "g"),
           `this.state['${state}'] =`
+        );
+      }
+
+      // Process each function individually to handle parameters correctly
+      for (const state in this.state) {
+        // Function regex that captures the entire function including its body
+        const functionRegex =
+          /((?:function\s+\w+\s*\(([^)]*)\)|(?:const|let|var)\s+\w+\s*=\s*\(([^)]*)\)\s*=>|(?:const|let|var)\s+\w+\s*=\s*function\s*\(([^)]*)\))\s*\{[^}]*\})/g;
+
+        scripts[0].content = scripts[0].content.replace(
+          functionRegex,
+          (match, fullFunction, params1, params2, params3) => {
+            const params = params1 || params2 || params3 || "";
+            const functionParams = new Set<string>();
+
+            // Extract parameters for this specific function
+            if (params) {
+              params.split(",").forEach((param: string) => {
+                const cleanParam = param.trim().split("=")[0].trim();
+                if (cleanParam) {
+                  functionParams.add(cleanParam);
+                }
+              });
+            }
+
+            // Only replace state variable if it's not a parameter in this function
+            if (!functionParams.has(state)) {
+              return fullFunction.replace(
+                new RegExp(
+                  `(?<!this\\.state\\[['"])\\b${state}\\b(?!['"]])(?!\\s*[=:])`,
+                  "g"
+                ),
+                `this.state['${state}']`
+              );
+            }
+
+            return fullFunction;
+          }
         );
       }
 
@@ -101,6 +139,10 @@ export const defineWebComponent = (
       const btn2 = this.shadowRoot?.querySelectorAll("button")[2];
       btn2?.removeAttribute("onclick");
       btn2?.addEventListener("click", sayHi2.bind(this,"YOYO"));
+
+      const btn3 = this.shadowRoot?.querySelectorAll("button")[3];
+      btn3?.removeAttribute("onclick");
+      btn3?.addEventListener("click", sayHi3.bind(this));
      
       `;
 
