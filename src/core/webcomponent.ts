@@ -69,8 +69,8 @@ export const defineWebComponent = (
       this._loadTemplate();
       this._loadStyles();
       scanBindings(this);
-      loadComponentScript(this, scripts);
       scanEventHandlers(this);
+      loadComponentScript(this, scripts);
       console.log(this._eventHandlers);
       // this._eventHandlers.clear();
     }

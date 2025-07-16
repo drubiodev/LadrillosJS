@@ -117,21 +117,93 @@ const processComponentScripts = (
   }
 
   console.log(srcContent);
+
+  // Extract function names from the processed script content
+  const extractFunctionNames = (content: string): Set<string> => {
+    const functionNames = new Set<string>();
+
+    // Regular function declarations: function name() {}
+    const functionRegex = /function\s+([a-zA-Z_$][0-9a-zA-Z_$]*)\s*\(/g;
+    let match;
+    while ((match = functionRegex.exec(content)) !== null) {
+      functionNames.add(match[1]);
+    }
+
+    // Arrow functions: const name = () => {}
+    const arrowFunctionRegex =
+      /(?:const|let|var)\s+([a-zA-Z_$][0-9a-zA-Z_$]*)\s*=\s*\([^)]*\)\s*=>/g;
+    while ((match = arrowFunctionRegex.exec(content)) !== null) {
+      functionNames.add(match[1]);
+    }
+
+    // Function expressions: const name = function() {}
+    const functionExpressionRegex =
+      /(?:const|let|var)\s+([a-zA-Z_$][0-9a-zA-Z_$]*)\s*=\s*function\s*\(/g;
+    while ((match = functionExpressionRegex.exec(content)) !== null) {
+      functionNames.add(match[1]);
+    }
+
+    return functionNames;
+  };
+
+  const availableFunctions = extractFunctionNames(srcContent);
+
+  // Get matching event handler keys
+  const matchingHandlers = new Set<string>();
+  if (component._eventHandlers) {
+    component._eventHandlers.forEach((handler) => {
+      if (availableFunctions.has(handler.key)) {
+        matchingHandlers.add(handler.key);
+      }
+    });
+  }
+
   const wrappedScript = `
            ${srcContent}
   
-        const btn = this.shadowRoot?.querySelectorAll("button")[1];
-        btn?.removeAttribute("onclick");
-        btn?.addEventListener("click", sayHi.bind(this));
-  
-        const btn2 = this.shadowRoot?.querySelectorAll("button")[2];
-        btn2?.removeAttribute("onclick");
-        btn2?.addEventListener("click", sayHi2.bind(this,"YOYO"));
-  
-        const btn3 = this.shadowRoot?.querySelectorAll("button")[3];
-        btn3?.removeAttribute("onclick");
-        btn3?.addEventListener("click", sayHi3.bind(this));
-       
+        // Set up event listeners for functions that match event handlers
+        this._eventHandlers.forEach((handler) => {
+          // Only process functions that are defined in the script content
+          const isUserDefinedFunction = ${JSON.stringify(
+            Array.from(availableFunctions)
+          )}.includes(handler.key);
+          
+          if (isUserDefinedFunction) {
+            // Handle user-defined functions with proper binding
+            try {
+              const func = eval(handler.key);
+              if (typeof func === 'function') {
+                handler.element?.removeAttribute(\`on\${handler.eventType}\`);
+                handler.element?.addEventListener(handler.eventType, () => {
+                  func.call(this, ...(handler.args || []));
+                });
+              }
+            } catch (e) {
+              console.warn('User-defined function not found:', handler.key);
+            }
+          } else {
+            // Handle native functions and inline expressions normally
+            handler.element?.removeAttribute(\`on\${handler.eventType}\`);
+            handler.element?.addEventListener(handler.eventType, (event) => {
+              try {
+                // For native functions and inline expressions, execute in global context
+                if (handler.args && handler.args.length > 0) {
+                  // Function call with arguments
+                  const func = eval(handler.key);
+                  if (typeof func === 'function') {
+                    func(...handler.args);
+                  }
+                } else {
+                  // Direct evaluation (handles both function calls and inline expressions)
+                  eval(handler.key);
+                }
+              } catch (e) {
+                console.warn('Error executing handler:', handler.key, e);
+              }
+            });
+          }
+        });
+
         `;
 
   const scriptFunction = new Function("state", wrappedScript);
