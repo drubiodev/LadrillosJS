@@ -45,11 +45,11 @@ export type ComponentBinding = Map<
   { key: string; node?: Node; value?: any }
 >;
 
-export type EventBinding = Map<
+export type EventHandler = Map<
   string,
   {
     key: string;
-    params?: string[];
+    args?: string[];
     body?: string | Function | undefined;
     element: Element | undefined;
     eventType: string | undefined;
@@ -62,9 +62,10 @@ export interface ComponentElement extends HTMLElement {
   root: ShadowRoot | HTMLElement;
   state: ComponentState;
   _bindings?: ComponentBinding;
-  _eventBindings?: EventBinding;
+  _eventHandlers?: EventHandler;
   _conditionals?: unknown[];
   _localVariables?: Map<string, any>;
+  _constVariables: Set<string>;
 }
 
 export interface TextBinding {

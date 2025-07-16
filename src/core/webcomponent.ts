@@ -2,10 +2,11 @@ import {
   ComponentState,
   LadrillosComponent,
   ComponentBinding,
-  EventBinding,
+  EventHandler,
 } from "../types/LadrilloTypes";
 import { logger } from "../utils/logger";
 import { scanBindings } from "./bindings";
+import { scanEventHandlers } from "./eventHandler";
 
 import { loadComponentScript } from "./scriptHandler";
 
@@ -18,8 +19,8 @@ export const defineWebComponent = (
   class ComponentElement extends HTMLElement {
     // properties
     public _bindings: ComponentBinding = new Map();
-    public _eventBindings: EventBinding = new Map();
-    public _constVariables = new Set();
+    public _eventHandlers: EventHandler = new Map();
+    public _constVariables: Set<string> = new Set();
 
     root: ShadowRoot | HTMLElement;
     state: ComponentState;
@@ -66,94 +67,12 @@ export const defineWebComponent = (
 
     connectedCallback() {
       this._loadTemplate();
+      this._loadStyles();
       scanBindings(this);
-
-      // find const variables in the script
-      const constRegex = /\bconst\s+([a-zA-Z_$][0-9a-zA-Z_$]*)\s*=/g;
-      let match;
-
-      while ((match = constRegex.exec(scripts[0].content)) !== null) {
-        this._constVariables.add(match[1]);
-      }
-
-      for (const state in this.state) {
-        // Replace variable declarations (const, let, var)
-        scripts[0].content = scripts[0].content.replace(
-          new RegExp(`\\b(const|let|var)\\s+${state}\\s*=`, "g"),
-          `this.state['${state}'] =`
-        );
-
-        // Replace standalone variable assignments (left side)
-        scripts[0].content = scripts[0].content.replace(
-          new RegExp(`\\b${state}\\s*=`, "g"),
-          `this.state['${state}'] =`
-        );
-      }
-
-      // Process each function individually to handle parameters correctly
-      for (const state in this.state) {
-        // Function regex that captures the entire function including its body
-        const functionRegex =
-          /((?:function\s+\w+\s*\(([^)]*)\)|(?:const|let|var)\s+\w+\s*=\s*\(([^)]*)\)\s*=>|(?:const|let|var)\s+\w+\s*=\s*function\s*\(([^)]*)\))\s*\{[^}]*\})/g;
-
-        scripts[0].content = scripts[0].content.replace(
-          functionRegex,
-          (match, fullFunction, params1, params2, params3) => {
-            const params = params1 || params2 || params3 || "";
-            const functionParams = new Set<string>();
-
-            // Extract parameters for this specific function
-            if (params) {
-              params.split(",").forEach((param: string) => {
-                const cleanParam = param.trim().split("=")[0].trim();
-                if (cleanParam) {
-                  functionParams.add(cleanParam);
-                }
-              });
-            }
-
-            // Only replace state variable if it's not a parameter in this function
-            if (!functionParams.has(state)) {
-              return fullFunction.replace(
-                new RegExp(
-                  `(?<!this\\.state\\[['"])\\b${state}\\b(?!['"]])(?!\\s*[=:])`,
-                  "g"
-                ),
-                `this.state['${state}']`
-              );
-            }
-
-            return fullFunction;
-          }
-        );
-      }
-
-      console.log(scripts[0].content);
-      const wrappedScript = `
-         ${scripts[0].content}
-
-      const btn = this.shadowRoot?.querySelectorAll("button")[1];
-      btn?.removeAttribute("onclick");
-      btn?.addEventListener("click", sayHi.bind(this));
-
-      const btn2 = this.shadowRoot?.querySelectorAll("button")[2];
-      btn2?.removeAttribute("onclick");
-      btn2?.addEventListener("click", sayHi2.bind(this,"YOYO"));
-
-      const btn3 = this.shadowRoot?.querySelectorAll("button")[3];
-      btn3?.removeAttribute("onclick");
-      btn3?.addEventListener("click", sayHi3.bind(this));
-     
-      `;
-
-      const scriptFunction = new Function("state", wrappedScript);
-      scriptFunction.call(this);
-
-      // this._initializeStateFromAttributes();
-      // loadComponentScript(this, scripts);
-      // this._loadStyles();
-
-      // this._eventBindings.clear();
+      loadComponentScript(this, scripts);
+      scanEventHandlers(this);
+      console.log(this._eventHandlers);
+      // this._eventHandlers.clear();
     }
 
     disconnectedCallback() {

@@ -56,191 +56,84 @@ const processComponentScripts = (
   component: ComponentElement,
   srcContent: string
 ) => {
-  // Extract function names using existing regex patterns
-  const functionNames = new Set<string>();
-
-  // Use your existing regex patterns
-  const functionRegex = new RegExp(REGEX_PATTERNS.declarations.function, "g");
-  const arrowFunctionRegex = new RegExp(
-    REGEX_PATTERNS.declarations.arrowFunction,
-    "g"
-  );
-
+  // find const variables in the script
+  const constRegex = /\bconst\s+([a-zA-Z_$][0-9a-zA-Z_$]*)\s*=/g;
   let match;
 
-  // Find traditional function declarations
-  while ((match = functionRegex.exec(srcContent)) !== null) {
-    functionNames.add(match[1]);
+  while ((match = constRegex.exec(srcContent)) !== null) {
+    component._constVariables.add(match[1]);
   }
 
-  // Find arrow function declarations
-  while ((match = arrowFunctionRegex.exec(srcContent)) !== null) {
-    functionNames.add(match[2]);
-  }
-
-  // Extract variable declarations to initialize state
-  const extractVariables = (content: string) => {
-    const variables = new Set<string>();
-    const varRegex = /(?:let|const|var)\s+(\w+)/g;
-    let match;
-    while ((match = varRegex.exec(content)) !== null) {
-      variables.add(match[1]);
-    }
-    return variables;
-  };
-
-  // Initialize state for any variables that don't exist yet
-  const declaredVariables = extractVariables(srcContent);
-  declaredVariables.forEach((varName) => {
-    if (!(varName in component.state)) {
-      component.state[varName] = undefined;
-    }
-  });
-
-  // Also ensure 'name' is in state if it's used in bindings but not declared
-  if (!("name" in component.state)) {
-    component.state.name = "";
-  }
-
-  // Create a reusable function that executes the script and returns updated state
-  const executeScript = () => {
-    const functionNamesArray = Array.from(functionNames);
-    const stateVars = Object.keys(component.state);
-
-    // Separate state variables into those declared in script vs those that aren't
-    const declaredInScript = Array.from(declaredVariables);
-    const stateOnlyVars = stateVars.filter(
-      (varName) => !declaredInScript.includes(varName)
+  for (const state in component.state) {
+    // Replace variable declarations (const, let, var)
+    srcContent = srcContent.replace(
+      new RegExp(`\\b(const|let|var)\\s+${state}\\s*=`, "g"),
+      `this.state['${state}'] =`
     );
 
-    const wrappedScript = `
-        // Only destructure state variables that are NOT declared in the user script
-        ${
-          stateOnlyVars.length > 0
-            ? `let {${stateOnlyVars.join(", ")}} = state;`
-            : ""
-        }
-        
-        // User's script executes with direct variable access
-        ${srcContent}
-        
-        // Auto-bind detected functions
-        const capturedFunctions = {};
-        [${functionNamesArray
-          .map((name) => `'${name}'`)
-          .join(", ")}].forEach(name => {
-          try {
-            if (typeof eval(name) === 'function') {
-              this[name] = eval(name);
-              capturedFunctions[name] = eval(name);
+    // Replace standalone variable assignments (left side)
+    srcContent = srcContent.replace(
+      new RegExp(`\\b${state}\\s*=`, "g"),
+      `this.state['${state}'] =`
+    );
+  }
+
+  // Process each function individually to handle parameters correctly
+  for (const state in component.state) {
+    // Function regex that captures the entire function including its body
+    const functionRegex =
+      /((?:function\s+\w+\s*\(([^)]*)\)|(?:const|let|var)\s+\w+\s*=\s*\(([^)]*)\)\s*=>|(?:const|let|var)\s+\w+\s*=\s*function\s*\(([^)]*)\))\s*\{[^}]*\})/g;
+
+    srcContent = srcContent.replace(
+      functionRegex,
+      (match, fullFunction, params1, params2, params3) => {
+        const params = params1 || params2 || params3 || "";
+        const functionParams = new Set<string>();
+
+        // Extract parameters for this specific function
+        if (params) {
+          params.split(",").forEach((param: string) => {
+            const cleanParam = param.trim().split("=")[0].trim();
+            if (cleanParam) {
+              functionParams.add(cleanParam);
             }
-          } catch (e) {
-            // Function not found, skip
-          }
-        });
-        
-        // Return both captured functions and updated state variables
-        return {
-          capturedFunctions,
-          state: {${stateVars.join(", ")}}
-        };
-      `;
-
-    const scriptFunction = new Function("state", wrappedScript);
-
-    try {
-      const result = scriptFunction.call(component, component.state) || {
-        capturedFunctions: {},
-        state: {},
-      };
-
-      // Apply state changes back to the proxy
-      Object.keys(result.state).forEach((key) => {
-        if (component.state[key] !== result.state[key]) {
-          component.state[key] = result.state[key];
+          });
         }
-      });
 
-      return result.capturedFunctions;
-    } catch (error) {
-      console.error(`Error executing script for ${component.tagName}:`, error);
-      return {};
-    }
-  };
+        // Only replace state variable if it's not a parameter in this function
+        if (!functionParams.has(state)) {
+          return fullFunction.replace(
+            new RegExp(
+              `(?<!this\\.state\\[['"])\\b${state}\\b(?!['"]])(?!\\s*[=:])`,
+              "g"
+            ),
+            `this.state['${state}']`
+          );
+        }
 
-  // Initial execution to capture functions
-  const capturedFunctions = executeScript();
+        return fullFunction;
+      }
+    );
+  }
 
-  // Wrap each function to re-execute the script context before calling
-  Object.keys(capturedFunctions).forEach((funcName) => {
-    (component as any)[funcName] = function (...args: any[]) {
-      // Filter out any Event objects from the arguments
-      // When called from onclick, the browser automatically adds the event as the last argument
-      const functionArgs = args.filter((arg) => !(arg instanceof Event));
-      console.log(`${funcName} called with:`, functionArgs);
-      // Execute the function within a fresh script context
-      const stateVars = Object.keys(component.state);
-
-      // Separate state variables into those declared in script vs those that aren't
-      const declaredInScript = Array.from(declaredVariables);
-      const stateOnlyVars = stateVars.filter(
-        (varName) => !declaredInScript.includes(varName)
-      );
-
-      const wrappedScript = `
-          // Only destructure state variables that are NOT declared in the user script
-          ${
-            stateOnlyVars.length > 0
-              ? `let {${stateOnlyVars.join(", ")}} = state;`
-              : ""
-          }
-          
-          // User's script executes with direct variable access
-          ${srcContent}
-          
-          // Now call the specific function with the passed arguments
-          ${funcName}(...functionArgs);
-          
-          // Return updated state variables
-          return {${stateVars.join(", ")}};
+  console.log(srcContent);
+  const wrappedScript = `
+           ${srcContent}
+  
+        const btn = this.shadowRoot?.querySelectorAll("button")[1];
+        btn?.removeAttribute("onclick");
+        btn?.addEventListener("click", sayHi.bind(this));
+  
+        const btn2 = this.shadowRoot?.querySelectorAll("button")[2];
+        btn2?.removeAttribute("onclick");
+        btn2?.addEventListener("click", sayHi2.bind(this,"YOYO"));
+  
+        const btn3 = this.shadowRoot?.querySelectorAll("button")[3];
+        btn3?.removeAttribute("onclick");
+        btn3?.addEventListener("click", sayHi3.bind(this));
+       
         `;
 
-      const scriptFunction = new Function(
-        "state",
-        "functionArgs",
-        wrappedScript
-      );
-
-      try {
-        const result =
-          scriptFunction.call(component, component.state, functionArgs) || {};
-
-        // Apply state changes back to the proxy
-        Object.keys(result).forEach((key) => {
-          if (component.state[key] !== result[key]) {
-            component.state[key] = result[key];
-          }
-        });
-      } catch (error) {
-        console.error(`Error executing function ${funcName}:`, error);
-      }
-    };
-  });
-
-  // for each component._eventBindings
-  if (component._eventBindings) {
-    component._eventBindings.forEach((eventBinding) => {
-      if (eventBinding?.element && eventBinding.eventType) {
-        eventBinding.element.addEventListener(
-          eventBinding.eventType,
-          (event) => {
-            const func = (component as any)[eventBinding.key];
-            if (typeof func === "function") {
-              func.call(component, event);
-            }
-          }
-        );
-      }
-    });
-  }
+  const scriptFunction = new Function("state", wrappedScript);
+  scriptFunction.call(component);
 };
