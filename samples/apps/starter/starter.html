@@ -1,25 +1,5 @@
-<button onclick="alert('hi')">Alert Me</button>
-<button onclick="sayHi2('not daniel')">Click Me 2 {name}</button>
-<button onclick="sayHi">Click Me</button>
-<button onclick="sayHi">Click Me 2</button>
-<button onclick="sayHi3">Click Me 3</button>
+<input type="text" value="{name}" />
 
 <script>
-  console.log("Component script loaded");
   let name = "Ladrillos".toUpperCase();
-
-  console.log(`Hello ${name}`);
-
-  function sayHi() {
-    name = "Daniel";
-  }
-
-  const sayHi2 = (n) => {
-    name = n || "DEFAULT";
-    console.log(`Hello ${name}`);
-  };
-
-  const sayHi3 = () => {
-    name = name.toLowerCase();
-  };
 </script>

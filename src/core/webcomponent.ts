@@ -71,8 +71,8 @@ export const defineWebComponent = (
       scanBindings(this);
       scanEventHandlers(this);
       loadComponentScript(this, scripts);
-      console.log(this._eventHandlers);
-      // this._eventHandlers.clear();
+
+      this._eventHandlers.clear();
     }
 
     disconnectedCallback() {

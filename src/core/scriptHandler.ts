@@ -116,8 +116,6 @@ const processComponentScripts = (
     );
   }
 
-  console.log(srcContent);
-
   // Extract function names from the processed script content
   const extractFunctionNames = (content: string): Set<string> => {
     const functionNames = new Set<string>();
