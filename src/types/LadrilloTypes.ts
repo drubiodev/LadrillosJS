@@ -18,9 +18,17 @@ export type LadrillosComponent = {
 };
 
 export type RegexPatterns = {
+  readonly bindings: RegExp;
   readonly comments: {
     readonly js: RegExp;
     readonly css: RegExp;
     readonly html: RegExp;
   };
+};
+
+export type BindingDescriptor = {
+  node: Text;
+  raw: string; // e.g. "person.name"
+  path: string[]; // ['person', 'name']
+  compute?: (ctx: unknown) => unknown;
 };
