@@ -4,11 +4,10 @@ import {
   ScriptElement,
 } from "../types/LadrilloTypes";
 import { logger } from "../utils/logger";
+import { getCached, setCache } from "../cache";
 import { REGEX_PATTERNS } from "../utils/regex";
 
 class Ladrillos {
-  #cache = new Map<string, string>();
-  #maxCacheSize = 25; // TODO: make configurable for developer to set
   #parser = new DOMParser();
 
   // properties
@@ -19,45 +18,25 @@ class Ladrillos {
     this.components = {};
   }
 
-  // ======================
-  // PUBLIC API METHODS
-  // ======================
-
-  /**
-   * Registers a component by fetching its HTML, scripts, and styles.
-   * @param name - The name of the component.
-   * @param path - The path to the component's HTML file.
-   * @param useShadowDOM - Whether to use Shadow DOM for the component (default: true).
-   */
   async registerComponent(
     name: string,
     path: string,
     useShadowDOM: boolean = true
   ): Promise<void> {
     if (this.components[name]) {
-      logger.warn(`Component ${name} is already registered.`);
+      logger.warn(`Component with name "${name}" is already registered.`);
       return;
     }
 
     try {
-      // Fetch component source with caching
       const source = await this.#fetchComponentSource(path);
-      const t = await this.parseComponent(source, name);
+      const component = await this.#parseComponent(source!, name);
 
-      // Store the component
-      this.components[name] = {
-        tagName: name,
-        template: t.template,
-        scripts: t.scripts,
-        externalScripts: t.externalScripts,
-        style: t.styles,
-      };
-
-      // Define the web component
-      await this.#defineWebComponent(name, useShadowDOM);
-      logger.log(`Component ${name} registered successfully`);
+      console.log(component);
     } catch (error) {
-      logger.error(`Error registering component ${name}:`, error);
+      logger.error(
+        `Failed to register component "${name}": ${(error as Error).message}`
+      );
       return;
     }
   }
@@ -67,20 +46,50 @@ class Ladrillos {
   // ======================
 
   /**
+   * Fetches component source with caching support
+   * @param path - The file path to fetch
+   * @returns The component source content
+   */
+  async #fetchComponentSource(path: string): Promise<string | undefined> {
+    if (!path) {
+      throw new Error("Path cannot be null or empty");
+    }
+
+    const cached = getCached(path);
+    if (cached) return cached;
+
+    // fetch and cache
+    try {
+      const response = await fetch(path);
+
+      if (!response.ok) {
+        throw new Error(
+          `Failed to fetch component from ${path}: ${response.statusText}`
+        );
+      }
+
+      const text = await response.text();
+      setCache(path, text);
+
+      return text;
+    } catch (error) {
+      logger.error(
+        `Error fetching component from ${path}: ${(error as Error).message}`
+      );
+    }
+  }
+
+  /**
    * Parses component HTML and extracts scripts and styles
    * @param source - The HTML source of the component
    * @param name - The name of the component
    * @returns Parsed component object
    */
-  async parseComponent(source: string, name: string) {
+  async #parseComponent(source: string, name: string) {
     const doc = this.#parseComponentHTML(source);
     const { scripts, externalScripts } = this.#extractScripts(doc);
     const styles = await this.#extractStyles(doc);
     const template = doc.body.innerHTML.trim();
-
-    if (!template) {
-      throw new Error(`Component ${name} has no valid template.`);
-    }
 
     return {
       tagName: name,
@@ -89,27 +98,6 @@ class Ladrillos {
       externalScripts,
       styles,
     };
-  }
-
-  /**
-   * Fetches component source with caching support
-   * @param path - The file path to fetch
-   * @returns The component source content
-   */
-  async #fetchComponentSource(path: string): Promise<string> {
-    const cached = this.#getCached(path);
-    if (cached) return cached;
-
-    const res = await fetch(path);
-    if (!res.ok) {
-      throw new Error(
-        `Failed to fetch component at ${path}: ${res.statusText}`
-      );
-    }
-
-    const text = await res.text();
-    this.#setCache(path, text);
-    return text;
   }
 
   /**
@@ -202,66 +190,6 @@ class Ladrillos {
       logger.error(`Failed to fetch resource at ${url}:`, err);
       return "";
     }
-  }
-
-  /**
-   * Defines the web component using the webcomponent module
-   * @param name - Component name
-   * @param useShadowDOM - Whether to use Shadow DOM
-   */
-  async #defineWebComponent(
-    name: string,
-    useShadowDOM: boolean
-  ): Promise<void> {
-    const { defineWebComponent } = await import("./webcomponent");
-
-    // safety check
-    if (this.components[name]) {
-      defineWebComponent(this.components[name], useShadowDOM);
-    }
-  }
-
-  // ======================
-  // CACHE MANAGEMENT
-  // ======================
-
-  /**
-   * LRU Cache: Gets cached content and marks it as recently used
-   * Moves the accessed item to the end of the Map (most recently used position)
-   * This ensures frequently accessed components stay in cache longer
-   * @param path - The file path to retrieve from cache
-   * @returns The cached content or undefined if not found
-   */
-  #getCached(path: string): string | undefined {
-    const cached = this.#cache.get(path);
-    if (cached) {
-      // LRU: Move to end (most recently used position)
-      this.#cache.delete(path);
-      this.#cache.set(path, cached);
-    }
-    return cached;
-  }
-
-  /**
-   * LRU Cache: Stores content with automatic eviction of least recently used items
-   * Maintains cache size limit by removing oldest items when full
-   * Updates existing items without affecting cache size
-   * @param path - The file path to cache
-   * @param content - The content to store
-   */
-  #setCache(path: string, content: string): void {
-    if (this.#cache.has(path)) {
-      // Update existing: remove and re-add to mark as most recent
-      this.#cache.delete(path);
-    } else if (this.#cache.size >= this.#maxCacheSize) {
-      // Cache full: remove least recently used (first item in Map)
-      const firstKey = this.#cache.keys().next().value;
-      if (firstKey) {
-        this.#cache.delete(firstKey);
-      }
-    }
-    // Add/update as most recently used (end of Map)
-    this.#cache.set(path, content);
   }
 }
 
