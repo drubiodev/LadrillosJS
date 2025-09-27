@@ -42,7 +42,7 @@ export type StringifyFunction = {
 
 export type ComponentBinding = Map<
   string,
-  { key: string; node?: Node; value?: any }
+  { key: string; node?: Node | null; template?: string | null | undefined }
 >;
 
 export type EventHandler = Map<

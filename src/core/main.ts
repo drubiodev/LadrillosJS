@@ -42,19 +42,15 @@ class Ladrillos {
     try {
       // Fetch component source with caching
       const source = await this.#fetchComponentSource(path);
-
-      // Parse and process the component
-      const doc = this.#parseComponentHTML(source);
-      const { scripts, externalScripts } = this.#extractScripts(doc);
-      const style = await this.#extractStyles(doc);
+      const t = await this.parseComponent(source, name);
 
       // Store the component
       this.components[name] = {
         tagName: name,
-        template: doc.body.innerHTML.trim(),
-        scripts,
-        externalScripts,
-        style,
+        template: t.template,
+        scripts: t.scripts,
+        externalScripts: t.externalScripts,
+        style: t.styles,
       };
 
       // Define the web component
@@ -69,6 +65,31 @@ class Ladrillos {
   // ======================
   // PRIVATE HELPER METHODS
   // ======================
+
+  /**
+   * Parses component HTML and extracts scripts and styles
+   * @param source - The HTML source of the component
+   * @param name - The name of the component
+   * @returns Parsed component object
+   */
+  async parseComponent(source: string, name: string) {
+    const doc = this.#parseComponentHTML(source);
+    const { scripts, externalScripts } = this.#extractScripts(doc);
+    const styles = await this.#extractStyles(doc);
+    const template = doc.body.innerHTML.trim();
+
+    if (!template) {
+      throw new Error(`Component ${name} has no valid template.`);
+    }
+
+    return {
+      tagName: name,
+      template,
+      scripts,
+      externalScripts,
+      styles,
+    };
+  }
 
   /**
    * Fetches component source with caching support

@@ -1,3 +1,4 @@
+import { TIMEOUT } from "dns";
 import {
   ComponentState,
   LadrillosComponent,
@@ -5,10 +6,7 @@ import {
   EventHandler,
 } from "../types/LadrilloTypes";
 import { logger } from "../utils/logger";
-import { scanBindings } from "./bindings";
-import { scanEventHandlers } from "./eventHandler";
-
-import { loadComponentScript } from "./scriptHandler";
+import { scanBindings } from "../bindings";
 
 export const defineWebComponent = (
   component: LadrillosComponent,
@@ -33,6 +31,7 @@ export const defineWebComponent = (
 
       // initialize state and bindings
       const internalState: { [key: string]: any } = {};
+
       this.state = new Proxy(internalState, {
         set: (target, prop, value) => {
           if (typeof prop === "string") {
@@ -67,12 +66,12 @@ export const defineWebComponent = (
 
     connectedCallback() {
       this._loadTemplate();
-      this._loadStyles();
-      scanBindings(this);
-      scanEventHandlers(this);
-      loadComponentScript(this, scripts);
+      // this._loadStyles();
+      // this._initializeStateFromAttributes();
 
-      this._eventHandlers.clear();
+      // this._eventHandlers.clear();
+
+      console.log(scripts[0].content || "");
     }
 
     disconnectedCallback() {
@@ -82,60 +81,16 @@ export const defineWebComponent = (
 
     // renders the component by replacing the bindings with their values
     _render(prop: string, value: any) {
-      // Group bindings by their target node to handle multiple bindings in the same text/attribute
-      const nodeBindings = new Map<Node | Element, any[]>();
-      this._bindings.forEach((binding, bindingKey) => {
+      this._bindings.forEach((binding) => {
         if (binding.key === prop) {
-          // Handle both TextBinding and AttributeBinding types
-          const target = (binding as any).node || (binding as any).element;
-
-          if (!nodeBindings.has(target)) {
-            nodeBindings.set(target, []);
+          if (binding.node && binding.template) {
+            // Replace the binding in the template with the value
+            const newText = binding.template.replace(
+              new RegExp(`{${binding.key}}`, "g"),
+              String(value)
+            );
+            binding.node.textContent = newText;
           }
-          nodeBindings.get(target)!.push(binding);
-        }
-      });
-
-      if (nodeBindings.size === 0) {
-        logger.warn(`No binding found for property: ${prop}`);
-        return;
-      }
-
-      // Update each node with all its bindings
-      nodeBindings.forEach((bindings, target) => {
-        const firstBinding = bindings[0];
-
-        if (target.nodeType === Node.TEXT_NODE) {
-          // For text nodes, start with the original template and replace all variables
-          let updatedContent = (firstBinding as any).template;
-
-          // Replace all state variables in the template
-          Object.keys(this.state).forEach((stateKey) => {
-            const stateValue = (this.state as any)[stateKey];
-            updatedContent = updatedContent.replace(
-              new RegExp(`\\{${stateKey}\\}`, "g"),
-              stateValue
-            );
-          });
-
-          (target as Text).textContent = updatedContent;
-        } else if (target.nodeType === Node.ELEMENT_NODE) {
-          // For attribute bindings, start with the original template and replace all variables
-          let updatedValue = (firstBinding as any).template;
-
-          // Replace all state variables in the template
-          Object.keys(this.state).forEach((stateKey) => {
-            const stateValue = (this.state as any)[stateKey];
-            updatedValue = updatedValue.replace(
-              new RegExp(`\\{${stateKey}\\}`, "g"),
-              stateValue
-            );
-          });
-
-          (target as Element).setAttribute(
-            (firstBinding as any).attrName,
-            updatedValue
-          );
         }
       });
     }
@@ -147,6 +102,8 @@ export const defineWebComponent = (
       } else {
         this.innerHTML = template;
       }
+
+      this._bindings = scanBindings(this.root).bindings;
     }
 
     // loads the styles into the shadowRoot or document head

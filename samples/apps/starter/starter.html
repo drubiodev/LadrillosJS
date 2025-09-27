@@ -1,5 +1,19 @@
-<input type="text" value="{name}" />
+<p>Hello: {name}</p>
+<p>The name variable is: {name}</p>
+<p>The object variable is: {person.name}</p>
 
 <script>
   let name = "Ladrillos".toUpperCase();
+
+  function updateName(name) {
+    name = name.toLowerCase();
+  }
+
+  const updateNameAgain = (name) => {
+    name = name.toUpperCase();
+
+    console.log("Updated name to:", name);
+
+    name = name + "!!!";
+  };
 </script>
