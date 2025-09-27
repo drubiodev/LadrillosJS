@@ -14,7 +14,7 @@ export type LadrillosComponent = {
   template: string;
   scripts: ScriptElement[];
   externalScripts: ExternalScriptElement[];
-  style: string;
+  styles: string;
 };
 
 export type RegexPatterns = {
