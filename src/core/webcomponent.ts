@@ -1,8 +1,9 @@
 import { BindingDescriptor, LadrillosComponent } from "../types/LadrilloTypes";
 import { logger } from "../utils/logger";
 import { loadStyles } from "./css/cssParser";
-import { loadTemplate } from "./html/htmlparser";
+import { loadTemplate } from "./html/htmlParser";
 import { renderBindings } from "./html/htmlRenderer";
+import { loadScripts } from "./js/scriptParser";
 
 export const defineWebComponent = (
   component: LadrillosComponent,
@@ -49,6 +50,8 @@ export const defineWebComponent = (
       loadStyles(host, styles, useShadowDOM);
       this._initializeStateFromAttributes();
       renderBindings(this.#bindings, this.state);
+
+      loadScripts(host, scripts);
     }
     // Invoked when element is removed from the DOM
     disconnectedCallback() {}

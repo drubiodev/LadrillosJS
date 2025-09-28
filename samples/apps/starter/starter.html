@@ -9,12 +9,16 @@
 <p>The Param: {param}</p>
 <p>The object variable is: {person.name}</p>
 <p data-bind="{person.name}">TEST</p>
+<input type="text" value="" />
+<button onclick="updateName('name')">Update Name</button>
 
 <script src="./starter.js"></script>
 <script>
+  console.log(this);
   let name = "Ladrillos".toUpperCase();
 
   function updateName(name) {
+    console.log("Updating name from:", this);
     name = name.toLowerCase();
   }
 

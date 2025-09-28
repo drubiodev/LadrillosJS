@@ -16,8 +16,6 @@ export const renderBindings = (
     if (value === undefined) continue;
     const replacement = value ?? "";
 
-    console.log("Rendering binding:", binding, "with value:", replacement);
-
     if (binding.node.nodeType === Node.TEXT_NODE) {
       binding.node.textContent = binding.node.textContent!.replace(
         `{${binding.raw}}`,
