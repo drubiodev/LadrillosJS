@@ -4,10 +4,10 @@ import { REGEX_PATTERNS } from "../../utils/regex";
 export const loadTemplate = (
   host: HTMLElement | ShadowRoot,
   template: string
-) => {
+): BindingDescriptor[] => {
   host.innerHTML = template;
 
-  scanBindings(host);
+  return scanBindings(host);
 };
 
 const scanBindings = (host: HTMLElement | ShadowRoot): BindingDescriptor[] => {
