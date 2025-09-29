@@ -19,7 +19,7 @@
 
   function updateName(name) {
     console.log("Updating name from:", this);
-    name = name.toLowerCase();
+    this.state.name = name.toLowerCase();
   }
 
   const updateNameAgain = (name) => {
