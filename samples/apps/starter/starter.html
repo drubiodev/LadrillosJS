@@ -10,7 +10,8 @@
 <p>The object variable is: {person.name}</p>
 <p data-bind="{person.name}">TEST</p>
 <input type="text" value="" />
-<button onclick="updateName('name')">Update Name</button>
+<button onclick="updateName('Daniel')">Update Name</button>
+<button onclick="updateName('Jessica')">Update Name Again</button>
 
 <script src="./starter.js"></script>
 <script>
@@ -18,11 +19,13 @@
   let name = "Ladrillos".toUpperCase();
 
   function updateName(name) {
-    console.log("Updating name from:", this);
+    console.log("Updating name from:", this.state);
     this.state.name = name.toLowerCase();
+    this.state.param = "New Param";
   }
 
   const updateNameAgain = (name) => {
+    console.log("Updating name again from:", this.state);
     name = name.toUpperCase();
 
     console.log("Updated name to:", name);

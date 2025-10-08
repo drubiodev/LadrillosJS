@@ -1,7 +1,7 @@
 import { BindingDescriptor, LadrillosComponent } from "../types/LadrilloTypes";
 import { logger } from "../utils/logger";
 import { loadStyles } from "./css/cssParser";
-import { loadTemplate } from "./html/htmlParser";
+import { loadTemplate } from "./html/htmlparser";
 import { renderBindings } from "./html/htmlRenderer";
 import { loadScripts } from "./js/scriptParser";
 
@@ -20,12 +20,16 @@ export const defineWebComponent = (
       if (useShadowDOM) this.attachShadow({ mode: "open" });
 
       const internalState: any = {};
+
+      // Wrap state in a Proxy to detect changes and trigger re-renders
       this.state = new Proxy(internalState, {
         set: (target, prop, value) => {
           const prev = target[prop as keyof typeof target];
+          // Skip update if value hasn't changed (avoids unnecessary re-renders)
           if (Object.is(prev, value)) return true;
 
           target[prop as keyof typeof target] = value;
+          // Re-render all bindings with the updated state
           renderBindings(this.#bindings, this.state);
           return true;
         },
