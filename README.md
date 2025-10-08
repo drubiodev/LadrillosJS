@@ -42,6 +42,12 @@ A lightweight, zero-dependency web component framework for building modular web 
 
 ## Getting Started
 
+### Prerequisites
+
+- **Node.js**: Version 20.19+ or 22.12+ is required for development
+
+### Example Applications
+
 The repository includes several example applications that demonstrate various features:
 
 - **[Todo App](samples/apps/todo)** - Classic todo list with component composition

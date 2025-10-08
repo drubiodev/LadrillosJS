@@ -52,7 +52,6 @@ export const defineWebComponent = (
 
       // Parse template and collect all data binding locations
       this.#bindings = loadTemplate(host, template);
-
       // Inject component styles
       loadStyles(host, styles, useShadowDOM);
 

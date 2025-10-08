@@ -4,6 +4,7 @@ import {
   ScriptElement,
 } from "../types/LadrilloTypes";
 import { REGEX_PATTERNS } from "../utils/regex";
+import { logger } from "../utils/logger";
 import { safeFetch } from "./componentSource";
 
 const parser = new DOMParser();
@@ -109,6 +110,49 @@ export const extractScripts = (
 };
 
 /**
+ * Extracts CSS content from various response formats
+ * Handles:
+ * - Vite dev server (wrapped in __vite__css variable)
+ * - Plain CSS files (production/CDN)
+ * - Other build tool formats
+ */
+const extractCSSFromResponse = (response: string): string => {
+  // Check if this is a Vite HMR response (contains __vite__css)
+  const viteMatch = response.match(/const __vite__css = "([\s\S]*?)"/);
+  if (viteMatch && viteMatch[1]) {
+    // Unescape the CSS string
+    return viteMatch[1]
+      .replace(/\\r\\n/g, "\n")
+      .replace(/\\n/g, "\n")
+      .replace(/\\t/g, "\t")
+      .replace(/\\"/g, '"')
+      .replace(/\\\\/g, "\\");
+  }
+
+  // Check for other module formats (e.g., "export default ...")
+  const exportMatch = response.match(/export\s+default\s+"([\s\S]*?)"/);
+  if (exportMatch && exportMatch[1]) {
+    return exportMatch[1]
+      .replace(/\\r\\n/g, "\n")
+      .replace(/\\n/g, "\n")
+      .replace(/\\t/g, "\t")
+      .replace(/\\"/g, '"')
+      .replace(/\\\\/g, "\\");
+  }
+
+  // If it looks like JavaScript (not CSS), warn and return empty
+  if (response.includes("import") || response.includes("export")) {
+    logger.warn(
+      "CSS file returned JavaScript module format. CSS may not load correctly."
+    );
+    return "";
+  }
+
+  // If not a module format, assume it's plain CSS (production or direct file)
+  return response;
+};
+
+/**
  * Extracts and processes style elements from the document
  * @param doc - The parsed document
  * @returns Concatenated CSS content
@@ -122,7 +166,11 @@ export const extractStyles = async (doc: Document): Promise<string> => {
   for (const element of styleElements) {
     if (element.tagName === "LINK") {
       const linkElement = element as HTMLLinkElement;
-      style += "\n" + (await safeFetch(`${linkElement.href}?raw`));
+      const response = await safeFetch(linkElement.href);
+      const cssContent = extractCSSFromResponse(response);
+      if (cssContent) {
+        style += "\n" + cssContent;
+      }
     } else if (element.tagName === "STYLE") {
       const styleEl = element as HTMLStyleElement;
       if (styleEl.textContent) {
