@@ -1,16 +1,17 @@
 const totalSlides = 4;
 
-this.setState({
+$setState({
   currentSlide: 0,
 });
 
 const nextSlide = () => {
-  this.state.currentSlide = (this.state.currentSlide + 1) % totalSlides;
+  console.log("nextSlide");
+  $state.currentSlide = ($state.currentSlide + 1) % totalSlides;
+  console.log($state);
 };
 
 const prevSlide = () => {
-  this.state.currentSlide =
-    (this.state.currentSlide - 1 + totalSlides) % totalSlides;
+  $state.currentSlide = ($state.currentSlide - 1 + totalSlides) % totalSlides;
 };
 
 document.addEventListener("keyup", (event) => {

@@ -40,7 +40,7 @@
 </div>
 
 <script>
-  const banner = this.querySelector(".alert-banner");
+  const banner = $querySelector(".alert-banner");
   const closeBtn = banner.querySelector(".close-btn");
 
   closeBtn.addEventListener("click", () => {
@@ -50,7 +50,7 @@
   });
 
   this.listen("copied", (data) => {
-    this.setState({ message: data.message });
+    $setState({ message: data.message });
     banner.style.display = "flex";
     banner.style.opacity = "1";
     startDismissing();
@@ -60,6 +60,6 @@
     setTimeout(() => {
       banner.style.transition = "opacity 0.5s";
       banner.style.opacity = "0";
-    }, this.state["data-timeout"] * 1000);
+    }, $state["data-timeout"] * 1000);
   };
 </script>

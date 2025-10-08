@@ -36,6 +36,16 @@ export const defineWebComponent = (
       });
     }
 
+    /**
+     * Updates component state with one or more key-value pairs
+     * @param updates - Object containing state updates
+     * @example
+     * component.setState({ count: 5, name: 'John' })
+     */
+    setState(updates: Record<string, any>): void {
+      Object.assign(this.state, updates);
+    }
+
     static #parseAttributeValue(raw: string | null) {
       if (raw === null || raw === "") return null;
       if (raw === "undefined") return undefined;

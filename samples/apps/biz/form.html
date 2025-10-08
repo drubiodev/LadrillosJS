@@ -168,13 +168,13 @@
   this.setState({ editMode: false });
 
   const editMode = () => {
-    if (this.state.editMode) {
-      alert(JSON.stringify(this.state.user, null, 2));
+    if ($state.editMode) {
+      alert(JSON.stringify($state.user, null, 2));
     }
 
-    this.querySelectorAll("[contenteditable]").forEach((el) => {
-      el.setAttribute("contenteditable", !this.state.editMode);
+    $querySelectorAll("[contenteditable]").forEach((el) => {
+      el.setAttribute("contenteditable", !$state.editMode);
     });
-    this.state.editMode = !this.state.editMode;
+    $state.editMode = !$state.editMode;
   };
 </script>

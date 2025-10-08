@@ -158,12 +158,15 @@ const processScript = (
       (function() {
         // Create component scope with direct access to state
         const component = this;
-        const state = component.state;
+        const $state = component.state;
+        
+        // Provide framework utilities with $ prefix to avoid naming conflicts
+        const $setState = (updates) => component.setState(updates);
         
         // Override querySelector/querySelectorAll to query within the component's host
         const host = arguments[1];
-        const querySelector = (selector) => host.querySelector(selector);
-        const querySelectorAll = (selector) => host.querySelectorAll(selector);
+        const $querySelector = (selector) => host.querySelector(selector);
+        const $querySelectorAll = (selector) => host.querySelectorAll(selector);
         
         ${transformedContent}
         
