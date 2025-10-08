@@ -28,10 +28,12 @@ export type RegexPatterns = {
 
 export type BindingDescriptor = {
   node: Text;
-  raw: string; // e.g. "person.name"
-  path: string[]; // ['person', 'name']
+  bindings: Array<{
+    raw: string; // e.g. "person.name" or "MyName('Pedro')"
+    path: string[]; // ['person', 'name']
+    isFunction?: boolean; // True if this is a function call
+  }>;
   original: string; // The original template text (e.g., "Hello: {name}")
   isAttribute?: boolean; // True if this is an attribute binding
   attributeName?: string; // The attribute name if isAttribute is true
-  compute?: (ctx: unknown) => unknown;
 };

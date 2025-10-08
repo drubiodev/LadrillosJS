@@ -33,15 +33,23 @@ const scanBindings = (host: HTMLElement | ShadowRoot): BindingDescriptor[] => {
       // Store the original template text before any replacements
       const original = node.textContent;
 
-      for (const match of matches) {
+      // Create one binding descriptor per node with all its placeholders
+      const nodeBindings = matches.map((match) => {
         const raw = match[1].trim();
-        const path = raw.split(".").map((p) => p.trim());
-        bindings.push({ node, raw, path, original });
-      }
-    }
-  }
+        const isFunction = raw.includes("("); // Detect function calls like MyName("Peter")
 
-  // Scan for attributes with bindings
+        // For functions, extract the function name as the path
+        // For properties, split by dot notation
+        const path = isFunction
+          ? [raw.split("(")[0].trim()] // Extract function name before (
+          : raw.split(".").map((p) => p.trim());
+
+        return { raw, path, isFunction };
+      });
+
+      bindings.push({ node, bindings: nodeBindings, original });
+    }
+  } // Scan for attributes with bindings
   // e.g. <img src="{imageUrl}"> or <input value="{user.email}">
   const elements = host.querySelectorAll("*");
   elements.forEach((el) => {
@@ -51,18 +59,25 @@ const scanBindings = (host: HTMLElement | ShadowRoot): BindingDescriptor[] => {
         // Store the original attribute value
         const original = attr.value;
 
-        for (const match of matches) {
+        // Create one binding descriptor per attribute with all its placeholders
+        const attrBindings = matches.map((match) => {
           const raw = match[1].trim();
-          const path = raw.split(".").map((p) => p.trim());
-          bindings.push({
-            node: el as unknown as Text,
-            raw,
-            path,
-            original,
-            isAttribute: true,
-            attributeName: attr.name,
-          });
-        }
+          const isFunction = raw.includes("(");
+
+          const path = isFunction
+            ? [raw.split("(")[0].trim()]
+            : raw.split(".").map((p) => p.trim());
+
+          return { raw, path, isFunction };
+        });
+
+        bindings.push({
+          node: el as unknown as Text,
+          bindings: attrBindings,
+          original,
+          isAttribute: true,
+          attributeName: attr.name,
+        });
       }
     }
   });

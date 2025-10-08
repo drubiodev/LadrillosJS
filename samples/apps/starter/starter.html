@@ -4,32 +4,29 @@
   }
 </style>
 
-<p>Hello: {name}</p>
-<p>The name variable is: {name}</p>
-<p>The Param: {param}</p>
-<p>The object variable is: {person.name}</p>
-<p data-bind="{person.name}">TEST</p>
-<input type="text" value="" />
-<button onclick="updateName('Daniel')">Update Name</button>
-<button onclick="updateName('Jessica')">Update Name Again</button>
+<p>Name binding: {name}</p>
+<p>param binding: {param}</p>
+<p>Object binding Person Name: {person.name}</p>
+<p>MyName Function: {MyName("Peter")}</p>
+<button onclick="updateName('Jessica')">updateName</button>
+<button onclick="MyName('Pedro')">updateName 2</button>
 
-<script src="./starter.js"></script>
 <script>
-  console.log(this);
-  let name = "Ladrillos".toUpperCase();
+  console.log("Hello from starter component");
 
-  function updateName(name) {
-    console.log("Updating name from:", this.state);
-    this.state.name = name.toLowerCase();
-    this.state.param = "New Param";
-  }
+  let name = "LadrillosJS";
 
-  const updateNameAgain = (name) => {
-    console.log("Updating name again from:", this.state);
-    name = name.toUpperCase();
+  const person = {
+    name: "Daniel",
+  };
 
-    console.log("Updated name to:", name);
+  const updateName = (newName) => {
+    console.log("Updating name to: " + newName);
+    name = newName;
+  };
 
-    name = name + "!!!";
+  const MyName = (name) => {
+    console.log(name);
+    return name.toUpperCase();
   };
 </script>

@@ -3,7 +3,7 @@ import { logger } from "../utils/logger";
 import { loadStyles } from "./css/cssParser";
 import { loadTemplate } from "./html/htmlparser";
 import { renderBindings } from "./html/htmlRenderer";
-import { loadScripts } from "./js/scriptParser";
+import { loadExternalScripts, loadScripts } from "./js/scriptParser";
 
 export const defineWebComponent = (
   component: LadrillosComponent,
@@ -30,7 +30,7 @@ export const defineWebComponent = (
 
           target[prop as keyof typeof target] = value;
           // Re-render all bindings with the updated state
-          renderBindings(this.#bindings, this.state);
+          renderBindings(this.#bindings, this.state, this);
           return true;
         },
       });
@@ -47,15 +47,25 @@ export const defineWebComponent = (
     }
 
     // Invoked when element is added to the DOM
-    connectedCallback() {
+    async connectedCallback() {
       const host = useShadowDOM ? this.shadowRoot! : this;
 
+      // Parse template and collect all data binding locations
       this.#bindings = loadTemplate(host, template);
-      loadStyles(host, styles, useShadowDOM);
-      this._initializeStateFromAttributes();
-      renderBindings(this.#bindings, this.state);
 
-      loadScripts(host, scripts);
+      // Inject component styles
+      loadStyles(host, styles, useShadowDOM);
+
+      // Sync initial state from HTML attributes (e.g., <my-component name="value">)
+      this._initializeStateFromAttributes();
+
+      // Execute component scripts (event handlers, methods, etc.)
+      // Wait for scripts to load and process before rendering
+      await loadScripts(host, scripts, this.#bindings);
+      await loadExternalScripts(host, externalScripts, this.#bindings);
+
+      // Perform initial render with current state values (after scripts are ready)
+      renderBindings(this.#bindings, this.state, this);
     }
     // Invoked when element is removed from the DOM
     disconnectedCallback() {}

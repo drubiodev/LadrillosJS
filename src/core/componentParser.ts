@@ -45,6 +45,25 @@ export const parseComponentHTML = (source: string): Document => {
 };
 
 /**
+ * Checks if a script URL is a development server script that should be ignored.
+ * Dev server scripts (Vite, Webpack HMR, etc.) are injected by the dev environment
+ * and should not be processed as part of the component.
+ */
+const isDevServerScript = (src: string): boolean => {
+  const devPatterns = [
+    "/@vite/", // Vite dev client
+    "/__vite", // Vite internal
+    "/webpack-dev-server", // Webpack dev server
+    "/hot-update", // Webpack HMR
+    "/__webpack_hmr", // Webpack HMR
+    "/browser-sync/", // Browser Sync
+    "/livereload.js", // LiveReload
+  ];
+
+  return devPatterns.some((pattern) => src.includes(pattern));
+};
+
+/**
  * Extracts and processes script elements from the document
  * @param doc - The parsed document
  * @returns Object containing scripts and external scripts
@@ -60,10 +79,19 @@ export const extractScripts = (
 
   for (const el of doc.querySelectorAll("script")) {
     if (el.src) {
+      // Skip dev server scripts (Vite, Webpack, etc.)
+      if (isDevServerScript(el.src)) {
+        el.remove();
+        continue;
+      }
+
+      // Only mark as external if the 'external' attribute is explicitly present
+      const isExternal = el.hasAttribute("external");
+
       externalScripts.push({
         src: el.src,
         type: el.type ?? null,
-        external: true,
+        external: isExternal,
       });
     } else if (el.textContent) {
       let content = el.textContent.trim();

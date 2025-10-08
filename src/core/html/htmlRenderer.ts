@@ -1,4 +1,5 @@
 import { BindingDescriptor } from "../../types/LadrilloTypes";
+import { getCachedFunction } from "../../cache/functionCache";
 
 /**
  * Safely retrieves a nested value from an object using a path array.
@@ -19,31 +20,56 @@ const getValue = (ctx: unknown, path: string[]): unknown => {
  */
 export const renderBindings = (
   bindings: BindingDescriptor[],
-  context: unknown
+  context: unknown,
+  component?: any
 ): void => {
   for (const binding of bindings) {
-    // Resolve the value from state using dot notation (e.g., "user.name")
-    const value = getValue(context, binding.path);
-    if (value === undefined) continue;
-    const replacement = String(value ?? "");
+    // Start with the original template
+    let result = binding.original;
 
-    // Handle text node bindings (e.g., <p>{message}</p>)
+    // Replace all placeholders in this node
+    for (const { raw, path, isFunction } of binding.bindings) {
+      let value: unknown;
+
+      if (isFunction) {
+        // Execute function calls like MyName("Peter")
+        try {
+          // Get the function from the component
+          const funcName = path[0];
+          const func = component?.[funcName];
+
+          if (typeof func === "function") {
+            // Use cached function to prevent memory leaks
+            const evalFunc = getCachedFunction(raw);
+            value = evalFunc(component);
+          } else {
+            value = undefined;
+          }
+        } catch (error) {
+          console.error(`Error executing function binding {${raw}}:`, error);
+          value = undefined;
+        }
+      } else {
+        // Regular property access
+        value = getValue(context, path);
+      }
+
+      if (value === undefined) continue;
+      const replacement = String(value ?? "");
+
+      // Replace this specific placeholder
+      result = result.replace(`{${raw}}`, replacement);
+    }
+
+    // Apply the final result to the DOM
     if (binding.node.nodeType === Node.TEXT_NODE) {
-      // Always replace from the original template to support multiple updates
-      binding.node.textContent = binding.original.replace(
-        `{${binding.raw}}`,
-        replacement
-      );
+      // Handle text node bindings (e.g., <p>{message}</p>)
+      binding.node.textContent = result;
     } else {
       // Handle attribute bindings (e.g., <img src="{imageUrl}">)
       const element = binding.node as unknown as Element;
       if (binding.isAttribute && binding.attributeName) {
-        // Always replace from the original attribute value
-        const newValue = binding.original.replace(
-          `{${binding.raw}}`,
-          replacement
-        );
-        element.setAttribute(binding.attributeName, newValue);
+        element.setAttribute(binding.attributeName, result);
       }
     }
   }
