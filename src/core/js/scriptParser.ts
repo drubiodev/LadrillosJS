@@ -109,11 +109,13 @@ const transformBoundAssignments = (
  * This is the core script processing logic that can be reused for both inline and external scripts.
  * @param scriptContent - The raw script content to process
  * @param bindings - Template bindings to determine which variables should be reactive
+ * @param host - The host element or shadow root (for querySelector)
  * @param componentHost - The component element to execute the script on
  */
 const processScript = (
   scriptContent: string,
   bindings: BindingDescriptor[],
+  host: HTMLElement | ShadowRoot,
   componentHost: HTMLElement
 ): void => {
   try {
@@ -158,6 +160,11 @@ const processScript = (
         const component = this;
         const state = component.state;
         
+        // Override querySelector/querySelectorAll to query within the component's host
+        const host = arguments[1];
+        const querySelector = (selector) => host.querySelector(selector);
+        const querySelectorAll = (selector) => host.querySelectorAll(selector);
+        
         ${transformedContent}
         
         // Auto-bind variables to component state (e.g., const name = "value" → this.state.name = "value")
@@ -165,56 +172,102 @@ const processScript = (
         
         // Auto-attach all detected functions to component for onclick access
         ${attachFunctions}
-      }).call(arguments[0])
+      }).call(arguments[0], arguments[0], arguments[1])
     `;
 
     const executor = new Function(wrappedScript);
-    executor(componentHost);
+    executor(componentHost, host);
   } catch (error) {
     console.error("Script execution failed:", error);
   }
 };
 
 /**
- * Processes onclick handlers to bind them to the component context.
- * Removes inline onclick attributes and converts them to proper event listeners
+ * Processes inline event handlers (onclick, onkeyup, oninput, etc.) to bind them to the component context.
+ * Removes inline event attributes and converts them to proper event listeners
  * that have access to the component scope.
  * @param host - The host element or shadow root
  * @param componentHost - The component element
  */
-const processOnClickHandlers = (
+const processEventHandlers = (
   host: HTMLElement | ShadowRoot,
   componentHost: HTMLElement
 ): void => {
-  const elements =
-    host instanceof ShadowRoot
-      ? host.querySelectorAll("[onclick]")
-      : componentHost.querySelectorAll("[onclick]");
+  // All standard DOM events that can be handled as attributes
+  const eventTypes = [
+    "click",
+    "dblclick",
+    "mousedown",
+    "mouseup",
+    "mouseover",
+    "mouseout",
+    "mousemove",
+    "mouseenter",
+    "mouseleave",
+    "keydown",
+    "keyup",
+    "keypress",
+    "focus",
+    "blur",
+    "change",
+    "input",
+    "submit",
+    "reset",
+    "scroll",
+    "resize",
+    "load",
+    "unload",
+    "touchstart",
+    "touchend",
+    "touchmove",
+    "touchcancel",
+    "dragstart",
+    "drag",
+    "dragend",
+    "dragenter",
+    "dragover",
+    "dragleave",
+    "drop",
+  ];
 
   // Add a WeakSet to track processed elements
   const processedElements = new WeakSet<Element>();
 
-  elements.forEach((element) => {
-    if (processedElements.has(element)) return; // Skip if already processed
+  eventTypes.forEach((eventType) => {
+    const attributeName = `on${eventType}`;
+    const elements =
+      host instanceof ShadowRoot
+        ? host.querySelectorAll(`[${attributeName}]`)
+        : componentHost.querySelectorAll(`[${attributeName}]`);
 
-    const originalOnclick = element.getAttribute("onclick");
-    if (originalOnclick) {
-      element.removeAttribute("onclick");
-      (element as HTMLElement).addEventListener("click", function (event) {
-        const func = new Function(
-          "event",
-          "component",
+    elements.forEach((element) => {
+      // Create a unique key for this element + event combination
+      const key = `${attributeName}`;
+      if ((element as any)[`__processed_${key}`]) return; // Skip if already processed
+
+      const handlerCode = element.getAttribute(attributeName);
+      if (handlerCode) {
+        element.removeAttribute(attributeName);
+        (element as HTMLElement).addEventListener(
+          eventType,
+          function (this: HTMLElement, event: Event) {
+            const func = new Function(
+              "event",
+              "component",
+              `
+            with(component) {
+              ${handlerCode}
+            }
           `
-          with(component) {
-            ${originalOnclick}
+            );
+            func.call(this, event, componentHost);
           }
-        `
         );
-        func.call(this, event, componentHost);
-      });
 
-      processedElements.add(element); // Mark as processed
-    }
+        // Mark as processed for this specific event
+        (element as any)[`__processed_${key}`] = true;
+      }
+    });
   });
 };
 
@@ -229,12 +282,12 @@ export const loadScripts = async (
 
   for (const scriptDefinition of scripts) {
     if (scriptDefinition.content) {
-      processScript(scriptDefinition.content, bindings, componentHost);
+      processScript(scriptDefinition.content, bindings, host, componentHost);
     }
   }
 
-  // Process onclick handlers to bind them to the component
-  processOnClickHandlers(host, componentHost);
+  // Process all event handlers to bind them to the component
+  processEventHandlers(host, componentHost);
 };
 
 export const loadExternalScripts = async (
@@ -257,7 +310,7 @@ export const loadExternalScripts = async (
         .then((response) => response.text())
         .then((scriptContent) => {
           // Reuse the same processing logic as inline scripts
-          processScript(scriptContent, bindings, componentHost);
+          processScript(scriptContent, bindings, host, componentHost);
         })
         .catch((error) => {
           console.error(`Failed to load external script: ${s.src}`, error);
@@ -265,6 +318,6 @@ export const loadExternalScripts = async (
     }
   }
 
-  // Process onclick handlers to bind them to the component
-  processOnClickHandlers(host, componentHost);
+  // Process all event handlers to bind them to the component
+  processEventHandlers(host, componentHost);
 };
