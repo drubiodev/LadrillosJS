@@ -7,6 +7,7 @@
 <p>Name binding: {name}</p>
 <p>param binding: {param}</p>
 <p>Object binding Person Name: {person.name}</p>
+<p>Object binding Person Job Title: {person.job.title}</p>
 <p>MyName Function: {MyName("Peter")}</p>
 <button onclick="updateName('Jessica')">updateName</button>
 <button onclick="MyName('Pedro')">updateName 2</button>
@@ -18,6 +19,9 @@
 
   const person = {
     name: "Daniel",
+    job: {
+      title: "Developer",
+    },
   };
 
   const updateName = (newName) => {
