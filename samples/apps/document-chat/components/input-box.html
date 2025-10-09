@@ -73,7 +73,17 @@
     font-size: 1.125rem;
   }
 </style>
+
 <div class="input-wrapper">
-  <input placeholder="Message AI..." />
+  <input placeholder="Message AI..." $bind="inputText" />
 </div>
-<button><span class="icon">↑</span></button>
+<button onclick="send()"><span class="icon">↑</span></button>
+
+<script>
+  function send() {
+    console.log(this.state);
+    alert(inputText);
+
+    inputText = "";
+  }
+</script>

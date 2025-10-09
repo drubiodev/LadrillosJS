@@ -37,3 +37,9 @@ export type BindingDescriptor = {
   isAttribute?: boolean; // True if this is an attribute binding
   attributeName?: string; // The attribute name if isAttribute is true
 };
+
+export type TwoWayBindingDescriptor = {
+  element: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
+  path: string[]; // ['person', 'name'] or ['inputText']
+  raw: string; // "person.name" or "inputText"
+};

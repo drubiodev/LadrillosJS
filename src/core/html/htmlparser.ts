@@ -1,4 +1,7 @@
-import { BindingDescriptor } from "../../types/LadrilloTypes";
+import {
+  BindingDescriptor,
+  TwoWayBindingDescriptor,
+} from "../../types/LadrilloTypes";
 import { REGEX_PATTERNS } from "../../utils/regex";
 
 /**
@@ -8,10 +11,16 @@ import { REGEX_PATTERNS } from "../../utils/regex";
 export const loadTemplate = (
   host: HTMLElement | ShadowRoot,
   template: string
-): BindingDescriptor[] => {
+): {
+  bindings: BindingDescriptor[];
+  twoWayBindings: TwoWayBindingDescriptor[];
+} => {
   host.innerHTML = template;
 
-  return scanBindings(host);
+  const bindings = scanBindings(host);
+  const twoWayBindings = scanTwoWayBindings(host);
+
+  return { bindings, twoWayBindings };
 };
 
 /**
@@ -83,4 +92,41 @@ const scanBindings = (host: HTMLElement | ShadowRoot): BindingDescriptor[] => {
   });
 
   return bindings;
+};
+
+/**
+ * Scans for elements with $bind attribute for two-way data binding.
+ * e.g. <input $bind="inputText"> or <input $bind="person.name">
+ */
+const scanTwoWayBindings = (
+  host: HTMLElement | ShadowRoot
+): TwoWayBindingDescriptor[] => {
+  const twoWayBindings: TwoWayBindingDescriptor[] = [];
+  const elements = host.querySelectorAll("[\\$bind]");
+
+  elements.forEach((el) => {
+    // Only support input, textarea, and select elements
+    if (
+      el instanceof HTMLInputElement ||
+      el instanceof HTMLTextAreaElement ||
+      el instanceof HTMLSelectElement
+    ) {
+      const bindValue = el.getAttribute("$bind");
+      if (bindValue) {
+        const raw = bindValue.trim();
+        const path = raw.split(".").map((p) => p.trim());
+
+        twoWayBindings.push({
+          element: el,
+          path,
+          raw,
+        });
+
+        // Remove the $bind attribute after processing
+        el.removeAttribute("$bind");
+      }
+    }
+  });
+
+  return twoWayBindings;
 };

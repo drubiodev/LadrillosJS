@@ -2,10 +2,73 @@ import {
   ScriptElement,
   BindingDescriptor,
   ExternalScriptElement,
+  TwoWayBindingDescriptor,
 } from "../../types/LadrilloTypes";
 
 const getHostElement = (host: HTMLElement | ShadowRoot): HTMLElement =>
   host instanceof ShadowRoot ? (host.host as HTMLElement) : host;
+
+/**
+ * Injects $bind variables into the script scope and validates no conflicts exist.
+ * Creates property descriptors that proxy to component.state for reactive access.
+ */
+const injectBindVariables = (
+  scriptContent: string,
+  twoWayBindings: TwoWayBindingDescriptor[]
+): {
+  injectedCode: string;
+  componentInjections: string;
+  bindVarNames: Set<string>;
+  errors: string[];
+} => {
+  const bindVarNames = new Set<string>();
+  const errors: string[] = [];
+
+  // Extract all $bind variable names (root-level only, e.g., "person" from "person.name")
+  twoWayBindings.forEach(({ path }) => {
+    const rootVar = path[0];
+    bindVarNames.add(rootVar);
+  });
+
+  // Check for conflicts - devs trying to redeclare $bind variables
+  bindVarNames.forEach((varName) => {
+    const redeclarationRegex = new RegExp(
+      `(?:const|let|var)\\s+${varName}\\s*=`,
+      "g"
+    );
+
+    if (redeclarationRegex.test(scriptContent)) {
+      errors.push(
+        `⚠️  Variable "${varName}" is already bound via $bind and cannot be redeclared. Remove the declaration or use a different variable name.`
+      );
+    }
+  });
+
+  // Create proxy getters/setters for each $bind variable in script scope
+  const injections: string[] = [];
+  const componentInjections: string[] = [];
+
+  bindVarNames.forEach((varName) => {
+    // Define on component object for event handler access via with(component)
+    componentInjections.push(`
+      if (!Object.getOwnPropertyDescriptor(component, '${varName}')) {
+        Object.defineProperty(component, '${varName}', {
+          get() { return this.state.${varName}; },
+          set(val) { this.state.${varName} = val; },
+          enumerable: true,
+          configurable: true
+        });
+      }
+    `);
+  });
+
+  return {
+    injectedCode: "", // No longer needed in script scope
+    componentInjections: componentInjections.join("\n"),
+    bindVarNames,
+    errors,
+  };
+};
 
 /**
  * Extracts variable declarations (const, let, var) from script content
@@ -109,16 +172,28 @@ const transformBoundAssignments = (
  * This is the core script processing logic that can be reused for both inline and external scripts.
  * @param scriptContent - The raw script content to process
  * @param bindings - Template bindings to determine which variables should be reactive
+ * @param twoWayBindings - Two-way bound variables from $bind attributes
  * @param host - The host element or shadow root (for querySelector)
  * @param componentHost - The component element to execute the script on
  */
 const processScript = (
   scriptContent: string,
   bindings: BindingDescriptor[],
+  twoWayBindings: TwoWayBindingDescriptor[],
   host: HTMLElement | ShadowRoot,
   componentHost: HTMLElement
 ): void => {
   try {
+    // Inject $bind variables and check for conflicts
+    const { injectedCode, componentInjections, bindVarNames, errors } =
+      injectBindVariables(scriptContent, twoWayBindings);
+
+    // Log errors if any conflicts found
+    if (errors.length > 0) {
+      console.error("❌ $bind Variable Conflicts Detected:");
+      errors.forEach((err) => console.error(err));
+    }
+
     // Extract function names from the script content
     const functionRegex =
       /function\s+(\w+)|const\s+(\w+)\s*=\s*(?:\([^)]*\)|[\w\s]*)\s*=>/g;
@@ -133,10 +208,11 @@ const processScript = (
     }
 
     // Auto-attach detected functions
+    // Wrap functions to bind them to component and maintain variable access
     const attachFunctions = functionNames
       .map(
         (name) =>
-          `component.${name} = typeof ${name} !== 'undefined' ? ${name} : undefined;`
+          `component.${name} = typeof ${name} !== 'undefined' ? ${name}.bind(component) : undefined;`
       )
       .join("\n            ");
 
@@ -145,12 +221,16 @@ const processScript = (
       scriptContent,
       bindings
     );
+
+    // Merge bindVarNames with boundVarNames for transformation
+    const allBoundVars = new Set([...boundVarNames, ...bindVarNames]);
+
     const attachStateBindings = stateBindings.join("\n            ");
 
     // Transform the script to make bound variable assignments reactive
     const transformedContent = transformBoundAssignments(
       scriptContent,
-      boundVarNames
+      allBoundVars
     );
 
     // Create a wrapper that captures functions and variables in component scope
@@ -160,6 +240,9 @@ const processScript = (
         const component = this;
         const $state = component.state;
         
+        // Define $bind variables on component object for event handler access
+        ${componentInjections}
+        
         // Provide framework utilities with $ prefix to avoid naming conflicts
         const $setState = (updates) => component.setState(updates);
         
@@ -168,13 +251,16 @@ const processScript = (
         const $querySelector = (selector) => host.querySelector(selector);
         const $querySelectorAll = (selector) => host.querySelectorAll(selector);
         
-        ${transformedContent}
-        
-        // Auto-bind variables to component state (e.g., const name = "value" → this.state.name = "value")
-        ${attachStateBindings}
-        
-        // Auto-attach all detected functions to component for onclick access
-        ${attachFunctions}
+        // Execute script content within component scope so $bind variables are accessible
+        with(component) {
+          ${transformedContent}
+          
+          // Auto-bind variables to component state (e.g., const name = "value" → this.state.name = "value")
+          ${attachStateBindings}
+          
+          // Auto-attach all detected functions to component for onclick access
+          ${attachFunctions}
+        }
       }).call(arguments[0], arguments[0], arguments[1])
     `;
 
@@ -277,7 +363,8 @@ const processEventHandlers = (
 export const loadScripts = async (
   host: HTMLElement | ShadowRoot,
   scripts: ScriptElement[],
-  bindings: BindingDescriptor[]
+  bindings: BindingDescriptor[],
+  twoWayBindings: TwoWayBindingDescriptor[] = []
 ) => {
   if (!scripts?.length) return;
 
@@ -285,7 +372,13 @@ export const loadScripts = async (
 
   for (const scriptDefinition of scripts) {
     if (scriptDefinition.content) {
-      processScript(scriptDefinition.content, bindings, host, componentHost);
+      processScript(
+        scriptDefinition.content,
+        bindings,
+        twoWayBindings,
+        host,
+        componentHost
+      );
     }
   }
 
@@ -296,7 +389,8 @@ export const loadScripts = async (
 export const loadExternalScripts = async (
   host: HTMLElement | ShadowRoot,
   externalScripts: ExternalScriptElement[],
-  bindings: BindingDescriptor[]
+  bindings: BindingDescriptor[],
+  twoWayBindings: TwoWayBindingDescriptor[] = []
 ) => {
   const componentHost = getHostElement(host);
 
@@ -313,7 +407,13 @@ export const loadExternalScripts = async (
         .then((response) => response.text())
         .then((scriptContent) => {
           // Reuse the same processing logic as inline scripts
-          processScript(scriptContent, bindings, host, componentHost);
+          processScript(
+            scriptContent,
+            bindings,
+            twoWayBindings,
+            host,
+            componentHost
+          );
         })
         .catch((error) => {
           console.error(`Failed to load external script: ${s.src}`, error);

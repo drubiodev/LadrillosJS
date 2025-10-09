@@ -1,8 +1,12 @@
-import { BindingDescriptor, LadrillosComponent } from "../types/LadrilloTypes";
+import {
+  BindingDescriptor,
+  LadrillosComponent,
+  TwoWayBindingDescriptor,
+} from "../types/LadrilloTypes";
 import { logger } from "../utils/logger";
 import { loadStyles } from "./css/cssParser";
 import { loadTemplate } from "./html/htmlparser";
-import { renderBindings } from "./html/htmlRenderer";
+import { renderBindings, setValue } from "./html/htmlRenderer";
 import { loadExternalScripts, loadScripts } from "./js/scriptParser";
 
 export const defineWebComponent = (
@@ -14,6 +18,7 @@ export const defineWebComponent = (
   class ComponentElement extends HTMLElement {
     state: any;
     #bindings: BindingDescriptor[] = [];
+    #twoWayBindings: TwoWayBindingDescriptor[] = [];
 
     constructor() {
       super();
@@ -31,11 +36,12 @@ export const defineWebComponent = (
           target[prop as keyof typeof target] = value;
           // Re-render all bindings with the updated state
           renderBindings(this.#bindings, this.state, this);
+          // Update two-way bound elements
+          this.#updateTwoWayBindings();
           return true;
         },
       });
     }
-
     /**
      * Updates component state with one or more key-value pairs
      * @param updates - Object containing state updates
@@ -61,17 +67,28 @@ export const defineWebComponent = (
       const host = useShadowDOM ? this.shadowRoot! : this;
 
       // Parse template and collect all data binding locations
-      this.#bindings = loadTemplate(host, template);
+      const { bindings, twoWayBindings } = loadTemplate(host, template);
+      this.#bindings = bindings;
+      this.#twoWayBindings = twoWayBindings;
+
       // Inject component styles
       loadStyles(host, styles, useShadowDOM);
 
       // Sync initial state from HTML attributes (e.g., <my-component name="value">)
       this._initializeStateFromAttributes();
 
+      // Setup two-way bindings
+      this._setupTwoWayBindings();
+
       // Execute component scripts (event handlers, methods, etc.)
-      // Wait for scripts to load and process before rendering
-      await loadScripts(host, scripts, this.#bindings);
-      await loadExternalScripts(host, externalScripts, this.#bindings);
+      // Pass twoWayBindings so scripts can access $bind variables directly
+      await loadScripts(host, scripts, this.#bindings, this.#twoWayBindings);
+      await loadExternalScripts(
+        host,
+        externalScripts,
+        this.#bindings,
+        this.#twoWayBindings
+      );
 
       // Perform initial render with current state values (after scripts are ready)
       renderBindings(this.#bindings, this.state, this);
@@ -100,6 +117,60 @@ export const defineWebComponent = (
       }
       const value = ComponentElement.#parseAttributeValue(raw);
       this.state[name] = value;
+    }
+
+    // Setup two-way data bindings for input elements with $bind
+    _setupTwoWayBindings() {
+      this.#twoWayBindings.forEach(({ element, path, raw }) => {
+        // Initialize state property if it doesn't exist
+        const currentValue = this._getNestedValue(path);
+        if (currentValue === undefined) {
+          setValue(this.state, path, "");
+        }
+
+        // Initial sync from state to element
+        element.value = this._getNestedValue(path) ?? "";
+
+        // Listen for input changes and update state
+        const handleInput = (e: Event) => {
+          const target = e.target as
+            | HTMLInputElement
+            | HTMLTextAreaElement
+            | HTMLSelectElement;
+          const newValue = target.value;
+
+          // Update state using setValue to handle nested paths
+          setValue(this.state, path, newValue);
+        };
+
+        element.addEventListener("input", handleInput);
+
+        // For select and certain input types, also listen to 'change'
+        if (
+          element instanceof HTMLSelectElement ||
+          (element instanceof HTMLInputElement &&
+            ["checkbox", "radio", "file"].includes(element.type))
+        ) {
+          element.addEventListener("change", handleInput);
+        }
+      });
+    }
+
+    // Update two-way bound elements when state changes
+    #updateTwoWayBindings() {
+      this.#twoWayBindings.forEach(({ element, path }) => {
+        const value = this._getNestedValue(path);
+        if (element.value !== value) {
+          element.value = value ?? "";
+        }
+      });
+    }
+
+    // Helper to get nested value from state
+    _getNestedValue(path: string[]): any {
+      return path.reduce((acc, key) => {
+        return acc?.[key];
+      }, this.state);
     }
   }
 
