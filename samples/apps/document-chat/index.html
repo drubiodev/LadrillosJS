@@ -7,6 +7,7 @@
     <script type="module">
       import { registerComponent } from "ladrillosjs";
       registerComponent("input-box", "./components/input-box.html");
+      registerComponent("chat-window", "./components/chat-window.html");
     </script>
     <style>
       * {
@@ -27,6 +28,7 @@
   </head>
   <body>
     <h1>💬 Document Chat</h1>
+    <chat-window></chat-window>
     <input-box></input-box>
   </body>
 </html>

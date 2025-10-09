@@ -93,8 +93,23 @@ export const defineWebComponent = (
       // Perform initial render with current state values (after scripts are ready)
       renderBindings(this.#bindings, this.state, this);
     }
+
     // Invoked when element is removed from the DOM
-    disconnectedCallback() {}
+    disconnectedCallback() {
+      // Clean up event listeners to prevent memory leaks
+      const unsubscribers = (this as any).__eventUnsubscribers;
+      if (unsubscribers && Array.isArray(unsubscribers)) {
+        unsubscribers.forEach((unsub: () => void) => {
+          try {
+            unsub();
+          } catch (error) {
+            console.error("Error unsubscribing from event:", error);
+          }
+        });
+        (this as any).__eventUnsubscribers = [];
+      }
+    }
+
     // Invoked when attributes are changed
     attributechangedCallback() {}
 

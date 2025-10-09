@@ -4,6 +4,7 @@ import {
   ExternalScriptElement,
   TwoWayBindingDescriptor,
 } from "../../types/LadrilloTypes";
+import { eventBus } from "../eventBus";
 
 const getHostElement = (host: HTMLElement | ShadowRoot): HTMLElement =>
   host instanceof ShadowRoot ? (host.host as HTMLElement) : host;
@@ -246,6 +247,22 @@ const processScript = (
         // Provide framework utilities with $ prefix to avoid naming conflicts
         const $setState = (updates) => component.setState(updates);
         
+        // Event bus methods for component communication
+        const $emit = (eventName, data) => arguments[2].emit(eventName, data);
+        const $listen = (eventName, callback) => {
+          const unsubscribe = arguments[2].listen(eventName, callback);
+          // Store unsubscribe function for cleanup on disconnect
+          if (!component.__eventUnsubscribers) {
+            component.__eventUnsubscribers = [];
+          }
+          component.__eventUnsubscribers.push(unsubscribe);
+          return unsubscribe;
+        };
+        
+        // Also attach to component for event handler access
+        component.$emit = $emit;
+        component.$listen = $listen;
+        
         // Override querySelector/querySelectorAll to query within the component's host
         const host = arguments[1];
         const $querySelector = (selector) => host.querySelector(selector);
@@ -261,11 +278,11 @@ const processScript = (
           // Auto-attach all detected functions to component for onclick access
           ${attachFunctions}
         }
-      }).call(arguments[0], arguments[0], arguments[1])
+      }).call(arguments[0], arguments[0], arguments[1], arguments[2])
     `;
 
     const executor = new Function(wrappedScript);
-    executor(componentHost, host);
+    executor(componentHost, host, eventBus);
   } catch (error) {
     console.error("Script execution failed:", error);
   }

@@ -1,0 +1,11 @@
+hi
+
+<script>
+  $listen("send", (data) => {
+    if (!data.text) {
+      throw new Error("No text provided");
+    }
+
+    console.log("Received:", data.text);
+  });
+</script>

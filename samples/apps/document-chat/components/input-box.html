@@ -81,9 +81,19 @@
 
 <script>
   function send() {
-    console.log(this.state);
-    alert(inputText);
-
-    inputText = "";
+    $emit("send", { text: inputText })
+      .then(() => {
+        inputText = "";
+      })
+      .catch((err) => {
+        console.error("Error emitting send event:", err);
+      })
+      .finally(() => {
+        // Refocus the input after sending
+        const inputElement = $querySelector("input");
+        if (inputElement) {
+          inputElement.focus();
+        }
+      });
   }
 </script>
