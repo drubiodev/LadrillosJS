@@ -43,3 +43,13 @@ export type TwoWayBindingDescriptor = {
   path: string[]; // ['person', 'name'] or ['inputText']
   raw: string; // "person.name" or "inputText"
 };
+
+export type ConditionalDescriptor = {
+  element: Element;
+  condition: string; // The expression to evaluate (e.g., "isVisible" or "count > 5")
+  type: "if" | "else-if" | "else";
+  placeholder: Comment; // Comment node to mark position in DOM
+  group: ConditionalDescriptor[]; // All elements in this conditional group
+  originalParent: Element | ShadowRoot; // Reference to parent
+  nextSibling: Node | null; // Reference to next sibling for reinsertion
+};

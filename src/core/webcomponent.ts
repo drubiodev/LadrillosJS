@@ -2,11 +2,16 @@ import {
   BindingDescriptor,
   LadrillosComponent,
   TwoWayBindingDescriptor,
+  ConditionalDescriptor,
 } from "../types/LadrilloTypes";
 import { logger } from "../utils/logger";
 import { loadStyles } from "./css/cssParser";
-import { loadTemplate } from "./html/htmlparser";
-import { renderBindings, setValue } from "./html/htmlRenderer";
+import { loadTemplate, extractConditionalVariables } from "./html/htmlparser";
+import {
+  renderBindings,
+  setValue,
+  renderConditionals,
+} from "./html/htmlRenderer";
 import { loadExternalScripts, loadScripts } from "./js/scriptParser";
 
 export const defineWebComponent = (
@@ -19,6 +24,7 @@ export const defineWebComponent = (
     state: any;
     #bindings: BindingDescriptor[] = [];
     #twoWayBindings: TwoWayBindingDescriptor[] = [];
+    #conditionals: ConditionalDescriptor[][] = [];
 
     constructor() {
       super();
@@ -36,6 +42,8 @@ export const defineWebComponent = (
           target[prop as keyof typeof target] = value;
           // Re-render all bindings with the updated state
           renderBindings(this.#bindings, this.state, this);
+          // Re-render conditionals
+          renderConditionals(this.#conditionals, this.state, this);
           // Update two-way bound elements
           this.#updateTwoWayBindings();
           return true;
@@ -67,9 +75,16 @@ export const defineWebComponent = (
       const host = useShadowDOM ? this.shadowRoot! : this;
 
       // Parse template and collect all data binding locations
-      const { bindings, twoWayBindings } = loadTemplate(host, template);
+      const { bindings, twoWayBindings, conditionals } = loadTemplate(
+        host,
+        template
+      );
       this.#bindings = bindings;
       this.#twoWayBindings = twoWayBindings;
+      this.#conditionals = conditionals;
+
+      // Extract variables used in conditional expressions
+      const conditionalVars = extractConditionalVariables(conditionals);
 
       // Inject component styles
       loadStyles(host, styles, useShadowDOM);
@@ -81,17 +96,25 @@ export const defineWebComponent = (
       this._setupTwoWayBindings();
 
       // Execute component scripts (event handlers, methods, etc.)
-      // Pass twoWayBindings so scripts can access $bind variables directly
-      await loadScripts(host, scripts, this.#bindings, this.#twoWayBindings);
+      // Pass conditional variables so they get mapped to state
+      await loadScripts(
+        host,
+        scripts,
+        this.#bindings,
+        this.#twoWayBindings,
+        conditionalVars
+      );
       await loadExternalScripts(
         host,
         externalScripts,
         this.#bindings,
-        this.#twoWayBindings
+        this.#twoWayBindings,
+        conditionalVars
       );
 
       // Perform initial render with current state values (after scripts are ready)
       renderBindings(this.#bindings, this.state, this);
+      renderConditionals(this.#conditionals, this.state, this);
     }
 
     // Invoked when element is removed from the DOM

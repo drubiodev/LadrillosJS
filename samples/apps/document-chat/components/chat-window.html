@@ -136,6 +136,7 @@
     gap: 0.75rem;
     align-self: flex-start;
     animation: slideIn 0.3s ease-out;
+    margin-bottom: 1rem;
   }
 
   .typing-indicator .message-bubble {
@@ -207,71 +208,42 @@
       <div class="message-time">10:30 AM</div>
     </div>
   </div>
-
-  <!-- User message -->
-  <div class="message user">
-    <div class="avatar user">U</div>
-    <div class="message-content">
-      <div class="message-bubble">
-        Can you help me understand how data binding works?
-      </div>
-      <div class="message-time">10:31 AM</div>
-    </div>
+</div>
+<div class="typing-indicator" $if="{sending}">
+  <div class="avatar bot">AI</div>
+  <div class="message-bubble">
+    <div class="typing-dot"></div>
+    <div class="typing-dot"></div>
+    <div class="typing-dot"></div>
   </div>
-
-  <!-- Bot response -->
-  <div class="message bot">
-    <div class="avatar bot">AI</div>
-    <div class="message-content">
-      <div class="message-bubble">
-        Of course! Data binding allows you to connect your UI elements with your
-        application's data. When the data changes, the UI automatically updates,
-        and vice versa. Would you like a specific example?
-      </div>
-      <div class="message-time">10:31 AM</div>
-    </div>
-  </div>
-
-  <!-- User message -->
-  <div class="message user">
-    <div class="avatar user">U</div>
-    <div class="message-content">
-      <div class="message-bubble">Yes, please! Show me a simple example.</div>
-      <div class="message-time">10:32 AM</div>
-    </div>
-  </div>
-
-  <!-- Typing indicator (hidden by default) -->
-  <!-- <div class="typing-indicator">
-    <div class="avatar bot">AI</div>
-    <div class="message-bubble">
-      <div class="typing-dot"></div>
-      <div class="typing-dot"></div>
-      <div class="typing-dot"></div>
-    </div>
-  </div> -->
 </div>
 
 <script>
   const messages = [];
+  let sending = false;
 
   $listen("send", (data) => {
     if (!data.text) {
       throw new Error("No text provided");
     }
-
     console.log("Received message:", data.text);
 
     // Add user message to chat
     addMessage(data.text, "user");
 
+    // Show typing indicator after short delay
+    setTimeout(() => {
+      sending = true;
+    }, 300);
+
     // Simulate bot response after delay
     setTimeout(() => {
+      sending = false;
       addMessage(
         "Thanks for your message! This is a simulated response.",
         "bot"
       );
-    }, 1000);
+    }, 2000);
   });
 
   function addMessage(text, sender) {
@@ -285,7 +257,14 @@
     // Add message to DOM
     const container = $querySelector(".chat-container");
     const messageEl = createMessageElement(text, sender, time);
-    container.appendChild(messageEl);
+
+    // Insert before typing indicator if it exists
+    const typingIndicator = container.querySelector(".typing-indicator");
+    if (typingIndicator) {
+      container.insertBefore(messageEl, typingIndicator);
+    } else {
+      container.appendChild(messageEl);
+    }
 
     // Scroll to bottom
     container.scrollTop = container.scrollHeight;

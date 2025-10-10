@@ -1,4 +1,7 @@
-import { BindingDescriptor } from "../../types/LadrilloTypes";
+import {
+  BindingDescriptor,
+  ConditionalDescriptor,
+} from "../../types/LadrilloTypes";
 import { getCachedFunction } from "../../cache/functionCache";
 
 /**
@@ -96,6 +99,92 @@ export const renderBindings = (
       const element = binding.node as unknown as Element;
       if (binding.isAttribute && binding.attributeName) {
         element.setAttribute(binding.attributeName, result);
+      }
+    }
+  }
+};
+
+/**
+ * Evaluates a conditional expression in the context of the component.
+ * Supports both simple boolean checks and complex expressions.
+ * e.g. "isVisible", "{isVisible}", "count > 5", "{count} > 5"
+ */
+const evaluateCondition = (
+  condition: string,
+  context: unknown,
+  component?: any
+): boolean => {
+  if (!condition) return true; // $else has no condition
+
+  // Remove curly braces if present: {sending} -> sending
+  let processedCondition = condition.trim();
+
+  // Replace all {variable} with just variable
+  processedCondition = processedCondition.replace(/\{([^}]+)\}/g, "$1");
+
+  try {
+    // Replace variable references in the condition with their values
+    // This is a simple approach - for production, consider a proper expression parser
+    const func = new Function(
+      "context",
+      "component",
+      `
+      with (context) {
+        try {
+          return Boolean(${processedCondition});
+        } catch (e) {
+          return false;
+        }
+      }
+    `
+    );
+
+    return func(context, component);
+  } catch (error) {
+    console.error(`Error evaluating condition "${condition}":`, error);
+    return false;
+  }
+};
+
+/**
+ * Updates conditional rendering based on current state.
+ * Shows/hides elements based on their $if, $else-if, $else conditions.
+ */
+export const renderConditionals = (
+  conditionalGroups: ConditionalDescriptor[][],
+  context: unknown,
+  component?: any
+): void => {
+  // Process each conditional group (if/else-if/else chain)
+  for (const group of conditionalGroups) {
+    let conditionMet = false;
+
+    // Evaluate each condition in the group
+    for (const descriptor of group) {
+      const { element, condition, type, placeholder, originalParent } =
+        descriptor;
+
+      // Check if this condition should be rendered
+      let shouldRender = false;
+
+      if (type === "else") {
+        // $else renders if no previous condition was met
+        shouldRender = !conditionMet;
+      } else if (!conditionMet) {
+        // $if or $else-if: evaluate condition
+        shouldRender = evaluateCondition(condition, context, component);
+        if (shouldRender) conditionMet = true;
+      }
+
+      // Update DOM based on shouldRender
+      const isInDOM = element.parentNode !== null;
+
+      if (shouldRender && !isInDOM) {
+        // Insert element after its placeholder
+        placeholder.parentNode?.insertBefore(element, placeholder.nextSibling);
+      } else if (!shouldRender && isInDOM) {
+        // Remove element from DOM
+        element.remove();
       }
     }
   }

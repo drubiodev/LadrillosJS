@@ -73,12 +73,13 @@ const injectBindVariables = (
 
 /**
  * Extracts variable declarations (const, let, var) from script content
- * that match the template bindings, and returns code to bind them to state.
- * Only binds variables that are actually used in the template.
+ * that match the template bindings or conditionals, and returns code to bind them to state.
+ * Only binds variables that are actually used in the template or conditionals.
  */
 const extractStateBindings = (
   scriptContent: string,
-  bindings: BindingDescriptor[]
+  bindings: BindingDescriptor[],
+  conditionalVars: Set<string> = new Set()
 ): { stateBindings: string[]; boundVarNames: Set<string> } => {
   const stateBindings: string[] = [];
 
@@ -90,6 +91,11 @@ const extractStateBindings = (
       const rootName = b.path[0];
       bindingNames.add(rootName);
     });
+  });
+
+  // Add conditional variables to binding names
+  conditionalVars.forEach((varName) => {
+    bindingNames.add(varName);
   });
 
   // Match: const name = value; | let count = 0; | var items = [];
@@ -176,13 +182,15 @@ const transformBoundAssignments = (
  * @param twoWayBindings - Two-way bound variables from $bind attributes
  * @param host - The host element or shadow root (for querySelector)
  * @param componentHost - The component element to execute the script on
+ * @param conditionalVars - Variables used in conditional expressions ($if, $else-if)
  */
 const processScript = (
   scriptContent: string,
   bindings: BindingDescriptor[],
   twoWayBindings: TwoWayBindingDescriptor[],
   host: HTMLElement | ShadowRoot,
-  componentHost: HTMLElement
+  componentHost: HTMLElement,
+  conditionalVars: Set<string> = new Set()
 ): void => {
   try {
     // Inject $bind variables and check for conflicts
@@ -217,10 +225,11 @@ const processScript = (
       )
       .join("\n            ");
 
-    // Extract and auto-bind variables to state (only those used in template bindings)
+    // Extract and auto-bind variables to state (only those used in template bindings or conditionals)
     const { stateBindings, boundVarNames } = extractStateBindings(
       scriptContent,
-      bindings
+      bindings,
+      conditionalVars
     );
 
     // Merge bindVarNames with boundVarNames for transformation
@@ -381,7 +390,8 @@ export const loadScripts = async (
   host: HTMLElement | ShadowRoot,
   scripts: ScriptElement[],
   bindings: BindingDescriptor[],
-  twoWayBindings: TwoWayBindingDescriptor[] = []
+  twoWayBindings: TwoWayBindingDescriptor[] = [],
+  conditionalVars: Set<string> = new Set()
 ) => {
   if (!scripts?.length) return;
 
@@ -394,7 +404,8 @@ export const loadScripts = async (
         bindings,
         twoWayBindings,
         host,
-        componentHost
+        componentHost,
+        conditionalVars
       );
     }
   }
@@ -407,7 +418,8 @@ export const loadExternalScripts = async (
   host: HTMLElement | ShadowRoot,
   externalScripts: ExternalScriptElement[],
   bindings: BindingDescriptor[],
-  twoWayBindings: TwoWayBindingDescriptor[] = []
+  twoWayBindings: TwoWayBindingDescriptor[] = [],
+  conditionalVars: Set<string> = new Set()
 ) => {
   const componentHost = getHostElement(host);
 
@@ -429,7 +441,8 @@ export const loadExternalScripts = async (
             bindings,
             twoWayBindings,
             host,
-            componentHost
+            componentHost,
+            conditionalVars
           );
         })
         .catch((error) => {

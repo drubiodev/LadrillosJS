@@ -1,6 +1,7 @@
 import {
   BindingDescriptor,
   TwoWayBindingDescriptor,
+  ConditionalDescriptor,
 } from "../../types/LadrilloTypes";
 import { REGEX_PATTERNS } from "../../utils/regex";
 
@@ -14,13 +15,15 @@ export const loadTemplate = (
 ): {
   bindings: BindingDescriptor[];
   twoWayBindings: TwoWayBindingDescriptor[];
+  conditionals: ConditionalDescriptor[][];
 } => {
   host.innerHTML = template;
 
   const bindings = scanBindings(host);
   const twoWayBindings = scanTwoWayBindings(host);
+  const conditionals = scanConditionals(host);
 
-  return { bindings, twoWayBindings };
+  return { bindings, twoWayBindings, conditionals };
 };
 
 /**
@@ -63,6 +66,16 @@ const scanBindings = (host: HTMLElement | ShadowRoot): BindingDescriptor[] => {
   const elements = host.querySelectorAll("*");
   elements.forEach((el) => {
     for (const attr of el.attributes) {
+      // Skip conditional and special directive attributes
+      if (
+        attr.name === "$if" ||
+        attr.name === "$else-if" ||
+        attr.name === "$else" ||
+        attr.name === "$bind"
+      ) {
+        continue;
+      }
+
       const matches = [...attr.value.matchAll(REGEX_PATTERNS.bindings)];
       if (matches.length > 0) {
         // Store the original attribute value
@@ -129,4 +142,159 @@ const scanTwoWayBindings = (
   });
 
   return twoWayBindings;
+};
+
+/**
+ * Scans for elements with $if, $else-if, and $else attributes for conditional rendering.
+ * Groups related conditionals together (if → else-if → else chains).
+ * e.g. <div $if="isVisible">...</div> or <div $else-if="count > 5">...</div>
+ */
+const scanConditionals = (
+  host: HTMLElement | ShadowRoot
+): ConditionalDescriptor[][] => {
+  const allConditionals: ConditionalDescriptor[][] = [];
+  const processedElements = new Set<Element>();
+
+  // Find all $if elements (start of conditional chains)
+  const ifElements = host.querySelectorAll("[\\$if]");
+
+  ifElements.forEach((element) => {
+    if (processedElements.has(element)) return;
+
+    const group: ConditionalDescriptor[] = [];
+    let currentElement: Element | null = element;
+
+    // Process the $if and all following $else-if and $else siblings
+    while (currentElement) {
+      const hasIf = currentElement.hasAttribute("$if");
+      const hasElseIf = currentElement.hasAttribute("$else-if");
+      const hasElse = currentElement.hasAttribute("$else");
+
+      if (!hasIf && !hasElseIf && !hasElse) break;
+
+      processedElements.add(currentElement);
+
+      let type: "if" | "else-if" | "else";
+      let condition = "";
+
+      if (hasIf) {
+        type = "if";
+        condition = currentElement.getAttribute("$if") || "";
+        currentElement.removeAttribute("$if");
+      } else if (hasElseIf) {
+        type = "else-if";
+        condition = currentElement.getAttribute("$else-if") || "";
+        currentElement.removeAttribute("$else-if");
+      } else {
+        type = "else";
+        currentElement.removeAttribute("$else");
+      }
+
+      // Create a comment placeholder to mark the position
+      const placeholder = document.createComment(
+        `conditional:${type}:${condition}`
+      );
+
+      const parent = currentElement.parentElement || host;
+      const nextSibling = currentElement.nextSibling;
+
+      // Insert placeholder before the element
+      parent.insertBefore(placeholder, currentElement);
+
+      const descriptor: ConditionalDescriptor = {
+        element: currentElement as Element,
+        condition: condition.trim(),
+        type,
+        placeholder,
+        group: [], // Will be set after the group is complete
+        originalParent: parent as Element | ShadowRoot,
+        nextSibling,
+      };
+
+      group.push(descriptor);
+
+      // Move to the next sibling to check for $else-if or $else
+      const next: Element | null = currentElement.nextElementSibling;
+
+      // Remove element from DOM initially
+      currentElement.remove();
+
+      currentElement = next;
+
+      // If next element isn't $else-if or $else, stop the chain
+      if (
+        next &&
+        !next.hasAttribute("$else-if") &&
+        !next.hasAttribute("$else")
+      ) {
+        break;
+      }
+    }
+
+    // Set the group reference for all descriptors in this chain
+    group.forEach((desc) => {
+      desc.group = group;
+    });
+
+    allConditionals.push(group);
+  });
+
+  return allConditionals;
+};
+
+/**
+ * Extracts variable names from conditional expressions.
+ * Removes curly braces and extracts identifiers.
+ * e.g., "{sending}" → ["sending"], "{count > 5}" → ["count"]
+ */
+export const extractConditionalVariables = (
+  conditionalGroups: ConditionalDescriptor[][]
+): Set<string> => {
+  const variables = new Set<string>();
+
+  conditionalGroups.forEach((group) => {
+    group.forEach((descriptor) => {
+      let condition = descriptor.condition;
+
+      // Remove curly braces: {sending} → sending
+      condition = condition.replace(/\{([^}]+)\}/g, "$1");
+
+      // Extract variable names (identifiers)
+      // Match JavaScript identifiers but exclude keywords and literals
+      const identifierRegex =
+        /\b([a-zA-Z_$][a-zA-Z0-9_$]*(?:\.[a-zA-Z_$][a-zA-Z0-9_$]*)*)\b/g;
+      const keywords = new Set([
+        "true",
+        "false",
+        "null",
+        "undefined",
+        "typeof",
+        "instanceof",
+        "new",
+        "return",
+        "if",
+        "else",
+        "for",
+        "while",
+        "do",
+        "switch",
+        "case",
+        "break",
+        "continue",
+      ]);
+
+      let match;
+      while ((match = identifierRegex.exec(condition)) !== null) {
+        const identifier = match[1];
+        const rootVar = identifier.split(".")[0]; // Get root variable name
+
+        // Skip keywords and literals
+        if (!keywords.has(rootVar)) {
+          variables.add(rootVar);
+        }
+      }
+    });
+  });
+
+  return variables;
 };
