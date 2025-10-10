@@ -11,7 +11,6 @@ declare global {
     $emit: typeof $emit;
     $querySelector: typeof $querySelector;
     $querySelectorAll: typeof $querySelectorAll;
-    $component: typeof $component;
   }
 }
 
@@ -126,26 +125,6 @@ export const $querySelectorAll = (
   // Fallback to document
   return document.querySelectorAll(selector);
 };
-/**
- * Get a component element and create scoped query helpers for it
- * Useful for external module scripts that need to query within a specific component
- * @param componentSelector - Selector to find the component (e.g., "side-nav")
- * @returns Object with scoped query helpers, or null if component not found
- */
-export const $component = (componentSelector: string) => {
-  const component = document.querySelector(componentSelector);
-  if (!component) return null;
-
-  // Check for shadow root or use the element itself
-  const root = (component as any).shadowRoot || component;
-
-  return {
-    element: component,
-    shadowRoot: (component as any).shadowRoot,
-    querySelector: (selector: string) => root.querySelector(selector),
-    querySelectorAll: (selector: string) => root.querySelectorAll(selector),
-  };
-};
 
 // for a browser‑global via <script src="…ladrillosjs.js"></script>
 if (typeof window !== "undefined") {
@@ -159,5 +138,4 @@ if (typeof window !== "undefined") {
   window.$emit = $emit;
   window.$querySelector = $querySelector;
   window.$querySelectorAll = $querySelectorAll;
-  window.$component = $component;
 }
