@@ -3,9 +3,6 @@
 <p $if="{count > 10}">You Clicked {title} button more than 10 times</p>
 <p $if="{count === 15}">You Clicked {title} button 15 times</p>
 
-<label for="buttonName">Button Name:</label>
-<input type="text" id="buttonName" value="hello" $bind="title" />
-
 <button onclick="increaseCount()">{title}: {count}</button>
 
 <script src="alert.js"></script>
