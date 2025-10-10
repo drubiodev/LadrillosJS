@@ -15,12 +15,14 @@ export const registerComponent = (
   useShadowDOM?: boolean
 ) => ladrillos.registerComponent(name, path, useShadowDOM);
 
-// TODO: Implement bulk component registration
-export const registerComponents = (
+export const registerComponents = async (
   components: Array<{ name: string; path: string; useShadowDOM?: boolean }>
-) => {
-  // TODO: Register multiple components at once
-  throw new Error("registerComponents not yet implemented");
+): Promise<void> => {
+  await Promise.all(
+    components.map(({ name, path, useShadowDOM }) =>
+      ladrillos.registerComponent(name, path, useShadowDOM)
+    )
+  );
 };
 
 // for a browser‑global via <script src="…ladrillosjs.js"></script>
