@@ -18,10 +18,17 @@
   Time: <span id="time">{time}</span>s | Score: <span id="score">{score}</span>
 </div>
 
-<button onclick="showResults">emit</button>
+<button onclick="showResults()">Show Results</button>
 
 <script>
   const showResults = () => {
-    this.emit("timeEnded");
+    console.log("showResults called, emitting event...");
+    console.log("Current state - Score:", score, "Time:", time);
+    $emit("timeEnded", {
+      finalScore: score,
+      timeRemaining: time,
+      message: "Game completed!",
+    });
+    console.log("Event emitted!");
   };
 </script>

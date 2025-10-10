@@ -25,6 +25,7 @@ export const defineWebComponent = (
     #bindings: BindingDescriptor[] = [];
     #twoWayBindings: TwoWayBindingDescriptor[] = [];
     #conditionals: ConditionalDescriptor[][] = [];
+    #twoWayBindingCleanups: Array<() => void> = [];
 
     constructor() {
       super();
@@ -40,6 +41,21 @@ export const defineWebComponent = (
           if (Object.is(prev, value)) return true;
 
           target[prop as keyof typeof target] = value;
+
+          // Auto-create property descriptor on component for direct access in with() scope
+          if (!Object.getOwnPropertyDescriptor(this, prop)) {
+            Object.defineProperty(this, prop, {
+              get() {
+                return this.state[prop];
+              },
+              set(val) {
+                this.state[prop] = val;
+              },
+              enumerable: true,
+              configurable: true,
+            });
+          }
+
           // Re-render all bindings with the updated state
           renderBindings(this.#bindings, this.state, this);
           // Re-render conditionals
@@ -115,11 +131,30 @@ export const defineWebComponent = (
       // Perform initial render with current state values (after scripts are ready)
       renderBindings(this.#bindings, this.state, this);
       renderConditionals(this.#conditionals, this.state, this);
+
+      // Set up MutationObserver to watch for attribute changes
+      this._setupAttributeObserver();
     }
 
     // Invoked when element is removed from the DOM
     disconnectedCallback() {
-      // Clean up event listeners to prevent memory leaks
+      // Clean up MutationObserver
+      if ((this as any).__attributeObserver) {
+        (this as any).__attributeObserver.disconnect();
+        (this as any).__attributeObserver = null;
+      }
+
+      // Clean up two-way binding event listeners
+      this.#twoWayBindingCleanups.forEach((cleanup) => {
+        try {
+          cleanup();
+        } catch (error) {
+          console.error("Error cleaning up two-way binding:", error);
+        }
+      });
+      this.#twoWayBindingCleanups = [];
+
+      // Clean up EventBus subscriptions
       const unsubscribers = (this as any).__eventUnsubscribers;
       if (unsubscribers && Array.isArray(unsubscribers)) {
         unsubscribers.forEach((unsub: () => void) => {
@@ -133,8 +168,24 @@ export const defineWebComponent = (
       }
     }
 
-    // Invoked when attributes are changed
-    attributechangedCallback() {}
+    // Set up observer to watch for attribute changes
+    _setupAttributeObserver() {
+      const observer = new MutationObserver((mutations) => {
+        mutations.forEach((mutation) => {
+          if (mutation.type === "attributes" && mutation.attributeName) {
+            const newValue = this.getAttribute(mutation.attributeName);
+            this._handleAttributeChange(mutation.attributeName, newValue);
+          }
+        });
+      });
+
+      observer.observe(this, {
+        attributes: true,
+        attributeOldValue: true,
+      });
+
+      (this as any).__attributeObserver = observer;
+    }
 
     // initializes the state from the attributes
     _initializeStateFromAttributes() {
@@ -183,6 +234,12 @@ export const defineWebComponent = (
 
         element.addEventListener("input", handleInput);
 
+        // Store cleanup function for 'input' listener
+        const cleanupInput = () => {
+          element.removeEventListener("input", handleInput);
+        };
+        this.#twoWayBindingCleanups.push(cleanupInput);
+
         // For select and certain input types, also listen to 'change'
         if (
           element instanceof HTMLSelectElement ||
@@ -190,6 +247,12 @@ export const defineWebComponent = (
             ["checkbox", "radio", "file"].includes(element.type))
         ) {
           element.addEventListener("change", handleInput);
+
+          // Store cleanup function for 'change' listener
+          const cleanupChange = () => {
+            element.removeEventListener("change", handleInput);
+          };
+          this.#twoWayBindingCleanups.push(cleanupChange);
         }
       });
     }

@@ -88,9 +88,12 @@
       hud.setAttribute("time", timeLeft);
       hud.setAttribute("score", score);
 
+      console.log("Setting up timeEnded listener...");
       document.addEventListener("timeEnded", ({ detail }) => {
+        console.log("timeEnded event received!", detail);
         alert(JSON.stringify(detail));
       });
+      console.log("Listener set up!");
 
       function moveButton() {
         const x = Math.random() * (window.innerWidth - btn.offsetWidth);
@@ -101,6 +104,7 @@
       btn.addEventListener("click", () => {
         if (timeLeft <= 0) return;
         score++;
+        console.log("Score:", score);
         hud.setAttribute("score", score);
         moveButton();
       });

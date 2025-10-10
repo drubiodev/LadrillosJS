@@ -16,6 +16,14 @@ class EventBus {
    * @returns Promise that resolves when all listeners have been called
    */
   emit(eventName: string, data?: any): Promise<void> {
+    // Also dispatch as a native DOM CustomEvent so document.addEventListener works
+    const customEvent = new CustomEvent(eventName, {
+      detail: data,
+      bubbles: true,
+      composed: true,
+    });
+    document.dispatchEvent(customEvent);
+
     const callbacks = this.listeners.get(eventName);
 
     if (!callbacks || callbacks.size === 0) {
