@@ -1,15 +1,18 @@
 import { registerComponent, $listen, $querySelector } from "ladrillosjs";
 
+const notes = [];
 // Register components
 registerComponent("note-item", "./components/note-item.html");
 
 // Listen to events
 $listen("note_saved", (d) => {
-  // $querySelector automatically uses the component context!
+  notes.push({ ...d });
+
   const ul = $querySelector("ul");
-  console.log(ul);
 
   if (ul) {
-    ul.innerHTML = `<note-item data-note='${JSON.stringify(d)}'></note-item>`;
+    ul.innerHTML = notes
+      .map((n) => `<note-item data-note='${JSON.stringify(n)}'></note-item>`)
+      .join("");
   }
 });

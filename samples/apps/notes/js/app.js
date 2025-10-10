@@ -1,5 +1,5 @@
 const save = () => {
-  console.log("Note saved!", myNote);
+  myNote.id = Date.now();
   $emit("note_saved", myNote).then(() => {
     console.log("saved");
   });

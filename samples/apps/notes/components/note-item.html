@@ -18,10 +18,10 @@
   }
 </style>
 
-<li onclick="loadNote">{data-note.title}</li>
+<li onclick="loadNote()">{data-note.title}</li>
 
 <script>
   const loadNote = () => {
-    this.emit("loadNote", this.state["data-note"].id);
+    console.log(this.state);
   };
 </script>
