@@ -454,31 +454,31 @@ export const loadExternalScripts = async (
     if (s.external) {
       // TODO: inject script tag to document for external CDN scripts
     } else if (s.type === "module") {
-      // For module scripts, set the context directly before loading
-      // Store context in global registry
+      // For module scripts with bind attribute, we need to load them as actual modules
+      // but provide access to the component context via global registry
       const componentId = componentHost.tagName.toLowerCase();
 
       if (!(window as any).__ladrilloContexts) {
         (window as any).__ladrilloContexts = new Map();
       }
 
+      // Store the component context so the module can access it
       (window as any).__ladrilloContexts.set(componentId, {
         host,
         shadowRoot: host instanceof ShadowRoot ? host : null,
         element: componentHost,
+        state: (componentHost as any).state,
+        setState: (componentHost as any).setState?.bind(componentHost),
       });
 
-      // Load the module script
+      // Load the module script as an actual module
       const script = document.createElement("script");
       script.type = "module";
       script.src = scriptURL;
-
-      // Add data attribute to track which component this script belongs to
       script.setAttribute("data-component", componentId);
-
       document.head.appendChild(script);
     } else {
-      // Fetch and process local scripts
+      // Fetch and process local non-module scripts through reactive processing
       await fetch(scriptURL)
         .then((response) => {
           if (!response.ok) {

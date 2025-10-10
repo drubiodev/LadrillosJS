@@ -80,6 +80,30 @@ const getComponentContext = () => {
   return null;
 };
 
+/**
+ * Get the component's reactive state (for use in module scripts with bind attribute)
+ * Returns a Proxy that allows direct property access to component.state
+ * @returns Proxy to component state or empty object if no component context
+ */
+export const $getState = (): any => {
+  const ctx = getComponentContext();
+  if (ctx && ctx.element) {
+    return (ctx.element as any).state || {};
+  }
+  return {};
+};
+
+/**
+ * Set component state (for use in module scripts with bind attribute)
+ * @param updates - Object with state updates
+ */
+export const $setState = (updates: any) => {
+  const ctx = getComponentContext();
+  if (ctx && ctx.setState) {
+    ctx.setState(updates);
+  }
+};
+
 // DOM query helpers with smart component context detection
 // Automatically searches within component context when appropriate
 export const $querySelector = (
