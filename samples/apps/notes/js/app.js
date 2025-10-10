@@ -1,20 +1,6 @@
-import { addNote, notesStore } from "../stores/notesStore.js";
-
-export default function () {
-  this.save = () => {
-    const { myNote } = this.state;
-
-    const id = Math.floor(Math.random() * 1000);
-    myNote.id = id;
-    addNote(myNote);
-    this.setState({ myNote: {} });
-  };
-
-  this.listen("loadNote", (id) => {
-    notesStore.getState().notes.forEach((note) => {
-      if (note.id === id) {
-        this.state.myNote = note;
-      }
-    });
+const save = () => {
+  console.log("Note saved!", myNote);
+  $emit("note_saved", myNote).then(() => {
+    console.log("saved");
   });
-}
+};

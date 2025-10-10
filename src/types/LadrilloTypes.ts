@@ -15,6 +15,7 @@ export type LadrillosComponent = {
   scripts: ScriptElement[];
   externalScripts: ExternalScriptElement[];
   styles: string;
+  sourcePath?: string;
 };
 
 export type RegexPatterns = {
@@ -39,9 +40,14 @@ export type BindingDescriptor = {
 };
 
 export type TwoWayBindingDescriptor = {
-  element: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
+  element:
+    | HTMLInputElement
+    | HTMLTextAreaElement
+    | HTMLSelectElement
+    | HTMLElement;
   path: string[]; // ['person', 'name'] or ['inputText']
   raw: string; // "person.name" or "inputText"
+  isContentEditable?: boolean; // True if element has contenteditable attribute
 };
 
 export type ConditionalDescriptor = {

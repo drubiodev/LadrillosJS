@@ -110,6 +110,7 @@ const scanBindings = (host: HTMLElement | ShadowRoot): BindingDescriptor[] => {
 /**
  * Scans for elements with $bind attribute for two-way data binding.
  * e.g. <input $bind="inputText"> or <input $bind="person.name">
+ * Now also supports contenteditable elements: <div contenteditable $bind="text">
  */
 const scanTwoWayBindings = (
   host: HTMLElement | ShadowRoot
@@ -118,26 +119,38 @@ const scanTwoWayBindings = (
   const elements = host.querySelectorAll("[\\$bind]");
 
   elements.forEach((el) => {
-    // Only support input, textarea, and select elements
+    const bindValue = el.getAttribute("$bind");
+    if (!bindValue) return;
+
+    const raw = bindValue.trim();
+    const path = raw.split(".").map((p) => p.trim());
+
+    // Support form inputs (input, textarea, select)
     if (
       el instanceof HTMLInputElement ||
       el instanceof HTMLTextAreaElement ||
       el instanceof HTMLSelectElement
     ) {
-      const bindValue = el.getAttribute("$bind");
-      if (bindValue) {
-        const raw = bindValue.trim();
-        const path = raw.split(".").map((p) => p.trim());
-
-        twoWayBindings.push({
-          element: el,
-          path,
-          raw,
-        });
-
-        // Remove the $bind attribute after processing
-        el.removeAttribute("$bind");
-      }
+      twoWayBindings.push({
+        element: el,
+        path,
+        raw,
+        isContentEditable: false,
+      });
+      el.removeAttribute("$bind");
+    }
+    // Support contenteditable elements
+    else if (
+      el instanceof HTMLElement &&
+      (el.hasAttribute("contenteditable") || el.isContentEditable)
+    ) {
+      twoWayBindings.push({
+        element: el,
+        path,
+        raw,
+        isContentEditable: true,
+      });
+      el.removeAttribute("$bind");
     }
   });
 

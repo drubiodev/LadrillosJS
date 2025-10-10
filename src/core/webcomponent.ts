@@ -18,7 +18,8 @@ export const defineWebComponent = (
   component: LadrillosComponent,
   useShadowDOM: boolean
 ) => {
-  const { tagName, template, scripts, externalScripts, styles } = component;
+  const { tagName, template, scripts, externalScripts, styles, sourcePath } =
+    component;
 
   class ComponentElement extends HTMLElement {
     state: any;
@@ -26,6 +27,7 @@ export const defineWebComponent = (
     #twoWayBindings: TwoWayBindingDescriptor[] = [];
     #conditionals: ConditionalDescriptor[][] = [];
     #twoWayBindingCleanups: Array<() => void> = [];
+    #sourcePath: string | undefined = sourcePath;
 
     constructor() {
       super();
@@ -125,7 +127,8 @@ export const defineWebComponent = (
         externalScripts,
         this.#bindings,
         this.#twoWayBindings,
-        conditionalVars
+        conditionalVars,
+        this.#sourcePath
       );
 
       // Perform initial render with current state values (after scripts are ready)
@@ -210,59 +213,104 @@ export const defineWebComponent = (
 
     // Setup two-way data bindings for input elements with $bind
     _setupTwoWayBindings() {
-      this.#twoWayBindings.forEach(({ element, path, raw }) => {
-        // Initialize state property if it doesn't exist
-        const currentValue = this._getNestedValue(path);
-        if (currentValue === undefined) {
-          setValue(this.state, path, "");
+      this.#twoWayBindings.forEach(
+        ({ element, path, raw, isContentEditable }) => {
+          // Initialize state property if it doesn't exist
+          const currentValue = this._getNestedValue(path);
+          if (currentValue === undefined) {
+            setValue(this.state, path, "");
+          }
+
+          if (isContentEditable) {
+            // Handle contenteditable elements
+            const contentEditableEl = element as HTMLElement;
+
+            // Initial sync from state to element
+            contentEditableEl.textContent = this._getNestedValue(path) ?? "";
+
+            // Listen for input changes and update state
+            const handleInput = (e: Event) => {
+              const target = e.target as HTMLElement;
+              const newValue = target.textContent || "";
+
+              // Update state using setValue to handle nested paths
+              setValue(this.state, path, newValue);
+            };
+
+            contentEditableEl.addEventListener("input", handleInput);
+
+            // Store cleanup function
+            const cleanup = () => {
+              contentEditableEl.removeEventListener("input", handleInput);
+            };
+            this.#twoWayBindingCleanups.push(cleanup);
+          } else {
+            // Handle form input elements
+            const inputEl = element as
+              | HTMLInputElement
+              | HTMLTextAreaElement
+              | HTMLSelectElement;
+
+            // Initial sync from state to element
+            inputEl.value = this._getNestedValue(path) ?? "";
+
+            // Listen for input changes and update state
+            const handleInput = (e: Event) => {
+              const target = e.target as
+                | HTMLInputElement
+                | HTMLTextAreaElement
+                | HTMLSelectElement;
+              const newValue = target.value;
+
+              // Update state using setValue to handle nested paths
+              setValue(this.state, path, newValue);
+            };
+
+            inputEl.addEventListener("input", handleInput);
+
+            // Store cleanup function for 'input' listener
+            const cleanupInput = () => {
+              inputEl.removeEventListener("input", handleInput);
+            };
+            this.#twoWayBindingCleanups.push(cleanupInput);
+
+            // For select and certain input types, also listen to 'change'
+            if (
+              inputEl instanceof HTMLSelectElement ||
+              (inputEl instanceof HTMLInputElement &&
+                ["checkbox", "radio", "file"].includes(inputEl.type))
+            ) {
+              inputEl.addEventListener("change", handleInput);
+
+              // Store cleanup function for 'change' listener
+              const cleanupChange = () => {
+                inputEl.removeEventListener("change", handleInput);
+              };
+              this.#twoWayBindingCleanups.push(cleanupChange);
+            }
+          }
         }
-
-        // Initial sync from state to element
-        element.value = this._getNestedValue(path) ?? "";
-
-        // Listen for input changes and update state
-        const handleInput = (e: Event) => {
-          const target = e.target as
-            | HTMLInputElement
-            | HTMLTextAreaElement
-            | HTMLSelectElement;
-          const newValue = target.value;
-
-          // Update state using setValue to handle nested paths
-          setValue(this.state, path, newValue);
-        };
-
-        element.addEventListener("input", handleInput);
-
-        // Store cleanup function for 'input' listener
-        const cleanupInput = () => {
-          element.removeEventListener("input", handleInput);
-        };
-        this.#twoWayBindingCleanups.push(cleanupInput);
-
-        // For select and certain input types, also listen to 'change'
-        if (
-          element instanceof HTMLSelectElement ||
-          (element instanceof HTMLInputElement &&
-            ["checkbox", "radio", "file"].includes(element.type))
-        ) {
-          element.addEventListener("change", handleInput);
-
-          // Store cleanup function for 'change' listener
-          const cleanupChange = () => {
-            element.removeEventListener("change", handleInput);
-          };
-          this.#twoWayBindingCleanups.push(cleanupChange);
-        }
-      });
+      );
     }
 
     // Update two-way bound elements when state changes
     #updateTwoWayBindings() {
-      this.#twoWayBindings.forEach(({ element, path }) => {
+      this.#twoWayBindings.forEach(({ element, path, isContentEditable }) => {
         const value = this._getNestedValue(path);
-        if (element.value !== value) {
-          element.value = value ?? "";
+
+        if (isContentEditable) {
+          const contentEditableEl = element as HTMLElement;
+          if (contentEditableEl.textContent !== value) {
+            contentEditableEl.textContent = value ?? "";
+          }
+        } else {
+          const inputEl = element as
+            | HTMLInputElement
+            | HTMLTextAreaElement
+            | HTMLSelectElement;
+          if (inputEl.value !== value) {
+            inputEl.value = value ?? "";
+          }
         }
       });
     }

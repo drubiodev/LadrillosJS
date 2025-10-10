@@ -1,14 +1,15 @@
-import { notesStore } from "../stores/notesStore.js";
-import { registerComponent } from "ladrillosjs";
+import { registerComponent, $listen, $querySelector } from "ladrillosjs";
 
+// Register components
 registerComponent("note-item", "./components/note-item.html");
 
-export default function () {
-  const ul = this.querySelector("ul");
+// Listen to events
+$listen("note_saved", (d) => {
+  // $querySelector automatically uses the component context!
+  const ul = $querySelector("ul");
+  console.log(ul);
 
-  notesStore.subscribe(({ notes }) => {
-    ul.innerHTML = notes
-      .map((n) => `<note-item data-note='${JSON.stringify(n)}'></note-item>`)
-      .join("");
-  });
-}
+  if (ul) {
+    ul.innerHTML = `<note-item data-note='${JSON.stringify(d)}'></note-item>`;
+  }
+});

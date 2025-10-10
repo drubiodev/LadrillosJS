@@ -90,7 +90,7 @@ export const extractScripts = (
       const isExternal = el.hasAttribute("external");
 
       externalScripts.push({
-        src: el.src,
+        src: el.getAttribute("src") || el.src, // Use getAttribute to preserve relative paths
         type: el.type ?? null,
         external: isExternal,
       });

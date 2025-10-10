@@ -419,21 +419,81 @@ export const loadExternalScripts = async (
   externalScripts: ExternalScriptElement[],
   bindings: BindingDescriptor[],
   twoWayBindings: TwoWayBindingDescriptor[] = [],
-  conditionalVars: Set<string> = new Set()
+  conditionalVars: Set<string> = new Set(),
+  componentSourcePath?: string
 ) => {
   const componentHost = getHostElement(host);
 
   for (const s of externalScripts) {
-    const scriptURL = new URL(s.src, import.meta.url).href;
+    // Resolve script URL relative to the component's HTML file location
+    // Convert relative path to absolute URL if needed
+    let baseURL: string;
+    if (componentSourcePath) {
+      // If it's already an absolute URL, use it directly
+      if (
+        componentSourcePath.startsWith("http://") ||
+        componentSourcePath.startsWith("https://")
+      ) {
+        baseURL = componentSourcePath;
+      } else {
+        // Convert relative path to absolute URL using window.location
+        // Ensure the base URL ends with the component path including filename
+        // so that relative paths like '../js/app.js' resolve correctly
+        const fullComponentURL = new URL(
+          componentSourcePath,
+          window.location.href
+        ).href;
+        baseURL = fullComponentURL;
+      }
+    } else {
+      baseURL = window.location.href;
+    }
+
+    const scriptURL = new URL(s.src, baseURL).href;
 
     if (s.external) {
       // TODO: inject script tag to document for external CDN scripts
     } else if (s.type === "module") {
-      // TODO: work on module type scripts
+      // For module scripts, set the context directly before loading
+      // Store context in global registry
+      const componentId = componentHost.tagName.toLowerCase();
+
+      if (!(window as any).__ladrilloContexts) {
+        (window as any).__ladrilloContexts = new Map();
+      }
+
+      (window as any).__ladrilloContexts.set(componentId, {
+        host,
+        shadowRoot: host instanceof ShadowRoot ? host : null,
+        element: componentHost,
+      });
+
+      // Load the module script
+      const script = document.createElement("script");
+      script.type = "module";
+      script.src = scriptURL;
+
+      // Add data attribute to track which component this script belongs to
+      script.setAttribute("data-component", componentId);
+
+      document.head.appendChild(script);
     } else {
       // Fetch and process local scripts
       await fetch(scriptURL)
-        .then((response) => response.text())
+        .then((response) => {
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          }
+          const contentType = response.headers.get("content-type");
+          if (
+            contentType &&
+            !contentType.includes("javascript") &&
+            !contentType.includes("text/plain")
+          ) {
+            throw new Error(`Expected JavaScript but got ${contentType}`);
+          }
+          return response.text();
+        })
         .then((scriptContent) => {
           // Reuse the same processing logic as inline scripts
           processScript(

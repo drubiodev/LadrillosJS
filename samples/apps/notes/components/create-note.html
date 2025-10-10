@@ -6,7 +6,7 @@
   spellcheck="true"
   contenteditable="true"
   tabindex="1"
-  data-bind="myNote.title"
+  $bind="myNote.title"
 ></h1>
 <div
   id="note-text"
@@ -16,8 +16,8 @@
   contenteditable="true"
   tabindex="2"
   placeholder="enter note text"
-  data-bind="myNote.note.text"
+  $bind="myNote.text"
 ></div>
-<button id="save-note-btn" tabindex="3" onclick="save">Save</button>
+<button id="save-note-btn" tabindex="3" onclick="save()">Save</button>
 
-<script type="module" src="../js/app.js" bind></script>
+<script src="../js/app.js"></script>

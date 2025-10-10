@@ -32,6 +32,7 @@ class Ladrillos {
         scripts: component.scripts,
         externalScripts: component.externalScripts,
         styles: component.styles,
+        sourcePath: path,
       };
 
       // Define the web component
