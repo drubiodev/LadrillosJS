@@ -386,6 +386,87 @@ const processEventHandlers = (
   });
 };
 
+/**
+ * Transforms a module script to make variable bindings reactive.
+ * Detects variables used in template bindings and wraps assignments to update component state.
+ * @param scriptContent - The module script content
+ * @param bindings - Template bindings to determine which variables should be reactive
+ * @param componentId - The component ID for accessing the context
+ * @returns Transformed script content
+ */
+const transformModuleScript = (
+  scriptContent: string,
+  bindings: BindingDescriptor[],
+  componentId: string
+): string => {
+  // Extract variable names used in bindings
+  const bindingVarNames = new Set<string>();
+  bindings.forEach((binding) => {
+    binding.bindings.forEach((b) => {
+      if (!b.isFunction) {
+        const rootName = b.path[0];
+        bindingVarNames.add(rootName);
+      }
+    });
+  });
+
+  if (bindingVarNames.size === 0) {
+    return scriptContent; // No transformations needed
+  }
+
+  // Add helper code at the beginning to get component context
+  const helperCode = `
+// Auto-generated: Get component context for reactive bindings
+const __getContext = () => window.__ladrilloContexts?.get('${componentId}');
+const __component = __getContext()?.element;
+`;
+
+  let transformed = scriptContent;
+
+  // Transform variable declarations to initialize state
+  bindingVarNames.forEach((varName) => {
+    // Match: let varName = value; or const varName = value;
+    const declRegex = new RegExp(
+      `(let|const|var)\\s+${varName}\\s*=\\s*([^;]+);`,
+      "g"
+    );
+
+    transformed = transformed.replace(declRegex, (match, keyword, value) => {
+      return `${keyword} ${varName} = ${value};\nif (__component?.setState) __component.setState({ ${varName}: ${varName} });`;
+    });
+
+    // Transform assignments: varName = value
+    // Make sure we don't match declarations (let/const/var) or object properties (obj.varName)
+    const assignRegex = new RegExp(
+      `(?<!let\\s|const\\s|var\\s|\\.)\\b${varName}\\s*=\\s*([^;]+);`,
+      "g"
+    );
+
+    transformed = transformed.replace(assignRegex, (match, value) => {
+      return `${varName} = ${value};\nif (__component?.setState) __component.setState({ ${varName}: ${varName} });`;
+    });
+
+    // Transform increment/decrement operators
+    const incDecRegex = new RegExp(`\\b${varName}(\\+\\+|\\-\\-)`, "g");
+
+    transformed = transformed.replace(incDecRegex, (match, op) => {
+      return `${varName}${op};\nif (__component?.setState) __component.setState({ ${varName}: ${varName} });`;
+    });
+
+    // Transform compound assignments
+    const compoundRegex = new RegExp(
+      `\\b${varName}\\s*(\\+=|\\-=|\\*=|\\/=)\\s*([^;]+);`,
+      "g"
+    );
+
+    transformed = transformed.replace(compoundRegex, (match, op, value) => {
+      return `${varName} ${op} ${value};\nif (__component?.setState) __component.setState({ ${varName}: ${varName} });`;
+    });
+  });
+
+  return helperCode + transformed;
+};
+
 export const loadScripts = async (
   host: HTMLElement | ShadowRoot,
   scripts: ScriptElement[],
@@ -454,8 +535,10 @@ export const loadExternalScripts = async (
     if (s.external) {
       // TODO: inject script tag to document for external CDN scripts
     } else if (s.type === "module") {
-      // For module scripts with bind attribute, we need to load them as actual modules
-      // but provide access to the component context via global registry
+      // For module scripts, load them normally as ES modules
+      // The bind attribute is a signal that the user wants reactive bindings,
+      // but ES modules can't be transformed the same way as regular scripts
+      // So we store the context and let the module use helper functions
       const componentId = componentHost.tagName.toLowerCase();
 
       if (!(window as any).__ladrilloContexts) {
@@ -471,7 +554,7 @@ export const loadExternalScripts = async (
         setState: (componentHost as any).setState?.bind(componentHost),
       });
 
-      // Load the module script as an actual module
+      // Load the module script normally
       const script = document.createElement("script");
       script.type = "module";
       script.src = scriptURL;

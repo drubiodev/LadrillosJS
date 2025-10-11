@@ -11,6 +11,9 @@ declare global {
     $emit: typeof $emit;
     $querySelector: typeof $querySelector;
     $querySelectorAll: typeof $querySelectorAll;
+    $reactive: typeof $reactive;
+    $setState: typeof $setState;
+    $getState: typeof $getState;
   }
 }
 
@@ -104,6 +107,37 @@ export const $setState = (updates: any) => {
   }
 };
 
+/**
+ * Creates a reactive variable that automatically updates the component when changed.
+ * For use in ES module scripts with the bind attribute.
+ * @param name - The variable name (must match the binding in the template)
+ * @param initialValue - The initial value
+ * @returns A setter function to update the value
+ *
+ * @example
+ * ```javascript
+ * import { $reactive } from 'ladrillosjs';
+ *
+ * // In your module script:
+ * const setBeers = $reactive('beers', 'loading...');
+ *
+ * // Later, update it:
+ * setBeers('<card>...</card>');
+ * ```
+ */
+export const $reactive = <T = any>(
+  name: string,
+  initialValue: T
+): ((value: T) => void) => {
+  // Initialize the state
+  $setState({ [name]: initialValue });
+
+  // Return a setter function
+  return (value: T) => {
+    $setState({ [name]: value });
+  };
+};
+
 // DOM query helpers with smart component context detection
 // Automatically searches within component context when appropriate
 export const $querySelector = (
@@ -162,4 +196,7 @@ if (typeof window !== "undefined") {
   window.$emit = $emit;
   window.$querySelector = $querySelector;
   window.$querySelectorAll = $querySelectorAll;
+  window.$reactive = $reactive;
+  window.$setState = $setState;
+  window.$getState = $getState;
 }

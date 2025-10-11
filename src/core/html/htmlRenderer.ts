@@ -92,8 +92,20 @@ export const renderBindings = (
 
     // Apply the final result to the DOM
     if (binding.node.nodeType === Node.TEXT_NODE) {
-      // Handle text node bindings (e.g., <p>{message}</p>)
-      binding.node.textContent = result;
+      const textNode = binding.node as Text;
+      const parentElement = textNode.parentElement;
+
+      // Check if this looks like HTML content
+      const isHTMLContent =
+        result.trim().startsWith("<") && result.includes(">");
+
+      // If parent element exists and content is HTML, render as HTML
+      if (parentElement && isHTMLContent) {
+        parentElement.innerHTML = result;
+      } else {
+        // Otherwise, use textContent for security
+        textNode.textContent = result;
+      }
     } else {
       // Handle attribute bindings (e.g., <img src="{imageUrl}">)
       const element = binding.node as unknown as Element;
