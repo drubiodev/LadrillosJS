@@ -48,6 +48,7 @@ export type TwoWayBindingDescriptor = {
   path: string[]; // ['person', 'name'] or ['inputText']
   raw: string; // "person.name" or "inputText"
   isContentEditable?: boolean; // True if element has contenteditable attribute
+  initialValue?: string; // Store initial content when scanning
 };
 
 export type ConditionalDescriptor = {

@@ -115,9 +115,9 @@
 </style>
 
 <section class="business-card">
-  <button class="edit-btn" onclick="editMode">
-    <span data-if="editMode">save</span>
-    <span data-else>edit</span>
+  <button class="edit-btn" onclick="toggleEdit()">
+    <span $if="editMode">save</span>
+    <span $else>edit</span>
   </button>
   <div class="card">
     <img
@@ -126,8 +126,8 @@
       class="card-avatar"
     />
     <div class="card-details">
-      <h2 contenteditable="false" data-bind="user.name">John Doe</h2>
-      <p class="role" contenteditable="false" data-bind="user.role">
+      <h2 contenteditable="false" $bind="user.name">John Doe</h2>
+      <p class="role" contenteditable="false" $bind="user.role">
         Frontend Developer
       </p>
       <ul class="contact-list">
@@ -136,22 +136,20 @@
           <a
             href="mailto:john@example.com"
             contenteditable="false"
-            data-bind="user.email"
+            $bind="user.email"
             >john@example.com</a
           >
         </li>
         <li>
           Phone:
-          <span contenteditable="false" data-bind="user.phone"
-            >(123) 456-7890</span
-          >
+          <span contenteditable="false" $bind="user.phone">(123) 456-7890</span>
         </li>
         <li>
           Website:
           <a
             href="https://johndoe.com"
             contenteditable="false"
-            data-bind="user.site"
+            $bind="user.site"
             >johndoe.com</a
           >
         </li>
@@ -165,13 +163,13 @@
 </section>
 
 <script>
-  this.setState({ editMode: false });
+  $setState({ editMode: false });
 
-  const editMode = () => {
+  const toggleEdit = () => {
+    console.log($state.editMode);
     if ($state.editMode) {
       alert(JSON.stringify($state.user, null, 2));
     }
-
     $querySelectorAll("[contenteditable]").forEach((el) => {
       el.setAttribute("contenteditable", !$state.editMode);
     });

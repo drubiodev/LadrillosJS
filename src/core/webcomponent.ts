@@ -217,11 +217,19 @@ export const defineWebComponent = (
     // Setup two-way data bindings for input elements with $bind
     _setupTwoWayBindings() {
       this.#twoWayBindings.forEach(
-        ({ element, path, raw, isContentEditable }) => {
-          // Initialize state property if it doesn't exist
+        ({ element, path, raw, isContentEditable, initialValue }) => {
+          // Initialize state property if it doesn't exist, using stored initial content
           const currentValue = this._getNestedValue(path);
+
           if (currentValue === undefined) {
-            setValue(this.state, path, "");
+            const content = initialValue || "";
+            console.log(`[TwoWayBinding] Setting ${raw} = "${content}"`);
+            setValue(this.state, path, content);
+          } else {
+            console.log(
+              `[TwoWayBinding] Skipping ${raw}, already has value:`,
+              currentValue
+            );
           }
 
           if (isContentEditable) {

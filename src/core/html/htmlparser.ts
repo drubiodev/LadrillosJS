@@ -19,7 +19,21 @@ export const loadTemplate = (
 } => {
   host.innerHTML = template;
 
+  console.log("[loadTemplate] Template loaded, scanning for bindings...");
+
   const bindings = scanBindings(host);
+
+  console.log("[loadTemplate] After scanBindings, checking $bind elements...");
+  const bindElements = host.querySelectorAll("[\\$bind]");
+  bindElements.forEach((el) => {
+    console.log(
+      "[loadTemplate] $bind element:",
+      el,
+      "textContent:",
+      el.textContent
+    );
+  });
+
   const twoWayBindings = scanTwoWayBindings(host);
   const conditionals = scanConditionals(host);
 
@@ -136,19 +150,18 @@ const scanTwoWayBindings = (
         path,
         raw,
         isContentEditable: false,
+        initialValue: el.value || "",
       });
       el.removeAttribute("$bind");
     }
-    // Support contenteditable elements
-    else if (
-      el instanceof HTMLElement &&
-      (el.hasAttribute("contenteditable") || el.isContentEditable)
-    ) {
+    // Support contenteditable elements (including those with contenteditable="false" initially)
+    else if (el instanceof HTMLElement && el.hasAttribute("contenteditable")) {
       twoWayBindings.push({
         element: el,
         path,
         raw,
         isContentEditable: true,
+        initialValue: el.textContent?.trim() || "",
       });
       el.removeAttribute("$bind");
     }
