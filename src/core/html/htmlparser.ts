@@ -19,21 +19,7 @@ export const loadTemplate = (
 } => {
   host.innerHTML = template;
 
-  console.log("[loadTemplate] Template loaded, scanning for bindings...");
-
   const bindings = scanBindings(host);
-
-  console.log("[loadTemplate] After scanBindings, checking $bind elements...");
-  const bindElements = host.querySelectorAll("[\\$bind]");
-  bindElements.forEach((el) => {
-    console.log(
-      "[loadTemplate] $bind element:",
-      el,
-      "textContent:",
-      el.textContent
-    );
-  });
-
   const twoWayBindings = scanTwoWayBindings(host);
   const conditionals = scanConditionals(host);
 
