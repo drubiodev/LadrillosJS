@@ -8,6 +8,7 @@
     display: flex;
     flex-direction: column;
     cursor: pointer;
+    min-height: 280px; /* Reserve space to prevent shift */
   }
   .beer-card:hover {
     transform: translateY(-8px);
@@ -40,12 +41,21 @@
     width: 30%;
     margin-bottom: 1rem;
     margin: 0 auto;
+    aspect-ratio: 1 / 1; /* Reserve space before image loads */
+    object-fit: contain; /* Prevent image stretching */
   }
 </style>
 
 <li data-id="{item.id}" class="beer-card">
   <div class="beer-card__info">
-    <img src="{item.image}" alt="{item.name}" class="beer-card__image" />
+    <img
+      src="{item.image}"
+      alt="{item.name}"
+      class="beer-card__image"
+      width="100"
+      height="100"
+      loading="lazy"
+    />
     <h2 class="beer-card__name">{item.name}</h2>
     <span class="beer-card__price">{item.price}</span>
   </div>
