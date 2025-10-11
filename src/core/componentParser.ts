@@ -118,7 +118,8 @@ export const extractScripts = (
  */
 const extractCSSFromResponse = (response: string): string => {
   // Check if this is a Vite HMR response (contains __vite__css)
-  const viteMatch = response.match(/const __vite__css = "([\s\S]*?)"/);
+  // Use a regex that properly handles escaped quotes within the string
+  const viteMatch = response.match(/const __vite__css = "((?:[^"\\]|\\.)*)"/);
   if (viteMatch && viteMatch[1]) {
     // Unescape the CSS string
     return viteMatch[1]
@@ -130,7 +131,7 @@ const extractCSSFromResponse = (response: string): string => {
   }
 
   // Check for other module formats (e.g., "export default ...")
-  const exportMatch = response.match(/export\s+default\s+"([\s\S]*?)"/);
+  const exportMatch = response.match(/export\s+default\s+"((?:[^"\\]|\\.)*)"/);
   if (exportMatch && exportMatch[1]) {
     return exportMatch[1]
       .replace(/\\r\\n/g, "\n")

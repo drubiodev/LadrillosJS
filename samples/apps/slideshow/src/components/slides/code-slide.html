@@ -34,7 +34,7 @@
   <section>
     <code-block filename="button-count.html">
       <template>
-        <button onclick="increment">Clicked: {count}</button>
+        <button onclick="increment()">Clicked: {count}</button>
 
         <script>
           let count = 0;
@@ -48,12 +48,6 @@
     <l-button-count></l-button-count>
   </section>
 </div>
-
-<script type="module">
-  import { registerComponent } from "ladrillosjs";
-  registerComponent("code-block", "./src/components/codeblock.html");
-  registerComponent("l-button-count", "./src/components/button-count.html");
-</script>
 
 <style>
   h1 {

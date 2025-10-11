@@ -2,13 +2,10 @@
 
 <div class="slideshow">
   <div class="slides">
-    <intro-slide class="slide" data-if="currentSlide === 0"></intro-slide>
-    <code-slide class="slide" data-if="currentSlide === 1"></code-slide>
-    <getting-started-1
-      class="slide"
-      data-if="currentSlide === 2"
-    ></getting-started-1>
-    <social-slide class="slide" data-if="currentSlide === 3"></social-slide>
+    <intro-slide class="slide"></intro-slide>
+    <code-slide class="slide"></code-slide>
+    <getting-started-1 class="slide"></getting-started-1>
+    <social-slide class="slide"></social-slide>
   </div>
 
   <button class="prev" onclick="prevSlide()" aria-label="Previous slide">
@@ -59,4 +56,42 @@
   ]);
 </script>
 
-<script src="./src/js/slide.js" bind></script>
+<script>
+  const totalSlides = 4;
+  let currentSlide = 0;
+
+  // Get all slide elements
+  const slides = $querySelectorAll(".slide");
+
+  // Function to update active slide
+  const updateSlides = () => {
+    slides.forEach((slide, index) => {
+      if (index === currentSlide) {
+        slide.classList.add("active");
+      } else {
+        slide.classList.remove("active");
+      }
+    });
+  };
+
+  // // Initialize the first slide as active
+  updateSlides();
+
+  const nextSlide = () => {
+    currentSlide = (currentSlide + 1) % totalSlides;
+    updateSlides();
+  };
+
+  const prevSlide = () => {
+    currentSlide = (currentSlide - 1 + totalSlides) % totalSlides;
+    updateSlides();
+  };
+
+  document.addEventListener("keyup", (event) => {
+    if (event.key === "ArrowRight") {
+      nextSlide();
+    } else if (event.key === "ArrowLeft") {
+      prevSlide();
+    }
+  });
+</script>
