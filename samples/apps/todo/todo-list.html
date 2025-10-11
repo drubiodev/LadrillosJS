@@ -65,10 +65,10 @@
     <input
       type="text"
       placeholder="Add a new todo"
-      data-bind="text"
-      onkeyup="tapEnter"
+      $bind="text"
+      onkeyup="tapEnter(event)"
     />
-    <button onclick="addTodo">Add</button>
+    <button onclick="addTodo()">Add</button>
   </div>
   <slot></slot>
 </div>
@@ -81,7 +81,7 @@
   };
 
   const addTodo = () => {
-    let text = text.trim();
+    text = text.trim();
     if (!text) return;
 
     const todoItem = document.createElement("todo-item");
