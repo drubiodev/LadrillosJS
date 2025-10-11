@@ -495,6 +495,53 @@ export const loadScripts = async (
   processEventHandlers(host, componentHost);
 };
 
+/**
+ * Loads a global external script (e.g., from CDN) and returns a promise that resolves when loaded.
+ * Prevents duplicate script tags by checking if the script is already loaded.
+ * @param src - The script URL
+ * @param type - The script type (e.g., 'module', 'text/javascript')
+ * @returns Promise that resolves when the script is loaded
+ */
+const loadGlobalScript = (src: string, type: string | null): Promise<void> => {
+  return new Promise((resolve, reject) => {
+    // Check if script is already loaded and ready
+    const existingScript = document.querySelector(
+      `script[src="${src}"]`
+    ) as HTMLScriptElement;
+    if (existingScript) {
+      // If script already loaded, check if it's ready
+      if (existingScript.dataset.loaded === "true") {
+        resolve();
+        return;
+      }
+
+      // If it's loading, wait for it
+      existingScript.addEventListener("load", () => resolve(), { once: true });
+      existingScript.addEventListener(
+        "error",
+        () => reject(new Error(`Failed to load external script: ${src}`)),
+        { once: true }
+      );
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.src = src;
+    if (type) {
+      script.type = type;
+    }
+
+    script.onload = () => {
+      script.dataset.loaded = "true";
+      resolve();
+    };
+    script.onerror = () =>
+      reject(new Error(`Failed to load external script: ${src}`));
+
+    document.head.appendChild(script);
+  });
+};
+
 export const loadExternalScripts = async (
   host: HTMLElement | ShadowRoot,
   externalScripts: ExternalScriptElement[],
@@ -533,7 +580,9 @@ export const loadExternalScripts = async (
     const scriptURL = new URL(s.src, baseURL).href;
 
     if (s.external) {
-      // TODO: inject script tag to document for external CDN scripts
+      // Inject script tag to document for external CDN scripts (e.g., highlight.js, three.js)
+      // These scripts load globally and don't need component-specific processing
+      await loadGlobalScript(scriptURL, s.type);
     } else if (s.type === "module") {
       // For module scripts, load them normally as ES modules
       // The bind attribute is a signal that the user wants reactive bindings,

@@ -49,7 +49,8 @@
     setTimeout(() => (banner.style.display = "none"), 250);
   });
 
-  this.listen("copied", (data) => {
+  $listen("copied", (data) => {
+    console.log("Alert received:", data);
     $setState({ message: data.message });
     banner.style.display = "flex";
     banner.style.opacity = "1";

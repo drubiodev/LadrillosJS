@@ -53,7 +53,7 @@
 <div class="code-container">
   <div class="code-header">
     {filename}
-    <button class="copy-button" onclick="copyCode">Copy</button>
+    <button class="copy-button" onclick="copyCode()">Copy</button>
   </div>
   <pre><code id="code" class="language-html"></code></pre>
 </div>
@@ -71,12 +71,11 @@
   if (slotEl) slotEl.remove();
 
   const copyCode = () => {
+    console.log("Copying code to clipboard:", html);
     if (navigator.clipboard && navigator.clipboard.writeText) {
       return navigator.clipboard
         .writeText(html)
-        .then(() =>
-          this.emit("copied", { message: "Code copied to clipboard!" })
-        )
+        .then(() => $emit("copied", { message: "Code copied to clipboard!" }))
         .catch((err) => console.error("Clipboard API failed:", err));
     }
 
@@ -91,7 +90,7 @@
 
     try {
       document.execCommand("copy");
-      this.emit("copied", { message: "Code copied to clipboard!" });
+      $emit("copied", { message: "Code copied to clipboard!" });
     } catch (err) {
       console.error("execCommand fallback failed:", err);
     }

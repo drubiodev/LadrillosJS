@@ -113,6 +113,17 @@ export const defineWebComponent = (
       // Setup two-way bindings
       this._setupTwoWayBindings();
 
+      // Load external scripts first (e.g., CDN libraries like highlight.js)
+      // so they're available when inline scripts execute
+      await loadExternalScripts(
+        host,
+        externalScripts,
+        this.#bindings,
+        this.#twoWayBindings,
+        conditionalVars,
+        this.#sourcePath
+      );
+
       // Execute component scripts (event handlers, methods, etc.)
       // Pass conditional variables so they get mapped to state
       await loadScripts(
@@ -121,14 +132,6 @@ export const defineWebComponent = (
         this.#bindings,
         this.#twoWayBindings,
         conditionalVars
-      );
-      await loadExternalScripts(
-        host,
-        externalScripts,
-        this.#bindings,
-        this.#twoWayBindings,
-        conditionalVars,
-        this.#sourcePath
       );
 
       // Perform initial render with current state values (after scripts are ready)
