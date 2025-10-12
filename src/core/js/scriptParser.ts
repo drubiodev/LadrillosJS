@@ -10,7 +10,7 @@ const getHostElement = (host: HTMLElement | ShadowRoot): HTMLElement =>
   host instanceof ShadowRoot ? (host.host as HTMLElement) : host;
 
 /**
- * Injects $bind variables into the script scope and validates no conflicts exist.
+ * Injects $bind variables into the script scope.
  * Creates property descriptors that proxy to component.state for reactive access.
  */
 const injectBindVariables = (
@@ -20,10 +20,8 @@ const injectBindVariables = (
   injectedCode: string;
   componentInjections: string;
   bindVarNames: Set<string>;
-  errors: string[];
 } => {
   const bindVarNames = new Set<string>();
-  const errors: string[] = [];
 
   // Extract all $bind variable names (root-level only, e.g., "person" from "person.name")
   twoWayBindings.forEach(({ path }) => {
@@ -31,22 +29,7 @@ const injectBindVariables = (
     bindVarNames.add(rootVar);
   });
 
-  // Check for conflicts - devs trying to redeclare $bind variables
-  bindVarNames.forEach((varName) => {
-    const redeclarationRegex = new RegExp(
-      `(?:const|let|var)\\s+${varName}\\s*=`,
-      "g"
-    );
-
-    if (redeclarationRegex.test(scriptContent)) {
-      errors.push(
-        `⚠️  Variable "${varName}" is already bound via $bind and cannot be redeclared. Remove the declaration or use a different variable name.`
-      );
-    }
-  });
-
   // Create proxy getters/setters for each $bind variable in script scope
-  const injections: string[] = [];
   const componentInjections: string[] = [];
 
   bindVarNames.forEach((varName) => {
@@ -67,7 +50,6 @@ const injectBindVariables = (
     injectedCode: "", // No longer needed in script scope
     componentInjections: componentInjections.join("\n"),
     bindVarNames,
-    errors,
   };
 };
 
@@ -90,6 +72,13 @@ const extractStateBindings = (
       // Extract the root property name (e.g., "user.name" → "user", "count" → "count")
       const rootName = b.path[0];
       bindingNames.add(rootName);
+
+      // Also add function arguments (e.g., formatPrice(price) → "price")
+      if (b.isFunction && b.functionArgs) {
+        b.functionArgs.forEach((arg) => {
+          bindingNames.add(arg);
+        });
+      }
     });
   });
 
@@ -116,11 +105,12 @@ const extractStateBindings = (
 
 /**
  * Transforms script content to redirect bound variable assignments to state.
- * Handles assignments, increments, decrements, and compound assignments.
+ * Handles assignments, increments, decrements, compound assignments, and nested property access.
  * Examples:
  *   - "name = value" → "component.state.name = value"
  *   - "count++" → "component.state.count++"
  *   - "count += 5" → "component.state.count += 5"
+ *   - "user.name = value" → "component.state.user.name = value"
  * This makes reactivity transparent - users don't need to know about state.
  */
 const transformBoundAssignments = (
@@ -132,26 +122,47 @@ const transformBoundAssignments = (
   let transformed = scriptContent;
 
   boundVarNames.forEach((varName) => {
-    // 1. Transform increment/decrement: count++ or count-- or ++count or --count
+    // 1. Transform property access with assignment/operators: user.name = value, user.count++, etc.
+    // Match: varName.property followed by =, +=, -=, ++, --, etc.
+    const propertyWriteRegex = new RegExp(
+      `\\b${varName}\\.(\\w+(?:\\.\\w+)*)\\s*([=+\\-*/%&|^]|\\+\\+|\\-\\-)`,
+      "g"
+    );
+    transformed = transformed.replace(
+      propertyWriteRegex,
+      `component.state.${varName}.$1 $2`
+    );
+
+    // 2. Transform property access in expressions: user.name (reads)
+    // But NOT if it's part of an already transformed component.state.varName
+    // And NOT if it's in a variable declaration
+    const propertyReadRegex = new RegExp(
+      `(?<!component\\.state\\.)(?<!const\\s${varName}\\s*=\\s*{[^}]*)\\b${varName}\\.(\\w+(?:\\.\\w+)*)(?![=+\\-*/%&|^]|\\+\\+|\\-\\-)`,
+      "g"
+    );
+    transformed = transformed.replace(
+      propertyReadRegex,
+      `component.state.${varName}.$1`
+    );
+
+    // 3. Transform increment/decrement on the variable itself: count++ or ++count
     const incrementRegex = new RegExp(
-      `(?<!const\\s|let\\s|var\\s|\\.)\\b(\\+\\+|\\-\\-)${varName}\\b|\\b${varName}(\\+\\+|\\-\\-)`,
+      `(?<!\\.)\\b(\\+\\+|\\-\\-)${varName}\\b|\\b${varName}(\\+\\+|\\-\\-)`,
       "g"
     );
     transformed = transformed.replace(incrementRegex, (match) => {
       if (match.startsWith("++") || match.startsWith("--")) {
-        // Prefix: ++count or --count
         const op = match.substring(0, 2);
         return `${op}component.state.${varName}`;
       } else {
-        // Postfix: count++ or count--
         const op = match.substring(match.length - 2);
         return `component.state.${varName}${op}`;
       }
     });
 
-    // 2. Transform compound assignments: count += 5, count -= 3, count *= 2, etc.
+    // 4. Transform compound assignments on the variable itself: count += 5
     const compoundRegex = new RegExp(
-      `(?<!const\\s|let\\s|var\\s|\\.)\\b${varName}\\s*(\\+=|\\-=|\\*=|\\/=|%=|\\*\\*=|<<=|>>=|>>>=|&=|\\|=|\\^=)`,
+      `(?<!\\.)\\b${varName}\\s*(\\+=|\\-=|\\*=|\\/=|%=|\\*\\*=|<<=|>>=|>>>=|&=|\\|=|\\^=)`,
       "g"
     );
     transformed = transformed.replace(
@@ -159,10 +170,9 @@ const transformBoundAssignments = (
       `component.state.${varName}$1`
     );
 
-    // 3. Transform simple assignments: name = value
-    // Must come last to avoid interfering with compound assignments
+    // 5. Transform simple assignments: name = value (but not in declarations)
     const assignmentRegex = new RegExp(
-      `(?<!const\\s|let\\s|var\\s|\\.|\\+|\\-|\\*|\\/|%|<|>|&|\\||\\^)\\b${varName}\\s*=\\s*([^=])`,
+      `(?<!const\\s)(?<!let\\s)(?<!var\\s)(?<!\\.)\\b${varName}\\s*=\\s*([^=])`,
       "g"
     );
     transformed = transformed.replace(
@@ -193,15 +203,9 @@ const processScript = (
   conditionalVars: Set<string> = new Set()
 ): void => {
   try {
-    // Inject $bind variables and check for conflicts
-    const { injectedCode, componentInjections, bindVarNames, errors } =
+    // Inject $bind variables
+    const { injectedCode, componentInjections, bindVarNames } =
       injectBindVariables(scriptContent, twoWayBindings);
-
-    // Log errors if any conflicts found
-    if (errors.length > 0) {
-      console.error("❌ $bind Variable Conflicts Detected:");
-      errors.forEach((err) => console.error(err));
-    }
 
     // Extract function names from the script content
     const functionRegex =

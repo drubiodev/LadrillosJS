@@ -4,19 +4,15 @@
 
 A lightweight, zero-dependency web component framework for building modular web applications.
 
-**Version 2.0** - Now rewritten in TypeScript with enhanced performance, better developer experience, and powerful new features.
+**Version 2.0** - Rewritten in TypeScript with enhanced performance, improved developer experience, and powerful new features.
 
-"I designed this framework to empower developers with the ability to componentize their code efficiently and effectively, without the need for a full-scale framework. By focusing on simplicity and leveraging core web fundamentals, my goal was to create a lightweight and accessible solution that enhances development while staying true to the basics."
+> "Empower developers to componentize code efficiently without the complexity of a full-scale framework. Focus on simplicity while leveraging core web fundamentals."
 
 ## Table of Contents
 
 - [Features](#features)
-- [Getting Started](#getting-started)
-  - [Prerequisites](#prerequisites)
-  - [What's New in v2.0](#whats-new-in-v20)
-  - [Example Applications](#example-applications)
 - [Installation](#installation)
-- [Your First Component](#your-first-component)
+- [Quick Start](#quick-start)
 - [Core Concepts](#core-concepts)
   - [Component Registration](#component-registration)
   - [State Management](#state-management)
@@ -25,92 +21,29 @@ A lightweight, zero-dependency web component framework for building modular web 
   - [Conditional Rendering](#conditional-rendering)
   - [Slots](#slots)
 - [Advanced Features](#advanced-features)
-  - [External Scripts](#external-scripts)
   - [Global Event Bus](#global-event-bus)
+  - [External Scripts](#external-scripts)
   - [Shadow DOM](#shadow-dom)
   - [Performance & Caching](#performance--caching)
 - [API Reference](#api-reference)
 - [Examples](#examples)
-  - [Component Communication](#component-communication)
-  - [Dynamic Component Creation](#dynamic-component-creation)
-  - [Passing Complex Data](#passing-complex-data)
-- [Migration Guide (v1.x to v2.0)](#migration-guide-v1x-to-v20)
-- [Contributing](#contributing)
+- [Development](#development)
 - [License](#license)
 
 ## Features
 
 - 🚀 **Zero Dependencies** - Pure JavaScript, no build tools required
 - 📦 **Single-File Components** - HTML, CSS, and JavaScript in one file
-- ⚡ **Reactive State** - Automatic re-rendering on state changes with optimized proxies
-- 🎯 **Event System** - Built-in event emission and global event bus for component communication
-- 🔄 **Two-Way Data Binding** - Seamless binding for form inputs with `$bind`
+- ⚡ **Reactive State** - Automatic re-rendering on state changes
+- 🎯 **Event System** - Global event bus for component communication
+- 🔄 **Two-Way Data Binding** - Seamless form input binding with `$bind`
 - 🎨 **Scoped Styles** - Component styles with optional Shadow DOM
-- 🏪 **Global Event Bus** - Cross-component communication without prop drilling
-- 🔌 **Slots Support** - Content projection with named and default slots
-- 📝 **TypeScript Support** - Full type definitions and TypeScript source code
-- 🎭 **Conditional Rendering** - `data-if`, `data-else-if`, and `data-else` directives
+- 🔌 **Slots** - Content projection with named and default slots
+- 📝 **TypeScript** - Full type definitions and TypeScript source code
+- 🎭 **Conditional Rendering** - `$if`, `$else-if`, and `$else` directives
 - 🚄 **Smart Caching** - LRU cache for components and compiled functions
-- 🔧 **Framework Utilities** - `$state`, `$setState`, `$emit`, `$listen`, `$querySelector` helpers
-- ⚙️ **Automatic Reactivity** - Variable assignments automatically trigger re-renders
-- 🧩 **External Scripts** - Load and bind external JavaScript with your components
-
-## Getting Started
-
-### Prerequisites
-
-- **Node.js**: Version 20.19+ or 22.12+ is required for development
-- **TypeScript**: v5.8+ (included in devDependencies)
-
-### What's New in v2.0
-
-- **🔄 Complete TypeScript Rewrite** - Full type safety and improved IDE support
-- **⚡ Performance Enhancements** - LRU caching for components and compiled functions
-- **🎯 Global Event Bus** - New `$emit` and `$listen` for cross-component communication
-- **🔧 Framework Utilities** - New `$state`, `$setState`, `$querySelector` helpers
-- **🚀 Automatic Reactivity** - Variable assignments like `count++` automatically trigger re-renders
-- **📦 Better Build System** - Vite-powered builds with sourcemaps and multiple output formats (ESM, UMD, CJS)
-- **🧪 Testing** - Vitest with coverage reporting
-- **🎭 Enhanced Conditionals** - More robust `data-if`, `data-else-if`, `data-else` rendering
-- **🔄 Two-Way Binding** - Simplified with `$bind` prefix for automatic state synchronization
-- **🧹 Memory Management** - Automatic cleanup of event listeners on component disconnect
-
-### Example Applications
-
-The repository includes several example applications that demonstrate various features:
-
-- **[Todo App](samples/apps/todo)** - Classic todo list with component composition
-- **[Notes App](samples/apps/notes)** - Multi-component app with global event bus
-- **[Markdown Editor](samples/apps/markdown)** - Real-time markdown preview
-- **[API Example](samples/apps/api)** - Fetching and displaying external data
-- **[Business Card](samples/apps/biz)** - Editable form with two-way data binding using `$bind`
-- **[Button Game](samples/apps/button-game)** - Interactive game with component events
-- **[Slideshow](samples/apps/slideshow)** - Multi-slide presentation system
-- **[Document Chat](samples/apps/document-chat)** - Chat interface with component communication
-- **[Docs](samples/apps/docs)** - Documentation viewer with syntax highlighting
-
-To run the examples:
-
-```bash
-# Clone the repository
-git clone https://github.com/drubiodev/LadrillosJS.git
-cd LadrillosJS
-
-# Install dependencies
-npm install
-
-# Start the development server (Vite)
-npm run dev
-
-# Build the library
-npm run build
-
-# Run tests
-npm test
-
-# Run tests with coverage
-npm run test:coverage
-```
+- 🔧 **Framework Utilities** - Helper functions for common tasks
+- 🧩 **External Scripts** - Load and bind external JavaScript modules
 
 ## Installation
 
@@ -123,45 +56,42 @@ npm install ladrillosjs
 ### CDN
 
 ```html
-<!-- Latest version -->
+<!-- ES Module (Recommended) -->
 <script type="module">
   import { registerComponent } from "https://cdn.jsdelivr.net/npm/ladrillosjs/dist/ladrillosjs.es.js";
   registerComponent("my-component", "./my-component.html");
 </script>
 
-<!-- UMD (for legacy browsers) -->
+<!-- UMD (Browser Global) -->
 <script src="https://cdn.jsdelivr.net/npm/ladrillosjs/dist/ladrillosjs.umd.js"></script>
 <script>
-  // Access via global ladrillosjs object
   ladrillosjs.registerComponent("my-component", "./my-component.html");
 </script>
 ```
 
-## Your First Component
+## Quick Start
 
-A component in LadrillosJS is a reusable custom HTML element that bundles its own template, logic, and styles into a single file.
+### 1. Create Your First Component
 
-### 1. Create a Component File
-
-Create `hello-world.html`:
+Create a file called `hello-world.html`:
 
 ```html
 <!-- hello-world.html -->
 <div class="greeting">
   <h1>{title}</h1>
   <p>Hello, {name}!</p>
-  <button onclick="greet">Click me ({count})</button>
+  <button onclick="greet()">Greet ({count})</button>
 </div>
 
 <script>
-  // Component state
+  // Component state - automatically reactive
   let title = "Welcome to LadrillosJS";
   let name = "World";
   let count = 0;
 
   // Event handler
   const greet = () => {
-    count++;
+    count++; // Automatically triggers re-render
     name = prompt("What's your name?") || "World";
   };
 </script>
@@ -170,14 +100,24 @@ Create `hello-world.html`:
   .greeting {
     text-align: center;
     padding: 2rem;
-    background: #f0f0f0;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
     border-radius: 8px;
   }
 
   button {
-    padding: 0.5rem 1rem;
+    padding: 0.75rem 1.5rem;
     font-size: 1rem;
+    background: white;
+    color: #667eea;
+    border: none;
+    border-radius: 4px;
     cursor: pointer;
+    transition: transform 0.2s;
+  }
+
+  button:hover {
+    transform: scale(1.05);
   }
 </style>
 ```
@@ -186,15 +126,17 @@ Create `hello-world.html`:
 
 ```html
 <!DOCTYPE html>
-<html>
+<html lang="en">
   <head>
-    <title>My App</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>My LadrillosJS App</title>
   </head>
   <body>
     <!-- Use your component -->
     <hello-world></hello-world>
 
-    <!-- Register component -->
+    <!-- Register the component -->
     <script type="module">
       import { registerComponent } from "ladrillosjs";
       registerComponent("hello-world", "./hello-world.html");
@@ -203,231 +145,267 @@ Create `hello-world.html`:
 </html>
 ```
 
+### 3. Explore Example Apps
+
+Check out the `samples/apps/` directory for complete examples:
+
+- **[Todo App](samples/apps/todo)** - Classic todo list with component composition
+- **[Notes App](samples/apps/notes)** - Multi-component app with event bus
+- **[Simple Button](samples/apps/simple-button)** - Basic interactive component
+- **[Business Card](samples/apps/biz)** - Form with two-way data binding
+- **[Slideshow](samples/apps/slideshow)** - Multi-slide presentation
+- **[Markdown Editor](samples/apps/markdown)** - Real-time markdown preview
+
+Run the development server to view examples:
+
+```bash
+npm install
+npm run dev
+```
+
 ## Core Concepts
 
 ### Component Registration
 
-Register single or multiple components:
+Register components to make them available as custom HTML elements:
 
 ```javascript
-// Single component
-import { registerComponent } from "ladrillosjs";
-await registerComponent("my-component", "./my-component.html");
+import { registerComponent, registerComponents } from "ladrillosjs";
 
-// Multiple components (v2.0 feature - currently in development)
-import { registerComponents } from "ladrillosjs";
+// Register a single component
+await registerComponent("my-button", "./components/my-button.html");
+
+// Register multiple components
 await registerComponents([
   { name: "app-header", path: "./components/header.html" },
   { name: "app-footer", path: "./components/footer.html" },
   { name: "user-card", path: "./components/user-card.html" },
 ]);
 
-// Using CDN
-ladrillosjs.registerComponent("my-component", "./my-component.html");
+// Disable Shadow DOM for a component
+await registerComponent("global-styles", "./components/global.html", false);
 ```
-
-**Note:** The `registerComponents` function is planned for v2.0 to enable bulk registration with concurrency control.
 
 ### State Management
 
-Components have reactive state that automatically triggers re-renders. In v2.0, variable assignments are automatically tracked and trigger reactivity:
+Components have reactive state that automatically triggers re-renders when changed:
 
 ```html
 <div>
-  <h2>User: {user.name}</h2>
-  <p>Score: {score}</p>
-  <button onclick="updateScore">Add Point</button>
-  <button onclick="increment">Count: {count}</button>
+  <h2>Counter: {count}</h2>
+  <p>User: {user.name}</p>
+  <button onclick="increment()">Add</button>
+  <button onclick="updateUser()">Change User</button>
+  <button onclick="reset()">Reset</button>
 </div>
 
 <script>
-  // Initial state - automatically tracked
-  let score = 0;
+  // State variables - automatically reactive
   let count = 0;
-  let user = {
-    name: "Player 1",
-  };
-
-  const updateScore = () => {
-    // Direct assignment triggers re-render automatically
-    score++;
-  };
+  let user = { name: "John", age: 25 };
 
   const increment = () => {
-    // All these automatically trigger re-renders in v2.0
-    count++; // Increment
-    count += 5; // Compound assignment
-    count = count * 2; // Direct assignment
+    count++; // Automatically triggers re-render
   };
 
-  // You can also use the explicit setState method
   const updateUser = () => {
-    $setState({ user: { name: "Jane", age: 30 } });
+    user.name = "Jane"; // Direct mutation triggers re-render
+  };
+
+  // You can also use $setState for explicit updates
+  const reset = () => {
+    $setState({ count: 0, user: { name: "Anonymous", age: 0 } });
   };
 </script>
 ```
 
-**New in v2.0:**
+**Available State Utilities:**
 
-- **Automatic Reactivity**: `count++`, `count += 5`, and direct assignments automatically trigger re-renders
-- **`$state`**: Direct access to component state within scripts
-- **`$setState(updates)`**: Explicit state updates (merges with existing state)
+- Direct assignment: `count++`, `name = "New"`
+- `$setState(updates)`: Merge updates into state
+- `$getState()`: Access state in external modules
 
 ### Event Handling
 
-Multiple ways to handle events:
+Attach event handlers directly to elements:
 
 ```html
 <!-- Method reference -->
-<button onclick="handleClick">Click me: {count}</button>
+<button onclick="handleClick(event)">Click me</button>
 
 <!-- Function with arguments -->
-<button onclick="addItem('Hello', 123)">Add Item</button>
+<button onclick="addItem('apple', 5)">Add Item</button>
 
 <!-- Inline arrow function -->
-<button onclick="(e) => console.log(e.target)">Log Target</button>
+<button onclick="console.log(event.target)">Log Event</button>
 
-<!-- Component communication with event bus (v2.0) -->
-<button onclick="notifyOthers">Emit Event</button>
+<!-- Multiple events -->
+<label $if="isValid">Valid</label>
+<input
+  type="text"
+  placeholder="Enter text (min 3 characters)"
+  onkeyup="validateInput(event)"
+  onfocus="highlightField(event)"
+  onblur="saveField(event)"
+/>
 
 <script>
-  let count = 0;
   let items = [];
+  let isValid = false;
 
   const handleClick = (event) => {
-    console.log("Clicked!", event);
-    count++;
+    console.log("Button clicked!", event);
   };
 
-  const addItem = (name, value) => {
-    items = [...items, { name, value }];
+  const addItem = (name, quantity) => {
+    items = [...items, { name, quantity }];
+    console.log("Items:", items);
   };
 
-  // v2.0: Use $emit to send events to other components
-  const notifyOthers = () => {
-    $emit("item-added", { count, timestamp: Date.now() });
+  const validateInput = (e) => {
+    const value = e.target.value;
+    isValid = value.length >= 3;
   };
 
-  // v2.0: Listen for events from other components
-  $listen("user-logged-in", (data) => {
-    console.log("User logged in:", data);
-    count = 0; // Reset count
-  });
+  const highlightField = (e) => {
+    e.target.style.backgroundColor = "lightyellow";
+  };
+
+  const saveField = (e) => {
+    e.target.style.backgroundColor = "";
+    console.log("Field saved:", e.target.value);
+  };
 </script>
 ```
 
-**New in v2.0:**
-
-- **`$emit(eventName, data)`**: Send events to other components via global event bus
-- **`$listen(eventName, callback)`**: Listen for events from any component
-- **Automatic Cleanup**: Event listeners are automatically removed when component is disconnected
-
 ### Data Binding
 
-LadrillosJS supports both one-way and two-way data binding:
+#### One-Way Binding (Display Data)
 
-#### One-Way Binding (Template Interpolation)
+Use curly braces `{}` to display state in your template:
 
 ```html
 <div>
   <h1>{title}</h1>
   <p>{user.name} - {user.email}</p>
-  <span>Items: {items.length}</span>
+  <span>Total: {items.length} items</span>
+  <p>Formatted: {formatPrice(price)}</p>
 </div>
 
 <script>
   let title = "My App";
   let user = { name: "John", email: "john@example.com" };
-  let items = [1, 2, 3];
+  let items = ["apple", "banana", "orange"];
+  let price = 29.99;
+
+  const formatPrice = (value) => `$${value.toFixed(2)}`;
 </script>
 ```
 
-#### Two-Way Binding (v2.0 Enhanced)
+#### Two-Way Binding (Form Inputs)
 
-Use the `$bind` prefix to create automatic two-way bindings with form inputs:
+Use the `$bind` attribute for automatic synchronization between inputs and state:
 
 ```html
 <div>
-  <h2>Hello, {$name}!</h2>
-  <input type="text" $bind="name" placeholder="Enter your name" />
+  <h2>Hello, {name}!</h2>
+  <input type="text" $bind="name" placeholder="Your name" />
 
-  <p>Email: {$email}</p>
+  <p>Email: {email}</p>
   <input type="email" $bind="email" />
 
-  <p>Bio: {$bio}</p>
+  <p>Bio: {bio}</p>
   <textarea $bind="bio"></textarea>
 
-  <p>Country: {$country}</p>
+  <p>Country: {country}</p>
   <select $bind="country">
     <option value="us">United States</option>
     <option value="uk">United Kingdom</option>
     <option value="ca">Canada</option>
   </select>
+
+  <label>
+    <input type="checkbox" $bind="subscribe" />
+    Subscribe to newsletter: {subscribe}
+  </label>
 </div>
 
 <script>
-  // Variables with $bind are automatically synced with inputs
-  let $name = "World";
-  let $email = "";
-  let $bio = "";
-  let $country = "us";
+  // Variables are automatically synced with inputs
+  let name = "World";
+  let email = "";
+  let bio = "";
+  let country = "us";
+  let subscribe = false;
 </script>
 ```
 
-**New in v2.0:**
-
-- **`$bind` attribute**: Simplified two-way binding syntax
-- **Automatic State Sync**: Input changes automatically update component state
-- **All Input Types**: Works with text inputs, textareas, selects, checkboxes, and radio buttons
-- **Nested Paths**: Supports nested object bindings like `$bind="user.email"`
-
 ### Conditional Rendering
 
-Control element visibility with conditional directives:
+Show or hide elements based on conditions:
 
 ```html
 <div>
-  <h1>Shopping Cart ({items.length} items)</h1>
+  <h1>Shopping Cart</h1>
 
-  <div data-if="items.length === 0">
-    <p>Your cart is empty</p>
+  <!-- Simple condition -->
+  <p $if="{items.length === 0}">Your cart is empty</p>
+
+  <!-- Multiple conditions -->
+  <div $if="{items.length > 0 && items.length < 5}">
+    <p>You have {items.length} items</p>
   </div>
 
-  <div data-else-if="items.length < 3">
-    <p>You have a few items</p>
+  <div $else-if="{items.length >= 5}">
+    <p>Your cart is full! ({items.length} items)</p>
   </div>
 
-  <div data-else>
-    <p>You have many items!</p>
-  </div>
+  <!-- Login/Logout example -->
+  <button $if="{!isLoggedIn}" onclick="login()">Login</button>
+  <button $else onclick="logout()">Logout</button>
 
-  <button data-if="!isLoggedIn" onclick="login">Login</button>
-  <button data-else onclick="logout">Logout</button>
+  <!-- Complex conditions -->
+  <div $if="{user && user.role.toLowerCase() === 'admin'}">
+    <p>{user.role} Panel</p>
+    Hello {user.name}
+    <button onclick="addToCart()">🛒 Add To Cart</button>
+  </div>
 </div>
 
 <script>
-  let items = ["apple", "banana"];
+  let items = [];
   let isLoggedIn = false;
+  let user = null;
 
   const login = () => {
     isLoggedIn = true;
+    user = { name: "John", role: "Admin" };
   };
 
   const logout = () => {
     isLoggedIn = false;
+    user = null;
+  };
+
+  const addToCart = () => {
+    if (items.length < 5) {
+      items.push(`Item ${items.length + 1}`);
+    } else {
+      alert("Cart is full!");
+    }
   };
 </script>
 ```
 
 **Conditional Directives:**
 
-- **`data-if="expression"`**: Show element if expression is truthy
-- **`data-else-if="expression"`**: Chain multiple conditions
-- **`data-else`**: Fallback when all previous conditions are false
+- `$if="{expression}"`: Show if expression is truthy
+- `$else-if="{expression}"`: Chain multiple conditions
+- `$else`: Fallback when previous conditions are false
 
 ### Slots
 
-Content projection using slots:
+Project content from parent to child components:
 
 ```html
 <!-- card.html -->
@@ -444,448 +422,393 @@ Content projection using slots:
   </div>
 </div>
 
-<!-- Usage -->
+<style>
+  .card {
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 1rem;
+  }
+  .card-header {
+    font-weight: bold;
+    margin-bottom: 1rem;
+  }
+  .card-footer {
+    margin-top: 1rem;
+    border-top: 1px solid #eee;
+    padding-top: 1rem;
+  }
+</style>
+```
+
+**Usage:**
+
+```html
 <my-card>
   <h2 slot="header">User Profile</h2>
-  <p>This goes in the default slot</p>
-  <button slot="footer">Save</button>
+  <p>Name: John Doe</p>
+  <p>Email: john@example.com</p>
+  <button slot="footer">Save Changes</button>
 </my-card>
 ```
 
 ## Advanced Features
 
-### External Scripts
-
-Load external JavaScript with components and bind them to the component context:
-
-```html
-<!-- With 'bind' attribute for component context -->
-<script src="./helpers.js" bind></script>
-
-<!-- ES modules with bind -->
-<script src="./component-logic.js" type="module" bind></script>
-
-<!-- Regular external script (global scope) -->
-<script src="https://cdn.example.com/library.js"></script>
-```
-
-For modules with `bind`, export a default function that receives the component context:
-
-```javascript
-// component-logic.js
-export default function () {
-  // 'this' refers to the component instance
-  // Access component utilities
-  const { $state, $setState, $emit, $listen } = this;
-
-  this.formatDate = (date) => {
-    return new Intl.DateTimeFormat("en-US").format(date);
-  };
-
-  this.loadData = async () => {
-    const response = await fetch("/api/data");
-    const data = await response.json();
-    $setState({ data });
-  };
-
-  // Listen for events from other components
-  $listen("refresh-data", () => {
-    this.loadData();
-  });
-
-  // Called automatically if defined
-  if (this.init) {
-    this.init();
-  }
-}
-```
-
-**New in v2.0:**
-
-- **Better Context Binding**: External scripts get full access to component utilities
-- **`$emit` and `$listen`**: Available in external scripts for event communication
-- **Automatic Initialization**: Functions are auto-attached to component context
-
 ### Global Event Bus
 
-**New in v2.0:** The global event bus enables cross-component communication without prop drilling or shared state.
+The global event bus enables communication between components without prop drilling:
 
 ```javascript
-// In any component script
-// Emit an event
+// Emit events to other components
 $emit("user-logged-in", { userId: 123, username: "john" });
 
-// Listen for events
+// Listen for events from any component
 $listen("user-logged-in", (data) => {
   console.log(`User ${data.username} logged in`);
-  // Update local state
   isLoggedIn = true;
   currentUser = data;
 });
 ```
 
-#### Example: Header & Login Components
+**Example: Cross-Component Communication**
 
 ```html
 <!-- header.html -->
 <header>
-  <span data-if="isLoggedIn">Welcome, {username}!</span>
-  <button data-else onclick="showLogin">Login</button>
+  <span $if="{isLoggedIn}">Welcome, {username}!</span>
+  <button $else onclick="requestLogin()">Login</button>
 </header>
 
 <script>
   let isLoggedIn = false;
   let username = "";
 
-  // Listen for login event from other components
   $listen("user-logged-in", (user) => {
+    console.log("User logged in:", user);
     isLoggedIn = true;
     username = user.username;
   });
 
-  const showLogin = () => {
-    $emit("show-login-modal");
+  const requestLogin = () => {
+    $emit("show-login-dialog");
   };
 </script>
 ```
 
 ```html
 <!-- login-form.html -->
-<form onsubmit="handleLogin">
+<form onsubmit="handleLogin(event)" $if="{showLoginDialog}">
   <input type="text" $bind="username" placeholder="Username" />
   <input type="password" $bind="password" placeholder="Password" />
   <button type="submit">Login</button>
 </form>
 
 <script>
-  let $username = "";
-  let $password = "";
+  let showLoginDialog = false;
+
+  $listen("show-login-dialog", () => {
+    showLoginDialog = true;
+  });
 
   const handleLogin = (e) => {
     e.preventDefault();
-
-    // Emit login success event
-    $emit("user-logged-in", {
-      userId: 123,
-      username: $username,
-    });
-
-    // Clear form
-    $username = "";
-    $password = "";
+    $emit("user-logged-in", { userId: 123, username });
+    username = "";
+    password = "";
+    showLoginDialog = false;
   };
 </script>
 ```
 
-**Event Bus Benefits:**
+### External Scripts
 
-- **No Prop Drilling**: Components can communicate directly
-- **Decoupled Architecture**: Components don't need to know about each other
-- **Automatic Cleanup**: Listeners are removed when components disconnect
-- **Promise Support**: `$emit` returns a promise when listeners are async
+LadrillosJS supports three ways to include external JavaScript:
 
-### Removed: Global State Stores
+#### 1. Component-Scoped Scripts (Default)
 
-**Breaking Change in v2.0:** The `createStore` API has been removed in favor of the more powerful global event bus pattern. Instead of shared stores, use the event bus for cross-component communication:
+Regular script tags execute within the component's context and have access to component state and utilities:
 
-**Before (v1.x with stores):**
+```html
+<!-- alert-button.html -->
+<button onclick="increaseCount()">{title}: {count}</button>
+
+<!-- This script runs in the component context -->
+<script src="./alert.js"></script>
+```
+
+**alert.js:**
 
 ```javascript
-import { createStore } from "ladrillosjs";
+// Variables and functions are available to the component
+let count = 0;
+const title = "Button Count";
 
-export const userStore = createStore({
-  user: null,
-  isAuthenticated: false,
-});
+const increaseCount = () => {
+  count++; // Updates component state
+};
+```
 
-userStore.subscribe((state) => {
-  this.setState(state);
+#### 2. ES Modules
+
+Use `type="module"` for standard ES module imports:
+
+```html
+<!-- side-nav.html -->
+<nav>
+  <h1>&lt;Note App/&gt;</h1>
+  <button onclick="createNote()">Create Note</button>
+  <ul></ul>
+</nav>
+
+<!-- Load as ES module -->
+<script type="module" src="../js/side.js"></script>
+```
+
+**side.js:**
+
+```javascript
+import { registerComponent, $listen, $querySelector } from "ladrillosjs";
+
+const notes = [];
+registerComponent("note-item", "./components/note-item.html");
+
+$listen("note_saved", (data) => {
+  notes.push({ ...data });
+  const ul = $querySelector("ul");
+  if (ul) {
+    ul.innerHTML = notes
+      .map((n) => `<note-item data-note='${JSON.stringify(n)}'></note-item>`)
+      .join("");
+  }
 });
 ```
 
-**After (v2.0 with event bus):**
+#### 3. External Libraries
 
-```javascript
-// Emit events to notify components of changes
-$emit("user-updated", { user: userData, isAuthenticated: true });
+Use the `external` attribute for third-party libraries that shouldn't be bound to component context:
 
-// Listen for changes in components that need them
-$listen("user-updated", ({ user, isAuthenticated }) => {
-  // Update local component state
-  currentUser = user;
-  loggedIn = isAuthenticated;
-});
+```html
+<!-- codeblock.html -->
+<link
+  rel="stylesheet"
+  href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css"
+/>
+<script
+  src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"
+  external
+></script>
+
+<div class="code-container">
+  <pre><code id="code" class="language-html"></code></pre>
+</div>
+
+<script>
+  // Access the external library (hljs is global)
+  const codeElement = $querySelector("pre code");
+  codeElement.textContent = "console.log('Hello')";
+  hljs.highlightElement(codeElement); // Use external library
+</script>
 ```
+
+**When to use `external`:**
+
+- Third-party CDN libraries (highlight.js, Chart.js, etc.)
+- Libraries that need to be loaded globally
+- Scripts that don't need component context or utilities
 
 ### Shadow DOM
 
-Components use Shadow DOM by default for style encapsulation. To disable:
+Components use Shadow DOM by default for style encapsulation:
 
 ```javascript
-// Disable Shadow DOM for a component
-await registerComponent("my-component", "./my-component.html", false);
-
-// With Shadow DOM enabled (default)
+// Shadow DOM enabled (default)
+await registerComponent("isolated-widget", "./widget.html");
 await registerComponent("isolated-widget", "./widget.html", true);
+
+// Shadow DOM disabled
+await registerComponent("global-styles", "./global.html", false);
 ```
 
 **Shadow DOM Benefits:**
 
 - **Style Isolation**: Component styles don't leak to global scope
-- **Encapsulation**: Internal DOM structure is hidden from parent
-- **Cleaner DOM**: Styles and scripts are scoped to component
+- **Encapsulation**: Internal DOM is hidden from parent
+- **Clean Separation**: Each component has its own styling context
 
 **When to Disable:**
 
-- Need global CSS styles to apply
-- Using third-party CSS frameworks
-- Debugging with browser dev tools (easier without shadow DOM)
+- Need to apply global CSS frameworks (Bootstrap, Tailwind)
+- Using third-party libraries that expect normal DOM
+- Easier debugging without shadow boundaries
 
 ### Performance & Caching
 
-**New in v2.0:** LRU (Least Recently Used) caching for improved performance:
+LadrillosJS includes built-in performance optimizations:
 
 #### Component Caching
 
-- **25 Components**: Automatically caches up to 25 component HTML files
-- **LRU Eviction**: Least recently used components are removed when cache is full
-- **Faster Re-renders**: Cached components load instantly on re-use
+- **LRU Cache**: Stores up to 25 most recently used components
+- **Instant Loading**: Cached components load immediately
+- **Reduced Network**: No repeated HTTP requests for components
 
 #### Function Caching
 
-- **100 Functions**: Caches up to 100 compiled template expressions
-- **Prevents Memory Leaks**: Reuses Function objects for identical expressions
-- **Example**: `{formatName("John")}` compiles once and is reused on every render
+- **Template Compilation**: Caches up to 100 compiled expressions
+- **Memory Efficient**: Reuses Function objects for identical expressions
+- **Faster Renders**: Expressions like `{formatName(user)}` compile once
 
-**Performance Improvements:**
+**Performance Tips:**
 
-- Reduced HTTP requests for components
-- Faster template rendering with cached functions
-- Optimized state updates with change detection
-- Efficient re-rendering with minimal DOM updates
+- Component files are cached after first load
+- State updates trigger minimal DOM changes
+- Event listeners are automatically cleaned up
+- Conditional rendering skips hidden elements
 
 ## API Reference
 
-### Component Methods
+### Registration Functions
 
-| Method              | Description                                                               |
-| ------------------- | ------------------------------------------------------------------------- |
-| `setState(partial)` | Update component state and trigger re-render (merges with existing state) |
+```typescript
+registerComponent(name: string, path: string, useShadowDOM?: boolean): Promise<void>
+registerComponents(components: Array<{name, path, useShadowDOM?}>): Promise<void>
+```
 
-### Framework Utilities (v2.0)
+### Component Utilities
 
 Available within component `<script>` tags:
 
-| Utility                        | Description                                                          |
-| ------------------------------ | -------------------------------------------------------------------- |
-| `$state`                       | Direct access to component state object                              |
-| `$setState(updates)`           | Update state explicitly (alternative to direct assignments)          |
-| `$emit(eventName, data?)`      | Emit event to other components via global event bus                  |
-| `$listen(eventName, callback)` | Listen for events from other components (auto-cleanup on disconnect) |
-| `$querySelector(selector)`     | Query element within component's DOM (respects Shadow DOM)           |
-| `$querySelectorAll(selector)`  | Query all matching elements within component                         |
+```typescript
+// State management
+$getState(): object                    // Access component state
+$setState(updates: object): void       // Update state and re-render
+
+// Event bus
+$emit(eventName: string, data?: any): void
+$listen(eventName: string, callback: (data?) => void): () => void
+
+// DOM queries (respects Shadow DOM boundaries)
+$querySelector(selector: string): Element | null
+$querySelectorAll(selector: string): NodeListOf<Element>
+
+// Reactive variables (for external modules)
+$reactive(name: string, initialValue: any): (value: any) => void
+```
 
 ### Component Attributes
 
-| Attribute                   | Description                                                                         |
-| --------------------------- | ----------------------------------------------------------------------------------- |
-| `$bind="variableName"`      | Create two-way data binding with form inputs                                        |
-| `data-if="expression"`      | Conditionally render element if expression is truthy                                |
-| `data-else-if="expression"` | Chain multiple conditional expressions                                              |
-| `data-else`                 | Render when all previous conditions are false                                       |
-| `onclick="handler"` (etc.)  | Attach event handlers (supports method names, inline functions, or arrow functions) |
+```html
+<!-- Two-way data binding -->
+<input $bind="variableName" />
 
-### Registration Functions
+<!-- Conditional rendering -->
+<div $if="{condition}">...</div>
+<div $else-if="{anotherCondition}">...</div>
+<div $else>...</div>
 
-| Function                                       | Description                                            |
-| ---------------------------------------------- | ------------------------------------------------------ |
-| `registerComponent(name, path, useShadowDOM?)` | Register a single component (returns Promise)          |
-| `registerComponents(components)`               | **Coming soon** - Register multiple components at once |
+<!-- Event handlers -->
+<button onclick="methodName()">Click</button>
+<button onclick="method(arg1, arg2)">Call with args</button>
+<button onclick="console.log(event)">Inline function</button>
 
-## Examples
+<!-- Slots -->
+<slot></slot>
+<!-- Default slot -->
+<slot name="header"></slot>
+<!-- Named slot -->
+```
 
-### Component Communication
-
-**v2.0 uses the global event bus instead of custom events:**
+### Template Syntax
 
 ```html
-<!-- parent.html -->
-<div>
-  <h2>Parent Component</h2>
-  <p>Messages received: {messageCount}</p>
-  <child-component></child-component>
-</div>
+<!-- Variable interpolation -->
+{variableName} {object.property} {array[0]}
 
-<script>
-  let messageCount = 0;
+<!-- Function calls -->
+{functionName(arg1, arg2)} {object.method()}
 
-  // Listen for events from child
-  $listen("child-message", (data) => {
-    console.log("Received from child:", data);
-    messageCount++;
-  });
-</script>
+<!-- Expressions -->
+{count + 1} {isActive ? 'Yes' : 'No'} {items.length > 0 ? 'Has items' : 'Empty'}
 ```
 
-```html
-<!-- child.html -->
-<div>
-  <h3>Child Component</h3>
-  <button onclick="sendMessage">Send Message to Parent</button>
-</div>
+## Development
 
-<script>
-  let count = 0;
+### Prerequisites
 
-  const sendMessage = () => {
-    count++;
-    // Emit event that parent (or any component) can listen to
-    $emit("child-message", {
-      message: `Hello from child! (${count})`,
-      timestamp: Date.now(),
-    });
-  };
-</script>
-```
+- **Node.js**: v20.19+ or v22.12+
+- **npm**: v9+ (comes with Node.js)
 
-### Dynamic Component Creation
-
-```javascript
-// Create components programmatically
-const createCard = (userData) => {
-  const card = document.createElement("user-card");
-  card.setAttribute("user-id", userData.id);
-  card.setAttribute("name", userData.name);
-  card.setAttribute("email", userData.email);
-  document.querySelector("#user-list").appendChild(card);
-};
-
-// Fetch and create multiple components
-fetch("/api/users")
-  .then((res) => res.json())
-  .then((users) => users.forEach(createCard));
-```
-
-### Passing Complex Data
-
-Use JSON.stringify for passing objects/arrays as attributes:
-
-```html
-<!-- In parent component -->
-<script>
-  const user = { id: 1, name: "John", roles: ["admin", "user"] };
-  const items = [1, 2, 3, 4, 5];
-
-  // Create HTML with stringified data
-  const cardHtml = `
-    <user-card data-user='${JSON.stringify(user)}'></user-card>
-    <list-component data-items='${JSON.stringify(items)}'></list-component>
-  `;
-
-  // Or use the built-in stringify helper in v2.0
-  const cardHtml2 = `
-    <user-card data-user="${this.stringify(user)}"></user-card>
-  `;
-</script>
-```
-
-```html
-<!-- In child component (user-card.html) -->
-<div>
-  <h3>{user.name}</h3>
-  <p>ID: {user.id}</p>
-  <p>Roles: {user.roles.join(", ")}</p>
-</div>
-
-<script>
-  // data-user is automatically parsed from JSON
-  let user = this.state["data-user"];
-</script>
-```
-
-## Migration Guide (v1.x to v2.0)
-
-### Breaking Changes
-
-1. **Global State Stores Removed**
-
-   - **Before:** `createStore()` API
-   - **After:** Use global event bus with `$emit` and `$listen`
-
-2. **Component Registration**
-
-   - **Before:** `registerComponent()` was synchronous
-   - **After:** Returns a Promise, use `await` or `.then()`
-
-3. **Framework Utilities**
-
-   - **Before:** `this.emit()`, `this.listen()`, `this.setState()`
-   - **After:** Use `$emit()`, `$listen()`, `$setState()` in scripts (legacy methods still available for compatibility)
-
-4. **Two-Way Binding**
-   - **Before:** No built-in support (manual implementation)
-   - **After:** Use `$bind` attribute for automatic two-way binding
-
-### New Features to Adopt
-
-- ✅ Use `$bind` for two-way data binding instead of manual input handling
-- ✅ Replace store subscriptions with `$emit`/`$listen` event patterns
-- ✅ Direct variable assignments now trigger reactivity (`count++`)
-- ✅ Use `$state` for direct state access in scripts
-- ✅ Leverage conditional directives: `data-if`, `data-else-if`, `data-else`
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-### Development
+### Setup
 
 ```bash
+# Clone the repository
+git clone https://github.com/drubiodev/LadrillosJS.git
+cd LadrillosJS
+
 # Install dependencies
 npm install
 
-# Run development server with hot reload
+# Start development server
 npm run dev
+
+# Build the library
+npm run build
 
 # Run tests
 npm test
 
 # Run tests with coverage
 npm run test:coverage
-
-# Build the library
-npm run build
-
-# Build TypeScript types
-npm run build:types
 ```
 
 ### Project Structure
 
 ```
-src/
-├── index.ts              # Main entry point
-├── core/
-│   ├── main.ts          # Core Ladrillos class
-│   ├── webcomponent.ts  # Web component definition
-│   ├── componentParser.ts  # Component file parser
-│   ├── componentSource.ts  # Component fetching with cache
-│   ├── eventBus.ts      # Global event bus
-│   ├── css/
-│   │   └── cssParser.ts
-│   ├── html/
-│   │   ├── htmlparser.ts
-│   │   └── htmlRenderer.ts
-│   └── js/
-│       └── scriptParser.ts
-├── cache/
-│   ├── index.ts         # LRU cache for components
-│   └── functionCache.ts # LRU cache for compiled functions
-├── types/
-│   └── LadrilloTypes.ts # TypeScript type definitions
-└── utils/
-    ├── logger.ts        # Logging utilities
-    └── regex.ts         # Regex patterns
+LadrillosJS/
+├── src/
+│   ├── index.ts              # Main entry point
+│   ├── core/
+│   │   ├── main.ts          # Core Ladrillos class
+│   │   ├── webcomponent.ts  # Web component wrapper
+│   │   ├── componentParser.ts  # Parse component files
+│   │   ├── componentSource.ts  # Fetch with caching
+│   │   ├── eventBus.ts      # Global event bus
+│   │   ├── css/
+│   │   │   └── cssParser.ts
+│   │   ├── html/
+│   │   │   ├── htmlparser.ts
+│   │   │   └── htmlRenderer.ts
+│   │   └── js/
+│   │       └── scriptParser.ts
+│   ├── cache/
+│   │   ├── index.ts         # LRU component cache
+│   │   └── functionCache.ts # LRU function cache
+│   ├── types/
+│   │   └── LadrilloTypes.ts
+│   └── utils/
+│       ├── logger.ts
+│       └── regex.ts
+├── samples/                  # Example applications
+│   └── apps/
+│       ├── todo/
+│       ├── notes/
+│       ├── simple-button/
+│       └── ...
+├── test/                     # Test files
+├── dist/                     # Built files
+├── package.json
+├── tsconfig.json
+├── vite.config.js
+└── vitest.config.js
+```
+
+### NPM Scripts
+
+```bash
+npm run dev              # Start Vite dev server
+npm run build            # Build library (ESM, UMD, CJS)
+npm run build:types      # Generate TypeScript declarations
+npm test                 # Run tests with Vitest
+npm run test:coverage    # Run tests with coverage report
+npm run preview          # Preview production build
 ```
 
 ## License
@@ -896,4 +819,4 @@ MIT License - see [LICENSE](LICENSE) file for details.
 
 **LadrillosJS v2.0** - Built with ❤️ by [Daniel Rubio](https://github.com/drubiodev)
 
-Rewritten in TypeScript for better performance, developer experience, and maintainability.
+🌟 [GitHub](https://github.com/drubiodev/LadrillosJS) • 📦 [NPM](https://www.npmjs.com/package/ladrillosjs) • 📖 [Documentation](https://github.com/drubiodev/LadrillosJS/blob/main/README.md)

@@ -29,20 +29,75 @@ export const defineWebComponent = (
     #twoWayBindingCleanups: Array<() => void> = [];
     #sourcePath: string | undefined = sourcePath;
 
+    /**
+     * Creates a deep reactive proxy that tracks nested object/array mutations
+     * @param target - The object or array to make reactive
+     * @param callback - Function to call when any nested property changes
+     */
+    #createDeepProxy(target: any, callback: () => void): any {
+      // Don't proxy primitives or null
+      if (target === null || typeof target !== "object") {
+        return target;
+      }
+
+      // Don't proxy DOM elements or other complex objects
+      if (target instanceof HTMLElement || target instanceof Node) {
+        return target;
+      }
+
+      return new Proxy(target, {
+        get: (obj, prop) => {
+          const value = obj[prop];
+          // Recursively proxy nested objects/arrays
+          if (value !== null && typeof value === "object") {
+            return this.#createDeepProxy(value, callback);
+          }
+          return value;
+        },
+        set: (obj, prop, value) => {
+          const prev = obj[prop];
+          // Skip if value hasn't changed
+          if (Object.is(prev, value)) return true;
+
+          obj[prop] = value;
+          callback(); // Trigger re-render
+          return true;
+        },
+      });
+    }
+
     constructor() {
       super();
       if (useShadowDOM) this.attachShadow({ mode: "open" });
 
       const internalState: any = {};
 
-      // Wrap state in a Proxy to detect changes and trigger re-renders
+      // Callback for triggering re-renders
+      const triggerUpdate = () => {
+        renderBindings(this.#bindings, this.state, this);
+        renderConditionals(this.#conditionals, this.state, this);
+        this.#updateTwoWayBindings();
+      };
+
+      // Wrap state in a deep reactive Proxy to detect all nested changes
       this.state = new Proxy(internalState, {
+        get: (target, prop) => {
+          return target[prop as keyof typeof target];
+        },
         set: (target, prop, value) => {
           const prev = target[prop as keyof typeof target];
           // Skip update if value hasn't changed (avoids unnecessary re-renders)
           if (Object.is(prev, value)) return true;
 
-          target[prop as keyof typeof target] = value;
+          // Wrap objects/arrays in deep proxies for nested reactivity
+          if (value !== null && typeof value === "object") {
+            target[prop as keyof typeof target] = this.#createDeepProxy(
+              value,
+              triggerUpdate
+            );
+          } else {
+            target[prop as keyof typeof target] = value;
+          }
 
           // Auto-create property descriptor on component for direct access in with() scope
           if (!Object.getOwnPropertyDescriptor(this, prop)) {
@@ -59,11 +114,7 @@ export const defineWebComponent = (
           }
 
           // Re-render all bindings with the updated state
-          renderBindings(this.#bindings, this.state, this);
-          // Re-render conditionals
-          renderConditionals(this.#conditionals, this.state, this);
-          // Update two-way bound elements
-          this.#updateTwoWayBindings();
+          triggerUpdate();
           return true;
         },
       });
@@ -223,13 +274,7 @@ export const defineWebComponent = (
 
           if (currentValue === undefined) {
             const content = initialValue || "";
-            console.log(`[TwoWayBinding] Setting ${raw} = "${content}"`);
             setValue(this.state, path, content);
-          } else {
-            console.log(
-              `[TwoWayBinding] Skipping ${raw}, already has value:`,
-              currentValue
-            );
           }
 
           if (isContentEditable) {
@@ -262,8 +307,21 @@ export const defineWebComponent = (
               | HTMLTextAreaElement
               | HTMLSelectElement;
 
+            // Check if this is a checkbox or radio button
+            const isCheckbox =
+              inputEl instanceof HTMLInputElement &&
+              inputEl.type === "checkbox";
+            const isRadio =
+              inputEl instanceof HTMLInputElement && inputEl.type === "radio";
+
             // Initial sync from state to element
-            inputEl.value = this._getNestedValue(path) ?? "";
+            if (isCheckbox) {
+              // For checkboxes, use 'checked' property
+              inputEl.checked = Boolean(this._getNestedValue(path));
+            } else {
+              // For other inputs, use 'value' property
+              inputEl.value = this._getNestedValue(path) ?? "";
+            }
 
             // Listen for input changes and update state
             const handleInput = (e: Event) => {
@@ -271,7 +329,25 @@ export const defineWebComponent = (
                 | HTMLInputElement
                 | HTMLTextAreaElement
                 | HTMLSelectElement;
-              const newValue = target.value;
+
+              let newValue: any;
+
+              if (
+                target instanceof HTMLInputElement &&
+                target.type === "checkbox"
+              ) {
+                // For checkboxes, get the 'checked' property
+                newValue = target.checked;
+              } else if (
+                target instanceof HTMLInputElement &&
+                target.type === "radio"
+              ) {
+                // For radio buttons, get the 'value' property
+                newValue = target.value;
+              } else {
+                // For other inputs, get the 'value' property
+                newValue = target.value;
+              }
 
               // Update state using setValue to handle nested paths
               setValue(this.state, path, newValue);
@@ -319,8 +395,21 @@ export const defineWebComponent = (
             | HTMLInputElement
             | HTMLTextAreaElement
             | HTMLSelectElement;
-          if (inputEl.value !== value) {
-            inputEl.value = value ?? "";
+
+          // Handle checkboxes differently
+          if (
+            inputEl instanceof HTMLInputElement &&
+            inputEl.type === "checkbox"
+          ) {
+            const boolValue = Boolean(value);
+            if (inputEl.checked !== boolValue) {
+              inputEl.checked = boolValue;
+            }
+          } else {
+            // For other inputs, use value property
+            if (inputEl.value !== value) {
+              inputEl.value = value ?? "";
+            }
           }
         }
       });

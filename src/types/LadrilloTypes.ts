@@ -33,6 +33,7 @@ export type BindingDescriptor = {
     raw: string; // e.g. "person.name" or "MyName('Pedro')"
     path: string[]; // ['person', 'name']
     isFunction?: boolean; // True if this is a function call
+    functionArgs?: string[]; // Variables passed as arguments to functions
   }>;
   original: string; // The original template text (e.g., "Hello: {name}")
   isAttribute?: boolean; // True if this is an attribute binding

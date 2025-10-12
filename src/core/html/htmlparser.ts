@@ -27,6 +27,42 @@ export const loadTemplate = (
 };
 
 /**
+ * Extracts variable names from function arguments.
+ * e.g., "formatPrice(price)" → ["price"]
+ * e.g., "add(x, y)" → ["x", "y"]
+ * e.g., "format(user.name)" → ["user"]
+ */
+const extractFunctionArguments = (functionCall: string): string[] => {
+  const variables: string[] = [];
+
+  // Extract the part between parentheses
+  const argsMatch = functionCall.match(/\((.*)\)/);
+  if (!argsMatch) return variables;
+
+  const argsString = argsMatch[1].trim();
+  if (!argsString) return variables;
+
+  // Split by commas, but respect nested function calls
+  const args = argsString.split(",").map((arg) => arg.trim());
+
+  args.forEach((arg) => {
+    // Remove string literals (both single and double quotes)
+    if (/^['"]/.test(arg)) return;
+
+    // Remove numeric literals
+    if (/^\d+/.test(arg)) return;
+
+    // Extract variable name (handle dot notation, just get root)
+    const identifierMatch = arg.match(/^([a-zA-Z_$][a-zA-Z0-9_$]*)/);
+    if (identifierMatch) {
+      variables.push(identifierMatch[1]);
+    }
+  });
+
+  return variables;
+};
+
+/**
  * Traverses the DOM tree and collects all data binding expressions.
  * Looks for {property} placeholders in both text content and element attributes.
  */
@@ -56,7 +92,10 @@ const scanBindings = (host: HTMLElement | ShadowRoot): BindingDescriptor[] => {
           ? [raw.split("(")[0].trim()] // Extract function name before (
           : raw.split(".").map((p) => p.trim());
 
-        return { raw, path, isFunction };
+        // Extract variables from function arguments
+        const functionArgs = isFunction ? extractFunctionArguments(raw) : [];
+
+        return { raw, path, isFunction, functionArgs };
       });
 
       bindings.push({ node, bindings: nodeBindings, original });
@@ -90,7 +129,10 @@ const scanBindings = (host: HTMLElement | ShadowRoot): BindingDescriptor[] => {
             ? [raw.split("(")[0].trim()]
             : raw.split(".").map((p) => p.trim());
 
-          return { raw, path, isFunction };
+          // Extract variables from function arguments
+          const functionArgs = isFunction ? extractFunctionArguments(raw) : [];
+
+          return { raw, path, isFunction, functionArgs };
         });
 
         bindings.push({

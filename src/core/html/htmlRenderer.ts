@@ -159,6 +159,98 @@ const evaluateCondition = (
 };
 
 /**
+ * Processes event handlers on an element and its descendants.
+ * Converts inline event attributes to proper event listeners with component scope access.
+ */
+const processElementEventHandlers = (
+  element: Element,
+  component: any
+): void => {
+  const eventTypes = [
+    "click",
+    "dblclick",
+    "mousedown",
+    "mouseup",
+    "mouseover",
+    "mouseout",
+    "mousemove",
+    "mouseenter",
+    "mouseleave",
+    "keydown",
+    "keyup",
+    "keypress",
+    "focus",
+    "blur",
+    "change",
+    "input",
+    "submit",
+    "reset",
+    "scroll",
+    "resize",
+    "load",
+    "unload",
+    "touchstart",
+    "touchend",
+    "touchmove",
+    "touchcancel",
+    "dragstart",
+    "drag",
+    "dragend",
+    "dragenter",
+    "dragover",
+    "dragleave",
+    "drop",
+  ];
+
+  // Process the element itself and all descendants
+  const elementsToProcess = [element, ...element.querySelectorAll("*")];
+
+  elementsToProcess.forEach((el) => {
+    eventTypes.forEach((eventType) => {
+      const attributeName = `on${eventType}`;
+      const handlerCode = el.getAttribute(attributeName);
+
+      if (handlerCode) {
+        // Skip if already processed
+        const key = `__processed_${attributeName}`;
+        if ((el as any)[key]) return;
+
+        // Remove the attribute
+        el.removeAttribute(attributeName);
+
+        // Add event listener with component scope
+        (el as HTMLElement).addEventListener(
+          eventType,
+          function (this: HTMLElement, event: Event) {
+            try {
+              const func = new Function(
+                "event",
+                "component",
+                `
+                with(component) {
+                  ${handlerCode}
+                }
+              `
+              );
+              func.call(this, event, component);
+            } catch (error) {
+              console.error(
+                `Error executing ${eventType} handler:`,
+                error,
+                handlerCode
+              );
+            }
+          }
+        );
+
+        // Mark as processed
+        (el as any)[key] = true;
+      }
+    });
+  });
+};
+
+/**
  * Updates conditional rendering based on current state.
  * Shows/hides elements based on their $if, $else-if, $else conditions.
  */
@@ -194,6 +286,11 @@ export const renderConditionals = (
       if (shouldRender && !isInDOM) {
         // Insert element after its placeholder
         placeholder.parentNode?.insertBefore(element, placeholder.nextSibling);
+
+        // Process event handlers on newly inserted element
+        if (component) {
+          processElementEventHandlers(element, component);
+        }
       } else if (!shouldRender && isInDOM) {
         // Remove element from DOM
         element.remove();
