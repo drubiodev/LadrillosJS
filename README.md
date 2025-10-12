@@ -21,14 +21,20 @@ A lightweight, zero-dependency web component framework for building modular web 
   - [Conditional Rendering](#conditional-rendering)
   - [List Rendering](#list-rendering)
   - [Slots](#slots)
+  - [Component Props](#component-props)
 - [Advanced Features](#advanced-features)
   - [Global Event Bus](#global-event-bus)
   - [External Scripts](#external-scripts)
   - [Shadow DOM](#shadow-dom)
+  - [Styling Components](#styling-components)
   - [Performance & Caching](#performance--caching)
+- [Common Patterns](#common-patterns)
+  - [Keyboard Events](#keyboard-events)
+  - [Form Validation](#form-validation)
+  - [Loading States](#loading-states)
 - [API Reference](#api-reference)
-- [Examples](#examples)
 - [Development](#development)
+- [Attribution](#attribution)
 - [License](#license)
 
 ## Features
@@ -462,6 +468,31 @@ Render lists of items using the `$for` directive:
 </script>
 ```
 
+**Performance Optimization with `$key`:**
+
+Use the `$key` attribute to help LadrillosJS track items efficiently:
+
+```html
+<div>
+  <div class="user-card" $for="user in users" $key="user.id">
+    <h3>{user.name}</h3>
+    <p>Email: {user.email}</p>
+    <button onclick="removeUser(user.id)">Remove</button>
+  </div>
+</div>
+
+<script>
+  let users = [
+    { id: 1, name: "John", email: "john@example.com" },
+    { id: 2, name: "Jane", email: "jane@example.com" },
+  ];
+
+  const removeUser = (id) => {
+    users = users.filter((u) => u.id !== id);
+  };
+</script>
+```
+
 ### Slots
 
 Project content from parent to child components:
@@ -508,6 +539,31 @@ Project content from parent to child components:
   <p>Email: john@example.com</p>
   <button slot="footer">Save Changes</button>
 </my-card>
+```
+
+### Component Props
+
+Pass data to components using HTML attributes:
+
+```html
+<!-- greeting.html -->
+<div>
+  <h1>Hello, {name}!</h1>
+  <p>Age: {age}</p>
+</div>
+
+<script>
+  // Access attributes passed to the component
+  let name = this.getAttribute("name") || "Guest";
+  let age = this.getAttribute("age") || "unknown";
+</script>
+```
+
+**Usage:**
+
+```html
+<my-greeting name="John" age="25"></my-greeting>
+<my-greeting name="Jane" age="30"></my-greeting>
 ```
 
 ## Advanced Features
@@ -699,6 +755,71 @@ await registerComponent("global-styles", "./global.html", false);
 - Using third-party libraries that expect normal DOM
 - Easier debugging without shadow boundaries
 
+### Styling Components
+
+LadrillosJS supports multiple ways to style your components:
+
+#### 1. Inline Styles (Scoped)
+
+```html
+<div class="button">{label}</div>
+
+<style>
+  .button {
+    padding: 10px 20px;
+    background: #007bff;
+    color: white;
+  }
+</style>
+
+<script>
+  let label = "Click me";
+</script>
+```
+
+#### 2. External Stylesheets
+
+```html
+<link rel="stylesheet" href="./styles.css" />
+<div class="container">Content</div>
+```
+
+#### 3. Import Fonts and External CSS
+
+```html
+<style>
+  @import url("https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap");
+
+  body {
+    font-family: "Roboto", sans-serif;
+  }
+</style>
+```
+
+#### 4. Using `:host` Selector (Shadow DOM)
+
+When using Shadow DOM, style the component's container with `:host`:
+
+```html
+<style>
+  :host {
+    display: block;
+    padding: 1rem;
+    background: white;
+  }
+
+  :host(.highlighted) {
+    border: 2px solid gold;
+  }
+</style>
+```
+
+**Usage:**
+
+```html
+<my-component class="highlighted"></my-component>
+```
+
 ### Performance & Caching
 
 LadrillosJS includes built-in performance optimizations:
@@ -721,6 +842,101 @@ LadrillosJS includes built-in performance optimizations:
 - State updates trigger minimal DOM changes
 - Event listeners are automatically cleaned up
 - Conditional rendering skips hidden elements
+
+## Common Patterns
+
+### Keyboard Events
+
+Handle keyboard input for interactive features:
+
+```html
+<div>
+  <p>Press arrow keys to navigate. Current: {direction}</p>
+  <p>Press Enter to submit</p>
+</div>
+
+<script>
+  let direction = "none";
+
+  document.addEventListener("keyup", (event) => {
+    if (event.key === "ArrowRight") {
+      direction = "right";
+    } else if (event.key === "ArrowLeft") {
+      direction = "left";
+    } else if (event.key === "ArrowUp") {
+      direction = "up";
+    } else if (event.key === "ArrowDown") {
+      direction = "down";
+    } else if (event.key === "Enter") {
+      direction = "submitted!";
+    }
+  });
+</script>
+```
+
+### Form Validation
+
+Real-time form validation with reactive state:
+
+```html
+<form onsubmit="handleSubmit(event)">
+  <input type="email" $bind="email" placeholder="Email" onkeyup="validate()" />
+  <p $if="{!isValid}" style="color: red">Please enter a valid email</p>
+  <button type="submit" $if="{isValid}">Submit</button>
+</form>
+
+<script>
+  let email = "";
+  let isValid = false;
+
+  const validate = () => {
+    isValid = email.includes("@") && email.length > 5;
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (isValid) {
+      alert(`Submitted: ${email}`);
+    }
+  };
+</script>
+```
+
+### Loading States
+
+Show loading indicators while fetching data:
+
+```html
+<div>
+  <div $if="{isLoading}">Loading...</div>
+  <div $else-if="{error}">Error: {error}</div>
+  <div $else>
+    <h2>{data.title}</h2>
+    <p>{data.description}</p>
+  </div>
+  <button onclick="fetchData()">Refresh</button>
+</div>
+
+<script>
+  let isLoading = false;
+  let error = null;
+  let data = { title: "", description: "" };
+
+  const fetchData = async () => {
+    isLoading = true;
+    error = null;
+
+    try {
+      const response = await fetch("https://api.example.com/data");
+      data = await response.json();
+    } catch (e) {
+      error = e.message;
+    } finally {
+      isLoading = false;
+    }
+  };
+</script>
+```
 
 ## API Reference
 
