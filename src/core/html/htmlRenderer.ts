@@ -322,12 +322,18 @@ export const renderLoops = (
     // Get the array data from context
     const arrayData = getValue(context, arrayName.split("."));
 
-    // Validate array
-    if (!Array.isArray(arrayData)) {
-      console.warn(`$for: "${arrayName}" is not an array`);
+    // Validate array - only warn if the value exists but is not an array
+    // (undefined values are expected during initial render before scripts execute)
+    if (arrayData !== undefined && !Array.isArray(arrayData)) {
+      console.warn(`$for: "${arrayName}" is not an array, got:`, arrayData);
       // Clear any existing rendered elements
       renderedElements.forEach((el) => el.remove());
       renderedElements.length = 0;
+      return;
+    }
+
+    // If array doesn't exist yet, don't render anything (wait for state initialization)
+    if (!arrayData) {
       return;
     }
 
@@ -404,7 +410,7 @@ const processClonedElement = (
     }
   }
 
-  // Process attributes
+  // Process attributes (including event handlers with loop variables)
   const elementsWithBindings = [element, ...element.querySelectorAll("*")];
   elementsWithBindings.forEach((el) => {
     Array.from(el.attributes).forEach((attr) => {
