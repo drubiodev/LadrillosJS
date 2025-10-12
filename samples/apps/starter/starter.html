@@ -1,36 +1,14 @@
-<style>
-  p {
-    color: blue;
-  }
-</style>
-
-<p>Name binding: {name}</p>
-<p>param binding: {param}</p>
-<p>Object binding Person Name: {person.name}</p>
-<p>Object binding Person Job Title: {person.job.title}</p>
-<p>MyName Function: {MyName("Peter")}</p>
-<button onclick="updateName('Jessica')">updateName</button>
-<button onclick="MyName('Pedro')">updateName 2</button>
+<h2>Loop with Index Example</h2>
+<ul>
+  <li $for="(name,i) in names" onclick="getDetails({i})">
+    {i + 1} : {name.toUpperCase()}
+  </li>
+</ul>
 
 <script>
-  console.log("Hello from starter component");
+  const names = ["Alice", "Bob", "Charlie"];
 
-  let name = "LadrillosJS";
-
-  const person = {
-    name: "Daniel",
-    job: {
-      title: "Developer",
-    },
-  };
-
-  const updateName = (newName) => {
-    console.log("Updating name to: " + newName);
-    name = newName;
-  };
-
-  const MyName = (name) => {
-    console.log(name);
-    return name.toUpperCase();
+  const getDetails = (id) => {
+    console.log("Clicked on item with id:", id);
   };
 </script>
