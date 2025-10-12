@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LadrillosJS Feature Test</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+      h1 {
+        border-bottom: 2px solid #333;
+        padding-bottom: 10px;
+      }
+      h2 {
+        margin-top: 30px;
+        color: #555;
+      }
+      section {
+        margin: 20px 0;
+        padding: 15px;
+        border: 1px solid #ddd;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>LadrillosJS Feature Test Suite</h1>
+    <p>Testing all framework features individually</p>
+
+    <section>
+      <h2>1. Basic State & One-Way Binding</h2>
+      <test-state></test-state>
+    </section>
+
+    <section>
+      <h2>2. Two-Way Binding ($bind)</h2>
+      <test-two-way-binding></test-two-way-binding>
+    </section>
+
+    <section>
+      <h2>3. Event Handling</h2>
+      <test-events></test-events>
+    </section>
+
+    <section>
+      <h2>4. Conditional Rendering ($if, $else-if, $else)</h2>
+      <test-conditionals></test-conditionals>
+    </section>
+
+    <section>
+      <h2>5. List Rendering ($for)</h2>
+      <test-loops></test-loops>
+    </section>
+
+    <section>
+      <h2>6. Global Event Bus</h2>
+      <test-event-bus-sender></test-event-bus-sender>
+      <hr />
+      <test-event-bus-receiver></test-event-bus-receiver>
+    </section>
+
+    <section>
+      <h2>7. Component Props</h2>
+      <test-props name="John" age="30" active="true"></test-props>
+    </section>
+
+    <section>
+      <h2>8. Slots (Default & Named)</h2>
+      <test-slots>
+        <p>This is default slot content</p>
+        <span slot="header">Custom Header</span>
+        <span slot="footer">Custom Footer</span>
+      </test-slots>
+    </section>
+
+    <section>
+      <h2>9. Nested State Objects</h2>
+      <test-nested-state></test-nested-state>
+    </section>
+
+    <section>
+      <h2>10. Dynamic Attributes</h2>
+      <test-dynamic-attrs></test-dynamic-attrs>
+    </section>
+
+    <script type="module">
+      import { registerComponents } from "ladrillosjs";
+
+      registerComponents([
+        { name: "test-state", path: "./components/test-state.html" },
+        {
+          name: "test-two-way-binding",
+          path: "./components/test-two-way-binding.html",
+        },
+        { name: "test-events", path: "./components/test-events.html" },
+        {
+          name: "test-conditionals",
+          path: "./components/test-conditionals.html",
+        },
+        { name: "test-loops", path: "./components/test-loops.html" },
+        {
+          name: "test-event-bus-sender",
+          path: "./components/test-event-bus-sender.html",
+        },
+        {
+          name: "test-event-bus-receiver",
+          path: "./components/test-event-bus-receiver.html",
+        },
+        { name: "test-props", path: "./components/test-props.html" },
+        { name: "test-slots", path: "./components/test-slots.html" },
+        {
+          name: "test-nested-state",
+          path: "./components/test-nested-state.html",
+        },
+        {
+          name: "test-dynamic-attrs",
+          path: "./components/test-dynamic-attrs.html",
+        },
+      ]);
+    </script>
+  </body>
+</html>

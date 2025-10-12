@@ -56,6 +56,7 @@ export const renderBindings = (
   for (const binding of bindings) {
     // Start with the original template
     let result = binding.original;
+    let lastValue: unknown; // Track the last evaluated value for boolean attributes
 
     // Replace all placeholders in this node
     for (const { raw, path, isFunction, isExpression } of binding.bindings) {
@@ -84,6 +85,9 @@ export const renderBindings = (
       if (value === undefined) continue;
       const replacement = String(value ?? "");
 
+      // Track last value for boolean attribute handling
+      lastValue = value;
+
       // Replace this specific placeholder
       result = result.replace(`{${raw}}`, replacement);
     }
@@ -108,7 +112,37 @@ export const renderBindings = (
       // Handle attribute bindings (e.g., <img src="{imageUrl}">)
       const element = binding.node as unknown as Element;
       if (binding.isAttribute && binding.attributeName) {
-        element.setAttribute(binding.attributeName, result);
+        // Handle boolean attributes (disabled, checked, readonly, required, etc.)
+        const booleanAttributes = [
+          "disabled",
+          "checked",
+          "readonly",
+          "required",
+          "selected",
+          "hidden",
+          "open",
+          "autofocus",
+          "autoplay",
+          "controls",
+          "loop",
+          "muted",
+        ];
+
+        if (booleanAttributes.includes(binding.attributeName.toLowerCase())) {
+          // For boolean attributes: use the original value, not the stringified result
+          const boolValue =
+            typeof lastValue === "boolean"
+              ? lastValue
+              : lastValue === "true" || lastValue === "True";
+          if (boolValue) {
+            element.setAttribute(binding.attributeName, "");
+          } else {
+            element.removeAttribute(binding.attributeName);
+          }
+        } else {
+          // For regular attributes, just set the value
+          element.setAttribute(binding.attributeName, result);
+        }
       }
     }
   }

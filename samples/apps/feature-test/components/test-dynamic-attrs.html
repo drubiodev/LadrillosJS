@@ -1,0 +1,44 @@
+<div>
+  <h4>Dynamic Attributes</h4>
+  <button onclick="toggleDisabled()">Toggle Disabled</button>
+  <button onclick="changeColor()">Change Color</button>
+
+  <p>
+    <input type="text" placeholder="Test input" disabled="{isDisabled}" />
+  </p>
+  <p>Disabled state: {isDisabled}</p>
+
+  <div style="padding: 10px; background: {bgColor}; color: white;">
+    Background color: {bgColor}
+  </div>
+
+  <p>
+    <img src="https://placehold.co/{imgSize}" alt="Dynamic image" />
+  </p>
+  <p>Image size: {imgSize}x{imgSize}</p>
+  <button onclick="changeSize()">Change Size</button>
+
+  <p><small>Tests: Dynamic attribute binding with {}</small></p>
+</div>
+
+<script>
+  let isDisabled = false;
+  let bgColor = "#3498db";
+  let imgSize = 150;
+
+  const colors = ["#3498db", "#e74c3c", "#2ecc71", "#f39c12", "#9b59b6"];
+  let colorIndex = 0;
+
+  const toggleDisabled = () => {
+    isDisabled = !isDisabled;
+  };
+
+  const changeColor = () => {
+    colorIndex = (colorIndex + 1) % colors.length;
+    bgColor = colors[colorIndex];
+  };
+
+  const changeSize = () => {
+    imgSize = imgSize === 150 ? 200 : imgSize === 200 ? 100 : 150;
+  };
+</script>

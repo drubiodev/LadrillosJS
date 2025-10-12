@@ -1,0 +1,22 @@
+<div>
+  <h3>Current Count: {count}</h3>
+  <p>Message: {message}</p>
+  <button onclick="increment()">Increment</button>
+  <button onclick="changeMessage()">Change Message</button>
+  <p>
+    <small>Tests: Basic reactive state and one-way data binding with {}</small>
+  </p>
+</div>
+
+<script>
+  let count = 0;
+  let message = "Hello World";
+
+  const increment = () => {
+    count++;
+  };
+
+  const changeMessage = () => {
+    message = `Updated at ${new Date().toLocaleTimeString()}`;
+  };
+</script>

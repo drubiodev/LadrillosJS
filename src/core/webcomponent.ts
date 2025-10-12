@@ -7,6 +7,7 @@ import {
 } from "../types/LadrilloTypes";
 import { logger } from "../utils/logger";
 import { loadStyles } from "./css/cssParser";
+
 import {
   loadTemplate,
   extractConditionalVariables,
@@ -35,6 +36,7 @@ export const defineWebComponent = (
     #loops: LoopDescriptor[] = [];
     #twoWayBindingCleanups: Array<() => void> = [];
     #sourcePath: string | undefined = sourcePath;
+    #proxyCache: WeakMap<object, any> = new WeakMap();
 
     /**
      * Creates a deep reactive proxy that tracks nested object/array mutations
@@ -52,9 +54,35 @@ export const defineWebComponent = (
         return target;
       }
 
-      return new Proxy(target, {
+      // Check if we already have a proxy for this object
+      if (this.#proxyCache.has(target)) {
+        return this.#proxyCache.get(target);
+      }
+
+      const proxy = new Proxy(target, {
         get: (obj, prop) => {
           const value = obj[prop];
+
+          // For array mutation methods, bind them to trigger callback after execution
+          if (Array.isArray(obj) && typeof value === "function") {
+            const arrayMutationMethods = [
+              "push",
+              "pop",
+              "shift",
+              "unshift",
+              "splice",
+              "sort",
+              "reverse",
+            ];
+            if (arrayMutationMethods.includes(prop as string)) {
+              return (...args: any[]) => {
+                const result = (value as Function).apply(obj, args);
+                callback(); // Trigger re-render after mutation
+                return result;
+              };
+            }
+          }
+
           // Recursively proxy nested objects/arrays
           if (value !== null && typeof value === "object") {
             return this.#createDeepProxy(value, callback);
@@ -71,6 +99,10 @@ export const defineWebComponent = (
           return true;
         },
       });
+
+      // Cache the proxy
+      this.#proxyCache.set(target, proxy);
+      return proxy;
     }
 
     constructor() {

@@ -122,7 +122,28 @@ const transformBoundAssignments = (
   let transformed = scriptContent;
 
   boundVarNames.forEach((varName) => {
-    // 1. Transform property access with assignment/operators: user.name = value, user.count++, etc.
+    // 1. Transform array/object index access with assignment: items[0].name = value, items[0]++, etc.
+    // Match: varName[index].property or varName[index][index2] followed by =, +=, etc.
+    const arrayIndexWriteRegex = new RegExp(
+      `\\b${varName}((?:\\[[^\\]]+\\])(?:\\.[\\w]+|\\[[^\\]]+\\])*)\\s*([=+\\-*/%&|^]|\\+\\+|\\-\\-)`,
+      "g"
+    );
+    transformed = transformed.replace(
+      arrayIndexWriteRegex,
+      `component.state.${varName}$1 $2`
+    );
+
+    // 2. Transform array/object index access in expressions (reads)
+    const arrayIndexReadRegex = new RegExp(
+      `(?<!component\\.state\\.)\\b${varName}((?:\\[[^\\]]+\\])(?:\\.[\\w]+|\\[[^\\]]+\\])*)(?![=+\\-*/%&|^]|\\+\\+|\\-\\-)`,
+      "g"
+    );
+    transformed = transformed.replace(
+      arrayIndexReadRegex,
+      `component.state.${varName}$1`
+    );
+
+    // 3. Transform property access with assignment/operators: user.name = value, user.count++, etc.
     // Match: varName.property followed by =, +=, -=, ++, --, etc.
     const propertyWriteRegex = new RegExp(
       `\\b${varName}\\.(\\w+(?:\\.\\w+)*)\\s*([=+\\-*/%&|^]|\\+\\+|\\-\\-)`,
@@ -133,7 +154,7 @@ const transformBoundAssignments = (
       `component.state.${varName}.$1 $2`
     );
 
-    // 2. Transform property access in expressions: user.name (reads)
+    // 4. Transform property access in expressions: user.name (reads)
     // But NOT if it's part of an already transformed component.state.varName
     // And NOT if it's in a variable declaration
     const propertyReadRegex = new RegExp(

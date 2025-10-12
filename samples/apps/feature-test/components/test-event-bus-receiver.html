@@ -1,0 +1,24 @@
+<div>
+  <h4>Event Bus Receiver</h4>
+  <p>Last message: {lastMessage}</p>
+  <p>Last data: {lastData}</p>
+  <p>Received count: {receivedCount}</p>
+  <p><small>Tests: $listen to receive events via global event bus</small></p>
+</div>
+
+<script>
+  let lastMessage = "none";
+  let lastData = "none";
+  let receivedCount = 0;
+
+  // Listen for events
+  $listen("test-message", (data) => {
+    lastMessage = data;
+    receivedCount++;
+  });
+
+  $listen("test-data", (data) => {
+    lastData = JSON.stringify(data);
+    receivedCount++;
+  });
+</script>

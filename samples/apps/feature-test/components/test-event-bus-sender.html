@@ -1,0 +1,25 @@
+<div>
+  <h4>Event Bus Sender</h4>
+  <button onclick="sendMessage()">Send Message</button>
+  <button onclick="sendData()">Send Data</button>
+  <p>Sent count: {sentCount}</p>
+  <p><small>Tests: $emit to send events via global event bus</small></p>
+</div>
+
+<script>
+  let sentCount = 0;
+
+  const sendMessage = () => {
+    $emit("test-message", `Hello at ${new Date().toLocaleTimeString()}`);
+    sentCount++;
+  };
+
+  const sendData = () => {
+    $emit("test-data", {
+      id: sentCount,
+      value: Math.random(),
+      timestamp: Date.now(),
+    });
+    sentCount++;
+  };
+</script>

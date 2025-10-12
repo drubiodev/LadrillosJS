@@ -76,7 +76,7 @@ const getComponentContext = () => {
   const registry = (window as any).__ladrilloContexts as Map<string, any>;
   if (registry && registry.size > 0) {
     // For now, return the last registered context
-    // In the future, we could track which script belongs to which component
+    // TODO: In the future, we could track which script belongs to which component
     const contexts = Array.from(registry.values());
     return contexts[contexts.length - 1];
   }
@@ -84,7 +84,7 @@ const getComponentContext = () => {
 };
 
 /**
- * Get the component's reactive state (for use in module scripts with bind attribute)
+ * Get the component's reactive state
  * Returns a Proxy that allows direct property access to component.state
  * @returns Proxy to component state or empty object if no component context
  */
@@ -97,7 +97,7 @@ export const $getState = (): any => {
 };
 
 /**
- * Set component state (for use in module scripts with bind attribute)
+ * Set component state
  * @param updates - Object with state updates
  */
 export const $setState = (updates: any) => {
