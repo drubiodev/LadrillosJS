@@ -109,7 +109,9 @@ const scanBindings = (host: HTMLElement | ShadowRoot): BindingDescriptor[] => {
         // Detect if this is a JavaScript expression (contains operators, method calls, etc.)
         const isExpression =
           /[+\-*/%<>=!&|]/.test(raw) || // Math or logical operators
-          /\.(?![\s}])[a-zA-Z_$][\w]*\(/.test(raw); // Method calls like name.toLowerCase()
+          /\.(?![\s}])[a-zA-Z_$][\w]*\(/.test(raw) || // Method calls like name.toLowerCase()
+          /\bnew\s+/.test(raw) || // Object instantiation like new Date()
+          /\b(typeof|instanceof|void|delete)\b/.test(raw); // Other JS operators
 
         // For functions, extract the function name as the path
         // For properties, split by dot notation
@@ -158,7 +160,9 @@ const scanBindings = (host: HTMLElement | ShadowRoot): BindingDescriptor[] => {
           // Detect if this is a JavaScript expression
           const isExpression =
             /[+\-*/%<>=!&|]/.test(raw) || // Math or logical operators
-            /\.(?![\s}])[a-zA-Z_$][\w]*\(/.test(raw); // Method calls like name.toLowerCase()
+            /\.(?![\s}])[a-zA-Z_$][\w]*\(/.test(raw) || // Method calls like name.toLowerCase()
+            /\bnew\s+/.test(raw) || // Object instantiation like new Date()
+            /\b(typeof|instanceof|void|delete)\b/.test(raw); // Other JS operators
 
           const path = isFunction
             ? [raw.split("(")[0].trim()]

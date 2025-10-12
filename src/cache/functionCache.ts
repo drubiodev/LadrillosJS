@@ -23,9 +23,15 @@ export const getCachedFunction = (expression: string): Function => {
   }
 
   // Cache miss: compile new function
+  // Include common globals in the function scope
   const compiledFunc = new Function(
     "component",
-    `with(component) { return ${expression}; }`
+    `
+    const { Date, Array, Math, String, Number, Boolean, Object, JSON, RegExp } = globalThis;
+    with(component) { 
+      return ${expression}; 
+    }
+    `
   );
 
   // Check cache size and evict least recently used if needed
