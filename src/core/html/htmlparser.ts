@@ -75,9 +75,26 @@ const scanBindings = (host: HTMLElement | ShadowRoot): BindingDescriptor[] => {
   const bindings: BindingDescriptor[] = [];
   let node: Text | null;
 
+  // Helper function to check if a node is inside a $for loop element
+  const isInsideLoopElement = (node: Node): boolean => {
+    let current = node.parentElement;
+    while (current) {
+      if (current.hasAttribute && current.hasAttribute("$for")) {
+        return true;
+      }
+      current = current.parentElement;
+    }
+    return false;
+  };
+
   // Scan for text nodes with bindings
   // e.g. <p>{name}</p> or <span>{user.firstName}</span>
   while ((node = walker.nextNode() as Text | null)) {
+    // Skip bindings inside $for loop elements - they'll be handled by processClonedElement
+    if (isInsideLoopElement(node)) {
+      continue;
+    }
+
     const matches = [...node.textContent.matchAll(REGEX_PATTERNS.bindings)];
 
     if (matches.length > 0) {
@@ -87,7 +104,12 @@ const scanBindings = (host: HTMLElement | ShadowRoot): BindingDescriptor[] => {
       // Create one binding descriptor per node with all its placeholders
       const nodeBindings = matches.map((match) => {
         const raw = match[1].trim();
-        const isFunction = raw.includes("("); // Detect function calls like MyName("Peter")
+        const isFunction = raw.includes("(") && raw.includes(")"); // Detect function calls like MyName("Peter")
+
+        // Detect if this is a JavaScript expression (contains operators, method calls, etc.)
+        const isExpression =
+          /[+\-*/%<>=!&|]/.test(raw) || // Math or logical operators
+          /\.(?![\s}])[a-zA-Z_$][\w]*\(/.test(raw); // Method calls like name.toLowerCase()
 
         // For functions, extract the function name as the path
         // For properties, split by dot notation
@@ -98,7 +120,7 @@ const scanBindings = (host: HTMLElement | ShadowRoot): BindingDescriptor[] => {
         // Extract variables from function arguments
         const functionArgs = isFunction ? extractFunctionArguments(raw) : [];
 
-        return { raw, path, isFunction, functionArgs };
+        return { raw, path, isFunction, isExpression, functionArgs };
       });
 
       bindings.push({ node, bindings: nodeBindings, original });
@@ -107,6 +129,11 @@ const scanBindings = (host: HTMLElement | ShadowRoot): BindingDescriptor[] => {
   // e.g. <img src="{imageUrl}"> or <input value="{user.email}">
   const elements = host.querySelectorAll("*");
   elements.forEach((el) => {
+    // Skip bindings on $for loop elements - they'll be handled by processClonedElement
+    if (el.hasAttribute("$for") || isInsideLoopElement(el)) {
+      return;
+    }
+
     for (const attr of el.attributes) {
       // Skip conditional and special directive attributes
       if (
@@ -126,7 +153,12 @@ const scanBindings = (host: HTMLElement | ShadowRoot): BindingDescriptor[] => {
         // Create one binding descriptor per attribute with all its placeholders
         const attrBindings = matches.map((match) => {
           const raw = match[1].trim();
-          const isFunction = raw.includes("(");
+          const isFunction = raw.includes("(") && raw.includes(")");
+
+          // Detect if this is a JavaScript expression
+          const isExpression =
+            /[+\-*/%<>=!&|]/.test(raw) || // Math or logical operators
+            /\.(?![\s}])[a-zA-Z_$][\w]*\(/.test(raw); // Method calls like name.toLowerCase()
 
           const path = isFunction
             ? [raw.split("(")[0].trim()]
@@ -135,7 +167,7 @@ const scanBindings = (host: HTMLElement | ShadowRoot): BindingDescriptor[] => {
           // Extract variables from function arguments
           const functionArgs = isFunction ? extractFunctionArguments(raw) : [];
 
-          return { raw, path, isFunction, functionArgs };
+          return { raw, path, isFunction, isExpression, functionArgs };
         });
 
         bindings.push({

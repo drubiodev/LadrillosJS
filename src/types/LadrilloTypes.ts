@@ -30,9 +30,10 @@ export type RegexPatterns = {
 export type BindingDescriptor = {
   node: Text;
   bindings: Array<{
-    raw: string; // e.g. "person.name" or "MyName('Pedro')"
+    raw: string; // e.g. "person.name" or "MyName('Pedro')" or "i + 1"
     path: string[]; // ['person', 'name']
     isFunction?: boolean; // True if this is a function call
+    isExpression?: boolean; // True if this contains operators or method calls
     functionArgs?: string[]; // Variables passed as arguments to functions
   }>;
   original: string; // The original template text (e.g., "Hello: {name}")

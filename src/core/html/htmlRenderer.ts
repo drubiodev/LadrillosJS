@@ -58,29 +58,26 @@ export const renderBindings = (
     let result = binding.original;
 
     // Replace all placeholders in this node
-    for (const { raw, path, isFunction } of binding.bindings) {
+    for (const { raw, path, isFunction, isExpression } of binding.bindings) {
       let value: unknown;
 
-      if (isFunction) {
-        // Execute function calls like MyName("Peter")
+      if (isExpression || isFunction) {
+        // Execute JavaScript expressions like i + 1, name.toLowerCase(), MyName("Peter")
         try {
-          // Get the function from the component
-          const funcName = path[0];
-          const func = component?.[funcName];
-
-          if (typeof func === "function") {
-            // Use cached function to prevent memory leaks
-            const evalFunc = getCachedFunction(raw);
-            value = evalFunc(component);
-          } else {
-            value = undefined;
-          }
+          // Use cached function to prevent memory leaks
+          const evalFunc = getCachedFunction(raw);
+          // Merge context and component into a single scope object
+          const scope =
+            typeof context === "object" && context !== null
+              ? { ...context, ...(component || {}) }
+              : component || {};
+          value = evalFunc(scope);
         } catch (error) {
-          console.error(`Error executing function binding {${raw}}:`, error);
+          console.error(`Error executing expression binding {${raw}}:`, error);
           value = undefined;
         }
       } else {
-        // Regular property access
+        // Simple property access
         value = getValue(context, path);
       }
 
@@ -398,8 +395,36 @@ const processClonedElement = (
 
       matches.forEach((match) => {
         const raw = match[1].trim();
-        const path = raw.split(".").map((p) => p.trim());
-        const value = getValue(context, path);
+
+        // Detect if this is a JavaScript expression
+        const isFunction = raw.includes("(") && raw.includes(")");
+        const isExpression =
+          /[+\-*/%<>=!&|]/.test(raw) || // Math or logical operators
+          /\.(?![\s}])[a-zA-Z_$][\w]*\(/.test(raw); // Method calls
+
+        let value: unknown;
+
+        if (isExpression || isFunction) {
+          // Execute JavaScript expressions
+          try {
+            const evalFunc = getCachedFunction(raw);
+            const scope =
+              typeof context === "object" && context !== null
+                ? { ...context, ...(component || {}) }
+                : component || {};
+            value = evalFunc(scope);
+          } catch (error) {
+            console.error(
+              `Error executing expression in loop {${raw}}:`,
+              error
+            );
+            value = undefined;
+          }
+        } else {
+          // Simple property access
+          const path = raw.split(".").map((p) => p.trim());
+          value = getValue(context, path);
+        }
 
         if (value !== undefined) {
           result = result.replace(`{${raw}}`, String(value ?? ""));
@@ -420,8 +445,36 @@ const processClonedElement = (
 
         matches.forEach((match) => {
           const raw = match[1].trim();
-          const path = raw.split(".").map((p) => p.trim());
-          const value = getValue(context, path);
+
+          // Detect if this is a JavaScript expression
+          const isFunction = raw.includes("(") && raw.includes(")");
+          const isExpression =
+            /[+\-*/%<>=!&|]/.test(raw) || // Math or logical operators
+            /\.(?![\s}])[a-zA-Z_$][\w]*\(/.test(raw); // Method calls
+
+          let value: unknown;
+
+          if (isExpression || isFunction) {
+            // Execute JavaScript expressions
+            try {
+              const evalFunc = getCachedFunction(raw);
+              const scope =
+                typeof context === "object" && context !== null
+                  ? { ...context, ...(component || {}) }
+                  : component || {};
+              value = evalFunc(scope);
+            } catch (error) {
+              console.error(
+                `Error executing expression in loop attribute {${raw}}:`,
+                error
+              );
+              value = undefined;
+            }
+          } else {
+            // Simple property access
+            const path = raw.split(".").map((p) => p.trim());
+            value = getValue(context, path);
+          }
 
           if (value !== undefined) {
             result = result.replace(`{${raw}}`, String(value ?? ""));
