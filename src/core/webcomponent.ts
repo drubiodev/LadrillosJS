@@ -3,14 +3,20 @@ import {
   LadrillosComponent,
   TwoWayBindingDescriptor,
   ConditionalDescriptor,
+  LoopDescriptor,
 } from "../types/LadrilloTypes";
 import { logger } from "../utils/logger";
 import { loadStyles } from "./css/cssParser";
-import { loadTemplate, extractConditionalVariables } from "./html/htmlparser";
+import {
+  loadTemplate,
+  extractConditionalVariables,
+  extractLoopVariables,
+} from "./html/htmlparser";
 import {
   renderBindings,
   setValue,
   renderConditionals,
+  renderLoops,
 } from "./html/htmlRenderer";
 import { loadExternalScripts, loadScripts } from "./js/scriptParser";
 
@@ -26,6 +32,7 @@ export const defineWebComponent = (
     #bindings: BindingDescriptor[] = [];
     #twoWayBindings: TwoWayBindingDescriptor[] = [];
     #conditionals: ConditionalDescriptor[][] = [];
+    #loops: LoopDescriptor[] = [];
     #twoWayBindingCleanups: Array<() => void> = [];
     #sourcePath: string | undefined = sourcePath;
 
@@ -76,6 +83,7 @@ export const defineWebComponent = (
       const triggerUpdate = () => {
         renderBindings(this.#bindings, this.state, this);
         renderConditionals(this.#conditionals, this.state, this);
+        renderLoops(this.#loops, this.state, this);
         this.#updateTwoWayBindings();
       };
 
@@ -144,16 +152,18 @@ export const defineWebComponent = (
       const host = useShadowDOM ? this.shadowRoot! : this;
 
       // Parse template and collect all data binding locations
-      const { bindings, twoWayBindings, conditionals } = loadTemplate(
+      const { bindings, twoWayBindings, conditionals, loops } = loadTemplate(
         host,
         template
       );
       this.#bindings = bindings;
       this.#twoWayBindings = twoWayBindings;
       this.#conditionals = conditionals;
+      this.#loops = loops;
 
-      // Extract variables used in conditional expressions
+      // Extract variables used in conditional expressions and loops
       const conditionalVars = extractConditionalVariables(conditionals);
+      const loopVars = extractLoopVariables(loops);
 
       // Inject component styles
       loadStyles(host, styles, useShadowDOM);
@@ -171,23 +181,24 @@ export const defineWebComponent = (
         externalScripts,
         this.#bindings,
         this.#twoWayBindings,
-        conditionalVars,
+        new Set([...conditionalVars, ...loopVars]),
         this.#sourcePath
       );
 
       // Execute component scripts (event handlers, methods, etc.)
-      // Pass conditional variables so they get mapped to state
+      // Pass conditional variables and loop variables so they get mapped to state
       await loadScripts(
         host,
         scripts,
         this.#bindings,
         this.#twoWayBindings,
-        conditionalVars
+        new Set([...conditionalVars, ...loopVars])
       );
 
       // Perform initial render with current state values (after scripts are ready)
       renderBindings(this.#bindings, this.state, this);
       renderConditionals(this.#conditionals, this.state, this);
+      renderLoops(this.#loops, this.state, this);
 
       // Set up MutationObserver to watch for attribute changes
       this._setupAttributeObserver();

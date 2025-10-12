@@ -19,6 +19,7 @@ A lightweight, zero-dependency web component framework for building modular web 
   - [Event Handling](#event-handling)
   - [Data Binding](#data-binding)
   - [Conditional Rendering](#conditional-rendering)
+  - [List Rendering](#list-rendering)
   - [Slots](#slots)
 - [Advanced Features](#advanced-features)
   - [Global Event Bus](#global-event-bus)
@@ -41,7 +42,8 @@ A lightweight, zero-dependency web component framework for building modular web 
 - 🔌 **Slots** - Content projection with named and default slots
 - 📝 **TypeScript** - Full type definitions and TypeScript source code
 - 🎭 **Conditional Rendering** - `$if`, `$else-if`, and `$else` directives
-- 🚄 **Smart Caching** - LRU cache for components and compiled functions
+- � **List Rendering** - `$for` directive for rendering arrays
+- �🚄 **Smart Caching** - LRU cache for components and compiled functions
 - 🔧 **Framework Utilities** - Helper functions for common tasks
 - 🧩 **External Scripts** - Load and bind external JavaScript modules
 
@@ -155,6 +157,7 @@ Check out the `samples/apps/` directory for complete examples:
 - **[Business Card](samples/apps/biz)** - Form with two-way data binding
 - **[Slideshow](samples/apps/slideshow)** - Multi-slide presentation
 - **[Markdown Editor](samples/apps/markdown)** - Real-time markdown preview
+- **[List Rendering](samples/apps/list-test)** - Dynamic lists with `$for` directive
 
 Run the development server to view examples:
 
@@ -402,6 +405,62 @@ Show or hide elements based on conditions:
 - `$if="{expression}"`: Show if expression is truthy
 - `$else-if="{expression}"`: Chain multiple conditions
 - `$else`: Fallback when previous conditions are false
+
+### List Rendering
+
+Render lists of items using the `$for` directive:
+
+```html
+<div>
+  <h2>My Fruits</h2>
+  <ul>
+    <li $for="fruit in fruits">{fruit}</li>
+  </ul>
+  <button onclick="addFruit()">Add Fruit</button>
+</div>
+
+<script>
+  let fruits = ["Apple", "Banana", "Orange"];
+
+  const addFruit = () => {
+    const newFruit = prompt("Enter a fruit name:");
+    if (newFruit) {
+      fruits = [...fruits, newFruit]; // Triggers re-render
+    }
+  };
+</script>
+```
+
+**List Rendering with Objects:**
+
+```html
+<div>
+  <h2>User List</h2>
+  <div class="user-card" $for="user in users">
+    <h3>{user.name}</h3>
+    <p>Email: {user.email}</p>
+  </div>
+</div>
+
+<script>
+  let users = [
+    { name: "John Doe", email: "john@example.com" },
+    { name: "Jane Smith", email: "jane@example.com" },
+  ];
+</script>
+```
+
+**With Index:**
+
+```html
+<ul>
+  <li $for="(item, index) in items">{index + 1}. {item}</li>
+</ul>
+
+<script>
+  let items = ["First", "Second", "Third"];
+</script>
+```
 
 ### Slots
 
@@ -703,6 +762,11 @@ $reactive(name: string, initialValue: any): (value: any) => void
 <div $if="{condition}">...</div>
 <div $else-if="{anotherCondition}">...</div>
 <div $else>...</div>
+
+<!-- List rendering -->
+<li $for="item in items">{item}</li>
+<li $for="(item, index) in items">{index}: {item}</li>
+<div $for="user in users" $key="user.id">{user.name}</div>
 
 <!-- Event handlers -->
 <button onclick="methodName()">Click</button>

@@ -61,3 +61,15 @@ export type ConditionalDescriptor = {
   originalParent: Element | ShadowRoot; // Reference to parent
   nextSibling: Node | null; // Reference to next sibling for reinsertion
 };
+
+export type LoopDescriptor = {
+  template: Element; // The template element to clone for each item
+  expression: string; // The loop expression (e.g., "item in items" or "(item, index) in items")
+  itemName: string; // The loop variable name (e.g., "item")
+  indexName?: string; // Optional index variable name (e.g., "index")
+  arrayName: string; // The array to iterate over (e.g., "items")
+  keyAttribute?: string; // Optional key for optimization (e.g., "item.id")
+  placeholder: Comment; // Comment node to mark position in DOM
+  renderedElements: Element[]; // Currently rendered elements
+  originalParent: Element | ShadowRoot; // Reference to parent
+};

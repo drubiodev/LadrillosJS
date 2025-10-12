@@ -1,6 +1,7 @@
 import {
   BindingDescriptor,
   ConditionalDescriptor,
+  LoopDescriptor,
 } from "../../types/LadrilloTypes";
 import { getCachedFunction } from "../../cache/functionCache";
 
@@ -297,4 +298,132 @@ export const renderConditionals = (
       }
     }
   }
+};
+
+/**
+ * Renders loop elements based on array data.
+ * Creates clones of the template for each item in the array.
+ */
+export const renderLoops = (
+  loops: LoopDescriptor[],
+  context: unknown,
+  component?: any
+): void => {
+  for (const loop of loops) {
+    const {
+      template,
+      itemName,
+      indexName,
+      arrayName,
+      placeholder,
+      renderedElements,
+    } = loop;
+
+    // Get the array data from context
+    const arrayData = getValue(context, arrayName.split("."));
+
+    // Validate array
+    if (!Array.isArray(arrayData)) {
+      console.warn(`$for: "${arrayName}" is not an array`);
+      // Clear any existing rendered elements
+      renderedElements.forEach((el) => el.remove());
+      renderedElements.length = 0;
+      return;
+    }
+
+    // Remove all currently rendered elements
+    renderedElements.forEach((el) => el.remove());
+    renderedElements.length = 0;
+
+    // Render each item
+    arrayData.forEach((item, index) => {
+      // Clone the template
+      const clone = template.cloneNode(true) as Element;
+
+      // Create a scoped context for this iteration
+      const scopedContext: Record<string, any> = {
+        ...(context as Record<string, any>),
+        [itemName]: item,
+      };
+
+      if (indexName) {
+        scopedContext[indexName] = index;
+      }
+
+      // Process bindings in the cloned element
+      processClonedElement(clone, scopedContext, component);
+
+      // Insert after placeholder (or after the last rendered element)
+      const insertAfter =
+        renderedElements.length > 0
+          ? renderedElements[renderedElements.length - 1]
+          : placeholder;
+
+      insertAfter.parentNode?.insertBefore(clone, insertAfter.nextSibling);
+
+      // Track rendered element
+      renderedElements.push(clone);
+
+      // Process event handlers
+      if (component) {
+        processElementEventHandlers(clone, component);
+      }
+    });
+  }
+};
+
+/**
+ * Processes bindings in a cloned element for loop rendering.
+ * Replaces {variable} placeholders with actual values.
+ */
+const processClonedElement = (
+  element: Element,
+  context: unknown,
+  component?: any
+): void => {
+  // Process text nodes
+  const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT, null);
+  let node: Text | null;
+
+  while ((node = walker.nextNode() as Text | null)) {
+    if (node.textContent && node.textContent.includes("{")) {
+      let result = node.textContent;
+      const matches = [...node.textContent.matchAll(/\{([^}]+)\}/g)];
+
+      matches.forEach((match) => {
+        const raw = match[1].trim();
+        const path = raw.split(".").map((p) => p.trim());
+        const value = getValue(context, path);
+
+        if (value !== undefined) {
+          result = result.replace(`{${raw}}`, String(value ?? ""));
+        }
+      });
+
+      node.textContent = result;
+    }
+  }
+
+  // Process attributes
+  const elementsWithBindings = [element, ...element.querySelectorAll("*")];
+  elementsWithBindings.forEach((el) => {
+    Array.from(el.attributes).forEach((attr) => {
+      if (attr.value.includes("{")) {
+        let result = attr.value;
+        const matches = [...attr.value.matchAll(/\{([^}]+)\}/g)];
+
+        matches.forEach((match) => {
+          const raw = match[1].trim();
+          const path = raw.split(".").map((p) => p.trim());
+          const value = getValue(context, path);
+
+          if (value !== undefined) {
+            result = result.replace(`{${raw}}`, String(value ?? ""));
+          }
+        });
+
+        el.setAttribute(attr.name, result);
+      }
+    });
+  });
 };

@@ -2,6 +2,7 @@ import {
   BindingDescriptor,
   TwoWayBindingDescriptor,
   ConditionalDescriptor,
+  LoopDescriptor,
 } from "../../types/LadrilloTypes";
 import { REGEX_PATTERNS } from "../../utils/regex";
 
@@ -16,14 +17,16 @@ export const loadTemplate = (
   bindings: BindingDescriptor[];
   twoWayBindings: TwoWayBindingDescriptor[];
   conditionals: ConditionalDescriptor[][];
+  loops: LoopDescriptor[];
 } => {
   host.innerHTML = template;
 
   const bindings = scanBindings(host);
   const twoWayBindings = scanTwoWayBindings(host);
   const conditionals = scanConditionals(host);
+  const loops = scanLoops(host);
 
-  return { bindings, twoWayBindings, conditionals };
+  return { bindings, twoWayBindings, conditionals, loops };
 };
 
 /**
@@ -348,6 +351,83 @@ export const extractConditionalVariables = (
         }
       }
     });
+  });
+
+  return variables;
+};
+
+/**
+ * Scans for elements with $for attribute for list rendering.
+ * Supports syntax: "item in items" or "(item, index) in items"
+ * e.g. <li $for="item in items">{item}</li>
+ * e.g. <div $for="(user, index) in users">{index}: {user.name}</div>
+ */
+const scanLoops = (host: HTMLElement | ShadowRoot): LoopDescriptor[] => {
+  const loops: LoopDescriptor[] = [];
+  const loopElements = host.querySelectorAll("[\\$for]");
+
+  loopElements.forEach((element) => {
+    const forExpression = element.getAttribute("$for");
+    if (!forExpression) return;
+
+    const keyAttribute = element.getAttribute("$key") || undefined;
+
+    // Parse the expression: "item in items" or "(item, index) in items"
+    const match = forExpression.match(
+      /^\s*(?:\(([^,]+),\s*([^)]+)\)|([^\s]+))\s+(?:in|of)\s+(.+)\s*$/
+    );
+
+    if (!match) {
+      console.error(`Invalid $for expression: "${forExpression}"`);
+      return;
+    }
+
+    const itemName = (match[1] || match[3]).trim();
+    const indexName = match[2]?.trim();
+    const arrayName = match[4].trim();
+
+    // Create a comment placeholder
+    const placeholder = document.createComment(`loop:${forExpression}`);
+
+    const parent = element.parentElement || host;
+    parent.insertBefore(placeholder, element);
+
+    // Remove the $for and $key attributes
+    element.removeAttribute("$for");
+    if (keyAttribute) element.removeAttribute("$key");
+
+    // Remove the element from DOM (it will be cloned for each iteration)
+    element.remove();
+
+    const descriptor: LoopDescriptor = {
+      template: element as Element,
+      expression: forExpression,
+      itemName,
+      indexName,
+      arrayName,
+      keyAttribute,
+      placeholder,
+      renderedElements: [],
+      originalParent: parent as Element | ShadowRoot,
+    };
+
+    loops.push(descriptor);
+  });
+
+  return loops;
+};
+
+/**
+ * Extracts variable names from loop expressions.
+ * e.g., "item in items" → ["items"], "(user, index) in users" → ["users"]
+ */
+export const extractLoopVariables = (loops: LoopDescriptor[]): Set<string> => {
+  const variables = new Set<string>();
+
+  loops.forEach((loop) => {
+    // Add the array name as a variable to watch
+    const rootVar = loop.arrayName.split(".")[0];
+    variables.add(rootVar);
   });
 
   return variables;
