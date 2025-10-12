@@ -107,8 +107,14 @@ const scanBindings = (host: HTMLElement | ShadowRoot): BindingDescriptor[] => {
         const isFunction = raw.includes("(") && raw.includes(")"); // Detect function calls like MyName("Peter")
 
         // Detect if this is a JavaScript expression (contains operators, method calls, etc.)
+        // Note: We need to be careful with hyphens - they could be part of property names (data-note)
+        // or subtraction operators. We check if hyphen is surrounded by word characters.
+        const hasOperator =
+          /[+*/%<>=!&|]/.test(raw) || // Math or logical operators (excluding hyphen)
+          /\s-\s/.test(raw); // Hyphen with spaces around it (likely subtraction)
+
         const isExpression =
-          /[+\-*/%<>=!&|]/.test(raw) || // Math or logical operators
+          hasOperator ||
           /\.(?![\s}])[a-zA-Z_$][\w]*\(/.test(raw) || // Method calls like name.toLowerCase()
           /\bnew\s+/.test(raw) || // Object instantiation like new Date()
           /\b(typeof|instanceof|void|delete)\b/.test(raw); // Other JS operators
@@ -158,8 +164,13 @@ const scanBindings = (host: HTMLElement | ShadowRoot): BindingDescriptor[] => {
           const isFunction = raw.includes("(") && raw.includes(")");
 
           // Detect if this is a JavaScript expression
+          // Note: We need to be careful with hyphens - they could be part of property names
+          const hasOperator =
+            /[+*/%<>=!&|]/.test(raw) || // Math or logical operators (excluding hyphen)
+            /\s-\s/.test(raw); // Hyphen with spaces around it (likely subtraction)
+
           const isExpression =
-            /[+\-*/%<>=!&|]/.test(raw) || // Math or logical operators
+            hasOperator ||
             /\.(?![\s}])[a-zA-Z_$][\w]*\(/.test(raw) || // Method calls like name.toLowerCase()
             /\bnew\s+/.test(raw) || // Object instantiation like new Date()
             /\b(typeof|instanceof|void|delete)\b/.test(raw); // Other JS operators

@@ -398,8 +398,9 @@ const processClonedElement = (
 
         // Detect if this is a JavaScript expression
         const isFunction = raw.includes("(") && raw.includes(")");
+        const hasOperator = /[+*/%<>=!&|]/.test(raw) || /\s-\s/.test(raw);
         const isExpression =
-          /[+\-*/%<>=!&|]/.test(raw) || // Math or logical operators
+          hasOperator ||
           /\.(?![\s}])[a-zA-Z_$][\w]*\(/.test(raw) || // Method calls
           /\bnew\s+/.test(raw) || // Object instantiation like new Date()
           /\b(typeof|instanceof|void|delete)\b/.test(raw); // Other JS operators
@@ -450,8 +451,9 @@ const processClonedElement = (
 
           // Detect if this is a JavaScript expression
           const isFunction = raw.includes("(") && raw.includes(")");
+          const hasOperator = /[+*/%<>=!&|]/.test(raw) || /\s-\s/.test(raw);
           const isExpression =
-            /[+\-*/%<>=!&|]/.test(raw) || // Math or logical operators
+            hasOperator ||
             /\.(?![\s}])[a-zA-Z_$][\w]*\(/.test(raw) || // Method calls
             /\bnew\s+/.test(raw) || // Object instantiation like new Date()
             /\b(typeof|instanceof|void|delete)\b/.test(raw); // Other JS operators
