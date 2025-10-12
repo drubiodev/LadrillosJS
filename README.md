@@ -875,6 +875,10 @@ npm run test:coverage    # Run tests with coverage report
 npm run preview          # Preview production build
 ```
 
+## Attribution
+
+If you use LadrillosJS in your project, I'd appreciate a mention or link back to this repository, though it's not required. It helps others discover the framework and motivates continued development!
+
 ## License
 
 MIT License - see [LICENSE](LICENSE) file for details.
