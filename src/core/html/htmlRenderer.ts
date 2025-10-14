@@ -57,32 +57,46 @@ export const renderBindings = (
     // Start with the original template
     let result = binding.original;
     let lastValue: unknown; // Track the last evaluated value for boolean attributes
+    let hasUndefinedBinding = false; // Track if any binding is undefined
 
     // Replace all placeholders in this node
     for (const { raw, path, isFunction, isExpression } of binding.bindings) {
       let value: unknown;
+      let skipReplacement = false;
 
       if (isExpression || isFunction) {
         // Execute JavaScript expressions like i + 1, name.toLowerCase(), MyName("Peter")
+        // or !filename (negation), etc.
         try {
           // Use cached function to prevent memory leaks
           const evalFunc = getCachedFunction(raw);
-          // Merge context and component into a single scope object
-          const scope =
-            typeof context === "object" && context !== null
-              ? { ...context, ...(component || {}) }
-              : component || {};
-          value = evalFunc(scope);
+          // Pass component directly (don't spread - we need the property descriptors)
+          // The with(component) scope in getCachedFunction will access properties correctly
+          value = evalFunc(component || context);
+          // For expressions/functions, we always replace even if the result is undefined
+          // because the expression was successfully evaluated
         } catch (error) {
           console.error(`Error executing expression binding {${raw}}:`, error);
           value = undefined;
+          skipReplacement = true;
         }
       } else {
-        // Simple property access
+        // Simple property access (e.g., {filename}, {user.name})
         value = getValue(context, path);
+
+        // Only skip replacement if it's a simple property and the value is undefined
+        // This preserves the {placeholder} for missing values
+        if (value === undefined) {
+          skipReplacement = true;
+        }
       }
 
-      if (value === undefined) continue;
+      // If we should skip replacement, mark it and continue
+      if (skipReplacement) {
+        hasUndefinedBinding = true;
+        continue;
+      }
+
       const replacement = String(value ?? "");
 
       // Track last value for boolean attribute handling
@@ -90,6 +104,11 @@ export const renderBindings = (
 
       // Replace this specific placeholder
       result = result.replace(`{${raw}}`, replacement);
+    }
+
+    // If all bindings are undefined, show the original template with placeholders
+    if (hasUndefinedBinding && result === binding.original) {
+      // Don't modify - keep the original {placeholder} visible
     }
 
     // Apply the final result to the DOM

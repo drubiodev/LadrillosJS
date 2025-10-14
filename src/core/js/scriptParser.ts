@@ -57,13 +57,19 @@ const injectBindVariables = (
  * Extracts variable declarations (const, let, var) from script content
  * that match the template bindings or conditionals, and returns code to bind them to state.
  * Only binds variables that are actually used in the template or conditionals.
+ * Also extracts default values for each variable.
  */
 const extractStateBindings = (
   scriptContent: string,
   bindings: BindingDescriptor[],
   conditionalVars: Set<string> = new Set()
-): { stateBindings: string[]; boundVarNames: Set<string> } => {
+): {
+  stateBindings: string[];
+  boundVarNames: Set<string>;
+  defaultValues: Map<string, string>;
+} => {
   const stateBindings: string[] = [];
+  const defaultValues = new Map<string, string>();
 
   // Create a Set of all binding names used in the template for fast lookup
   const bindingNames = new Set<string>();
@@ -93,14 +99,16 @@ const extractStateBindings = (
   let match;
   while ((match = variableRegex.exec(scriptContent)) !== null) {
     const varName = match[1];
+    const defaultValue = match[2].trim();
 
     // Only auto-bind if this variable is used in a template binding
     if (bindingNames.has(varName)) {
       stateBindings.push(`component.state.${varName} = ${varName};`);
+      defaultValues.set(varName, defaultValue);
     }
   }
 
-  return { stateBindings, boundVarNames: bindingNames };
+  return { stateBindings, boundVarNames: bindingNames, defaultValues };
 };
 
 /**
@@ -214,6 +222,7 @@ const transformBoundAssignments = (
  * @param host - The host element or shadow root (for querySelector)
  * @param componentHost - The component element to execute the script on
  * @param conditionalVars - Variables used in conditional expressions ($if, $else-if)
+ * @returns Map of variable names to their default values
  */
 const processScript = (
   scriptContent: string,
@@ -222,7 +231,7 @@ const processScript = (
   host: HTMLElement | ShadowRoot,
   componentHost: HTMLElement,
   conditionalVars: Set<string> = new Set()
-): void => {
+): Map<string, string> => {
   try {
     // Inject $bind variables
     const { injectedCode, componentInjections, bindVarNames } =
@@ -251,11 +260,8 @@ const processScript = (
       .join("\n            ");
 
     // Extract and auto-bind variables to state (only those used in template bindings or conditionals)
-    const { stateBindings, boundVarNames } = extractStateBindings(
-      scriptContent,
-      bindings,
-      conditionalVars
-    );
+    const { stateBindings, boundVarNames, defaultValues } =
+      extractStateBindings(scriptContent, bindings, conditionalVars);
 
     // Merge bindVarNames with boundVarNames for transformation
     const allBoundVars = new Set([...boundVarNames, ...bindVarNames]);
@@ -317,8 +323,11 @@ const processScript = (
 
     const executor = new Function(wrappedScript);
     executor(componentHost, host, eventBus);
+
+    return defaultValues;
   } catch (error) {
     console.error("Script execution failed:", error);
+    return new Map();
   }
 };
 
@@ -498,14 +507,16 @@ export const loadScripts = async (
   bindings: BindingDescriptor[],
   twoWayBindings: TwoWayBindingDescriptor[] = [],
   conditionalVars: Set<string> = new Set()
-) => {
-  if (!scripts?.length) return;
+): Promise<Map<string, string>> => {
+  const allDefaults = new Map<string, string>();
+
+  if (!scripts?.length) return allDefaults;
 
   const componentHost = getHostElement(host);
 
   for (const scriptDefinition of scripts) {
     if (scriptDefinition.content) {
-      processScript(
+      const defaults = processScript(
         scriptDefinition.content,
         bindings,
         twoWayBindings,
@@ -513,11 +524,20 @@ export const loadScripts = async (
         componentHost,
         conditionalVars
       );
+
+      // Merge defaults from this script
+      defaults.forEach((value, key) => {
+        if (!allDefaults.has(key)) {
+          allDefaults.set(key, value);
+        }
+      });
     }
   }
 
   // Process all event handlers to bind them to the component
   processEventHandlers(host, componentHost);
+
+  return allDefaults;
 };
 
 /**

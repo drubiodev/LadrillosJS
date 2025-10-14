@@ -126,8 +126,11 @@ export const defineWebComponent = (
         },
         set: (target, prop, value) => {
           const prev = target[prop as keyof typeof target];
-          // Skip update if value hasn't changed (avoids unnecessary re-renders)
-          if (Object.is(prev, value)) return true;
+          const propertyExists = prop in target;
+
+          // Skip update if property exists AND value hasn't changed (avoids unnecessary re-renders)
+          // But always proceed if property doesn't exist yet (need to create descriptor)
+          if (propertyExists && Object.is(prev, value)) return true;
 
           // Wrap objects/arrays in deep proxies for nested reactivity
           if (value !== null && typeof value === "object") {
@@ -200,12 +203,6 @@ export const defineWebComponent = (
       // Inject component styles
       loadStyles(host, styles, useShadowDOM);
 
-      // Sync initial state from HTML attributes (e.g., <my-component name="value">)
-      this._initializeStateFromAttributes();
-
-      // Setup two-way bindings
-      this._setupTwoWayBindings();
-
       // Load external scripts first (e.g., CDN libraries like highlight.js)
       // so they're available when inline scripts execute
       await loadExternalScripts(
@@ -219,13 +216,36 @@ export const defineWebComponent = (
 
       // Execute component scripts (event handlers, methods, etc.)
       // Pass conditional variables and loop variables so they get mapped to state
-      await loadScripts(
+      // Get default values from script declarations
+      const scriptDefaults = await loadScripts(
         host,
         scripts,
         this.#bindings,
         this.#twoWayBindings,
         new Set([...conditionalVars, ...loopVars])
       );
+
+      // Initialize state with script defaults first (before attributes override them)
+      scriptDefaults.forEach((defaultValue, varName) => {
+        // Only set if the state doesn't already have a value
+        if (this.state[varName] === undefined) {
+          try {
+            // Evaluate the default value
+            const evalFunc = new Function(`return ${defaultValue}`);
+            this.state[varName] = evalFunc();
+          } catch (error) {
+            // If evaluation fails, use the raw value
+            this.state[varName] = defaultValue;
+          }
+        }
+      });
+
+      // Sync initial state from HTML attributes (e.g., <my-component name="value">)
+      // This will override script defaults if attributes are present
+      this._initializeStateFromAttributes();
+
+      // Setup two-way bindings
+      this._setupTwoWayBindings();
 
       // Perform initial render with current state values (after scripts are ready)
       renderBindings(this.#bindings, this.state, this);

@@ -113,8 +113,12 @@ const scanBindings = (host: HTMLElement | ShadowRoot): BindingDescriptor[] => {
           /[+*/%<>=!&|]/.test(raw) || // Math or logical operators (excluding hyphen)
           /\s-\s/.test(raw); // Hyphen with spaces around it (likely subtraction)
 
+        // Check if starts with an operator (like !variable or typeof variable)
+        const startsWithOperator = /^(!|typeof\s|void\s|delete\s)/.test(raw);
+
         const isExpression =
           hasOperator ||
+          startsWithOperator || // Expressions starting with operators
           /\.(?![\s}])[a-zA-Z_$][\w]*\(/.test(raw) || // Method calls like name.toLowerCase()
           /\bnew\s+/.test(raw) || // Object instantiation like new Date()
           /\b(typeof|instanceof|void|delete)\b/.test(raw); // Other JS operators
@@ -169,8 +173,12 @@ const scanBindings = (host: HTMLElement | ShadowRoot): BindingDescriptor[] => {
             /[+*/%<>=!&|]/.test(raw) || // Math or logical operators (excluding hyphen)
             /\s-\s/.test(raw); // Hyphen with spaces around it (likely subtraction)
 
+          // Check if starts with an operator (like !variable or typeof variable)
+          const startsWithOperator = /^(!|typeof\s|void\s|delete\s)/.test(raw);
+
           const isExpression =
             hasOperator ||
+            startsWithOperator || // Expressions starting with operators
             /\.(?![\s}])[a-zA-Z_$][\w]*\(/.test(raw) || // Method calls like name.toLowerCase()
             /\bnew\s+/.test(raw) || // Object instantiation like new Date()
             /\b(typeof|instanceof|void|delete)\b/.test(raw); // Other JS operators
