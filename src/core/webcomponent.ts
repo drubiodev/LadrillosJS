@@ -486,6 +486,9 @@ export const defineWebComponent = (
     }
   }
 
-  customElements.define(tagName, ComponentElement);
-  logger.log(`Web component defined: <${tagName}></${tagName}>`);
+  // Only define if not already defined
+  if (!customElements.get(tagName)) {
+    customElements.define(tagName, ComponentElement);
+    logger.log(`Web component defined: <${tagName}></${tagName}>`);
+  }
 };

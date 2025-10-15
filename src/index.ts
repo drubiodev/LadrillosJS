@@ -1,5 +1,6 @@
 import { ladrillos } from "./core/main.js";
 import { eventBus } from "./core/eventBus.js";
+import { ComponentRegistration } from "./types/LadrilloTypes.js";
 
 declare global {
   interface Window {
@@ -20,15 +21,16 @@ declare global {
 export const registerComponent = (
   name: string,
   path: string,
-  useShadowDOM?: boolean
-) => ladrillos.registerComponent(name, path, useShadowDOM);
+  useShadowDOM?: boolean,
+  lazy?: boolean
+) => ladrillos.registerComponent(name, path, useShadowDOM, lazy);
 
 export const registerComponents = async (
-  components: Array<{ name: string; path: string; useShadowDOM?: boolean }>
+  components: ComponentRegistration[]
 ): Promise<void> => {
   await Promise.all(
-    components.map(({ name, path, useShadowDOM }) =>
-      ladrillos.registerComponent(name, path, useShadowDOM)
+    components.map(({ name, path, useShadowDOM, lazy }) =>
+      ladrillos.registerComponent(name, path, useShadowDOM, lazy)
     )
   );
 };

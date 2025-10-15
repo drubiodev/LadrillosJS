@@ -16,6 +16,14 @@ export type LadrillosComponent = {
   externalScripts: ExternalScriptElement[];
   styles: string;
   sourcePath?: string;
+  lazy?: boolean;
+};
+
+export type ComponentRegistration = {
+  name: string;
+  path: string;
+  useShadowDOM?: boolean;
+  lazy?: boolean;
 };
 
 export type RegexPatterns = {
