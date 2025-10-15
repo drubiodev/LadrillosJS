@@ -5,6 +5,7 @@ import {
   LoopDescriptor,
 } from "../../types/LadrilloTypes";
 import { REGEX_PATTERNS } from "../../utils/regex";
+import { logParseError } from "../../utils/devErrors";
 
 /**
  * Injects the template HTML into the host element and scans for data bindings.
@@ -433,7 +434,10 @@ const scanLoops = (host: HTMLElement | ShadowRoot): LoopDescriptor[] => {
     );
 
     if (!match) {
-      console.error(`Invalid $for expression: "${forExpression}"`);
+      logParseError(`Invalid $for expression: "${forExpression}"`, {
+        expression: forExpression,
+        lineHint: "$for attribute parsing",
+      });
       return;
     }
 

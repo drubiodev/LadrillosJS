@@ -1,5 +1,6 @@
 import { getCached, setCache } from "../cache";
 import { logger } from "../utils/logger";
+import { logFetchError } from "../utils/devErrors";
 
 /**
  * Fetches component source with caching support
@@ -31,9 +32,7 @@ export const fetchComponentSource = async (
 
     return text;
   } catch (error) {
-    logger.error(
-      `Error fetching component from ${path}: ${(error as Error).message}`
-    );
+    logFetchError(path, error as Error, { componentPath: path });
   }
 };
 
@@ -48,7 +47,7 @@ export const safeFetch = async (url: string): Promise<string> => {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return await res.text();
   } catch (err) {
-    logger.error(`Failed to fetch resource at ${url}:`, err);
+    logFetchError(url, err as Error);
     return "";
   }
 };

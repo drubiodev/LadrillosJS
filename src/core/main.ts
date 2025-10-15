@@ -1,5 +1,6 @@
 import { LadrillosComponent } from "../types/LadrilloTypes";
 import { logger } from "../utils/logger";
+import { logRegistrationError, logParseError } from "../utils/devErrors";
 import { fetchComponentSource } from "./componentSource";
 import { parseComponent } from "./componentParser";
 
@@ -53,9 +54,7 @@ class Ladrillos {
       logger.log(`Component ${name} registered successfully`);
       await this.#defineWebComponent(name, useShadowDOM);
     } catch (error) {
-      logger.error(
-        `Failed to register component "${name}": ${(error as Error).message}`
-      );
+      logRegistrationError(name, path, error as Error);
       return;
     }
   }
@@ -138,7 +137,10 @@ class Ladrillos {
           const nextSibling = this.nextSibling;
 
           if (!parent) {
-            logger.error(`Placeholder for ${name} has no parent node`);
+            logParseError(`Placeholder for ${name} has no parent node`, {
+              componentName: name,
+              componentPath: path,
+            });
             return;
           }
 
@@ -206,12 +208,7 @@ class Ladrillos {
           self.lazyComponents.delete(name);
           logger.log(`Component ${name} lazy-loaded successfully`);
         } catch (error) {
-          logger.error(
-            `Failed to lazy load component "${name}": ${
-              (error as Error).message
-            }`
-          );
-          console.error(error);
+          logRegistrationError(name, path, error as Error);
         }
       }
     }

@@ -4,6 +4,13 @@ import {
   LoopDescriptor,
 } from "../../types/LadrilloTypes";
 import { getCachedFunction } from "../../cache/functionCache";
+import {
+  logBindingError,
+  logEventHandlerError,
+  logConditionalError,
+  logLoopError,
+  createErrorContext,
+} from "../../utils/devErrors";
 
 /**
  * Safely retrieves a nested value from an object using a path array.
@@ -76,7 +83,7 @@ export const renderBindings = (
           // For expressions/functions, we always replace even if the result is undefined
           // because the expression was successfully evaluated
         } catch (error) {
-          console.error(`Error executing expression binding {${raw}}:`, error);
+          logBindingError(raw, error as Error, createErrorContext(component));
           value = undefined;
           skipReplacement = true;
         }
@@ -204,7 +211,11 @@ const evaluateCondition = (
 
     return func(context, component);
   } catch (error) {
-    console.error(`Error evaluating condition "${condition}":`, error);
+    logConditionalError(
+      condition,
+      error as Error,
+      createErrorContext(component)
+    );
     return false;
   }
 };
@@ -285,10 +296,13 @@ const processElementEventHandlers = (
               );
               func.call(this, event, component);
             } catch (error) {
-              console.error(
-                `Error executing ${eventType} handler:`,
-                error,
-                handlerCode
+              logEventHandlerError(
+                eventType,
+                handlerCode,
+                error as Error,
+                createErrorContext(component, {
+                  elementTag: el.tagName.toLowerCase(),
+                })
               );
             }
           }
@@ -375,7 +389,13 @@ export const renderLoops = (
     // Validate array - only warn if the value exists but is not an array
     // (undefined values are expected during initial render before scripts execute)
     if (arrayData !== undefined && !Array.isArray(arrayData)) {
-      console.warn(`$for: "${arrayName}" is not an array, got:`, arrayData);
+      logLoopError(
+        `${itemName} in ${arrayName}`,
+        new Error(`"${arrayName}" is not an array, got: ${typeof arrayData}`),
+        createErrorContext(component, {
+          lineHint: `$for loop in template`,
+        })
+      );
       // Clear any existing rendered elements
       renderedElements.forEach((el) => el.remove());
       renderedElements.length = 0;
@@ -470,9 +490,12 @@ const processClonedElement = (
                 : component || {};
             value = evalFunc(scope);
           } catch (error) {
-            console.error(
-              `Error executing expression in loop {${raw}}:`,
-              error
+            logBindingError(
+              raw,
+              error as Error,
+              createErrorContext(component, {
+                lineHint: `$for loop template binding`,
+              })
             );
             value = undefined;
           }
@@ -523,9 +546,13 @@ const processClonedElement = (
                   : component || {};
               value = evalFunc(scope);
             } catch (error) {
-              console.error(
-                `Error executing expression in loop attribute {${raw}}:`,
-                error
+              logBindingError(
+                raw,
+                error as Error,
+                createErrorContext(component, {
+                  attributeName: attr.name,
+                  lineHint: `$for loop attribute binding`,
+                })
               );
               value = undefined;
             }

@@ -3,6 +3,8 @@
  * Allows components to emit events and listen to events from other components
  */
 
+import { logger } from "../utils/logger";
+
 type EventCallback = (data?: any) => void | Promise<void>;
 type EventListeners = Map<string, Set<EventCallback>>;
 
@@ -42,7 +44,10 @@ class EventBus {
           promises.push(result);
         }
       } catch (error) {
-        console.error(`Error in event listener for "${eventName}":`, error);
+        logger.error(
+          `⚠️ Event Bus Error: Failed to execute listener for "${eventName}"`
+        );
+        logger.error(`  Error details: ${(error as Error).message}`);
         promises.push(Promise.reject(error));
       }
     });

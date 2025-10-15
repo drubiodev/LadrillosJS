@@ -6,6 +6,7 @@ import {
   LoopDescriptor,
 } from "../types/LadrilloTypes";
 import { logger } from "../utils/logger";
+import { logTwoWayBindingError, createErrorContext } from "../utils/devErrors";
 import { loadStyles } from "./css/cssParser";
 
 import {
@@ -269,7 +270,13 @@ export const defineWebComponent = (
         try {
           cleanup();
         } catch (error) {
-          console.error("Error cleaning up two-way binding:", error);
+          logTwoWayBindingError(
+            "cleanup",
+            error as Error,
+            createErrorContext(this, {
+              lineHint: "disconnectedCallback cleanup",
+            })
+          );
         }
       });
       this.#twoWayBindingCleanups = [];
@@ -281,7 +288,11 @@ export const defineWebComponent = (
           try {
             unsub();
           } catch (error) {
-            console.error("Error unsubscribing from event:", error);
+            logger.error(
+              `⚠️ Event Bus Error: Failed to unsubscribe from event`,
+              createErrorContext(this)
+            );
+            logger.error(`  Error details: ${(error as Error).message}`);
           }
         });
         (this as any).__eventUnsubscribers = [];

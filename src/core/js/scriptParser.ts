@@ -5,6 +5,7 @@ import {
   TwoWayBindingDescriptor,
 } from "../../types/LadrilloTypes";
 import { eventBus } from "../eventBus";
+import { logScriptError, createErrorContext } from "../../utils/devErrors";
 
 const getHostElement = (host: HTMLElement | ShadowRoot): HTMLElement =>
   host instanceof ShadowRoot ? (host.host as HTMLElement) : host;
@@ -326,7 +327,7 @@ const processScript = (
 
     return defaultValues;
   } catch (error) {
-    console.error("Script execution failed:", error);
+    logScriptError(error as Error, createErrorContext(componentHost));
     return new Map();
   }
 };
