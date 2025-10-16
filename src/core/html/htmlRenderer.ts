@@ -415,45 +415,218 @@ export const renderLoops = (
       return;
     }
 
-    // Remove all currently rendered elements
-    renderedElements.forEach((el) => el.remove());
-    renderedElements.length = 0;
+    const newLength = arrayData.length;
+    const oldLength = renderedElements.length;
 
-    // Render each item
-    arrayData.forEach((item, index) => {
-      // Clone the template
-      const clone = template.cloneNode(true) as Element;
+    // Optimize: If we're just updating existing items (same length), update in place
+    if (newLength === oldLength && newLength > 0) {
+      arrayData.forEach((item, index) => {
+        const element = renderedElements[index];
 
-      // Create a scoped context for this iteration
+        // Create a scoped context for this iteration
+        const scopedContext: Record<string, any> = {
+          ...(context as Record<string, any>),
+          [itemName]: item,
+        };
+
+        if (indexName) {
+          scopedContext[indexName] = index;
+        }
+
+        // Update the existing element in place
+        updateClonedElement(element, scopedContext, component);
+      });
+      return;
+    }
+
+    // Handle length changes: remove extra elements or add new ones
+    if (newLength < oldLength) {
+      // Remove extra elements from the end
+      const toRemove = renderedElements.splice(newLength);
+      toRemove.forEach((el) => el.remove());
+    }
+
+    // Update existing elements
+    const minLength = Math.min(newLength, oldLength);
+    for (let i = 0; i < minLength; i++) {
+      const item = arrayData[i];
+      const element = renderedElements[i];
+
       const scopedContext: Record<string, any> = {
         ...(context as Record<string, any>),
         [itemName]: item,
       };
 
       if (indexName) {
-        scopedContext[indexName] = index;
+        scopedContext[indexName] = i;
       }
 
-      // Process bindings in the cloned element
-      processClonedElement(clone, scopedContext, component);
+      updateClonedElement(element, scopedContext, component);
+    }
 
-      // Insert after placeholder (or after the last rendered element)
-      const insertAfter =
-        renderedElements.length > 0
-          ? renderedElements[renderedElements.length - 1]
-          : placeholder;
+    // Add new elements if array grew
+    if (newLength > oldLength) {
+      const fragment = document.createDocumentFragment();
 
-      insertAfter.parentNode?.insertBefore(clone, insertAfter.nextSibling);
+      for (let i = oldLength; i < newLength; i++) {
+        const item = arrayData[i];
+        const clone = template.cloneNode(true) as Element;
 
-      // Track rendered element
-      renderedElements.push(clone);
+        const scopedContext: Record<string, any> = {
+          ...(context as Record<string, any>),
+          [itemName]: item,
+        };
 
-      // Process event handlers
-      if (component) {
-        processElementEventHandlers(clone, component);
+        if (indexName) {
+          scopedContext[indexName] = i;
+        }
+
+        processClonedElement(clone, scopedContext, component);
+        fragment.appendChild(clone);
+        renderedElements.push(clone);
+
+        if (component) {
+          processElementEventHandlers(clone, component);
+        }
+      }
+
+      // Insert all new elements at once
+      const insertAfter = renderedElements[oldLength - 1] || placeholder;
+      insertAfter.parentNode?.insertBefore(fragment, insertAfter.nextSibling);
+    }
+  }
+};
+/**
+ * Updates an existing element's bindings without recreating it.
+ * More efficient than processClonedElement for updates.
+ */
+const updateClonedElement = (
+  element: Element,
+  context: unknown,
+  component?: any
+): void => {
+  // Process text nodes
+  const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT, null);
+  let node: Text | null;
+
+  while ((node = walker.nextNode() as Text | null)) {
+    // Check if this node has a cached template OR current text has bindings
+    const originalText = (node as any).__originalText;
+    const hasBindings =
+      originalText || (node.textContent && node.textContent.includes("{"));
+
+    if (hasBindings) {
+      // Use cached original if available, otherwise current text
+      const templateText = originalText || node.textContent!;
+
+      // Cache for next time if not already cached
+      if (!originalText) {
+        (node as any).__originalText = templateText;
+      }
+
+      let result = templateText;
+      const matches = [...templateText.matchAll(/\{([^}]+)\}/g)];
+
+      matches.forEach((match) => {
+        const raw = match[1].trim();
+        const isFunction = raw.includes("(") && raw.includes(")");
+        const hasOperator = /[+*/%<>=!&|]/.test(raw) || /\s-\s/.test(raw);
+        const isExpression =
+          hasOperator ||
+          /\.(?![\s}])[a-zA-Z_$][\w]*\(/.test(raw) ||
+          /\bnew\s+/.test(raw) ||
+          /\b(typeof|instanceof|void|delete)\b/.test(raw);
+
+        let value: unknown;
+
+        if (isExpression || isFunction) {
+          try {
+            const evalFunc = getCachedFunction(raw);
+            const scope =
+              typeof context === "object" && context !== null
+                ? { ...context, ...(component || {}) }
+                : component || {};
+            value = evalFunc(scope);
+          } catch (error) {
+            value = undefined;
+          }
+        } else {
+          const path = raw.split(".").map((p: string) => p.trim());
+          value = getValue(context, path);
+        }
+
+        if (value !== undefined) {
+          result = result.replace(`{${raw}}`, String(value ?? ""));
+        }
+      });
+
+      // Only update if changed
+      if (node.textContent !== result) {
+        node.textContent = result;
+      }
+    }
+  }
+
+  // Process attributes
+  const elementsWithBindings = [element, ...element.querySelectorAll("*")];
+  elementsWithBindings.forEach((el) => {
+    Array.from(el.attributes).forEach((attr) => {
+      // Check if this attribute has a cached template OR current value has bindings
+      const originalValue = (attr as any).__originalValue;
+      const hasBindings = originalValue || attr.value.includes("{");
+
+      if (hasBindings) {
+        // Use cached original if available, otherwise current value
+        const templateValue = originalValue || attr.value;
+
+        // Cache for next time if not already cached
+        if (!originalValue) {
+          (attr as any).__originalValue = templateValue;
+        }
+
+        let result = templateValue;
+        const matches = [...templateValue.matchAll(/\{([^}]+)\}/g)];
+
+        matches.forEach((match) => {
+          const raw = match[1].trim();
+          const isFunction = raw.includes("(") && raw.includes(")");
+          const hasOperator = /[+*/%<>=!&|]/.test(raw) || /\s-\s/.test(raw);
+          const isExpression =
+            hasOperator ||
+            /\.(?![\s}])[a-zA-Z_$][\w]*\(/.test(raw) ||
+            /\bnew\s+/.test(raw) ||
+            /\b(typeof|instanceof|void|delete)\b/.test(raw);
+
+          let value: unknown;
+
+          if (isExpression || isFunction) {
+            try {
+              const evalFunc = getCachedFunction(raw);
+              const scope =
+                typeof context === "object" && context !== null
+                  ? { ...context, ...(component || {}) }
+                  : component || {};
+              value = evalFunc(scope);
+            } catch (error) {
+              value = undefined;
+            }
+          } else {
+            const path = raw.split(".").map((p: string) => p.trim());
+            value = getValue(context, path);
+          }
+
+          if (value !== undefined) {
+            result = result.replace(`{${raw}}`, String(value ?? ""));
+          }
+        });
+
+        // Only update if changed
+        if (attr.value !== result) {
+          el.setAttribute(attr.name, result);
+        }
       }
     });
-  }
+  });
 };
 
 /**
@@ -471,8 +644,12 @@ const processClonedElement = (
 
   while ((node = walker.nextNode() as Text | null)) {
     if (node.textContent && node.textContent.includes("{")) {
-      let result = node.textContent;
-      const matches = [...node.textContent.matchAll(/\{([^}]+)\}/g)];
+      // Cache the original template text for future updates
+      const originalText = node.textContent;
+      (node as any).__originalText = originalText;
+
+      let result = originalText;
+      const matches = [...originalText.matchAll(/\{([^}]+)\}/g)];
 
       matches.forEach((match) => {
         const raw = match[1].trim();
@@ -527,8 +704,12 @@ const processClonedElement = (
   elementsWithBindings.forEach((el) => {
     Array.from(el.attributes).forEach((attr) => {
       if (attr.value.includes("{")) {
-        let result = attr.value;
-        const matches = [...attr.value.matchAll(/\{([^}]+)\}/g)];
+        // Cache the original template attribute value for future updates
+        const originalValue = attr.value;
+        (attr as any).__originalValue = originalValue;
+
+        let result = originalValue;
+        const matches = [...originalValue.matchAll(/\{([^}]+)\}/g)];
 
         matches.forEach((match) => {
           const raw = match[1].trim();

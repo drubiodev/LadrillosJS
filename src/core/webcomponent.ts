@@ -77,16 +77,29 @@ export const defineWebComponent = (
             ];
             if (arrayMutationMethods.includes(prop as string)) {
               return (...args: any[]) => {
-                const result = (value as Function).apply(obj, args);
+                // Proxy any object/array arguments before adding to array
+                const proxiedArgs = args.map((arg) =>
+                  arg !== null && typeof arg === "object"
+                    ? this.#createDeepProxy(arg, callback)
+                    : arg
+                );
+                const result = (value as Function).apply(obj, proxiedArgs);
                 callback(); // Trigger re-render after mutation
                 return result;
               };
             }
           }
 
-          // Recursively proxy nested objects/arrays
+          // Return already proxied value if it exists, otherwise proxy it
           if (value !== null && typeof value === "object") {
-            return this.#createDeepProxy(value, callback);
+            // Check if already proxied
+            if (this.#proxyCache.has(value)) {
+              return this.#proxyCache.get(value);
+            }
+            // Create and store proxy
+            const proxiedValue = this.#createDeepProxy(value, callback);
+            obj[prop] = proxiedValue; // Replace with proxied version
+            return proxiedValue;
           }
           return value;
         },
@@ -95,7 +108,13 @@ export const defineWebComponent = (
           // Skip if value hasn't changed
           if (Object.is(prev, value)) return true;
 
-          obj[prop] = value;
+          // Proxy the value if it's an object/array to maintain deep reactivity
+          if (value !== null && typeof value === "object") {
+            obj[prop] = this.#createDeepProxy(value, callback);
+          } else {
+            obj[prop] = value;
+          }
+
           callback(); // Trigger re-render
           return true;
         },
