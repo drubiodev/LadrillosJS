@@ -112,12 +112,24 @@ export const defineWebComponent = (
 
       const internalState: any = {};
 
+      // Batched update system for performance
+      let updateScheduled = false;
+      const scheduleUpdate = () => {
+        if (!updateScheduled) {
+          updateScheduled = true;
+          requestAnimationFrame(() => {
+            updateScheduled = false;
+            renderBindings(this.#bindings, this.state, this);
+            renderConditionals(this.#conditionals, this.state, this);
+            renderLoops(this.#loops, this.state, this);
+            this.#updateTwoWayBindings();
+          });
+        }
+      };
+
       // Callback for triggering re-renders
       const triggerUpdate = () => {
-        renderBindings(this.#bindings, this.state, this);
-        renderConditionals(this.#conditionals, this.state, this);
-        renderLoops(this.#loops, this.state, this);
-        this.#updateTwoWayBindings();
+        scheduleUpdate();
       };
 
       // Wrap state in a deep reactive Proxy to detect all nested changes

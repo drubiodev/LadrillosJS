@@ -60,6 +60,9 @@ export const renderBindings = (
   context: unknown,
   component?: any
 ): void => {
+  // Early exit if no bindings
+  if (bindings.length === 0) return;
+
   for (const binding of bindings) {
     // Start with the original template
     let result = binding.original;
@@ -129,10 +132,15 @@ export const renderBindings = (
 
       // If parent element exists and content is HTML, render as HTML
       if (parentElement && isHTMLContent) {
-        parentElement.innerHTML = result;
+        // Only update if content changed
+        if (parentElement.innerHTML !== result) {
+          parentElement.innerHTML = result;
+        }
       } else {
-        // Otherwise, use textContent for security
-        textNode.textContent = result;
+        // Only update if content changed
+        if (textNode.textContent !== result) {
+          textNode.textContent = result;
+        }
       }
     } else {
       // Handle attribute bindings (e.g., <img src="{imageUrl}">)
