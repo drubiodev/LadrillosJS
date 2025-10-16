@@ -153,6 +153,7 @@
         <button id="test-1k">Test 1,000 Updates</button>
         <button id="test-5k">Test 5,000 Updates</button>
         <button id="test-10k">Test 10,000 Updates</button>
+        <button id="test-100k">Test 100,000 Updates</button>
         <button id="clear">Clear Results</button>
       </div>
 
@@ -248,6 +249,7 @@
         test1k: document.getElementById("test-1k"),
         test5k: document.getElementById("test-5k"),
         test10k: document.getElementById("test-10k"),
+        test100k: document.getElementById("test-100k"),
         clear: document.getElementById("clear"),
       };
 
@@ -381,6 +383,7 @@
       buttons.test1k.addEventListener("click", () => runTest(1000));
       buttons.test5k.addEventListener("click", () => runTest(5000));
       buttons.test10k.addEventListener("click", () => runTest(10000));
+      buttons.test100k.addEventListener("click", () => runTest(100000));
       buttons.clear.addEventListener("click", clearResults);
     </script>
   </body>
