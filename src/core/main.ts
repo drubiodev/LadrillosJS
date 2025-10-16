@@ -9,12 +9,16 @@ class Ladrillos {
   components: Record<string, LadrillosComponent>;
   private lazyComponents: Set<string>;
   private intersectionObserver: IntersectionObserver | null;
+  private lazyLoadingInProgress: Map<string, Promise<void>>;
+  private lazyComponentsLoaded: Set<string>;
 
   constructor() {
     // Initialize the Ladrillos instance
     this.components = {};
     this.lazyComponents = new Set();
     this.intersectionObserver = null;
+    this.lazyLoadingInProgress = new Map();
+    this.lazyComponentsLoaded = new Set();
   }
 
   async registerComponent(
@@ -129,87 +133,139 @@ class Ladrillos {
 
       async loadComponent() {
         try {
-          logger.log(`Lazy loading component: ${name}`);
-
-          // Store reference to this placeholder element
-          const placeholder = this;
-          const parent = this.parentNode;
-          const nextSibling = this.nextSibling;
-
-          if (!parent) {
-            logParseError(`Placeholder for ${name} has no parent node`, {
-              componentName: name,
-              componentPath: path,
-            });
+          // Check if component is already loaded globally
+          if (self.lazyComponentsLoaded.has(name)) {
+            logger.log(
+              `Component ${name} already loaded, upgrading placeholder...`
+            );
+            this.upgradePlaceholder();
             return;
           }
 
-          // Fetch and parse the component
-          const source = await fetchComponentSource(path);
-          const component = await parseComponent(source!, name);
-
-          logger.log(`Component ${name} parsed successfully`);
-
-          self.components[name] = {
-            tagName: name,
-            template: component.template,
-            scripts: component.scripts,
-            externalScripts: component.externalScripts,
-            styles: component.styles,
-            sourcePath: path,
-            lazy: true,
-          };
-
-          // Create a unique temporary name for the real component
-          const tempName = `${name}-real`;
-
-          logger.log(`Defining real component with temp name: ${tempName}`);
-
-          // Store original name and temporarily use temp name
-          const originalTagName = self.components[name].tagName;
-          self.components[name].tagName = tempName;
-
-          // Import and define the real component with temp name
-          const { defineWebComponent } = await import("./webcomponent");
-          defineWebComponent(self.components[name], useShadowDOM);
-
-          logger.log(`Real component ${tempName} defined`);
-
-          // Restore original tag name
-          self.components[name].tagName = originalTagName;
-
-          // Create instance of the real component
-          const realComponent = document.createElement(tempName);
-
-          logger.log(`Created real component instance: ${tempName}`);
-
-          // Copy attributes from placeholder to real component
-          Array.from(placeholder.attributes).forEach((attr) => {
-            realComponent.setAttribute(attr.name, attr.value);
-          });
-
-          // Copy child nodes (slot content)
-          while (placeholder.firstChild) {
-            realComponent.appendChild(placeholder.firstChild);
+          // Check if loading is already in progress
+          if (self.lazyLoadingInProgress.has(name)) {
+            logger.log(`Component ${name} is already loading, waiting...`);
+            await self.lazyLoadingInProgress.get(name);
+            this.upgradePlaceholder();
+            return;
           }
 
-          // Replace placeholder in DOM
-          if (nextSibling) {
-            parent.insertBefore(realComponent, nextSibling);
-            logger.log(`Inserted real component before next sibling`);
-          } else {
-            parent.appendChild(realComponent);
-            logger.log(`Appended real component to parent`);
-          }
+          // Start loading process
+          const loadingPromise = this.performLoad();
+          self.lazyLoadingInProgress.set(name, loadingPromise);
 
-          parent.removeChild(placeholder);
-          logger.log(`Removed placeholder element`);
+          await loadingPromise;
 
+          // Mark as loaded and clean up
+          self.lazyLoadingInProgress.delete(name);
+          self.lazyComponentsLoaded.add(name);
           self.lazyComponents.delete(name);
+
           logger.log(`Component ${name} lazy-loaded successfully`);
         } catch (error) {
+          self.lazyLoadingInProgress.delete(name);
           logRegistrationError(name, path, error as Error);
         }
+      }
+
+      async performLoad() {
+        logger.log(`Lazy loading component: ${name}`);
+
+        // Store reference to this placeholder element
+        const placeholder = this;
+        const parent = this.parentNode;
+        const nextSibling = this.nextSibling;
+
+        if (!parent) {
+          logParseError(`Placeholder for ${name} has no parent node`, {
+            componentName: name,
+            componentPath: path,
+          });
+          return;
+        }
+
+        // Fetch and parse the component
+        const source = await fetchComponentSource(path);
+        const component = await parseComponent(source!, name);
+
+        logger.log(`Component ${name} parsed successfully`);
+
+        self.components[name] = {
+          tagName: name,
+          template: component.template,
+          scripts: component.scripts,
+          externalScripts: component.externalScripts,
+          styles: component.styles,
+          sourcePath: path,
+          lazy: true,
+        };
+
+        // Create a unique temporary name for the real component
+        const tempName = `${name}-real`;
+
+        logger.log(`Defining real component with temp name: ${tempName}`);
+
+        // Store original name and temporarily use temp name
+        const originalTagName = self.components[name].tagName;
+        self.components[name].tagName = tempName;
+
+        // Import and define the real component with temp name
+        const { defineWebComponent } = await import("./webcomponent");
+        defineWebComponent(self.components[name], useShadowDOM);
+
+        logger.log(`Real component ${tempName} defined`);
+
+        // Restore original tag name
+        self.components[name].tagName = originalTagName;
+
+        // Upgrade this placeholder
+        this.upgradePlaceholder();
+      }
+
+      upgradePlaceholder() {
+        const placeholder = this;
+        const parent = this.parentNode;
+        const nextSibling = this.nextSibling;
+
+        if (!parent) {
+          logParseError(`Placeholder for ${name} has no parent node`, {
+            componentName: name,
+            componentPath: path,
+          });
+          return;
+        }
+
+        const tempName = `${name}-real`;
+
+        // Create instance of the real component
+        const realComponent = document.createElement(tempName);
+
+        logger.log(`Created real component instance: ${tempName}`);
+
+        // Copy attributes from placeholder to real component
+        Array.from(placeholder.attributes).forEach((attr) => {
+          if (attr.name !== "eager") {
+            // Skip the eager attribute
+            realComponent.setAttribute(attr.name, attr.value);
+          }
+        });
+
+        // Copy child nodes (slot content)
+        while (placeholder.firstChild) {
+          realComponent.appendChild(placeholder.firstChild);
+        }
+
+        // Replace placeholder in DOM
+        if (nextSibling) {
+          parent.insertBefore(realComponent, nextSibling);
+          logger.log(`Inserted real component before next sibling`);
+        } else {
+          parent.appendChild(realComponent);
+          logger.log(`Appended real component to parent`);
+        }
+
+        parent.removeChild(placeholder);
+        logger.log(`Removed placeholder element`);
       }
     }
 
