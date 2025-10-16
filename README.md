@@ -23,6 +23,7 @@ A lightweight, zero-dependency web component framework for building modular web 
   - [Slots](#slots)
   - [Component Props](#component-props)
 - [Advanced Features](#advanced-features)
+  - [Lazy Loading](#lazy-loading)
   - [Global Event Bus](#global-event-bus)
   - [External Scripts](#external-scripts)
   - [Shadow DOM](#shadow-dom)
@@ -48,8 +49,9 @@ A lightweight, zero-dependency web component framework for building modular web 
 - 🔌 **Slots** - Content projection with named and default slots
 - 📝 **TypeScript** - Full type definitions and TypeScript source code
 - 🎭 **Conditional Rendering** - `$if`, `$else-if`, and `$else` directives
-- � **List Rendering** - `$for` directive for rendering arrays
-- �🚄 **Smart Caching** - LRU cache for components and compiled functions
+- 🔁 **List Rendering** - `$for` directive for rendering arrays
+- ⚡ **Lazy Loading** - Load components on-demand with Intersection Observer
+- 🚄 **Smart Caching** - LRU cache for components and compiled functions
 - 🔧 **Framework Utilities** - Helper functions for common tasks
 - 🧩 **External Scripts** - Load and bind external JavaScript modules
 
@@ -193,6 +195,21 @@ await registerComponents([
 
 // Disable Shadow DOM for a component
 await registerComponent("global-styles", "./components/global.html", false);
+
+// Enable lazy loading for a component
+await registerComponent(
+  "footer-section",
+  "./components/footer.html",
+  true,
+  true
+);
+
+// Register multiple components with lazy loading
+await registerComponents([
+  { name: "hero-section", path: "./components/hero.html" },
+  { name: "feature-section", path: "./components/features.html", lazy: true },
+  { name: "footer-section", path: "./components/footer.html", lazy: true },
+]);
 ```
 
 ### State Management
@@ -567,6 +584,93 @@ Pass data to components using HTML attributes:
 ```
 
 ## Advanced Features
+
+### Lazy Loading
+
+LadrillosJS supports lazy loading components using the Intersection Observer API. Components are loaded only when they enter or are about to enter the viewport, improving initial page load performance.
+
+#### Basic Usage
+
+```javascript
+import { registerComponents } from "ladrillosjs";
+
+await registerComponents([
+  // Eager loading (default) - loads immediately
+  { name: "hero-section", path: "./components/hero.html" },
+  { name: "navbar", path: "./components/navbar.html" },
+
+  // Lazy loading - loads when scrolled into view
+  { name: "feature-section", path: "./components/features.html", lazy: true },
+  { name: "testimonials", path: "./components/testimonials.html", lazy: true },
+  { name: "footer-section", path: "./components/footer.html", lazy: true },
+]);
+```
+
+```html
+<body>
+  <!-- Loads immediately -->
+  <navbar></navbar>
+  <hero-section></hero-section>
+
+  <!-- Loads when user scrolls near these components -->
+  <feature-section></feature-section>
+  <testimonials></testimonials>
+  <footer-section></footer-section>
+</body>
+```
+
+#### Override Lazy Loading with `eager` Attribute
+
+You can force a lazy component to load immediately using the `eager` attribute:
+
+```html
+<!-- This lazy component loads immediately despite lazy registration -->
+<footer-section eager></footer-section>
+```
+
+#### Best Practices for Lazy Loading
+
+**✅ Good candidates for lazy loading:**
+
+- Below-the-fold content (footers, testimonials)
+- Large components with heavy resources
+- Components that may not be viewed by all users
+- Third-party widgets or embeds
+
+**❌ Avoid lazy loading for:**
+
+- Above-the-fold content (heroes, navigation)
+- Critical interactive elements
+- Small, lightweight components
+- Content needed for SEO
+
+**Performance Tips:**
+
+1. **Reserve space for lazy components** to prevent layout shift:
+
+```css
+/* In your global CSS */
+feature-section,
+testimonials,
+footer-section {
+  display: block;
+  min-height: 400px; /* Approximate height */
+}
+```
+
+2. **Load strategy**: Lazy components load **100px before** entering the viewport for smooth user experience and to account for network latency.
+
+3. **Multiple instances**: If you use the same lazy component multiple times on a page, only one network request is made. All instances share the loaded component definition.
+
+4. **Caching**: Once loaded, lazy components are cached and reused across page navigation.
+
+#### How It Works
+
+- **Placeholder**: Lazy components initially render as minimal placeholders
+- **Intersection Observer**: Monitors when placeholders approach the viewport
+- **Automatic Loading**: Component fetches and upgrades when visible
+- **Seamless Swap**: Placeholder is replaced with the real component
+- **Shared Loading**: Multiple instances coordinate to load only once
 
 ### Global Event Bus
 
@@ -943,8 +1047,48 @@ Show loading indicators while fetching data:
 ### Registration Functions
 
 ```typescript
-registerComponent(name: string, path: string, useShadowDOM?: boolean): Promise<void>
-registerComponents(components: Array<{name, path, useShadowDOM?}>): Promise<void>
+registerComponent(
+  name: string,
+  path: string,
+  useShadowDOM?: boolean,
+  lazy?: boolean
+): Promise<void>
+
+registerComponents(
+  components: Array<{
+    name: string,
+    path: string,
+    useShadowDOM?: boolean,
+    lazy?: boolean
+  }>
+): Promise<void>
+```
+
+**Parameters:**
+
+- `name`: Component tag name (must include a hyphen)
+- `path`: Path to the component file
+- `useShadowDOM`: Use Shadow DOM for style encapsulation (default: `true`)
+- `lazy`: Enable lazy loading with Intersection Observer (default: `false`)
+
+**Examples:**
+
+```javascript
+// Basic registration
+await registerComponent("my-button", "./button.html");
+
+// Disable Shadow DOM
+await registerComponent("global-nav", "./nav.html", false);
+
+// Enable lazy loading
+await registerComponent("footer", "./footer.html", true, true);
+
+// Batch registration
+await registerComponents([
+  { name: "hero", path: "./hero.html" },
+  { name: "features", path: "./features.html", lazy: true },
+  { name: "footer", path: "./footer.html", useShadowDOM: false, lazy: true },
+]);
 ```
 
 ### Component Utilities
@@ -983,6 +1127,10 @@ $reactive(name: string, initialValue: any): (value: any) => void
 <li $for="item in items">{item}</li>
 <li $for="(item, index) in items">{index}: {item}</li>
 <div $for="user in users" $key="user.id">{user.name}</div>
+
+<!-- Lazy loading override -->
+<footer-section eager></footer-section>
+<!-- Force immediate load -->
 
 <!-- Event handlers -->
 <button onclick="methodName()">Click</button>

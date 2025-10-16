@@ -117,7 +117,7 @@ class Ladrillos {
             });
           },
           {
-            rootMargin: "50px", // Load 50px before entering viewport
+            rootMargin: "100px", // Load 100px before entering viewport
           }
         );
 
