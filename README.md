@@ -12,6 +12,7 @@ A lightweight, zero-dependency web component framework for building modular web 
 
 - [Features](#features)
 - [Installation](#installation)
+- [Using with Vite](#using-with-vite)
 - [Quick Start](#quick-start)
 - [Core Concepts](#core-concepts)
   - [Component Registration](#component-registration)
@@ -77,6 +78,131 @@ npm install ladrillosjs
 <script>
   ladrillosjs.registerComponent("my-component", "./my-component.html");
 </script>
+```
+
+## Using with Vite
+
+LadrillosJS includes a Vite plugin to automatically copy your component files to the distribution folder during build. This is useful when you have static component files that need to be served with your application.
+
+### Installation
+
+If you haven't already:
+
+```bash
+npm install --save-dev vite
+npm install ladrillosjs
+```
+
+### Setup
+
+Create or update your `vite.config.js`:
+
+```javascript
+import { defineConfig } from "vite";
+import { copyComponentsPlugin } from "ladrillosjs/vite";
+
+export default defineConfig({
+  plugins: [
+    copyComponentsPlugin({
+      src: "components", // Source directory with your components
+      dest: "components", // Destination in dist/ folder
+      copyOnDev: false, // Only copy during build (not dev server)
+    }),
+  ],
+});
+```
+
+### Basic Usage
+
+```javascript
+// vite.config.js with default settings
+import { defineConfig } from "vite";
+import { copyComponentsPlugin } from "ladrillosjs/vite";
+
+export default defineConfig({
+  plugins: [copyComponentsPlugin()],
+});
+```
+
+The plugin will:
+
+- 📁 Copy your `components/` folder to `dist/components/` during build
+- 🛡️ Handle errors gracefully with helpful logging
+- ⚙️ Use sensible defaults (src: 'components', dest: 'components')
+
+### Plugin Options
+
+```typescript
+interface CopyComponentsOptions {
+  /** Source directory containing components (default: 'components') */
+  src?: string;
+
+  /** Destination directory in dist/ (default: 'components') */
+  dest?: string;
+
+  /** Copy during development server (default: false) */
+  copyOnDev?: boolean;
+}
+```
+
+### Complete Example
+
+Project structure:
+
+```
+my-app/
+├── components/
+│   ├── header.html
+│   ├── footer.html
+│   └── card.html
+├── src/
+│   └── main.js
+├── index.html
+└── vite.config.js
+```
+
+Configuration:
+
+```javascript
+import { defineConfig } from "vite";
+import { copyComponentsPlugin } from "ladrillosjs/vite";
+
+export default defineConfig({
+  plugins: [
+    copyComponentsPlugin({
+      src: "components",
+      dest: "components",
+    }),
+  ],
+});
+```
+
+Usage in your app:
+
+```javascript
+// src/main.js
+import { registerComponents } from "ladrillosjs";
+
+await registerComponents([
+  { name: "app-header", path: "./components/header.html" },
+  { name: "app-footer", path: "./components/footer.html" },
+  { name: "app-card", path: "./components/card.html" },
+]);
+```
+
+After running `npm run build`, your components will be copied to `dist/components/` and be ready for production deployment.
+
+### Development Workflow
+
+```bash
+# Start dev server (components served from source)
+npm run dev
+
+# Build for production (components copied to dist)
+npm run build
+
+# Preview production build
+npm run preview
 ```
 
 ## Quick Start

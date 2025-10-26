@@ -2,6 +2,12 @@ import { ladrillos } from "./core/main.js";
 import { eventBus } from "./core/eventBus.js";
 import { ComponentRegistration } from "./types/LadrilloTypes.js";
 
+// Re-export vite plugin
+export {
+  copyComponentsPlugin,
+  type CopyComponentsOptions,
+} from "./vite/index.js";
+
 declare global {
   interface Window {
     ladrillosjs: {
