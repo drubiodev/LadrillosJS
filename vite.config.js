@@ -5,6 +5,11 @@ module.exports = defineConfig(({ command }) => {
   if (command === "serve") {
     return {
       root: path.resolve(__dirname, "samples"),
+      resolve: {
+        alias: {
+          ladrillosjs: path.resolve(__dirname, "src/index.ts"),
+        },
+      },
       server: {
         sourcemapIgnoreList: () => false,
       },
