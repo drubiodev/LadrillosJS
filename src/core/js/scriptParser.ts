@@ -815,7 +815,9 @@ export const loadExternalScripts = async (
         }
 
         // Use import() to load the module and capture its exports
-        const moduleExports = await import(/* webpackIgnore: true */ moduleURL);
+        const moduleExports = await import(
+          /* @vite-ignore */ /* webpackIgnore: true */ moduleURL
+        );
 
         // Attach all named exports to component so event handlers can access them
         Object.entries(moduleExports).forEach(([exportName, exportValue]) => {
