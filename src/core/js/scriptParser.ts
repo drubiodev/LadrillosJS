@@ -588,6 +588,132 @@ const loadGlobalScript = (src: string, type: string | null): Promise<void> => {
   });
 };
 
+/**
+ * Creates a reactive wrapper around a function that automatically syncs variable mutations to component state.
+ * When the function modifies variables that are used in template bindings, the component state is updated.
+ * @param fn - The original function to wrap
+ * @param bindingVarNames - Set of variable names that should trigger reactive updates
+ * @param componentHost - The component element to update state on
+ * @returns A wrapper function that syncs mutations
+ */
+const createReactiveFunction = (
+  fn: Function,
+  bindingVarNames: Set<string>,
+  componentHost: HTMLElement
+): Function => {
+  // If no binding variables, just return the original function
+  if (bindingVarNames.size === 0) {
+    return fn;
+  }
+
+  // Return a wrapper that calls the original function and then syncs state
+  return function (this: any, ...args: any[]) {
+    // Call the original function
+    const result = fn.apply(this, args);
+
+    // After the function executes, trigger a component update
+    // The framework will re-render and pick up any variable changes
+    if ((componentHost as any).requestUpdate) {
+      (componentHost as any).requestUpdate();
+    }
+
+    return result;
+  };
+};
+
+/**
+ * Transforms module source code to automatically sync variable mutations to component state.
+ * Also transforms relative import paths to absolute URLs so they work with blob URLs.
+ * @param source - The module source code
+ * @param bindingVarNames - Set of variable names to track
+ * @param componentId - Component ID for getting context
+ * @param moduleURL - The original module URL (for resolving relative imports)
+ * @returns Transformed source code as a data URL
+ */
+const transformModuleForReactivity = (
+  source: string,
+  bindingVarNames: Set<string>,
+  componentId: string,
+  moduleURL: string
+): string => {
+  let transformed = source;
+
+  // Transform relative import paths to absolute URLs
+  // This is necessary because blob URLs don't have a proper base for relative imports
+  // Match: import ... from "./path" or import ... from "../path" or import ... from "path"
+  const importRegex = /import\s+([^;]*?)\s+from\s+['"]([^'"]+)['"]/g;
+
+  transformed = transformed.replace(
+    importRegex,
+    (match, imports, importPath) => {
+      // Only transform relative paths
+      if (!importPath.startsWith(".") && !importPath.startsWith("/")) {
+        // Bare module specifiers (npm packages) - leave as is
+        return match;
+      }
+
+      // Resolve relative path to absolute URL using the original module's URL
+      try {
+        const resolvedURL = new URL(importPath, moduleURL).href;
+        return `import ${imports} from '${resolvedURL}'`;
+      } catch (e) {
+        // If URL resolution fails, return original
+        console.warn(
+          `Could not resolve import path: ${importPath} relative to ${moduleURL}`
+        );
+        return match;
+      }
+    }
+  );
+
+  if (bindingVarNames.size === 0) {
+    return transformed; // Just return with import paths fixed
+  }
+
+  // Create a helper injection that captures the module's module scope
+  const helperInjection = `
+// Auto-generated: Reactive state synchronization for module scope
+const __getComponent = () => window.__ladrilloContexts?.get('${componentId}')?.element;
+const __syncState = (varName, value) => {
+  const component = __getComponent();
+  if (component?.setState) {
+    component.setState({ [varName]: value });
+  }
+};
+`;
+
+  // For each binding variable, wrap both declarations and assignments to sync with state
+  bindingVarNames.forEach((varName) => {
+    // 1. Transform variable declarations to initialize state
+    // let count = value; → let count = value; __syncState('count', value);
+    const declRegex = new RegExp(
+      `(let|const|var)\\s+${varName}\\s*=\\s*([^;=][^;]*);`,
+      "g"
+    );
+
+    transformed = transformed.replace(declRegex, (match, keyword, value) => {
+      const trimmedValue = value.trim();
+      return `${keyword} ${varName} = ${trimmedValue}; __syncState('${varName}', ${varName});`;
+    });
+
+    // 2. Transform subsequent assignments (but not declarations)
+    // varName = value; → varName = value; __syncState('varName', value);
+    // Match assignments but not declarations
+    const assignmentRegex = new RegExp(
+      `(?<!let\\s|const\\s|var\\s)(?<!\\.)\\b${varName}\\s*=\\s*([^;=][^;]*);`,
+      "g"
+    );
+
+    transformed = transformed.replace(assignmentRegex, (match, value) => {
+      // Extract just the value part (handling complex expressions)
+      const trimmedValue = value.trim();
+      return `${varName} = ${trimmedValue}; __syncState('${varName}', ${varName});`;
+    });
+  });
+
+  return helperInjection + "\n" + transformed;
+};
+
 export const loadExternalScripts = async (
   host: HTMLElement | ShadowRoot,
   externalScripts: ExternalScriptElement[],
@@ -631,6 +757,7 @@ export const loadExternalScripts = async (
       await loadGlobalScript(scriptURL, s.type);
     } else if (s.type === "module") {
       // For module scripts, load them as ES modules and auto-attach exports to component
+      // Also automatically sync variable mutations to component state for reactive updates
       const componentId = componentHost.tagName.toLowerCase();
 
       if (!(window as any).__ladrilloContexts) {
@@ -648,20 +775,72 @@ export const loadExternalScripts = async (
 
       // Dynamically import the module and auto-attach all exports to component
       try {
+        // Get all template bindings to know which variables should trigger reactive updates
+        const bindingVarNames = new Set<string>();
+        bindings.forEach((binding) => {
+          binding.bindings.forEach((b) => {
+            if (!b.isFunction) {
+              const rootName = b.path[0];
+              bindingVarNames.add(rootName);
+            }
+          });
+        });
+
+        // Fetch the module source, transform it for reactivity, then import it
+        let moduleURL = scriptURL;
+
+        if (bindingVarNames.size > 0) {
+          try {
+            const response = await fetch(scriptURL);
+            let source = await response.text();
+
+            // Transform the source to sync variable assignments to component state
+            // Pass the original script URL so relative imports can be resolved
+            source = transformModuleForReactivity(
+              source,
+              bindingVarNames,
+              componentId,
+              scriptURL
+            );
+
+            // Create a blob URL with the transformed source
+            const blob = new Blob([source], { type: "application/javascript" });
+            moduleURL = URL.createObjectURL(blob);
+          } catch (fetchError) {
+            // If transformation fails, fall back to original URL
+            console.warn(
+              `Could not transform module source, using original: ${scriptURL}`
+            );
+          }
+        }
+
         // Use import() to load the module and capture its exports
-        const moduleExports = await import(/* webpackIgnore: true */ scriptURL);
+        const moduleExports = await import(/* webpackIgnore: true */ moduleURL);
 
         // Attach all named exports to component so event handlers can access them
         Object.entries(moduleExports).forEach(([exportName, exportValue]) => {
           // Skip the default export key if it's explicitly named
           if (exportName !== "default") {
-            (componentHost as any)[exportName] = exportValue;
+            const wrappedValue =
+              typeof exportValue === "function"
+                ? createReactiveFunction(
+                    exportValue,
+                    bindingVarNames,
+                    componentHost
+                  )
+                : exportValue;
+            (componentHost as any)[exportName] = wrappedValue;
           }
         });
 
         // Also attach the default export if it exists
         if (moduleExports.default) {
           (componentHost as any).default = moduleExports.default;
+        }
+
+        // Clean up the blob URL if we created one
+        if (moduleURL !== scriptURL) {
+          URL.revokeObjectURL(moduleURL);
         }
       } catch (error) {
         console.error(

@@ -868,7 +868,134 @@ $listen("user-logged-in", (data) => {
 
 LadrillosJS supports three ways to include external JavaScript:
 
-#### 1. Component-Scoped Scripts (Default)
+#### 1. ES Modules (Recommended for Complex Logic)
+
+Use `type="module"` for standard ES modules with automatic state synchronization. Variables declared in modules are automatically initialized in component state and mutations are automatically synced:
+
+```html
+<!-- side-nav.html -->
+<nav>
+  <h1>&lt;Note App/&gt;</h1>
+  <button onclick="createNote()">Create Note</button>
+  <ul></ul>
+</nav>
+
+<!-- Load as ES module - variables and exports are auto-synced to state -->
+<script type="module" src="../js/side.js"></script>
+```
+
+**side.js:**
+
+```javascript
+import { registerComponent, $listen, $querySelector } from "ladrillosjs";
+
+// Declare variables that are used in template bindings
+// They are automatically initialized in component state
+const notes = [];
+
+registerComponent("note-item", "./components/note-item.html");
+
+// Export functions so they're available to event handlers
+export const createNote = () => {
+  const title = prompt("Note title:");
+  if (title) {
+    notes.push({ title, content: "" });
+  }
+};
+
+// Listen to global events
+$listen("note_saved", (data) => {
+  notes.push({ ...data });
+  const ul = $querySelector("ul");
+  if (ul) {
+    ul.innerHTML = notes
+      .map((n) => `<note-item data-note='${JSON.stringify(n)}'></note-item>`)
+      .join("");
+  }
+});
+```
+
+**How Module State Sync Works:**
+
+When a module script is loaded, LadrillosJS:
+
+1. **Detects variables used in template bindings** (e.g., variables in `{}` expressions)
+2. **Initializes them in component state** automatically when declared
+3. **Syncs mutations to state** automatically when assigned
+4. **Auto-attaches exports** to the component so event handlers can access them
+
+This means you write natural JavaScript without boilerplate:
+
+```javascript
+// ✨ This is all you need!
+let count = 0; // Auto-initialized in state
+let user = { name: "" }; // Works with objects too
+
+export const increment = () => {
+  count++; // Auto-synced to state!
+};
+
+export const updateUser = (name) => {
+  user.name = name; // Auto-synced to state!
+};
+```
+
+**ES Module Benefits:**
+
+- ✅ Import external libraries and utilities
+- ✅ Organize code across multiple files
+- ✅ Automatic state initialization for binding variables
+- ✅ Automatic state sync on variable mutations
+- ✅ Clean separation of concerns
+- ✅ Standard JavaScript module syntax
+
+**Example: Counter Component**
+
+```html
+<!-- counter.html -->
+<div>
+  <h2>Counter: {count}</h2>
+  <button onclick="increment()">+1</button>
+  <button onclick="decrement()">-1</button>
+  <button onclick="reset()">Reset</button>
+</div>
+
+<script type="module" src="./counter.js"></script>
+
+<style>
+  div {
+    text-align: center;
+    padding: 2rem;
+  }
+  button {
+    padding: 0.5rem 1rem;
+    margin: 0.5rem;
+    cursor: pointer;
+  }
+</style>
+```
+
+**counter.js:**
+
+```javascript
+// Variables used in template are auto-initialized
+let count = 0;
+
+// Exports are auto-attached to component for event handlers
+export const increment = () => {
+  count++;
+};
+
+export const decrement = () => {
+  count--;
+};
+
+export const reset = () => {
+  count = 0;
+};
+```
+
+#### 2. Component-Scoped Scripts
 
 Regular script tags execute within the component's context and have access to component state and utilities:
 
@@ -890,41 +1017,6 @@ const title = "Button Count";
 const increaseCount = () => {
   count++; // Updates component state
 };
-```
-
-#### 2. ES Modules
-
-Use `type="module"` for standard ES module imports:
-
-```html
-<!-- side-nav.html -->
-<nav>
-  <h1>&lt;Note App/&gt;</h1>
-  <button onclick="createNote()">Create Note</button>
-  <ul></ul>
-</nav>
-
-<!-- Load as ES module -->
-<script type="module" src="../js/side.js"></script>
-```
-
-**side.js:**
-
-```javascript
-import { registerComponent, $listen, $querySelector } from "ladrillosjs";
-
-const notes = [];
-registerComponent("note-item", "./components/note-item.html");
-
-$listen("note_saved", (data) => {
-  notes.push({ ...data });
-  const ul = $querySelector("ul");
-  if (ul) {
-    ul.innerHTML = notes
-      .map((n) => `<note-item data-note='${JSON.stringify(n)}'></note-item>`)
-      .join("");
-  }
-});
 ```
 
 #### 3. External Libraries
@@ -959,6 +1051,177 @@ Use the `external` attribute for third-party libraries that shouldn't be bound t
 - Third-party CDN libraries (highlight.js, Chart.js, etc.)
 - Libraries that need to be loaded globally
 - Scripts that don't need component context or utilities
+
+#### Module Script Best Practices
+
+**✅ Use modules for:**
+
+- Component-specific logic and functions
+- Local state management
+- Importing utilities and helpers
+- Organizing complex components
+
+**❌ Don't use modules for:**
+
+- Simple inline event handlers (use inline scripts)
+- Global libraries (use `external` attribute)
+- Scripts that need global scope
+
+**Relative Imports:**
+
+Modules automatically resolve relative imports to their proper URLs:
+
+```javascript
+// These work automatically with modules
+import { helper } from "./utils.js";
+import { Component } from "../components/component.js";
+import { api } from "../../api/client.js";
+```
+
+#### Legacy: Using `$reactive` (Optional)
+
+The `$reactive` function is still available for explicit state initialization in edge cases:
+
+```javascript
+import { $reactive } from "ladrillosjs";
+
+let count = 0;
+const setCount = $reactive("count", count); // Manual initialization
+
+// Later updates
+setCount(newValue);
+```
+
+However, this is **no longer necessary for module scripts** since variables are automatically initialized. Use it only if you need:
+
+- Explicit control over initialization timing
+- Manual setter functions
+- Backward compatibility with older code
+
+#### Advanced Module Patterns
+
+**Pattern 1: Async Data Loading**
+
+```html
+<!-- user-profile.html -->
+<div $if="{loading}">Loading user...</div>
+<div $else-if="{error}">{error}</div>
+<div $else>
+  <h1>{user.name}</h1>
+  <p>Email: {user.email}</p>
+  <p>Bio: {user.bio}</p>
+</div>
+
+<script type="module" src="./user-profile.js"></script>
+```
+
+**user-profile.js:**
+
+```javascript
+// Variables auto-initialized in component state
+let user = { name: "", email: "", bio: "" };
+let loading = true;
+let error = null;
+
+// Auto-exported so it's available as event handler
+export const loadUser = async (userId) => {
+  loading = true;
+  error = null;
+
+  try {
+    const response = await fetch(`/api/users/${userId}`);
+    user = await response.json();
+  } catch (e) {
+    error = e.message;
+  } finally {
+    loading = false;
+  }
+};
+
+// Load user on component mount
+loadUser(1);
+```
+
+**Pattern 2: Composable Logic**
+
+```javascript
+// utils/counter.js
+export const createCounter = (initial = 0) => {
+  let count = initial;
+
+  return {
+    increment: () => count++,
+    decrement: () => count--,
+    reset: () => (count = initial),
+    get value() {
+      return count;
+    },
+  };
+};
+
+// counter.js (module script)
+import { createCounter } from "./utils/counter.js";
+
+const counter = createCounter(0);
+
+export const increment = () => counter.increment();
+export const decrement = () => counter.decrement();
+export const reset = () => counter.reset();
+```
+
+**Pattern 3: Shared State Between Components**
+
+```javascript
+// store.js - shared module
+export let globalState = {
+  user: null,
+  notifications: [],
+  theme: "light",
+};
+
+export const updateUser = (user) => {
+  globalState.user = user;
+};
+
+export const addNotification = (msg) => {
+  globalState.notifications.push(msg);
+};
+
+// In component module script:
+import { globalState, updateUser } from "./store.js";
+
+let user = globalState.user;
+
+export const switchTheme = () => {
+  globalState.theme = globalState.theme === "light" ? "dark" : "light";
+};
+```
+
+**Pattern 4: Event-Driven Updates**
+
+```javascript
+import { $listen, $emit } from "ladrillosjs";
+
+let items = [];
+let selectedId = null;
+
+$listen("item:created", (item) => {
+  items = [...items, item];
+});
+
+$listen("item:deleted", (itemId) => {
+  items = items.filter((i) => i.id !== itemId);
+});
+
+export const selectItem = (id) => {
+  selectedId = id;
+  $emit("item:selected", { id, item: items.find((i) => i.id === id) });
+};
+
+export const deleteItem = (id) => {
+  $emit("item:delete-request", { id });
+};
+```
 
 ### Shadow DOM
 
@@ -1234,7 +1497,8 @@ $listen(eventName: string, callback: (data?) => void): () => void
 $querySelector(selector: string): Element | null
 $querySelectorAll(selector: string): NodeListOf<Element>
 
-// Reactive variables (for external modules)
+// Manual reactive initialization (optional - mainly for backward compatibility)
+// Module scripts automatically initialize and sync variables
 $reactive(name: string, initialValue: any): (value: any) => void
 ```
 
