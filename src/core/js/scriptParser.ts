@@ -630,10 +630,7 @@ export const loadExternalScripts = async (
       // These scripts load globally and don't need component-specific processing
       await loadGlobalScript(scriptURL, s.type);
     } else if (s.type === "module") {
-      // For module scripts, load them normally as ES modules
-      // The bind attribute is a signal that the user wants reactive bindings,
-      // but ES modules can't be transformed the same way as regular scripts
-      // So we store the context and let the module use helper functions
+      // For module scripts, load them as ES modules and auto-attach exports to component
       const componentId = componentHost.tagName.toLowerCase();
 
       if (!(window as any).__ladrilloContexts) {
@@ -649,12 +646,29 @@ export const loadExternalScripts = async (
         setState: (componentHost as any).setState?.bind(componentHost),
       });
 
-      // Load the module script normally
-      const script = document.createElement("script");
-      script.type = "module";
-      script.src = scriptURL;
-      script.setAttribute("data-component", componentId);
-      document.head.appendChild(script);
+      // Dynamically import the module and auto-attach all exports to component
+      try {
+        // Use import() to load the module and capture its exports
+        const moduleExports = await import(/* webpackIgnore: true */ scriptURL);
+
+        // Attach all named exports to component so event handlers can access them
+        Object.entries(moduleExports).forEach(([exportName, exportValue]) => {
+          // Skip the default export key if it's explicitly named
+          if (exportName !== "default") {
+            (componentHost as any)[exportName] = exportValue;
+          }
+        });
+
+        // Also attach the default export if it exists
+        if (moduleExports.default) {
+          (componentHost as any).default = moduleExports.default;
+        }
+      } catch (error) {
+        console.error(
+          `Failed to load or process module script: ${scriptURL}`,
+          error
+        );
+      }
     } else {
       // Fetch and process local non-module scripts through reactive processing
       await fetch(scriptURL)
