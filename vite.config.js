@@ -18,12 +18,20 @@ module.exports = defineConfig(({ command }) => {
         }
       : {
           build: {
-            lib: {
-              entry: path.resolve(__dirname, "src/index.ts"),
-              name: "ladrillosjs",
-              formats: ["es", "umd", "cjs"],
-              fileName: (fmt) => `ladrillosjs.${fmt}.js`,
-            },
+            lib: [
+              {
+                entry: path.resolve(__dirname, "src/index.ts"),
+                name: "ladrillosjs",
+                formats: ["es", "umd", "cjs"],
+                fileName: (fmt) => `ladrillosjs.${fmt}.js`,
+              },
+              {
+                entry: path.resolve(__dirname, "src/vite/index.ts"),
+                name: "ladrillosjs-vite",
+                formats: ["es", "cjs"],
+                fileName: (fmt) => `vite/index.${fmt === "es" ? "js" : "cjs"}`,
+              },
+            ],
             outDir: path.resolve(__dirname, "dist"),
             emptyOutDir: true,
             target: "es2015",

@@ -19,6 +19,10 @@
       "browser": "./dist/ladrillosjs.umd.js",
       "import": "./src/index.ts",
       "require": "./dist/ladrillosjs.cjs.js"
+    },
+    "./vite": {
+      "import": "./dist/vite/index.js",
+      "require": "./dist/vite/index.cjs"
     }
   },
   "scripts": {
