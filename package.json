@@ -1,6 +1,6 @@
 {
   "name": "ladrillosjs",
-  "version": "2.0.0-beta.3.4",
+  "version": "2.0.0-beta.3.5",
   "description": "A lightweight, zero-dependency web component framework for building modular web applications.",
   "repository": {
     "type": "git",
@@ -21,14 +21,14 @@
       "require": "./dist/ladrillosjs.cjs.js"
     },
     "./vite": {
-      "import": "./dist/vite/index.js",
-      "require": "./dist/vite/index.cjs"
+      "import": "./dist/vite.js",
+      "require": "./dist/vite.cjs"
     }
   },
   "scripts": {
     "prepare": "npm run build && npm run build:types",
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build && node scripts/build-vite-plugin.js",
     "build:types": "tsc -p tsconfig.json",
     "preview": "vite preview",
     "test": "vitest",
