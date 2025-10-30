@@ -142,7 +142,81 @@ interface CopyComponentsOptions {
 
   /** Copy during development server (default: false) */
   copyOnDev?: boolean;
+
+  /** Process component module scripts (default: true) */
+  processScripts?: boolean;
 }
+```
+
+### Processing Component Module Scripts
+
+When `processScripts` is enabled (default), the plugin automatically transforms component scripts using `type="module"` to work with the window scope. This is essential when building with Vite and using ES modules in your components.
+
+**What It Does:**
+
+- Converts ES module imports to window references
+- Wraps scripts in an async IIFE that waits for the library to load
+- Handles multiple components efficiently with a shared loading promise
+
+**Example:**
+
+Before build (in your component):
+
+```html
+<script type="module">
+  import { registerComponent } from "ladrillosjs";
+
+  let count = 0;
+
+  export const increment = () => {
+    count++;
+  };
+</script>
+```
+
+After build (automatically transformed):
+
+```html
+<script>
+  (async () => {
+    try {
+      if (!window.__ladrillosPromise__) {
+        window.__ladrillosPromise__ = new Promise((resolve) => {
+          // Wait for LadrillosJS to load...
+        });
+      }
+
+      await window.__ladrillosPromise__;
+
+      (async () => {
+        const { registerComponent } = window.ladrillosjs;
+
+        let count = 0;
+
+        // Component code...
+      })();
+    } catch (error) {
+      console.error("Failed to execute component module:", error);
+    }
+  })();
+</script>
+```
+
+**Disable Processing (if needed):**
+
+```javascript
+import { defineConfig } from "vite";
+import { copyComponentsPlugin } from "ladrillosjs/vite";
+
+export default defineConfig({
+  plugins: [
+    copyComponentsPlugin({
+      src: "components",
+      dest: "components",
+      processScripts: false, // Disable script processing
+    }),
+  ],
+});
 ```
 
 ### Complete Example
