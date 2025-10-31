@@ -142,6 +142,19 @@ export const defineWebComponent = (
             renderConditionals(this.#conditionals, this.state, this);
             renderLoops(this.#loops, this.state, this);
             this.#updateTwoWayBindings();
+
+            // Call $onUpdate lifecycle hook after render
+            if (typeof (this as any).__onUpdateCallback === "function") {
+              try {
+                (this as any).__onUpdateCallback();
+              } catch (error) {
+                logger.error(
+                  `⚠️ Error in $onUpdate lifecycle hook`,
+                  createErrorContext(this)
+                );
+                logger.error(`  Error: ${(error as Error).message}`);
+              }
+            }
           });
         }
       };
@@ -303,33 +316,6 @@ export const defineWebComponent = (
 
       // Set up MutationObserver to watch for attribute changes
       this._setupAttributeObserver();
-
-      // Wrap the original scheduleUpdate to also call $onUpdate
-      const originalScheduleUpdate = (this as any).__scheduleUpdate;
-      if (!originalScheduleUpdate) {
-        const scheduleUpdateWithLifecycle = () => {
-          requestAnimationFrame(() => {
-            renderBindings(this.#bindings, this.state, this);
-            renderConditionals(this.#conditionals, this.state, this);
-            renderLoops(this.#loops, this.state, this);
-            this.#updateTwoWayBindings();
-
-            // Call $onUpdate lifecycle hook after render
-            if (typeof (this as any).__onUpdateCallback === "function") {
-              try {
-                (this as any).__onUpdateCallback();
-              } catch (error) {
-                logger.error(
-                  `⚠️ Error in $onUpdate lifecycle hook`,
-                  createErrorContext(this)
-                );
-                logger.error(`  Error: ${(error as Error).message}`);
-              }
-            }
-          });
-        };
-        (this as any).__scheduleUpdate = scheduleUpdateWithLifecycle;
-      }
     }
 
     // Invoked when element is removed from the DOM
