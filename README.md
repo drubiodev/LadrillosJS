@@ -23,6 +23,7 @@ A lightweight, zero-dependency web component framework for building modular web 
   - [List Rendering](#list-rendering)
   - [Slots](#slots)
   - [Component Props](#component-props)
+  - [Lifecycle Hooks](#lifecycle-hooks)
 - [Advanced Features](#advanced-features)
   - [Lazy Loading](#lazy-loading)
   - [Global Event Bus](#global-event-bus)
@@ -781,6 +782,189 @@ Pass data to components using HTML attributes:
 ```html
 <my-greeting name="John" age="25"></my-greeting>
 <my-greeting name="Jane" age="30"></my-greeting>
+```
+
+### Lifecycle Hooks
+
+LadrillosJS provides Vue.js-style lifecycle hooks so you can run code at specific times in a component's lifecycle. These hooks are tied directly to Web Component lifecycle methods for maximum control.
+
+#### Available Hooks
+
+| Hook         | Called                                           | Purpose                            |
+| ------------ | ------------------------------------------------ | ---------------------------------- |
+| `$onMount`   | After component is mounted and fully initialized | Setup, initialization, API calls   |
+| `$onUpdate`  | After component state changes and re-renders     | React to state changes             |
+| `$onUnmount` | Before component is removed from DOM             | Cleanup, unsubscribe, clear timers |
+
+#### `$onMount(callback)`
+
+Called once when the component is fully mounted and ready. Perfect for initialization, API calls, and setup logic.
+
+```html
+<div>
+  <h2>User Profile</h2>
+  <p $if="{loading}">Loading...</p>
+  <div $else>
+    <h3>{user.name}</h3>
+    <p>{user.email}</p>
+  </div>
+</div>
+
+<script>
+  let user = { name: "", email: "" };
+  let loading = true;
+
+  // Called after component mounts with state ready
+  $onMount(() => {
+    console.log("✅ Component mounted!");
+
+    // Perfect for API calls, initialization, etc
+    fetch("/api/user/123")
+      .then((res) => res.json())
+      .then((data) => {
+        user = data;
+        loading = false;
+      });
+  });
+</script>
+```
+
+**When to use `$onMount`:**
+
+- ✅ Fetch data from APIs
+- ✅ Initialize timers or subscriptions
+- ✅ Set up event listeners
+- ✅ Run component setup logic
+- ✅ Validate initial state
+
+#### `$onUpdate(callback)`
+
+Called after component state changes and the component re-renders. Perfect for reacting to state changes.
+
+```html
+<div>
+  <p>Count: {count}</p>
+  <button onclick="count++">Increment</button>
+</div>
+
+<script>
+  let count = 0;
+
+  $onUpdate(() => {
+    console.log("🔄 Component updated! New count:", count);
+
+    // React to state changes
+    if (count === 10) {
+      console.log("Count reached 10!");
+    }
+  });
+</script>
+```
+
+**When to use `$onUpdate`:**
+
+- ✅ Log state changes for debugging
+- ✅ Trigger side effects when specific properties change
+- ✅ Sync with external systems
+- ✅ Perform validations on updated state
+
+#### `$onUnmount(callback)`
+
+Called before the component is removed from the DOM. Perfect for cleanup operations.
+
+```html
+<div>
+  <p>Timer: {seconds}</p>
+</div>
+
+<script>
+  let seconds = 0;
+  let interval = null;
+
+  $onMount(() => {
+    // Start timer
+    interval = setInterval(() => {
+      seconds++;
+    }, 1000);
+  });
+
+  $onUnmount(() => {
+    console.log("❌ Component unmounting, cleaning up...");
+
+    // Clear timer to prevent memory leaks
+    if (interval) {
+      clearInterval(interval);
+    }
+  });
+</script>
+```
+
+**When to use `$onUnmount`:**
+
+- ✅ Clear timers and intervals
+- ✅ Remove event listeners
+- ✅ Unsubscribe from observables
+- ✅ Cleanup resources
+- ✅ Cancel pending API requests
+
+#### Complete Lifecycle Example
+
+```html
+<div>
+  <h3>Lifecycle Demo</h3>
+  <p>Status: {status}</p>
+  <button onclick="status = 'active'">Activate</button>
+  <button onclick="status = 'inactive'">Deactivate</button>
+</div>
+
+<script>
+  let status = "initializing";
+
+  $onMount(() => {
+    console.log("✅ $onMount - Component ready to go!");
+    status = "ready";
+  });
+
+  $onUpdate(() => {
+    console.log("🔄 $onUpdate - Status changed to:", status);
+  });
+
+  $onUnmount(() => {
+    console.log("❌ $onUnmount - Cleaning up before removal");
+  });
+</script>
+```
+
+#### Lifecycle Timing Diagram
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  Element added to DOM                                   │
+│  ↓                                                      │
+│  connectedCallback() starts                             │
+│  ├─ Parse template                                      │
+│  ├─ Load styles                                         │
+│  ├─ Execute scripts & initialize state                  │
+│  ├─ Render bindings, conditionals, loops                │
+│  │                                                      │
+│  ├─→ $onMount() called ← Component ready!               │
+│  │                                                      │
+│  State changes (click, setState, etc)                   │
+│  ├─ Proxy detects change                                │
+│  ├─ Schedule update (requestAnimationFrame)             │
+│  ├─ Re-render bindings, conditionals, loops             │
+│  │                                                      │
+│  ├─→ $onUpdate() called ← After each update             │
+│  │   ... (can happen many times)                        │
+│  │                                                      │
+│  Element removed from DOM                               │
+│  ├─→ $onUnmount() called ← Before cleanup               │
+│  │                                                      │
+│  disconnectedCallback() cleanup                         │
+│  ├─ Remove event listeners                              │
+│  ├─ Clear subscriptions                                 │
+│  └─ Complete                                            │
+└─────────────────────────────────────────────────────────┘
 ```
 
 ## Advanced Features

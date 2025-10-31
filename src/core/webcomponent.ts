@@ -193,6 +193,9 @@ export const defineWebComponent = (
           return true;
         },
       });
+
+      // Expose $state on the component element for global access in inline scripts
+      (this as any).$state = this.state;
     }
     /**
      * Updates component state with one or more key-value pairs
@@ -284,12 +287,67 @@ export const defineWebComponent = (
       renderConditionals(this.#conditionals, this.state, this);
       renderLoops(this.#loops, this.state, this);
 
+      // Call $onMount lifecycle hook callback if it was registered
+      // This is called after component is fully initialized and mounted
+      if (typeof (this as any).__onMountCallback === "function") {
+        try {
+          (this as any).__onMountCallback();
+        } catch (error) {
+          logger.error(
+            `⚠️ Error in $onMount lifecycle hook`,
+            createErrorContext(this)
+          );
+          logger.error(`  Error: ${(error as Error).message}`);
+        }
+      }
+
       // Set up MutationObserver to watch for attribute changes
       this._setupAttributeObserver();
+
+      // Wrap the original scheduleUpdate to also call $onUpdate
+      const originalScheduleUpdate = (this as any).__scheduleUpdate;
+      if (!originalScheduleUpdate) {
+        const scheduleUpdateWithLifecycle = () => {
+          requestAnimationFrame(() => {
+            renderBindings(this.#bindings, this.state, this);
+            renderConditionals(this.#conditionals, this.state, this);
+            renderLoops(this.#loops, this.state, this);
+            this.#updateTwoWayBindings();
+
+            // Call $onUpdate lifecycle hook after render
+            if (typeof (this as any).__onUpdateCallback === "function") {
+              try {
+                (this as any).__onUpdateCallback();
+              } catch (error) {
+                logger.error(
+                  `⚠️ Error in $onUpdate lifecycle hook`,
+                  createErrorContext(this)
+                );
+                logger.error(`  Error: ${(error as Error).message}`);
+              }
+            }
+          });
+        };
+        (this as any).__scheduleUpdate = scheduleUpdateWithLifecycle;
+      }
     }
 
     // Invoked when element is removed from the DOM
     disconnectedCallback() {
+      // Call $onUnmount lifecycle hook callback if it was registered
+      // This is called before cleanup operations
+      if (typeof (this as any).__onUnmountCallback === "function") {
+        try {
+          (this as any).__onUnmountCallback();
+        } catch (error) {
+          logger.error(
+            `⚠️ Error in $onUnmount lifecycle hook`,
+            createErrorContext(this)
+          );
+          logger.error(`  Error: ${(error as Error).message}`);
+        }
+      }
+
       // Clean up MutationObserver
       if ((this as any).__attributeObserver) {
         (this as any).__attributeObserver.disconnect();

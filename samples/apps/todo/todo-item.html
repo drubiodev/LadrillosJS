@@ -56,4 +56,8 @@
   const removeTodo = () => {
     this.remove();
   };
+
+  $onUnmount(() => {
+    console.log("❌ $onUnmount - Component is being removed from DOM");
+  });
 </script>

@@ -288,6 +288,25 @@ const processScript = (
         // Provide framework utilities with $ prefix to avoid naming conflicts
         const $setState = (updates) => component.setState(updates);
         
+        // Lifecycle hooks - register callbacks to run at specific times
+        const $onMount = (callback) => {
+          if (typeof callback === 'function') {
+            component.__onMountCallback = callback;
+          }
+        };
+        
+        const $onUpdate = (callback) => {
+          if (typeof callback === 'function') {
+            component.__onUpdateCallback = callback;
+          }
+        };
+        
+        const $onUnmount = (callback) => {
+          if (typeof callback === 'function') {
+            component.__onUnmountCallback = callback;
+          }
+        };
+        
         // Event bus methods for component communication
         const $emit = (eventName, data) => arguments[2].emit(eventName, data);
         const $listen = (eventName, callback) => {
@@ -303,6 +322,9 @@ const processScript = (
         // Also attach to component for event handler access
         component.$emit = $emit;
         component.$listen = $listen;
+        component.$onMount = $onMount;
+        component.$onUpdate = $onUpdate;
+        component.$onUnmount = $onUnmount;
         
         // Override querySelector/querySelectorAll to query within the component's host
         const host = arguments[1];
