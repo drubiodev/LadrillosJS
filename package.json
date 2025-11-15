@@ -1,6 +1,6 @@
 {
   "name": "ladrillosjs",
-  "version": "2.0.0-beta.4",
+  "version": "2.0.0-beta.4.1",
   "description": "A lightweight, zero-dependency web component framework for building modular web applications.",
   "repository": {
     "type": "git",
@@ -11,13 +11,13 @@
   ],
   "types": "dist/index.d.ts",
   "main": "./dist/ladrillosjs.cjs.js",
-  "module": "./src/index.ts",
+  "module": "./dist/ladrillosjs.es.js",
   "browser": "./dist/ladrillosjs.umd.js",
   "unpkg": "./dist/ladrillosjs.umd.js",
   "exports": {
     ".": {
       "browser": "./dist/ladrillosjs.umd.js",
-      "import": "./src/index.ts",
+      "import": "./dist/ladrillosjs.es.js",
       "require": "./dist/ladrillosjs.cjs.js"
     },
     "./vite": {
