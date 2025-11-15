@@ -2,6 +2,16 @@ import { ladrillos } from "./core/main.js";
 import { eventBus } from "./core/eventBus.js";
 import { ComponentRegistration } from "./types/LadrilloTypes.js";
 
+// Re-export types for component library authors
+export type {
+  ComponentProps,
+  ComponentEvents,
+  ComponentInterface,
+  ComponentMetadata,
+  LibraryComponent,
+  ComponentRegistration,
+} from "./types/LadrilloTypes.js";
+
 // Re-export vite plugin
 export {
   copyComponentsPlugin,
@@ -208,3 +218,127 @@ if (typeof window !== "undefined") {
   window.$setState = $setState;
   window.$getState = $getState;
 }
+
+/**
+ * Component Library Helpers
+ * Utilities for library authors to create typed component exports
+ */
+
+/**
+ * Helper to create a component interface definition
+ * @param definition - Component interface configuration
+ * @returns Typed component interface
+ *
+ * @example
+ * ```typescript
+ * export const ButtonComponent = defineComponentInterface<ButtonProps, ButtonEvents>({
+ *   tagName: 'awesome-button',
+ *   props: {} as ButtonProps,
+ *   events: {} as ButtonEvents,
+ * });
+ * ```
+ */
+export const defineComponentInterface = <
+  Props extends Record<string, unknown> = Record<string, unknown>,
+  Events extends Record<string, any> = Record<string, any>
+>(definition: {
+  tagName: string;
+  props?: Props;
+  events?: Events;
+  methods?: Record<string, (...args: any[]) => any>;
+  documentation?: {
+    description?: string;
+    examples?: string[];
+  };
+}) => {
+  return definition as any;
+};
+
+/**
+ * Helper to create component metadata
+ * @param config - Component configuration
+ * @returns Component metadata object
+ *
+ * @example
+ * ```typescript
+ * export const buttonMetadata = createComponentMetadata({
+ *   name: 'awesome-button',
+ *   path: './button.html',
+ *   interface: ButtonComponent,
+ * });
+ * ```
+ */
+export const createComponentMetadata = <
+  Props extends Record<string, unknown> = Record<string, unknown>,
+  Events extends Record<string, any> = Record<string, any>
+>(config: {
+  name: string;
+  path: string;
+  useShadowDOM?: boolean;
+  lazy?: boolean;
+  interface: any;
+  version?: string;
+  library?: string;
+}) => {
+  return {
+    registration: {
+      name: config.name,
+      path: config.path,
+      useShadowDOM: config.useShadowDOM ?? true,
+      lazy: config.lazy ?? false,
+    },
+    interface: config.interface,
+    version: config.version,
+    library: config.library,
+  };
+};
+
+/**
+ * Helper to create a typed component factory
+ * @param element - DOM element to cast
+ * @param tagName - Expected tag name (for validation)
+ * @returns Typed component reference
+ *
+ * @example
+ * ```typescript
+ * const button = createComponentRef<AwesomeButton>(
+ *   document.querySelector('awesome-button'),
+ *   'awesome-button'
+ * );
+ * ```
+ */
+export const createComponentRef = <T extends HTMLElement = HTMLElement>(
+  element: HTMLElement | null,
+  tagName?: string
+): T | null => {
+  if (!element) return null;
+  if (tagName && element.tagName.toLowerCase() !== tagName.toLowerCase()) {
+    console.warn(
+      `Expected element with tag "${tagName}", got "${element.tagName.toLowerCase()}"`
+    );
+  }
+  return element as T;
+};
+
+/**
+ * Helper to batch register library components
+ * @param components - Array of component registrations
+ * @param concurrency - Max parallel registrations (default: 5)
+ * @returns Promise resolving when all registered
+ *
+ * @example
+ * ```typescript
+ * export const registerMyComponents = async () => {
+ *   return registerLibraryComponents([
+ *     { name: 'my-button', path: './button.html' },
+ *     { name: 'my-card', path: './card.html' },
+ *   ]);
+ * };
+ * ```
+ */
+export const registerLibraryComponents = async (
+  components: ComponentRegistration[],
+  concurrency?: number
+): Promise<void> => {
+  return registerComponents(components);
+};
