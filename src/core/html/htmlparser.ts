@@ -24,8 +24,11 @@ export const loadTemplate = (
 
   const bindings = scanBindings(host);
   const twoWayBindings = scanTwoWayBindings(host);
-  const conditionals = scanConditionals(host);
+  // IMPORTANT: scanLoops must run BEFORE scanConditionals
+  // because scanConditionals removes elements from the DOM,
+  // and any $for loops inside $if elements would be lost otherwise
   const loops = scanLoops(host);
+  const conditionals = scanConditionals(host);
 
   return { bindings, twoWayBindings, conditionals, loops };
 };

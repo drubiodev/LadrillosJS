@@ -5,7 +5,7 @@
   </li>
 </ul>
 
-<ul>
+<ul $if="true">
   <li $for="(c,i) in componetsList" onclick="getDetails('{c.name}')">
     <img src="{c.img}" alt="{c.name}" />
   </li>
