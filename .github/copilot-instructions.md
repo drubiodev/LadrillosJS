@@ -210,6 +210,12 @@ $onUnmount(() => {
 
 // 5. Use $bind for form inputs
 // <input $bind="email"> syncs with state automatically
+
+// 6. Write tests for changes
+// When modifying src/, update corresponding test/unit/*.test.js
+
+// 7. Add tests for new features
+// Every new directive, API, or feature needs comprehensive tests
 ```
 
 ### ❌ DON'T
@@ -230,16 +236,34 @@ logger.debug("msg"); // Use logger from utils
 
 // 5. Block the main thread in scripts
 // Use async/await, not sync loops
+
+// 6. ❌ DON'T modify src/ without updating tests
+// All changes to src/ require corresponding test updates
+
+// 7. ❌ DON'T add features without test coverage
+// Features without tests won't be considered complete
 ```
 
 ## Testing Strategy
 
 **Location:** `test/` folder
 
+**Test Files:**
+
+- `test/unit/registerComponent.test.ts` - Component registration & caching (50+ tests)
+- `test/unit/eventBus.test.ts` - Event bus pub/sub (40+ tests)
+- `test/unit/stateManagement.test.js` - State, reactivity, proxies (50+ tests)
+- `test/unit/bindings.test.js` - Template bindings & expressions (45+ tests)
+- `test/unit/directives.test.js` - $if, $for, $bind, conditionals (70+ tests)
+- `test/unit/advanced.test.js` - Advanced features & edge cases (50+ tests)
+- `test/unit/scriptExecution.test.js` - Script execution & modules (60+ tests)
+- `test/integration/integration.test.js` - Complex real-world patterns (40+ tests)
+- `test/test-helpers.js` - Shared utilities, fixtures, setup
+
 **Pattern:** Mock fetch, stub customElements, assert state/DOM
 
 ```javascript
-// See: test/registerComponent.test.js
+// See: test/registerComponent.test.ts
 const mockFetch = vi.fn().mockResolvedValue({
   ok: true,
   text: () => Promise.resolve("<p>Hello</p><script>let x=0;</script>"),
@@ -249,6 +273,112 @@ vi.stubGlobal("fetch", mockFetch);
 const tag = `test-comp-${Date.now()}`;
 await registerComponent(tag, "/test.html");
 expect(customElements.get(tag)).toBeDefined();
+```
+
+### Workflow for Code Changes
+
+**When modifying `src/` files:**
+
+1. **Identify affected tests** - Which test file covers this module?
+
+   - `src/core/webcomponent.ts` → `test/unit/stateManagement.test.js`, `test/unit/directives.test.js`
+   - `src/core/main.ts` → `test/unit/registerComponent.test.ts`
+   - `src/core/eventBus.ts` → `test/unit/eventBus.test.ts`
+   - `src/core/html/htmlRenderer.ts` → `test/unit/directives.test.js`, `test/unit/bindings.test.js`
+   - `src/core/js/scriptParser.ts` → `test/unit/scriptExecution.test.js`
+
+2. **Update existing tests** - If the change modifies behavior:
+
+   ```bash
+   npm run test -- test/unit/[relevant-test].test.js  # Run specific test file
+   ```
+
+3. **Ensure all tests pass** before committing:
+
+   ```bash
+   npm run test  # Run full test suite (245+ tests)
+   ```
+
+4. **Check coverage** for the modified module:
+   ```bash
+   npm run test:coverage
+   ```
+
+### Workflow for New Features
+
+**When adding a new feature (e.g., new directive, API, or capability):**
+
+1. **Create/extend test file** - Add comprehensive tests covering:
+
+   - ✅ Basic functionality
+   - ✅ Edge cases & error conditions
+   - ✅ Integration with existing features
+   - ✅ Performance with large datasets
+
+2. **Test structure example:**
+
+   ```javascript
+   describe("New Feature: $myDirective", () => {
+     it("should apply directive correctly", async () => {
+       // Arrange: Create fixture component with feature
+       // Act: Trigger feature
+       // Assert: Verify expected behavior
+     });
+
+     it("should handle edge case: empty value", () => {
+       // Test edge case
+     });
+
+     it("should work with nested state", () => {
+       // Test integration with state management
+     });
+   });
+   ```
+
+3. **Implementation then testing order:**
+
+   - Write feature code in `src/`
+   - Write tests in appropriate `test/unit/*.test.js` file
+   - Run tests: `npm run test`
+   - If tests fail, fix implementation
+   - If implementation complete, commit with tests
+
+4. **Minimum coverage requirements:**
+   - Core functionality: 100% pass rate
+   - Edge cases: At least 3 test scenarios per feature
+   - Integration: At least 1 integration test combining feature with other features
+   - No warnings in test output
+
+### Test File Mapping
+
+| Modified File                   | Test File                                       | Focus Areas                        |
+| ------------------------------- | ----------------------------------------------- | ---------------------------------- |
+| `src/index.ts`                  | Integration tests                               | API exports, public surface        |
+| `src/core/webcomponent.ts`      | `stateManagement.test.js`, `directives.test.js` | Proxy behavior, reactivity         |
+| `src/core/main.ts`              | `registerComponent.test.ts`                     | Registration, caching, concurrency |
+| `src/core/eventBus.ts`          | `eventBus.test.ts`                              | $emit, $listen, pub/sub            |
+| `src/core/html/htmlRenderer.ts` | `directives.test.js`, `bindings.test.js`        | $if, $for, $bind, {}, expressions  |
+| `src/core/js/scriptParser.ts`   | `scriptExecution.test.js`                       | Script loading, variable binding   |
+| `src/core/css/cssParser.ts`     | `advanced.test.js`                              | Style loading, Shadow DOM          |
+| `src/cache/functionCache.ts`    | `registerComponent.test.ts`                     | Caching behavior                   |
+
+### Running Tests During Development
+
+```bash
+# Run all tests
+npm run test
+
+# Run specific test file
+npm run test -- test/unit/stateManagement.test.js
+
+# Run tests in watch mode (for TDD)
+npm run test -- --watch
+
+# Run with coverage report
+npm run test:coverage
+
+# Run specific test by name
+npm run test -- -t "should update state reactively"
 ```
 
 ## Important Files
@@ -262,7 +392,42 @@ expect(customElements.get(tag)).toBeDefined();
 | `src/core/js/scriptParser.ts`   | Script extraction & execution | Handles module vs regular scripts          |
 | `src/types/LadrilloTypes.ts`    | TypeScript types              | Reference for component structure          |
 | `vite.config.js`                | Build config                  | Outputs es/umd/cjs                         |
-| `docs/`                         | Publishing & API guides       | 8 comprehensive markdown files             |
+| `test/test-helpers.js`          | Test utilities & fixtures     | Used by all test files                     |
+| `test/unit/*.test.js`           | Unit tests                    | 350+ tests covering all features           |
+| `test/integration/*.test.js`    | Integration tests             | Real-world usage scenarios                 |
+
+## Change Validation Checklist
+
+**Before committing any changes to `src/`:**
+
+- [ ] Code follows existing patterns in the codebase
+- [ ] TypeScript types are correct (no implicit `any`)
+- [ ] Existing tests still pass: `npm run test`
+- [ ] New tests added for behavior changes
+- [ ] New tests added for new features
+- [ ] All tests pass: `npm run test` shows "245 passed (245)"
+- [ ] No test warnings or errors in output
+- [ ] Code builds successfully: `npm run build`
+- [ ] Documentation updated if API changed
+
+**Example validation flow:**
+
+```bash
+# 1. Make changes to src/core/webcomponent.ts
+# 2. Run affected tests
+npm run test -- test/unit/stateManagement.test.js
+
+# 3. If tests fail, fix implementation
+# 4. Run full test suite
+npm run test
+
+# 5. Check for TypeScript errors
+npm run build
+
+# 6. If all green, commit with test updates
+git add src/ test/
+git commit -m "feat: add reactive computed properties"
+```
 
 ## Debugging Tips
 
