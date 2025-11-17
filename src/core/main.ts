@@ -42,7 +42,7 @@ class Ladrillos {
 
     try {
       const source = await fetchComponentSource(path);
-      const component = await parseComponent(source!, name);
+      const component = await parseComponent(source!, name, path);
 
       this.components[name] = {
         tagName: name,
@@ -186,7 +186,7 @@ class Ladrillos {
 
         // Fetch and parse the component
         const source = await fetchComponentSource(path);
-        const component = await parseComponent(source!, name);
+        const component = await parseComponent(source!, name, path);
 
         logger.log(`Component ${name} parsed successfully`);
 
