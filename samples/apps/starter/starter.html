@@ -5,6 +5,12 @@
   </li>
 </ul>
 
+<ul>
+  <li $for="(c,i) in componetsList" onclick="getDetails('{c.name}')">
+    <img src="{c.img}" alt="{c.name}" />
+  </li>
+</ul>
+
 <button onclick="updateCount(count + 1)">Increment Count</button>
 
 count: {count}
@@ -13,6 +19,14 @@ count: {count}
 
 <script>
   const names = ["Alice", "Bob", "Charlie"];
+
+  const componetsList = [
+    {
+      name: "Rand Component",
+      tag: "rand-component",
+      img: "https://placehold.co/80x40",
+    },
+  ];
 
   const getDetails = (id) => {
     console.log("Clicked on item with id:", id);

@@ -3,7 +3,7 @@ import {
   LadrillosComponent,
   ScriptElement,
 } from "../types/LadrilloTypes";
-import { REGEX_PATTERNS } from "../utils/regex";
+import { REGEX_PATTERNS, stripComments } from "../utils/regex";
 import { logger } from "../utils/logger";
 import { safeFetch } from "./componentSource";
 
@@ -98,8 +98,9 @@ export const extractScripts = (
       });
     } else if (el.textContent) {
       let content = el.textContent.trim();
-      // strip JavaScript comments (single‑line and block)
-      content = content.replace(REGEX_PATTERNS.comments.js, "").trim();
+      // Strip comments intelligently while preserving strings and URLs
+      // Use stripComments() instead of naive regex to handle strings with // correctly
+      content = stripComments(content).trim();
       scripts.push({
         content,
         type: el.type ?? null,
