@@ -1,0 +1,22 @@
+{
+  "name": "ladrillosjs",
+  "version": "2.0.0-beta.5",
+  "description": "A lightweight, zero-dependency web component framework for building modular web applications.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/drubiodev/LadrillosJS.git"
+  },
+  "author": "Daniel Rubio",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/drubiodev/LadrillosJS/issues"
+  },
+  "homepage": "https://github.com/drubiodev/LadrillosJS#readme",
+  "devDependencies": {
+    "vite": "^7.2.7"
+  }
+}
