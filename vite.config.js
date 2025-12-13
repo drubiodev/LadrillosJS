@@ -4,13 +4,16 @@ const { defineConfig } = require("vite");
 module.exports = defineConfig(({ command }) => {
   if (command === "serve") {
     return {
-      root: path.resolve(__dirname, "samples"),
+      root: path.resolve(__dirname, "playground"),
       resolve: {
         alias: {
           ladrillosjs: path.resolve(__dirname, "src/index.ts"),
         },
       },
       server: {
+        fs: {
+          allow: [__dirname],
+        },
         sourcemapIgnoreList: () => false,
       },
       build: {

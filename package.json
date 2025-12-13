@@ -20,21 +20,21 @@
       "browser": "./dist/ladrillosjs.umd.js",
       "import": "./dist/ladrillosjs.es.js",
       "require": "./dist/ladrillosjs.cjs.js"
-    },
-    "./vite": {
-      "types": "./dist/vite.d.ts",
-      "import": "./dist/vite.js",
-      "require": "./dist/vite.cjs"
     }
   },
   "scripts": {
     "prepare": "npm run build && npm run build:types",
-    "dev": "vite",
-    "build": "vite build && node scripts/build-vite-plugin.js",
+    "dev": "npm run playground:dev",
+    "build": "vite build",
     "build:types": "tsc -p tsconfig.json",
     "preview": "vite preview",
     "test": "vitest",
-    "test:coverage": "vitest --coverage"
+    "test:coverage": "vitest --coverage",
+    "playground:refresh": "node scripts/playground-refresh.mjs",
+    "playground:dev": "npm run playground:refresh && npm --prefix playground run dev",
+    "playground:build": "npm --prefix playground run build",
+    "playground:preview": "npm --prefix playground run preview",
+    "playground:typecheck": "npm --prefix playground run typecheck"
   },
   "keywords": [
     "webcomponents"
