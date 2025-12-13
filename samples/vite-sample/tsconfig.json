@@ -6,6 +6,13 @@
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "types": ["vite/client"],
     "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+
+    "baseUrl": ".",
+    "paths": {
+      "ladrillosjs": ["../../src/index.ts"],
+      "ladrillosjs/*": ["../../src/*"]
+    },
 
     /* Bundler mode */
     "moduleResolution": "bundler",

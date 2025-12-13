@@ -2,10 +2,26 @@
   "name": "ladrillosjs",
   "version": "2.0.0-beta.5",
   "description": "A lightweight, zero-dependency web component framework for building modular web applications.",
-  "main": "index.js",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
   "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsc -p tsconfig.json -w",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
+  "workspaces": [
+    "samples/*"
+  ],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/drubiodev/LadrillosJS.git"
@@ -17,6 +33,7 @@
   },
   "homepage": "https://github.com/drubiodev/LadrillosJS#readme",
   "devDependencies": {
+    "typescript": "~5.9.3",
     "vite": "^7.2.7"
   }
 }
