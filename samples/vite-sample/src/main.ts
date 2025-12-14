@@ -4,7 +4,8 @@ import viteLogo from "/vite.svg";
 import { setupCounter } from "./counter.ts";
 import { registerComponent } from "ladrillosjs";
 
-registerComponent("my-component", "./components/my-component.js", true, false);
+registerComponent("my-component", "../components/counter.html");
+
 document.querySelector<HTMLDivElement>("#app")!.innerHTML = `
   <div>
     <a href="https://vite.dev" target="_blank">
@@ -16,6 +17,7 @@ document.querySelector<HTMLDivElement>("#app")!.innerHTML = `
     <h1>Vite + TypeScript</h1>
     <div class="card">
       <button id="counter" type="button"></button>
+      <my-component></my-component>
     </div>
     <p class="read-the-docs">
       Click on the Vite and TypeScript logos to learn more

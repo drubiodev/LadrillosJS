@@ -1,8 +1,8 @@
+import { ladrillos } from "./core/ladrillos";
+
 export const registerComponent = (
   name: string,
   path: string,
   useShadowDOM?: boolean,
   lazy?: boolean
-) => {
-  console.log("Hello, LadrillosJS!");
-};
+) => ladrillos.registerComponent(name, path, useShadowDOM, lazy);
