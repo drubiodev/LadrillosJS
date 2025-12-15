@@ -38,10 +38,4 @@ class Ladrillos {
   }
 }
 
-// const parser = new DOMParser();
-
-// export const parseComponentHTML = (source: string): Document => {
-//   return parser.parseFromString(source, "text/html");
-// };
-
 export const ladrillos = new Ladrillos();

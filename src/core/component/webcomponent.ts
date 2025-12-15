@@ -1,24 +1,23 @@
 import { LadrillosComponent } from "../../types";
+import { loadTemplate } from "../html/htmlparser";
 
 export function createWebComponent(
   component: LadrillosComponent,
   useShadowDOM: boolean
 ): void {
-  const { tagName, template, scripts, styles } = component;
+  const { tagName, template, scripts, externalScripts, styles, sourcePath } =
+    component;
 
   class LadrillosWebComponent extends HTMLElement {
+    state: Record<string, any> = {};
+
     constructor() {
       super();
     }
 
     async connectedCallback() {
       const root = useShadowDOM ? this.attachShadow({ mode: "open" }) : this;
-
-      // html
-      root.innerHTML = `
-        <style>${styles}</style>
-        ${template}
-      `;
+      const test = loadTemplate(root, template);
     }
   }
 
