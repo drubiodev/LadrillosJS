@@ -1,6 +1,13 @@
-import { BindingDescriptor } from "../../types";
+import { BindingDescriptor, ConditionalDescriptor, LoopDescriptor, TwoWayBindingDescriptor } from "../../types";
 import { REGEX_PATTERNS } from "../../utils/regex";
-import { analyzeBinding } from "../component/functionParser";
+import { analyzeBinding } from "../component/bindingParser";
+
+type TemplateLoadResult = {
+  bindings: BindingDescriptor[];
+  twoWayBindings: TwoWayBindingDescriptor[];
+  conditionals: ConditionalDescriptor[][];
+  loops: LoopDescriptor[];
+}
 
 /**
  * Injects the template HTML into the host element and scans for data bindings.
@@ -9,7 +16,7 @@ import { analyzeBinding } from "../component/functionParser";
 export const loadTemplate = (
   host: HTMLElement | ShadowRoot,
   template: string
-) => {
+) :TemplateLoadResult=> {
   host.innerHTML = template;
   console.log("Template loaded into host.");
   // scan for data bindings
@@ -17,6 +24,13 @@ export const loadTemplate = (
   // scan two way bindings
   // scan for loops
   // scan for conditionals
+
+  return{
+    bindings,
+    twoWayBindings: [],
+    conditionals: [],
+    loops: []
+  }
 };
 
 function getBindings(host: HTMLElement | ShadowRoot) {
