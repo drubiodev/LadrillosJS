@@ -1,22 +1,28 @@
 <style>
-  button {
-    padding: 10px 20px;
-    font-size: 16px;
-    cursor: pointer;
+  h1 {
+    color: #ff3e00;
+  }
+
+  h2 {
+    color: #1e90ff;
+  }
+
+  img {
+    border: 2px solid #000;
+    border-radius: 8px;
   }
 </style>
 
-<button onclick="increaseCount()">Count is {count}</button>
+<h1>Hello from {name}!</h1>
+<h2>Hello from {name.toUpperCase()}!</h2>
+<img src="{src}" alt="{name} logo" width="200"/>
+<p>{greet()}</p>
 
 <script>
-  console.log("Counter component loaded");
-  let count = 0;
+	let name = 'LadrillosJS';
+  const src = "https://raw.githubusercontent.com/drubiodev/LadrillosJS/refs/heads/main/LadrillosJS.jpg"
 
-  const increaseCount = () => {
-    count++;
-  };
-</script>
-
-<script>
-  const name = "counter-component";
+  function greet() {
+    return `Welcome to ${name}!`;
+  }
 </script>

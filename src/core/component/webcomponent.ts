@@ -1,6 +1,7 @@
 import { LadrillosComponent } from "../../types";
 import { loadStyles } from "../css/cssParser/cssParser";
 import { loadTemplate } from "../html/htmlparser";
+import { loadScripts } from "../js/scriptParser";
 
 export function createWebComponent(
   component: LadrillosComponent,
@@ -23,6 +24,7 @@ export function createWebComponent(
       // Load styles
       loadStyles(root, styles, useShadowDOM);
       // load scripts
+      const test = loadScripts(root, scripts, bindings);
     }
   }
 
