@@ -11,8 +11,18 @@
     border: 2px solid #000;
     border-radius: 8px;
   }
+  button {
+    padding: 10px 20px;
+    font-size: 16px;
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+  }
 </style>
 
+<button onclick="handleClick()">{name}</button>
 <h1>Hello from {name}!</h1>
 <h2>Hello from {name.toUpperCase()}!</h2>
 <img src="{src}" alt="{name} logo" width="200"/>
@@ -24,5 +34,9 @@
 
   function greet() {
     return `Welcome to ${name}!`;
+  }
+
+  function handleClick() {
+    alert(`Button clicked! Hello, ${name}!`);
   }
 </script>

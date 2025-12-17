@@ -24,7 +24,7 @@ export function createWebComponent(
       // Load styles
       loadStyles(root, styles, useShadowDOM);
       // load scripts
-      const test = loadScripts(root, scripts, bindings);
+      loadScripts(root, scripts, bindings);
     }
   }
 

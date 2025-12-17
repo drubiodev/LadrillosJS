@@ -1,4 +1,19 @@
 /**
+ * Globals that are allowed
+ */
+export const ALLOWED_GLOBALS = Object.freeze([
+  'alert', 'confirm', 'prompt',  // User dialogs
+  'console',                      // Debugging
+  'JSON',                         // Data parsing
+  'Math',                         // Math operations
+  'Date',                         // Date handling
+  'Array', 'Object', 'String', 'Number', 'Boolean',  // Primitives
+  'parseInt', 'parseFloat', 'isNaN', 'isFinite',     // Number utilities
+  'encodeURIComponent', 'decodeURIComponent',        // URL encoding
+  'encodeURI', 'decodeURI',
+]);
+
+/**
  * Blocked globals to prevent access to dangerous browser APIs
  * These will be shadowed with undefined in expression evaluation
  * NOTE: Excludes reserved words that can't be used as parameter names
@@ -22,8 +37,8 @@ export const BLOCKED_GLOBALS = Object.freeze([
   // Navigation & Location
   'navigator', 'location', 'history',
   
-  // Dialogs & Windows
-  'alert', 'confirm', 'prompt', 'open', 'close', 'print',
+  // Windows (not dialogs)
+  'open', 'close', 'print',
   
   // Messaging
   'postMessage', 'BroadcastChannel', 'MessageChannel',
