@@ -1,17 +1,161 @@
 <header>
   <h1>LadrillosJS {name}</h1>
+
+  <!-- ============================================ -->
+  <!-- $for - Loop Directive -->
+  <!-- ============================================ -->
   <nav>
+    <!-- Basic loop -->
     <a $for="link in navLinks" href="{link.href}">{link.text}</a>
   </nav>
+
+  <!-- Loop with index -->
+  <ul class="indexed-list">
+    <li $for="(item, index) in items">{index}: {item}</li>
+  </ul>
+
+  <!-- ============================================ -->
+  <!-- $if / $else-if / $else - Conditional Rendering -->
+  <!-- ============================================ -->
+  <div class="user-status">
+    <span $if="userRole === 'admin'">👑 Admin User</span>
+    <span $else-if="userRole === 'member'">👤 Member</span>
+    <span $else>👻 Guest</span>
+  </div>
+
+  <!-- Simple conditional -->
+  <div $if="items.length > 0" class="has-items">
+    You have {items.length} items
+  </div>
+
+  <!-- ============================================ -->
+  <!-- $show - CSS Visibility Toggle -->
+  <!-- ============================================ -->
+  <div class="notification" $show="showNotification">
+    🔔 This notification can be toggled without removing from DOM
+  </div>
+  <button onclick="showNotification = !showNotification">
+    Toggle Notification
+  </button>
+
+  <!-- ============================================ -->
+  <!-- $bind - Two-Way Data Binding -->
+  <!-- ============================================ -->
+  <div class="search-box">
+    <input type="text" $bind="searchQuery" placeholder="Search..." />
+    <p $show="searchQuery">Searching for: {searchQuery}</p>
+  </div>
+
+  <!-- Different input types with $bind -->
+  <div class="form-examples">
+    <label>
+      <input type="checkbox" $bind="isSubscribed" /> Subscribe to newsletter
+    </label>
+    <p>Subscribed: {isSubscribed}</p>
+
+    <select $bind="selectedOption">
+      <option value="a">Option A</option>
+      <option value="b">Option B</option>
+      <option value="c">Option C</option>
+    </select>
+    <p>Selected: {selectedOption}</p>
+  </div>
+
+  <!-- ============================================ -->
+  <!-- $ref - Element References -->
+  <!-- ============================================ -->
+  <canvas $ref="myCanvas" width="200" height="100"></canvas>
+  <button onclick="drawOnCanvas()">Draw on Canvas</button>
 </header>
+
+<style>
+  header {
+    padding: 1rem;
+    font-family: system-ui;
+  }
+  nav {
+    display: flex;
+    gap: 1rem;
+    margin: 1rem 0;
+  }
+  nav a {
+    color: #0066cc;
+    text-decoration: none;
+  }
+  .indexed-list {
+    list-style: none;
+    padding: 0;
+  }
+  .user-status {
+    padding: 0.5rem;
+    background: #f0f0f0;
+    border-radius: 4px;
+  }
+  .notification {
+    padding: 1rem;
+    background: #fff3cd;
+    border-radius: 4px;
+    margin: 1rem 0;
+  }
+  .search-box {
+    margin: 1rem 0;
+  }
+  .search-box input {
+    padding: 0.5rem;
+    width: 200px;
+  }
+  .form-examples {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin: 1rem 0;
+  }
+  canvas {
+    border: 1px solid #ccc;
+    margin: 1rem 0;
+  }
+  button {
+    padding: 0.5rem 1rem;
+    margin: 0.25rem;
+    cursor: pointer;
+  }
+</style>
 
 <script type="module">
   import { links } from "./links.ts";
 
+  // Component state - all variables are reactive
   const name = "Site";
-  const navLinks = links;
-</script>
 
-<script>
+  // Navigation links for $for example (imported from external file)
+  const navLinks = links;
+
+  // For $for with index example
+  const items = ["Apple", "Banana", "Cherry"];
+
+  // For $if/$else-if/$else example
+  const userRole = "member"; // Try: "admin", "member", or "guest"
+
+  // For $show example
+  let showNotification = true;
+
+  // For $bind examples
+  let searchQuery = "";
+  let isSubscribed = false;
+  let selectedOption = "a";
+
+  // For $ref example - access the canvas element
+  function drawOnCanvas() {
+    const myCanvas = refs.get("myCanvas");
+    if (myCanvas) {
+      const ctx = myCanvas.getContext("2d");
+      ctx.fillStyle = "#0066cc";
+      ctx.fillRect(10, 10, 180, 80);
+      ctx.fillStyle = "white";
+      ctx.font = "16px system-ui";
+      ctx.fillText("Hello from $ref!", 30, 55);
+    }
+  }
+
   console.log("Header component loaded");
 </script>

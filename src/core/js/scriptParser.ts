@@ -28,6 +28,7 @@ const getHostElement = (host: HTMLElement | ShadowRoot): HTMLElement =>
  * @param bindings - Template bindings to connect to state
  * @param attributeOverrides - Attributes from HTML that override script defaults
  * @param onStateChange - Optional callback when state changes (for directive updates)
+ * @param deferBindings - If true, don't apply bindings immediately (for module script support)
  * @returns The reactive state object - changes trigger automatic DOM updates
  */
 export async function loadScripts(
@@ -35,7 +36,8 @@ export async function loadScripts(
   scripts: ScriptElement[],
   bindings: BindingDescriptor[],
   attributeOverrides: Record<string, unknown> = {},
-  onStateChange?: () => void
+  onStateChange?: () => void,
+  deferBindings: boolean = false
 ): Promise<Record<string, unknown>> {
   const componentHost = getHostElement(host);
   const initialState: Record<string, unknown> = {};
@@ -69,15 +71,44 @@ export async function loadScripts(
 
   // Store reactive state on host element (for debugging and event handlers)
   (componentHost as any).__state = reactiveState;
+  // Store script content for event handlers that need to be set up later
+  (componentHost as any).__scriptContent = allScriptContent;
 
   // Make onclick="handleClick()" work by binding to reactive state
   // Pass script content so functions can be re-created with current state
-  transformInlineEventHandlers(host, reactiveState, allScriptContent);
+  // NOTE: We defer this until after module scripts are loaded
+  if (!deferBindings) {
+    transformInlineEventHandlers(
+      host,
+      reactiveState,
+      allScriptContent,
+      componentHost
+    );
 
-  // Apply initial bindings with current state values
-  applyBindings(bindings, reactiveState);
+    // Apply initial bindings with current state values
+    applyBindings(bindings, reactiveState);
+  }
 
   return reactiveState;
+}
+
+/**
+ * Apply bindings after all state is ready (including module scripts).
+ * This should be called after module scripts have been executed.
+ */
+export function applyBindingsDeferred(
+  host: HTMLElement | ShadowRoot,
+  bindings: BindingDescriptor[],
+  state: Record<string, unknown>
+): void {
+  const componentHost = getHostElement(host);
+  const allScriptContent = (componentHost as any).__scriptContent || "";
+
+  // Set up event handlers now that all state is available
+  transformInlineEventHandlers(host, state, allScriptContent, componentHost);
+
+  // Apply bindings with complete state
+  applyBindings(bindings, state);
 }
 
 // ============================================================================
@@ -94,7 +125,8 @@ export async function loadScripts(
 function transformInlineEventHandlers(
   host: HTMLElement | ShadowRoot,
   state: Record<string, unknown>,
-  scriptContent: string
+  scriptContent: string,
+  componentHost: HTMLElement
 ): void {
   const elements = Array.from(host.querySelectorAll("*"));
 
@@ -113,7 +145,8 @@ function transformInlineEventHandlers(
         const handler = createVanillaEventHandler(
           handlerCode,
           state,
-          scriptContent
+          scriptContent,
+          componentHost
         );
         if (handler) {
           element.addEventListener(eventName, handler);
@@ -137,7 +170,8 @@ function transformInlineEventHandlers(
 function createVanillaEventHandler(
   code: string,
   state: Record<string, unknown>,
-  scriptContent: string
+  scriptContent: string,
+  componentHost?: HTMLElement
 ): ((event: Event) => void) | null {
   try {
     // Include safe globals like alert, console, Math, JSON, etc.
@@ -146,8 +180,8 @@ function createVanillaEventHandler(
     // Block dangerous globals like window, document, fetch, etc.
     const safeBlocked = getSafeBlockedGlobals();
 
-    // Build the function parameters: event + blocked + allowed + "state" reference
-    const allKeys = ["event", "state", ...safeBlocked, ...allowed.keys];
+    // Build the function parameters: event + blocked + allowed + "state" reference + "refs"
+    const allKeys = ["event", "state", "refs", ...safeBlocked, ...allowed.keys];
 
     // Get ALL state keys (includes both script variables AND attribute values)
     const allStateKeys = Object.keys(state);
@@ -164,6 +198,11 @@ function createVanillaEventHandler(
     const destructureVars =
       varNames.length > 0 ? `let { ${varNames.join(", ")} } = state;` : "";
 
+    // Destructure functions from state (includes module script functions)
+    // This makes functions like drawOnCanvas() available in event handlers
+    const destructureFuncs =
+      funcNames.length > 0 ? `const { ${funcNames.join(", ")} } = state;` : "";
+
     // Extract function definitions from script content to re-create them
     // with current variable values (not original closure values)
     const funcDefs = extractFunctionDefinitions(scriptContent);
@@ -173,14 +212,20 @@ function createVanillaEventHandler(
 
     const fn = new Function(
       ...allKeys,
-      `"use strict"; ${destructureVars} ${funcDefs} ${code}; ${syncBack}`
+      `"use strict"; ${destructureVars} ${destructureFuncs} ${funcDefs} ${code}; ${syncBack}`
     );
 
     return (event: Event) => {
       try {
+        // Get refs from component host dynamically (they're set after script load)
+        const refs = componentHost
+          ? (componentHost as any).__refs || new Map()
+          : new Map();
+
         const allValues = [
           event,
           state, // Pass reactive state
+          refs, // Pass refs Map
           ...safeBlocked.map(() => undefined), // Shadow dangerous globals
           ...allowed.values, // Inject safe globals
         ];

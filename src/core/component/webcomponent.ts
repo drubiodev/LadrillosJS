@@ -5,6 +5,7 @@ import {
   loadScripts,
   extractVariableNames,
   createExpressionEvaluator,
+  applyBindingsDeferred,
 } from "../js/scriptParser";
 import {
   executeModuleScriptsWithReactivity,
@@ -127,17 +128,25 @@ export function createWebComponent(
 
       // Filter out module scripts - they are handled separately
       const regularScripts = scripts.filter((s) => s.type !== "module");
+      const hasModuleScripts = scripts.some((s) => s.type === "module");
 
       // Initialize reactive state and event handlers (for regular scripts)
       // Pass attribute overrides so they take precedence over defaults
       // Pass a callback that will update directives when state changes
+      // DEFER bindings if we have module scripts (they need to load first)
       this.state = await loadScripts(
         this._root,
         regularScripts,
         bindings,
         attributeOverrides,
-        () => this._updateDirectives()
+        () => this._updateDirectives(),
+        hasModuleScripts // deferBindings = true if we have module scripts
       );
+
+      // Create refs Map early so module script functions can capture the reference.
+      // The map will be populated later by scanDirectives, but functions
+      // defined in module scripts need access to the same Map instance.
+      const earlyRefs = new Map<string, HTMLElement>();
 
       // Execute module scripts with runtime import rewriting
       // This handles <script type="module"> with imports like:
@@ -148,7 +157,8 @@ export function createWebComponent(
           scripts,
           externalScripts,
           sourcePath,
-          this._componentId
+          this._componentId,
+          earlyRefs // Pass refs so functions can capture the reference
         );
 
         // Merge module script state into reactive state
@@ -158,14 +168,31 @@ export function createWebComponent(
         }
       }
 
+      // Now that ALL state is ready (regular + module scripts),
+      // apply bindings and set up event handlers
+      if (hasModuleScripts) {
+        applyBindingsDeferred(this._root, bindings, this.state);
+      }
+
       // Create expression evaluator for directives
       this._evaluator = createExpressionEvaluator();
 
       // Scan and process all directives ($for, $if, $show, $bind, $ref)
       this._directives = scanDirectives(this._root);
 
+      // Copy refs from scanDirectives into the earlyRefs Map that module
+      // script functions captured. This ensures drawOnCanvas() etc. can
+      // access refs.get("myCanvas") correctly.
+      for (const [key, value] of this._directives.refs) {
+        earlyRefs.set(key, value);
+      }
+      // Replace the directives refs with earlyRefs so everything uses the same Map
+      this._directives.refs = earlyRefs;
+
       // Expose refs on the component for external access
       (this as any).refs = this._directives.refs;
+      // Also store on host element so event handlers can access them
+      (this as any).__refs = this._directives.refs;
 
       // Initial directive rendering
       this._updateDirectives();

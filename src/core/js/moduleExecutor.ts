@@ -515,7 +515,13 @@ function stripImports(code: string): string {
 }
 
 /**
- * Extracts variable and function names from code (for reactive state).
+ * Extracts ONLY top-level variable and function names from code.
+ *
+ * This is critical for reactive state - we must NOT extract variables
+ * declared inside functions (like `const myCanvas = refs.get(...)`).
+ *
+ * The approach: Track brace depth and only extract declarations at depth 0.
+ * This is similar to how Vue's compiler-sfc uses AST walking.
  */
 function extractDeclaredNames(code: string): {
   variables: string[];
@@ -524,17 +530,63 @@ function extractDeclaredNames(code: string): {
   const variables: string[] = [];
   const functions: string[] = [];
 
-  // Match variable declarations
-  const varRegex = /(?:let|const|var)\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*=/g;
-  let match;
-  while ((match = varRegex.exec(code)) !== null) {
-    variables.push(match[1]);
-  }
+  // Remove string literals and comments to avoid false matches
+  // Replace them with spaces to preserve positions
+  const cleanedCode = code
+    // Remove template literals (backticks)
+    .replace(/`[^`]*`/g, (m) => " ".repeat(m.length))
+    // Remove double-quoted strings
+    .replace(/"(?:[^"\\]|\\.)*"/g, (m) => " ".repeat(m.length))
+    // Remove single-quoted strings
+    .replace(/'(?:[^'\\]|\\.)*'/g, (m) => " ".repeat(m.length))
+    // Remove multi-line comments
+    .replace(/\/\*[\s\S]*?\*\//g, (m) => " ".repeat(m.length))
+    // Remove single-line comments
+    .replace(/\/\/[^\n]*/g, (m) => " ".repeat(m.length));
 
-  // Match function declarations
-  const funcRegex = /(?:async\s+)?function\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*\(/g;
-  while ((match = funcRegex.exec(code)) !== null) {
-    functions.push(match[1]);
+  // Track brace depth: only extract at depth 0 (top level)
+  let braceDepth = 0;
+  let i = 0;
+
+  while (i < cleanedCode.length) {
+    const char = cleanedCode[i];
+
+    // Track brace depth
+    if (char === "{") {
+      braceDepth++;
+      i++;
+      continue;
+    }
+    if (char === "}") {
+      braceDepth--;
+      i++;
+      continue;
+    }
+
+    // Only extract at top level (braceDepth === 0)
+    if (braceDepth === 0) {
+      // Check for function declarations: function name( or async function name(
+      const funcMatch = cleanedCode
+        .slice(i)
+        .match(/^(?:async\s+)?function\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*\(/);
+      if (funcMatch) {
+        functions.push(funcMatch[1]);
+        i += funcMatch[0].length;
+        continue;
+      }
+
+      // Check for variable declarations: let/const/var name =
+      const varMatch = cleanedCode
+        .slice(i)
+        .match(/^(?:let|const|var)\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*=/);
+      if (varMatch) {
+        variables.push(varMatch[1]);
+        i += varMatch[0].length;
+        continue;
+      }
+    }
+
+    i++;
   }
 
   return { variables, functions };
@@ -552,7 +604,8 @@ function extractDeclaredNames(code: string): {
  */
 export async function executeModuleScriptWithReactivity(
   script: ScriptElement,
-  componentUrl: string
+  componentUrl: string,
+  refs?: Map<string, HTMLElement>
 ): Promise<Record<string, unknown>> {
   if (script.type !== "module") {
     throw new Error(
@@ -610,9 +663,20 @@ export async function executeModuleScriptWithReactivity(
       (name) => (globalThis as any)[name]
     );
 
-    const fn = new Function(...importNames, ...safeGlobals, wrappedCode);
+    // Inject refs Map so functions can access element references
+    // The refs Map is populated later by scanDirectives, but the
+    // reference is captured by functions defined in the module
+    const injectedVars = ["refs"];
+    const injectedValues = [refs || new Map()];
 
-    const result = fn(...importValues, ...safeGlobalValues);
+    const fn = new Function(
+      ...importNames,
+      ...safeGlobals,
+      ...injectedVars,
+      wrappedCode
+    );
+
+    const result = fn(...importValues, ...safeGlobalValues, ...injectedValues);
 
     return result || {};
   } catch (error) {
@@ -626,12 +690,15 @@ export async function executeModuleScriptWithReactivity(
 /**
  * Executes all module scripts with reactivity support.
  * Returns merged state from all module scripts.
+ * @param refs - Optional refs Map that will be populated by scanDirectives later.
+ *               Functions in module scripts can capture this reference.
  */
 export async function executeModuleScriptsWithReactivity(
   scripts: ScriptElement[],
   externalScripts: ExternalScriptElement[],
   componentUrl: string,
-  componentId?: string
+  componentId?: string,
+  refs?: Map<string, HTMLElement>
 ): Promise<Record<string, unknown>> {
   const mergedState: Record<string, unknown> = {};
 
@@ -655,7 +722,8 @@ export async function executeModuleScriptsWithReactivity(
     try {
       const state = await executeModuleScriptWithReactivity(
         script,
-        componentUrl
+        componentUrl,
+        refs
       );
       Object.assign(mergedState, state);
     } catch (error) {
