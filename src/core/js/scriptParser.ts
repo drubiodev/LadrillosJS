@@ -1,6 +1,7 @@
 import { BindingDescriptor, ScriptElement } from "../../types";
 import { EVENT_ATTRIBUTES } from "../../utils/jsevents";
 import { ALLOWED_GLOBALS, BLOCKED_GLOBALS, RESERVED_WORDS } from "../../utils/sandbox";
+import { createReactiveState } from "./reactivity";
 
 /**
  * Gets the actual HTMLElement from either a direct element or a ShadowRoot.
@@ -12,36 +13,49 @@ const getHostElement = (host: HTMLElement | ShadowRoot): HTMLElement =>
  * Main entry point for processing component scripts.
  * 
  * 1. Extracts all variables and functions from <script> tags
- * 2. Makes them available as component context
- * 3. Binds inline event handlers (onclick, etc.) to work with that context
+ * 2. Creates a reactive state that auto-updates DOM on changes
+ * 3. Binds inline event handlers (onclick, etc.) to work with reactive state
  * 4. Evaluates and applies template bindings like {name} or {greet()}
+ * 
+ * @returns The reactive state object - changes trigger automatic DOM updates
  */
 export async function loadScripts(
   host: HTMLElement | ShadowRoot,
   scripts: ScriptElement[],
   bindings: BindingDescriptor[]
-): Promise<Map<string, unknown>> {
+): Promise<Record<string, unknown>> {
   const componentHost = getHostElement(host);
-  const context = new Map<string, unknown>();
+  const initialState: Record<string, unknown> = {};
+
+  // Collect all script content for re-execution in event handlers
+  const allScriptContent = scripts.map(s => s.content).join('\n');
 
   // Extract all declared variables and functions from component scripts
   for (const script of scripts) {
     const members = extractScriptMembers(script.content);
     for (const [key, value] of members) {
-      context.set(key, value);
+      initialState[key] = value;
     }
   }
 
-  // Store context on host element (useful for debugging)
-  (componentHost as any).__ctx = Object.fromEntries(context);
+  // Create reactive state - changes automatically update the DOM!
+  const reactiveState = createReactiveState(
+    initialState,
+    bindings,
+    (binding, state) => updateSingleBinding(binding, state)
+  );
 
-  // Make onclick="handleClick()" work by binding to component scope
-  transformInlineEventHandlers(host, context);
+  // Store reactive state on host element (for debugging and event handlers)
+  (componentHost as any).__state = reactiveState;
 
-  // Replace {expression} bindings in the template with actual values
-  applyBindings(bindings, context);
+  // Make onclick="handleClick()" work by binding to reactive state
+  // Pass script content so functions can be re-created with current state
+  transformInlineEventHandlers(host, reactiveState, allScriptContent);
 
-  return context;
+  // Apply initial bindings with current state values
+  applyBindings(bindings, reactiveState);
+
+  return reactiveState;
 }
 
 // ============================================================================
@@ -57,7 +71,8 @@ export async function loadScripts(
  */
 function transformInlineEventHandlers(
   host: HTMLElement | ShadowRoot,
-  context: Map<string, unknown>
+  state: Record<string, unknown>,
+  scriptContent: string
 ): void {
   const elements = Array.from(host.querySelectorAll('*'));
 
@@ -73,7 +88,7 @@ function transformInlineEventHandlers(
         const eventName = attrName.slice(2);
 
         // Create a real event listener with component context
-        const handler = createVanillaEventHandler(handlerCode, context);
+        const handler = createVanillaEventHandler(handlerCode, state, scriptContent);
         if (handler) {
           element.addEventListener(eventName, handler);
         }
@@ -86,37 +101,58 @@ function transformInlineEventHandlers(
  * Creates an event handler function that executes the original handler code
  * with access to component variables, functions, and safe globals like alert().
  * 
- * Example: onclick="handleClick()" will call the component's handleClick function.
+ * The handler has access to the REACTIVE state, so assignments like:
+ *   onclick="count++"
+ * will automatically update the DOM.
+ * 
+ * Functions are RE-CREATED each time with current state values, so:
+ *   onclick="handleClick()" will see the latest `name` value, not the original.
  */
 function createVanillaEventHandler(
   code: string,
-  context: Map<string, unknown>
+  state: Record<string, unknown>,
+  scriptContent: string
 ): ((event: Event) => void) | null {
   try {
-    const keys = Array.from(context.keys());
-    const values = Array.from(context.values());
-
     // Include safe globals like alert, console, Math, JSON, etc.
     const allowed = getAllowedGlobalsWithValues();
     
     // Block dangerous globals like window, document, fetch, etc.
     const safeBlocked = getSafeBlockedGlobals();
     
-    // Build the function parameters: event + blocked + allowed + component context
-    const allKeys = ['event', ...safeBlocked, ...allowed.keys, ...keys];
+    // Build the function parameters: event + blocked + allowed + "state" reference
+    const allKeys = ['event', 'state', ...safeBlocked, ...allowed.keys];
+
+    // Get only variable names (not functions) for destructuring
+    const varNames = extractVariableNames(scriptContent);
+    const funcNames = extractFunctionNames(scriptContent);
+    
+    // Destructure only variables from state
+    const destructureVars = varNames.length > 0 
+      ? `let { ${varNames.join(', ')} } = state;`
+      : '';
+    
+    // Extract function definitions from script content to re-create them
+    // with current variable values (not original closure values)
+    const funcDefs = extractFunctionDefinitions(scriptContent);
+    
+    // Sync variable changes back to state (not functions)
+    const syncBack = varNames
+      .map(key => `state.${key} = ${key};`)
+      .join(' ');
 
     const fn = new Function(
       ...allKeys,
-      `"use strict"; ${code}`
+      `"use strict"; ${destructureVars} ${funcDefs} ${code}; ${syncBack}`
     );
 
     return (event: Event) => {
       try {
         const allValues = [
           event,
+          state,                                // Pass reactive state
           ...safeBlocked.map(() => undefined), // Shadow dangerous globals
           ...allowed.values,                    // Inject safe globals
-          ...values,                            // Inject component context
         ];
         fn(...allValues);
       } catch (e) {
@@ -127,6 +163,55 @@ function createVanillaEventHandler(
     console.warn(`Failed to create event handler: ${code}`, e);
     return null;
   }
+}
+
+/**
+ * Extracts function definitions from script content.
+ * These will be re-created in the event handler context with current state values.
+ */
+function extractFunctionDefinitions(content: string): string {
+  // Match both regular and async function declarations
+  const funcRegex = /(?:async\s+)?function\s+[a-zA-Z_$][a-zA-Z0-9_$]*\s*\([^)]*\)\s*\{/g;
+  const functions: string[] = [];
+  let match;
+  
+  while ((match = funcRegex.exec(content)) !== null) {
+    // Find the matching closing brace
+    const startIndex = match.index;
+    let braceCount = 0;
+    let endIndex = startIndex;
+    let inString = false;
+    let stringChar = '';
+    
+    for (let i = startIndex; i < content.length; i++) {
+      const char = content[i];
+      const prevChar = i > 0 ? content[i - 1] : '';
+      
+      // Handle string detection (skip braces inside strings)
+      if ((char === '"' || char === "'" || char === '`') && prevChar !== '\\') {
+        if (!inString) {
+          inString = true;
+          stringChar = char;
+        } else if (char === stringChar) {
+          inString = false;
+        }
+      }
+      
+      if (!inString) {
+        if (char === '{') braceCount++;
+        if (char === '}') braceCount--;
+        
+        if (braceCount === 0 && char === '}') {
+          endIndex = i + 1;
+          break;
+        }
+      }
+    }
+    
+    functions.push(content.slice(startIndex, endIndex));
+  }
+  
+  return functions.join('\n');
 }
 
 // ============================================================================
@@ -253,11 +338,11 @@ function getAllowedGlobalsWithValues(): { keys: string[]; values: unknown[] } {
  */
 function evaluateExpression(
   expression: string,
-  context: Map<string, unknown>
+  state: Record<string, unknown>
 ): unknown {
   try {
-    const keys = Array.from(context.keys());
-    const values = Array.from(context.values());
+    const keys = Object.keys(state);
+    const values = Object.values(state);
 
     const safeBlocked = getSafeBlockedGlobals();
     const allKeys = [...safeBlocked, ...keys];
@@ -275,6 +360,35 @@ function evaluateExpression(
 }
 
 /**
+ * Updates a single binding with new state values.
+ * Called by the reactive system when a dependency changes.
+ */
+function updateSingleBinding(
+  descriptor: BindingDescriptor,
+  state: Record<string, unknown>
+): void {
+  let result = descriptor.original;
+
+  // Evaluate and replace each {expression} in the text
+  for (const binding of descriptor.bindings) {
+    const evaluated = evaluateExpression(binding.raw, state);
+    const stringValue = String(evaluated ?? "");
+    result = result.replace(`{${binding.raw}}`, stringValue);
+  }
+
+  if (descriptor.isAttribute && descriptor.attributeName) {
+    // Update element attribute
+    const element = (descriptor as any).element ?? descriptor.node.parentElement;
+    if (element) {
+      element.setAttribute(descriptor.attributeName, result);
+    }
+  } else {
+    // Update text node content
+    descriptor.node.textContent = result;
+  }
+}
+
+/**
  * Replaces all {expression} bindings in the template with their evaluated values.
  * 
  * Handles both:
@@ -283,27 +397,9 @@ function evaluateExpression(
  */
 function applyBindings(
   bindings: BindingDescriptor[],
-  context: Map<string, unknown>
+  state: Record<string, unknown>
 ): void {
   for (const descriptor of bindings) {
-    let result = descriptor.original;
-
-    // Evaluate and replace each {expression} in the text
-    for (const binding of descriptor.bindings) {
-      const evaluated = evaluateExpression(binding.raw, context);
-      const stringValue = String(evaluated ?? "");
-      result = result.replace(`{${binding.raw}}`, stringValue);
-    }
-
-    if (descriptor.isAttribute && descriptor.attributeName) {
-      // Update element attribute
-      const element = (descriptor as any).element ?? descriptor.node.parentElement;
-      if (element) {
-        element.setAttribute(descriptor.attributeName, result);
-      }
-    } else {
-      // Update text node content
-      descriptor.node.textContent = result;
-    }
+    updateSingleBinding(descriptor, state);
   }
 }

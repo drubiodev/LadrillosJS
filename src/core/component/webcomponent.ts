@@ -11,7 +11,8 @@ export function createWebComponent(
     component;
 
   class LadrillosWebComponent extends HTMLElement {
-    state: Record<string, any> = {};
+    // Reactive state - changes automatically update the DOM
+    state: Record<string, unknown> = {};
 
     constructor() {
       super();
@@ -23,8 +24,10 @@ export function createWebComponent(
 
       // Load styles
       loadStyles(root, styles, useShadowDOM);
-      // load scripts
-      loadScripts(root, scripts, bindings);
+      
+      // Load scripts and create reactive state
+      // State changes will automatically update {bindings} in the DOM
+      this.state = await loadScripts(root, scripts, bindings);
     }
   }
 
