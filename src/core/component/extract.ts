@@ -11,7 +11,9 @@ export async function parseComponent(
 
   // get scripts
   const scriptEls = Array.from(doc.querySelectorAll("script"));
-  const scripts = scriptEls
+
+  // Collect inline scripts (with content)
+  const inlineScripts = scriptEls
     .filter((s) => !s.src)
     .map((s) => {
       const content = (s.textContent ?? "").trim();
@@ -20,8 +22,49 @@ export async function parseComponent(
     })
     .filter((s) => s.content.length > 0);
 
+  // Detect Vite-transformed module scripts (html-proxy)
+  // These are inline scripts that Vite extracted to external files
+  const viteProxyScripts = scriptEls.filter((s) => {
+    const src = s.getAttribute("src") || "";
+    return src.includes("html-proxy") && s.getAttribute("type") === "module";
+  });
+
+  // Fetch content from Vite proxy scripts
+  const fetchedScripts = await Promise.all(
+    viteProxyScripts.map(async (s) => {
+      const src = s.getAttribute("src") || "";
+      try {
+        const response = await fetch(src);
+        if (response.ok) {
+          const content = await response.text();
+          return { content: content.trim(), type: "module" };
+        }
+      } catch (e) {
+        // Silently fail - script will be skipped
+      }
+      return null;
+    })
+  );
+
+  // Combine inline scripts with fetched Vite proxy scripts
+  const scripts = [
+    ...inlineScripts,
+    ...fetchedScripts.filter(
+      (s): s is { content: string; type: string } =>
+        s !== null && s.content.length > 0
+    ),
+  ];
+
+  // Filter out Vite-injected scripts and proxy scripts for external scripts list
   const externalScripts = scriptEls
-    .filter((s) => !!s.src)
+    .filter((s) => {
+      if (!s.src) return false;
+      const src = s.getAttribute("src") || "";
+      // Skip Vite client and proxy scripts
+      if (src.includes("@vite/client")) return false;
+      if (src.includes("html-proxy")) return false;
+      return true;
+    })
     .map((s) => {
       const type = s.getAttribute("type");
       let src = s.src;
