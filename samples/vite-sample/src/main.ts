@@ -17,7 +17,7 @@ document.querySelector<HTMLDivElement>("#app")!.innerHTML = `
     <h1>Vite + TypeScript</h1>
     <div class="card">
       <button id="counter" type="button"></button>
-      <my-component></my-component>
+      <my-component count="5"></my-component>
     </div>
     <p class="read-the-docs">
       Click on the Vite and TypeScript logos to learn more

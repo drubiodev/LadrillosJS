@@ -13,16 +13,23 @@ const getHostElement = (host: HTMLElement | ShadowRoot): HTMLElement =>
  * Main entry point for processing component scripts.
  * 
  * 1. Extracts all variables and functions from <script> tags
- * 2. Creates a reactive state that auto-updates DOM on changes
- * 3. Binds inline event handlers (onclick, etc.) to work with reactive state
- * 4. Evaluates and applies template bindings like {name} or {greet()}
+ * 2. Applies attribute overrides (attributes take precedence over defaults)
+ * 3. Creates attribute-only state entries (for attributes without script vars)
+ * 4. Creates a reactive state that auto-updates DOM on changes
+ * 5. Binds inline event handlers (onclick, etc.) to work with reactive state
+ * 6. Evaluates and applies template bindings like {name} or {greet()}
  * 
+ * @param host - The component's root element or shadow root
+ * @param scripts - Script elements from the component
+ * @param bindings - Template bindings to connect to state
+ * @param attributeOverrides - Attributes from HTML that override script defaults
  * @returns The reactive state object - changes trigger automatic DOM updates
  */
 export async function loadScripts(
   host: HTMLElement | ShadowRoot,
   scripts: ScriptElement[],
-  bindings: BindingDescriptor[]
+  bindings: BindingDescriptor[],
+  attributeOverrides: Record<string, unknown> = {}
 ): Promise<Record<string, unknown>> {
   const componentHost = getHostElement(host);
   const initialState: Record<string, unknown> = {};
@@ -31,11 +38,19 @@ export async function loadScripts(
   const allScriptContent = scripts.map(s => s.content).join('\n');
 
   // Extract all declared variables and functions from component scripts
+  // These serve as DEFAULT values
   for (const script of scripts) {
     const members = extractScriptMembers(script.content);
     for (const [key, value] of members) {
       initialState[key] = value;
     }
+  }
+
+  // Apply attribute overrides - ATTRIBUTES WIN over script defaults
+  // Also creates state entries for attributes that don't have script defaults
+  // This allows: <my-component count="5"> without needing `let count` in script
+  for (const [key, value] of Object.entries(attributeOverrides)) {
+    initialState[key] = value;
   }
 
   // Create reactive state - changes automatically update the DOM!
@@ -123,11 +138,14 @@ function createVanillaEventHandler(
     // Build the function parameters: event + blocked + allowed + "state" reference
     const allKeys = ['event', 'state', ...safeBlocked, ...allowed.keys];
 
-    // Get only variable names (not functions) for destructuring
-    const varNames = extractVariableNames(scriptContent);
-    const funcNames = extractFunctionNames(scriptContent);
+    // Get ALL state keys (includes both script variables AND attribute values)
+    const allStateKeys = Object.keys(state);
     
-    // Destructure only variables from state
+    // Separate functions from variables in state
+    const funcNames = allStateKeys.filter(key => typeof state[key] === 'function');
+    const varNames = allStateKeys.filter(key => typeof state[key] !== 'function');
+    
+    // Destructure ALL variables from state (script vars + attribute vars)
     const destructureVars = varNames.length > 0 
       ? `let { ${varNames.join(', ')} } = state;`
       : '';
@@ -136,7 +154,7 @@ function createVanillaEventHandler(
     // with current variable values (not original closure values)
     const funcDefs = extractFunctionDefinitions(scriptContent);
     
-    // Sync variable changes back to state (not functions)
+    // Sync ALL variable changes back to state
     const syncBack = varNames
       .map(key => `state.${key} = ${key};`)
       .join(' ');
@@ -270,8 +288,9 @@ function extractScriptMembers(content: string): Map<string, unknown> {
 
 /**
  * Finds variable declarations: let x = ..., const y = ..., var z = ...
+ * Exported so webcomponent.ts can use it for observedAttributes.
  */
-function extractVariableNames(content: string): string[] {
+export function extractVariableNames(content: string): string[] {
   const names: string[] = [];
   const regex = /(?:let|const|var)\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*=/g;
   let match;

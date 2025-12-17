@@ -1,8 +1,27 @@
 import { LadrillosComponent } from "../../types";
 import { loadStyles } from "../css/cssParser/cssParser";
 import { loadTemplate } from "../html/htmlparser";
-import { loadScripts } from "../js/scriptParser";
+import { loadScripts, extractVariableNames } from "../js/scriptParser";
 
+/**
+ * Creates a semantically correct Web Component from a Ladrillos component.
+ * 
+ * Follows the Web Components specification:
+ * - Proper lifecycle callbacks (connectedCallback, disconnectedCallback, etc.)
+ * - Observed attributes with attributeChangedCallback
+ * - Shadow DOM encapsulation (optional)
+ * - Reactive state that syncs with the DOM
+ * 
+ * Attribute Precedence (follows Vue/Svelte/Lit convention):
+ * - Attributes from HTML OVERRIDE script variable defaults
+ * - Script variables serve as DEFAULT values when no attribute is provided
+ * 
+ * Example:
+ *   <my-counter count="5"></my-counter>  <!-- count = 5, not the default -->
+ *   <my-counter></my-counter>            <!-- count = 0 (script default) -->
+ * 
+ * Inspired by: Lit, Vue's defineCustomElement, Stencil
+ */
 export function createWebComponent(
   component: LadrillosComponent,
   useShadowDOM: boolean
@@ -10,30 +29,205 @@ export function createWebComponent(
   const { tagName, template, scripts, externalScripts, styles, sourcePath } =
     component;
 
+  // Pre-extract variable names from scripts for observedAttributes
+  // This runs once when the component class is defined
+  const allScriptContent = scripts.map(s => s.content).join('\n');
+  const declaredVariables = extractVariableNames(allScriptContent);
+
   class LadrillosWebComponent extends HTMLElement {
-    // Reactive state - changes automatically update the DOM
+    // =========================================================================
+    // Static Properties (Web Component Spec)
+    // =========================================================================
+    
+    /**
+     * Attributes to observe for changes.
+     * Automatically derived from script variable declarations.
+     * When these attributes change, attributeChangedCallback is called.
+     */
+    static get observedAttributes(): string[] {
+      return declaredVariables;
+    }
+
+    // =========================================================================
+    // Instance Properties
+    // =========================================================================
+    
+    /** Reactive state - changes automatically update the DOM */
     state: Record<string, unknown> = {};
+    
+    /** Reference to the shadow root or light DOM root */
+    private _root: HTMLElement | ShadowRoot | null = null;
+    
+    /** Flag to track if component has been initialized */
+    private _initialized: boolean = false;
+
+    // =========================================================================
+    // Lifecycle Callbacks (Web Component Spec)
+    // =========================================================================
 
     constructor() {
       super();
+      // Don't do DOM work here - wait for connectedCallback
+      // This follows the custom elements spec best practice
     }
 
-    async connectedCallback() {
-      const root = useShadowDOM ? this.attachShadow({ mode: "open" }) : this;
-      const { bindings, twoWayBindings, conditionals, loops } = loadTemplate(root, template);
+    /**
+     * Called when the element is added to the DOM.
+     * This is where we do our main initialization.
+     */
+    async connectedCallback(): Promise<void> {
+      // Prevent double initialization (can happen with some frameworks)
+      if (this._initialized) return;
+      this._initialized = true;
 
-      // Load styles
-      loadStyles(root, styles, useShadowDOM);
+      // Create shadow DOM or use light DOM
+      this._root = useShadowDOM 
+        ? this.attachShadow({ mode: "open" }) 
+        : this;
+
+      // Parse template and find bindings
+      const { bindings, twoWayBindings, conditionals, loops } = loadTemplate(
+        this._root, 
+        template
+      );
+
+      // Load scoped styles
+      loadStyles(this._root, styles, useShadowDOM);
+
+      // Collect attribute values to override script defaults
+      // ATTRIBUTES WIN over script variable defaults
+      const attributeOverrides = this._getAttributeOverrides();
+
+      // Initialize reactive state and event handlers
+      // Pass attribute overrides so they take precedence over defaults
+      this.state = await loadScripts(this._root, scripts, bindings, attributeOverrides);
+
+      // Dispatch custom event when component is ready
+      this.dispatchEvent(new CustomEvent('ladrillos:ready', {
+        bubbles: true,
+        composed: true, // Crosses shadow DOM boundary
+        detail: { state: this.state }
+      }));
+    }
+
+    /**
+     * Called when the element is removed from the DOM.
+     * Clean up event listeners, observers, etc.
+     */
+    disconnectedCallback(): void {
+      // TODO: Clean up any subscriptions, observers, or event listeners
+      // This prevents memory leaks
+      this._initialized = false;
+    }
+
+    /**
+     * Called when an observed attribute changes.
+     * Syncs HTML attributes with component reactive state.
+     * 
+     * This enables:
+     *   element.setAttribute('count', '10')  -->  state.count = 10
+     */
+    attributeChangedCallback(
+      name: string, 
+      oldValue: string | null, 
+      newValue: string | null
+    ): void {
+      // Only process if value actually changed and component is initialized
+      if (oldValue === newValue) return;
       
-      // Load scripts and create reactive state
-      // State changes will automatically update {bindings} in the DOM
-      this.state = await loadScripts(root, scripts, bindings);
+      // If not yet initialized, attributes will be read in connectedCallback
+      if (!this._initialized) return;
+
+      // Sync attribute to reactive state
+      // This triggers DOM updates automatically via the Proxy
+      const parsed = this._parseAttributeValue(newValue);
+      this.state[name] = parsed;
+    }
+
+    /**
+     * Called when the element is moved to a new document.
+     * Rare, but required for full spec compliance.
+     */
+    adoptedCallback(): void {
+      // Re-initialize if needed when moved to a new document
+    }
+
+    // =========================================================================
+    // Helper Methods
+    // =========================================================================
+
+    /**
+     * Collects all attribute values that can be used as state.
+     * Collects ALL attributes (not just those matching declared variables).
+     * This allows: <my-component count="5"> without needing `let count` in script.
+     */
+    private _getAttributeOverrides(): Record<string, unknown> {
+      const overrides: Record<string, unknown> = {};
+      
+      // Collect all attributes on the element
+      for (const attr of Array.from(this.attributes)) {
+        // Skip standard HTML attributes and framework internals
+        if (this._isReservedAttribute(attr.name)) continue;
+        
+        overrides[attr.name] = this._parseAttributeValue(attr.value);
+      }
+      
+      return overrides;
+    }
+
+    /**
+     * Checks if an attribute is a reserved HTML attribute that shouldn't
+     * become component state.
+     */
+    private _isReservedAttribute(name: string): boolean {
+      const reserved = [
+        'id', 'class', 'style', 'slot', 'part',
+        'is', 'tabindex', 'title', 'lang', 'dir',
+        'hidden', 'draggable', 'contenteditable'
+      ];
+      return reserved.includes(name.toLowerCase()) || name.startsWith('data-');
+    }
+
+    /**
+     * Parses an attribute string value to the appropriate JS type.
+     * Attributes are always strings, but we try to convert them.
+     * 
+     * Conversions:
+     *   "true" / "false" -> boolean
+     *   "42" / "3.14" -> number
+     *   "" (empty) -> true (boolean attribute)
+     *   '[1,2,3]' / '{"a":1}' -> parsed JSON
+     *   anything else -> string
+     */
+    private _parseAttributeValue(value: string | null): unknown {
+      if (value === null) return null;
+      if (value === '') return true; // Boolean attribute: <my-el disabled>
+      if (value === 'true') return true;
+      if (value === 'false') return false;
+      
+      // Try number conversion
+      const num = Number(value);
+      if (!isNaN(num) && value.trim() !== '') return num;
+      
+      // Try JSON parse for objects/arrays
+      try {
+        return JSON.parse(value);
+      } catch {
+        return value; // Return as string
+      }
+    }
+
+    /**
+     * Gets the component's root (shadow root or element itself).
+     */
+    get root(): HTMLElement | ShadowRoot | null {
+      return this._root;
     }
   }
 
-  // Only define if not already defined
+  // Only define if not already defined (prevents errors on hot reload)
   if (!customElements.get(tagName)) {
     customElements.define(tagName, LadrillosWebComponent);
-    console.log(`Web component "${tagName}" defined.`);
+    console.log(`Web component "${tagName}" registered.`);
   }
 }
