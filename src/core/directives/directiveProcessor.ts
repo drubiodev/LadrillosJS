@@ -1,0 +1,805 @@
+/**
+ * LadrillosJS Directive Processor
+ *
+ * Handles all template directives:
+ * - $for: Loop rendering
+ * - $if/$else-if/$else: Conditional rendering
+ * - $show: CSS visibility toggle
+ * - $bind: Two-way data binding
+ * - $ref: Element references
+ */
+
+import {
+  ConditionalDescriptor,
+  LoopDescriptor,
+  TwoWayBindingDescriptor,
+} from "../../types";
+import {
+  FOR_DIRECTIVE,
+  IF_DIRECTIVE,
+  ELSE_DIRECTIVE,
+  ELSE_IF_DIRECTIVE,
+  SHOW_DIRECTIVE,
+  BIND_DIRECTIVE,
+  REF_DIRECTIVE,
+  DIRECTIVE_PATTERNS,
+  escapeCssSelector,
+} from "../../utils/directives";
+
+// ============================================================================
+// Types
+// ============================================================================
+
+export type RefMap = Map<string, HTMLElement>;
+
+export type DirectiveContext = {
+  loops: LoopDescriptor[];
+  conditionals: ConditionalDescriptor[][];
+  twoWayBindings: TwoWayBindingDescriptor[];
+  refs: RefMap;
+  showElements: ShowDescriptor[];
+};
+
+export type ShowDescriptor = {
+  element: HTMLElement;
+  expression: string;
+  originalDisplay: string;
+};
+
+// ============================================================================
+// Main Directive Scanner
+// ============================================================================
+
+/**
+ * Scans the template for all directives and returns descriptors for each.
+ * This should be called after the template HTML is injected into the DOM.
+ */
+export function scanDirectives(
+  host: HTMLElement | ShadowRoot
+): DirectiveContext {
+  const context: DirectiveContext = {
+    loops: [],
+    conditionals: [],
+    twoWayBindings: [],
+    refs: new Map(),
+    showElements: [],
+  };
+
+  // Process in order: refs first, then loops (so we can skip loop internals),
+  // then conditionals, then show, then bind
+  scanRefs(host, context);
+  scanLoops(host, context);
+  scanConditionals(host, context);
+  scanShow(host, context);
+  scanTwoWayBindings(host, context);
+
+  return context;
+}
+
+// ============================================================================
+// $ref Directive
+// ============================================================================
+
+/**
+ * Scans for $ref directives and creates element references.
+ *
+ * Usage: <input $ref="inputElement">
+ * Access: refs.get('inputElement')
+ */
+function scanRefs(
+  host: HTMLElement | ShadowRoot,
+  context: DirectiveContext
+): void {
+  const elements = Array.from(
+    host.querySelectorAll(`[${escapeCssSelector(REF_DIRECTIVE)}]`)
+  );
+
+  for (const element of elements) {
+    const refName = element.getAttribute(REF_DIRECTIVE);
+    if (refName) {
+      context.refs.set(refName, element as HTMLElement);
+      // Remove the directive attribute from DOM
+      element.removeAttribute(REF_DIRECTIVE);
+    }
+  }
+}
+
+// ============================================================================
+// $for Directive
+// ============================================================================
+
+/**
+ * Scans for $for directives and creates loop descriptors.
+ *
+ * Syntax:
+ *   $for="item in items"
+ *   $for="(item, index) in items"
+ *   $for="(value, key, index) in object"
+ */
+function scanLoops(
+  host: HTMLElement | ShadowRoot,
+  context: DirectiveContext
+): void {
+  const elements = Array.from(
+    host.querySelectorAll(`[${escapeCssSelector(FOR_DIRECTIVE)}]`)
+  );
+
+  for (const element of elements) {
+    const expression = element.getAttribute(FOR_DIRECTIVE);
+    if (!expression) continue;
+
+    const parsed = parseForExpression(expression);
+    if (!parsed) {
+      console.warn(`Invalid $for expression: "${expression}"`);
+      continue;
+    }
+
+    // Create a comment placeholder
+    const placeholder = document.createComment(` $for: ${expression} `);
+    const parent = element.parentElement || host;
+
+    // Insert placeholder before the element
+    parent.insertBefore(placeholder, element);
+
+    // Remove the element from DOM (will be cloned for each item)
+    element.remove();
+
+    // Remove the $for attribute from the template
+    element.removeAttribute(FOR_DIRECTIVE);
+
+    const descriptor: LoopDescriptor = {
+      template: element as Element,
+      expression,
+      itemName: parsed.item,
+      indexName: parsed.index,
+      arrayName: parsed.array,
+      keyAttribute: parsed.key,
+      placeholder,
+      renderedElements: [],
+      originalParent: parent as Element | ShadowRoot,
+    };
+
+    context.loops.push(descriptor);
+  }
+}
+
+/**
+ * Parses a $for expression into its components.
+ *
+ * Examples:
+ *   "item in items" → { item: "item", array: "items" }
+ *   "(item, index) in items" → { item: "item", index: "index", array: "items" }
+ *   "{ id, name } in users" → { item: "{ id, name }", array: "users" }
+ */
+function parseForExpression(expression: string): {
+  item: string;
+  index?: string;
+  key?: string;
+  array: string;
+} | null {
+  const match = expression.match(DIRECTIVE_PATTERNS.forAlias);
+  if (!match) return null;
+
+  let [, lhs, rhs] = match;
+  lhs = lhs.trim();
+  rhs = rhs.trim();
+
+  // Extract key if present: "item in items track by item.id"
+  let key: string | undefined;
+  const trackMatch = rhs.match(/\s+track\s+by\s+(.+)$/i);
+  if (trackMatch) {
+    key = trackMatch[1].trim();
+    rhs = rhs.slice(0, trackMatch.index).trim();
+  }
+
+  // Strip parentheses: "(item, index)" → "item, index"
+  const stripped = lhs.replace(DIRECTIVE_PATTERNS.stripParens, "").trim();
+
+  // Check for index: "item, index"
+  const iteratorMatch = stripped.match(DIRECTIVE_PATTERNS.forIterator);
+
+  let item: string;
+  let index: string | undefined;
+  let thirdParam: string | undefined;
+
+  if (iteratorMatch) {
+    // Has comma-separated values
+    item = stripped.replace(DIRECTIVE_PATTERNS.forIterator, "").trim();
+    index = iteratorMatch[1]?.trim();
+    thirdParam = iteratorMatch[2]?.trim();
+  } else {
+    item = stripped;
+  }
+
+  return {
+    item,
+    index: index || thirdParam, // Support both (item, index) and (value, key, index)
+    key,
+    array: rhs,
+  };
+}
+
+// ============================================================================
+// $if / $else-if / $else Directives
+// ============================================================================
+
+/**
+ * Scans for conditional directives and groups them together.
+ *
+ * A conditional group is:
+ *   <div $if="condition">...</div>
+ *   <div $else-if="another">...</div>  (optional, multiple allowed)
+ *   <div $else>...</div>               (optional, must be last)
+ */
+function scanConditionals(
+  host: HTMLElement | ShadowRoot,
+  context: DirectiveContext
+): void {
+  // Find all $if elements (these start conditional groups)
+  const ifElements = Array.from(
+    host.querySelectorAll(`[${escapeCssSelector(IF_DIRECTIVE)}]`)
+  );
+
+  for (const ifElement of ifElements) {
+    // Skip if inside a loop template (will be processed when loop renders)
+    if (isInsideUnprocessedLoop(ifElement, context)) continue;
+
+    const group: ConditionalDescriptor[] = [];
+    const condition = ifElement.getAttribute(IF_DIRECTIVE)!;
+
+    // Create placeholder for the group
+    const placeholder = document.createComment(` $if: ${condition} `);
+    const parent = ifElement.parentElement || host;
+    const nextSibling = ifElement.nextSibling;
+
+    // Insert placeholder before the if element
+    parent.insertBefore(placeholder, ifElement);
+
+    // Add $if to group
+    group.push(
+      createConditionalDescriptor(
+        ifElement as Element,
+        condition,
+        "if",
+        placeholder,
+        parent as Element | ShadowRoot,
+        nextSibling
+      )
+    );
+
+    // Look for following $else-if and $else elements
+    let current = ifElement.nextElementSibling;
+    while (current) {
+      if (current.hasAttribute(ELSE_IF_DIRECTIVE)) {
+        const elseIfCondition = current.getAttribute(ELSE_IF_DIRECTIVE)!;
+        const next = current.nextElementSibling;
+        group.push(
+          createConditionalDescriptor(
+            current,
+            elseIfCondition,
+            "else-if",
+            placeholder,
+            parent as Element | ShadowRoot,
+            current.nextSibling
+          )
+        );
+        current.remove();
+        current = next;
+      } else if (current.hasAttribute(ELSE_DIRECTIVE)) {
+        group.push(
+          createConditionalDescriptor(
+            current,
+            "",
+            "else",
+            placeholder,
+            parent as Element | ShadowRoot,
+            current.nextSibling
+          )
+        );
+        current.remove();
+        break; // $else must be last
+      } else {
+        break; // Not part of this conditional group
+      }
+    }
+
+    // Remove $if element from DOM
+    ifElement.remove();
+
+    // Store group reference in each descriptor
+    for (const desc of group) {
+      desc.group = group;
+    }
+
+    context.conditionals.push(group);
+  }
+}
+
+function createConditionalDescriptor(
+  element: Element,
+  condition: string,
+  type: "if" | "else-if" | "else",
+  placeholder: Comment,
+  parent: Element | ShadowRoot,
+  nextSibling: Node | null
+): ConditionalDescriptor {
+  // Remove directive attribute
+  element.removeAttribute(IF_DIRECTIVE);
+  element.removeAttribute(ELSE_IF_DIRECTIVE);
+  element.removeAttribute(ELSE_DIRECTIVE);
+
+  return {
+    element,
+    condition,
+    type,
+    placeholder,
+    group: [], // Will be filled in after
+    originalParent: parent,
+    nextSibling,
+  };
+}
+
+// ============================================================================
+// $show Directive
+// ============================================================================
+
+/**
+ * Scans for $show directives.
+ * Unlike $if, $show keeps the element in DOM and toggles CSS display.
+ */
+function scanShow(
+  host: HTMLElement | ShadowRoot,
+  context: DirectiveContext
+): void {
+  const elements = Array.from(
+    host.querySelectorAll(`[${escapeCssSelector(SHOW_DIRECTIVE)}]`)
+  );
+
+  for (const element of elements) {
+    const expression = element.getAttribute(SHOW_DIRECTIVE);
+    if (!expression) continue;
+
+    // Skip if inside a loop template
+    if (isInsideUnprocessedLoop(element, context)) continue;
+
+    const htmlElement = element as HTMLElement;
+
+    context.showElements.push({
+      element: htmlElement,
+      expression,
+      originalDisplay: htmlElement.style.display || "",
+    });
+
+    // Remove directive attribute
+    element.removeAttribute(SHOW_DIRECTIVE);
+  }
+}
+
+// ============================================================================
+// $bind Directive (Two-way Binding)
+// ============================================================================
+
+/**
+ * Scans for $bind directives on form elements.
+ * Creates two-way bindings between input values and reactive state.
+ */
+function scanTwoWayBindings(
+  host: HTMLElement | ShadowRoot,
+  context: DirectiveContext
+): void {
+  const elements = Array.from(
+    host.querySelectorAll(`[${escapeCssSelector(BIND_DIRECTIVE)}]`)
+  );
+
+  for (const element of elements) {
+    const expression = element.getAttribute(BIND_DIRECTIVE);
+    if (!expression) continue;
+
+    // Skip if inside a loop template
+    if (isInsideUnprocessedLoop(element, context)) continue;
+
+    const path = expression.split(".");
+    const isContentEditable = element.hasAttribute("contenteditable");
+
+    const descriptor: TwoWayBindingDescriptor = {
+      element: element as
+        | HTMLInputElement
+        | HTMLTextAreaElement
+        | HTMLSelectElement,
+      path,
+      raw: expression,
+      isContentEditable,
+    };
+
+    context.twoWayBindings.push(descriptor);
+
+    // Remove directive attribute
+    element.removeAttribute(BIND_DIRECTIVE);
+  }
+}
+
+// ============================================================================
+// Helpers
+// ============================================================================
+
+/**
+ * Checks if an element is inside a loop that hasn't been processed yet.
+ */
+function isInsideUnprocessedLoop(
+  element: Element,
+  context: DirectiveContext
+): boolean {
+  let current = element.parentElement;
+  while (current) {
+    if (current.hasAttribute(FOR_DIRECTIVE)) {
+      return true;
+    }
+    current = current.parentElement;
+  }
+  return false;
+}
+
+// ============================================================================
+// Directive Executors
+// ============================================================================
+
+/**
+ * Renders all loops with the current state.
+ */
+export function renderLoops(
+  loops: LoopDescriptor[],
+  state: Record<string, unknown>,
+  evaluateExpression: (
+    expr: string,
+    context: Record<string, unknown>
+  ) => unknown
+): void {
+  for (const loop of loops) {
+    renderLoop(loop, state, evaluateExpression);
+  }
+}
+
+/**
+ * Renders a single loop.
+ */
+function renderLoop(
+  loop: LoopDescriptor,
+  state: Record<string, unknown>,
+  evaluateExpression: (
+    expr: string,
+    context: Record<string, unknown>
+  ) => unknown
+): void {
+  // Clear previously rendered elements
+  for (const el of loop.renderedElements) {
+    el.remove();
+  }
+  loop.renderedElements = [];
+
+  // Get the array to iterate over
+  const arrayValue = evaluateExpression(loop.arrayName, state);
+
+  if (!arrayValue || !isIterable(arrayValue)) {
+    return;
+  }
+
+  const items = Array.from(arrayValue as Iterable<unknown>);
+  const fragment = document.createDocumentFragment();
+
+  items.forEach((item, index) => {
+    // Clone the template
+    const clone = loop.template.cloneNode(true) as Element;
+
+    // Create a scoped context with loop variables
+    const loopContext = {
+      ...state,
+      [loop.itemName]: item,
+    };
+
+    if (loop.indexName) {
+      loopContext[loop.indexName] = index;
+    }
+
+    // Process bindings within the clone
+    processElementBindings(clone, loopContext, evaluateExpression);
+
+    fragment.appendChild(clone);
+    loop.renderedElements.push(clone);
+  });
+
+  // Insert all elements after the placeholder
+  loop.placeholder.parentNode?.insertBefore(
+    fragment,
+    loop.placeholder.nextSibling
+  );
+}
+
+/**
+ * Processes {bindings} within an element and its children.
+ */
+function processElementBindings(
+  element: Element,
+  context: Record<string, unknown>,
+  evaluateExpression: (
+    expr: string,
+    context: Record<string, unknown>
+  ) => unknown
+): void {
+  // Process attributes
+  for (const attr of Array.from(element.attributes)) {
+    if (attr.value.includes("{")) {
+      const newValue = attr.value.replace(/\{([^}]+)\}/g, (_, expr) => {
+        const result = evaluateExpression(expr.trim(), context);
+        return String(result ?? "");
+      });
+      attr.value = newValue;
+    }
+  }
+
+  // Process text nodes
+  const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+  const textNodes: Text[] = [];
+  let node: Text | null;
+
+  while ((node = walker.nextNode() as Text | null)) {
+    if (node.textContent?.includes("{")) {
+      textNodes.push(node);
+    }
+  }
+
+  for (const textNode of textNodes) {
+    textNode.textContent = textNode.textContent!.replace(
+      /\{([^}]+)\}/g,
+      (_, expr) => {
+        const result = evaluateExpression(expr.trim(), context);
+        return String(result ?? "");
+      }
+    );
+  }
+
+  // Recursively process child elements
+  for (const child of Array.from(element.children)) {
+    processElementBindings(child, context, evaluateExpression);
+  }
+}
+
+/**
+ * Updates all conditionals with the current state.
+ */
+export function updateConditionals(
+  conditionals: ConditionalDescriptor[][],
+  state: Record<string, unknown>,
+  evaluateExpression: (
+    expr: string,
+    context: Record<string, unknown>
+  ) => unknown
+): void {
+  for (const group of conditionals) {
+    updateConditionalGroup(group, state, evaluateExpression);
+  }
+}
+
+/**
+ * Updates a single conditional group.
+ */
+function updateConditionalGroup(
+  group: ConditionalDescriptor[],
+  state: Record<string, unknown>,
+  evaluateExpression: (
+    expr: string,
+    context: Record<string, unknown>
+  ) => unknown
+): void {
+  // Remove all currently visible elements
+  for (const desc of group) {
+    if (desc.element.parentNode) {
+      desc.element.remove();
+    }
+  }
+
+  // Find the first matching condition
+  for (const desc of group) {
+    let shouldShow = false;
+
+    if (desc.type === "else") {
+      shouldShow = true; // $else always shows if we reach it
+    } else {
+      const result = evaluateExpression(desc.condition, state);
+      shouldShow = Boolean(result);
+    }
+
+    if (shouldShow) {
+      // Insert this element after the placeholder
+      desc.placeholder.parentNode?.insertBefore(
+        desc.element,
+        desc.placeholder.nextSibling
+      );
+      break; // Only show the first matching condition
+    }
+  }
+}
+
+/**
+ * Updates all $show elements with the current state.
+ */
+export function updateShowElements(
+  showElements: ShowDescriptor[],
+  state: Record<string, unknown>,
+  evaluateExpression: (
+    expr: string,
+    context: Record<string, unknown>
+  ) => unknown
+): void {
+  for (const desc of showElements) {
+    const result = evaluateExpression(desc.expression, state);
+    const shouldShow = Boolean(result);
+
+    desc.element.style.display = shouldShow ? desc.originalDisplay : "none";
+  }
+}
+
+/**
+ * Sets up two-way bindings.
+ */
+export function setupTwoWayBindings(
+  bindings: TwoWayBindingDescriptor[],
+  state: Record<string, unknown>,
+  evaluateExpression: (
+    expr: string,
+    context: Record<string, unknown>
+  ) => unknown
+): void {
+  for (const binding of bindings) {
+    setupTwoWayBinding(binding, state, evaluateExpression);
+  }
+}
+
+/**
+ * Sets up a single two-way binding.
+ */
+function setupTwoWayBinding(
+  binding: TwoWayBindingDescriptor,
+  state: Record<string, unknown>,
+  evaluateExpression: (
+    expr: string,
+    context: Record<string, unknown>
+  ) => unknown
+): void {
+  const element = binding.element;
+  const { raw, path, isContentEditable } = binding;
+
+  // Get initial value from state and set on element
+  const initialValue = evaluateExpression(raw, state);
+  setElementValue(element, initialValue, isContentEditable);
+
+  // Determine event type based on element
+  const eventType = getInputEventType(element);
+
+  // Listen for changes and update state
+  element.addEventListener(eventType, () => {
+    const newValue = getElementValue(element, isContentEditable);
+    setNestedValue(state, path, newValue);
+  });
+}
+
+/**
+ * Gets the appropriate event type for an input element.
+ */
+function getInputEventType(element: HTMLElement): string {
+  if (element instanceof HTMLSelectElement) {
+    return "change";
+  }
+  if (element instanceof HTMLInputElement) {
+    const type = element.type.toLowerCase();
+    if (type === "checkbox" || type === "radio") {
+      return "change";
+    }
+  }
+  return "input";
+}
+
+/**
+ * Gets the value from an input element.
+ */
+function getElementValue(
+  element: HTMLElement,
+  isContentEditable?: boolean
+): unknown {
+  if (isContentEditable) {
+    return element.textContent || "";
+  }
+
+  if (element instanceof HTMLInputElement) {
+    const type = element.type.toLowerCase();
+    if (type === "checkbox") {
+      return element.checked;
+    }
+    if (type === "number" || type === "range") {
+      return element.valueAsNumber;
+    }
+    return element.value;
+  }
+
+  if (element instanceof HTMLSelectElement) {
+    if (element.multiple) {
+      return Array.from(element.selectedOptions).map((o) => o.value);
+    }
+    return element.value;
+  }
+
+  if (element instanceof HTMLTextAreaElement) {
+    return element.value;
+  }
+
+  return (element as any).value ?? "";
+}
+
+/**
+ * Sets the value on an input element.
+ */
+function setElementValue(
+  element: HTMLElement,
+  value: unknown,
+  isContentEditable?: boolean
+): void {
+  if (isContentEditable) {
+    element.textContent = String(value ?? "");
+    return;
+  }
+
+  if (element instanceof HTMLInputElement) {
+    const type = element.type.toLowerCase();
+    if (type === "checkbox") {
+      element.checked = Boolean(value);
+    } else {
+      element.value = String(value ?? "");
+    }
+    return;
+  }
+
+  if (element instanceof HTMLSelectElement) {
+    element.value = String(value ?? "");
+    return;
+  }
+
+  if (element instanceof HTMLTextAreaElement) {
+    element.value = String(value ?? "");
+    return;
+  }
+
+  (element as any).value = value;
+}
+
+/**
+ * Sets a nested value in an object using a path array.
+ */
+function setNestedValue(
+  obj: Record<string, unknown>,
+  path: string[],
+  value: unknown
+): void {
+  let current: any = obj;
+
+  for (let i = 0; i < path.length - 1; i++) {
+    const key = path[i];
+    if (!(key in current) || typeof current[key] !== "object") {
+      current[key] = {};
+    }
+    current = current[key];
+  }
+
+  current[path[path.length - 1]] = value;
+}
+
+/**
+ * Checks if a value is iterable.
+ */
+function isIterable(value: unknown): boolean {
+  return (
+    value !== null &&
+    value !== undefined &&
+    (Array.isArray(value) ||
+      typeof (value as any)[Symbol.iterator] === "function" ||
+      typeof value === "object")
+  );
+}

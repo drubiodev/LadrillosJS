@@ -11,6 +11,18 @@ export {
   executeModuleScriptsWithReactivity,
 } from "./core/js/moduleExecutor";
 
+// Export directive utilities
+export {
+  scanDirectives,
+  renderLoops,
+  updateConditionals,
+  updateShowElements,
+  setupTwoWayBindings,
+} from "./core/directives/directiveProcessor";
+
+// Export directive constants
+export * from "./utils/directives";
+
 export const registerComponent = (
   name: string,
   path: string,

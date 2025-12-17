@@ -44,11 +44,13 @@ type UpdateBindingFn = (
  * @param initialState - Initial state values extracted from component script
  * @param bindings - All template bindings that might depend on state
  * @param updateBinding - Function to re-evaluate and update a single binding
+ * @param onStateChange - Optional callback when any state property changes (for directives)
  */
 export function createReactiveState(
   initialState: Record<string, unknown>,
   bindings: BindingDescriptor[],
-  updateBinding: UpdateBindingFn
+  updateBinding: UpdateBindingFn,
+  onStateChange?: () => void
 ): Record<string, unknown> {
   // Build dependency map: which bindings depend on which state keys
   const registry = buildBindingRegistry(bindings, Object.keys(initialState));
@@ -80,6 +82,11 @@ export function createReactiveState(
         for (const binding of dependentBindings) {
           updateBinding(binding, target);
         }
+      }
+
+      // Call the state change callback (for directive updates)
+      if (onStateChange) {
+        onStateChange();
       }
 
       return true;

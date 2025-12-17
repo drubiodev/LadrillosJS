@@ -27,13 +27,15 @@ const getHostElement = (host: HTMLElement | ShadowRoot): HTMLElement =>
  * @param scripts - Script elements from the component
  * @param bindings - Template bindings to connect to state
  * @param attributeOverrides - Attributes from HTML that override script defaults
+ * @param onStateChange - Optional callback when state changes (for directive updates)
  * @returns The reactive state object - changes trigger automatic DOM updates
  */
 export async function loadScripts(
   host: HTMLElement | ShadowRoot,
   scripts: ScriptElement[],
   bindings: BindingDescriptor[],
-  attributeOverrides: Record<string, unknown> = {}
+  attributeOverrides: Record<string, unknown> = {},
+  onStateChange?: () => void
 ): Promise<Record<string, unknown>> {
   const componentHost = getHostElement(host);
   const initialState: Record<string, unknown> = {};
@@ -61,7 +63,8 @@ export async function loadScripts(
   const reactiveState = createReactiveState(
     initialState,
     bindings,
-    (binding, state) => updateSingleBinding(binding, state)
+    (binding, state) => updateSingleBinding(binding, state),
+    onStateChange
   );
 
   // Store reactive state on host element (for debugging and event handlers)
@@ -428,4 +431,20 @@ function applyBindings(
   for (const descriptor of bindings) {
     updateSingleBinding(descriptor, state);
   }
+}
+
+// ============================================================================
+// Expression Evaluator Export
+// ============================================================================
+
+/**
+ * Creates and returns an expression evaluator function for use by directives.
+ * This allows directives to evaluate expressions like "item.name" or "count > 5"
+ * in the context of the component's state.
+ */
+export function createExpressionEvaluator(): (
+  expr: string,
+  context: Record<string, unknown>
+) => unknown {
+  return evaluateExpression;
 }

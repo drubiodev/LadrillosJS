@@ -1,16 +1,15 @@
 <header>
   <h1>LadrillosJS {name}</h1>
   <nav>
-    <a href="/">Home</a>
-    <a href="/about.html">About</a>
+    <a $for="link in navLinks" href="{link.href}">{link.text}</a>
   </nav>
 </header>
 
 <script type="module">
   import { links } from "./links.ts";
 
-  console.log("Header links:", links);
-  const name = links[0].text;
+  const name = "Site";
+  const navLinks = links;
 </script>
 
 <script>

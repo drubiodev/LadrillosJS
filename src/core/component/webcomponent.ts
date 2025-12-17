@@ -1,11 +1,23 @@
 import { LadrillosComponent } from "../../types";
 import { loadStyles } from "../css/cssParser/cssParser";
 import { loadTemplate } from "../html/htmlparser";
-import { loadScripts, extractVariableNames } from "../js/scriptParser";
+import {
+  loadScripts,
+  extractVariableNames,
+  createExpressionEvaluator,
+} from "../js/scriptParser";
 import {
   executeModuleScriptsWithReactivity,
   cleanupModuleScripts,
 } from "../js/moduleExecutor";
+import {
+  scanDirectives,
+  renderLoops,
+  updateConditionals,
+  updateShowElements,
+  setupTwoWayBindings,
+  DirectiveContext,
+} from "../directives/directiveProcessor";
 
 /**
  * Creates a semantically correct Web Component from a Ladrillos component.
@@ -70,6 +82,14 @@ export function createWebComponent(
       .toString(36)
       .slice(2)}`;
 
+    /** Directive context for loops, conditionals, etc. */
+    private _directives: DirectiveContext | null = null;
+
+    /** Expression evaluator function */
+    private _evaluator:
+      | ((expr: string, ctx: Record<string, unknown>) => unknown)
+      | null = null;
+
     // =========================================================================
     // Lifecycle Callbacks (Web Component Spec)
     // =========================================================================
@@ -110,11 +130,13 @@ export function createWebComponent(
 
       // Initialize reactive state and event handlers (for regular scripts)
       // Pass attribute overrides so they take precedence over defaults
+      // Pass a callback that will update directives when state changes
       this.state = await loadScripts(
         this._root,
         regularScripts,
         bindings,
-        attributeOverrides
+        attributeOverrides,
+        () => this._updateDirectives()
       );
 
       // Execute module scripts with runtime import rewriting
@@ -136,12 +158,33 @@ export function createWebComponent(
         }
       }
 
+      // Create expression evaluator for directives
+      this._evaluator = createExpressionEvaluator();
+
+      // Scan and process all directives ($for, $if, $show, $bind, $ref)
+      this._directives = scanDirectives(this._root);
+
+      // Expose refs on the component for external access
+      (this as any).refs = this._directives.refs;
+
+      // Initial directive rendering
+      this._updateDirectives();
+
+      // Set up two-way bindings ($bind)
+      if (this._directives.twoWayBindings.length > 0) {
+        setupTwoWayBindings(
+          this._directives.twoWayBindings,
+          this.state,
+          this._evaluator
+        );
+      }
+
       // Dispatch custom event when component is ready
       this.dispatchEvent(
         new CustomEvent("ladrillos:ready", {
           bubbles: true,
           composed: true, // Crosses shadow DOM boundary
-          detail: { state: this.state },
+          detail: { state: this.state, refs: this._directives.refs },
         })
       );
     }
@@ -191,6 +234,37 @@ export function createWebComponent(
     // =========================================================================
     // Helper Methods
     // =========================================================================
+
+    /**
+     * Updates all directives when state changes.
+     * Called by the reactive system on every state mutation.
+     */
+    private _updateDirectives(): void {
+      if (!this._directives || !this._evaluator) return;
+
+      // Update loops
+      if (this._directives.loops.length > 0) {
+        renderLoops(this._directives.loops, this.state, this._evaluator);
+      }
+
+      // Update conditionals
+      if (this._directives.conditionals.length > 0) {
+        updateConditionals(
+          this._directives.conditionals,
+          this.state,
+          this._evaluator
+        );
+      }
+
+      // Update $show elements
+      if (this._directives.showElements.length > 0) {
+        updateShowElements(
+          this._directives.showElements,
+          this.state,
+          this._evaluator
+        );
+      }
+    }
 
     /**
      * Collects all attribute values that can be used as state.
