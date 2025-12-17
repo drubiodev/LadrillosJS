@@ -1,0 +1,166 @@
+<style>
+  .hero {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 2rem;
+    min-height: 80vh;
+    background: linear-gradient(180deg, #1a1f35 0%, #0f1219 100%);
+  }
+
+  .hero-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    background: rgba(249, 115, 22, 0.1);
+    border: 1px solid rgba(249, 115, 22, 0.3);
+    border-radius: 9999px;
+    font-size: 0.875rem;
+    color: #fdba74;
+    margin-bottom: 2rem;
+  }
+
+  .hero-title {
+    font-size: clamp(2.5rem, 5vw, 4rem);
+    font-weight: 700;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    color: #ffffff;
+    margin-bottom: 1.5rem;
+    max-width: 800px;
+  }
+
+  .hero-title span {
+    background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .hero-description {
+    font-size: 1.25rem;
+    color: #94a3b8;
+    max-width: 600px;
+    margin-bottom: 3rem;
+    line-height: 1.7;
+  }
+
+  .hero-actions {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .btn-primary {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.875rem 2rem;
+    background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+    color: #ffffff;
+    font-weight: 600;
+    font-size: 1rem;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 40px rgba(249, 115, 22, 0.3);
+  }
+
+  .btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.875rem 2rem;
+    background: transparent;
+    color: #e2e8f0;
+    font-weight: 600;
+    font-size: 1rem;
+    border: 1px solid #3b4261;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .btn-secondary:hover {
+    border-color: #64748b;
+    background: rgba(255, 255, 255, 0.05);
+  }
+
+  .hero-stats {
+    display: flex;
+    gap: 4rem;
+    margin-top: 4rem;
+    padding-top: 4rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .stat {
+    text-align: center;
+  }
+
+  .stat-value {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #ffffff;
+  }
+
+  .stat-label {
+    font-size: 0.875rem;
+    color: #64748b;
+    margin-top: 0.25rem;
+  }
+</style>
+
+<section class="hero">
+  <div class="hero-badge">✨ {badgetext}</div>
+
+  <h1 class="hero-title">
+    Build Modern Web Apps with <span>LadrillosJS</span>
+  </h1>
+
+  <p class="hero-description">
+    A lightweight, reactive web component framework that makes building
+    interactive user interfaces simple and intuitive.
+  </p>
+
+  <div class="hero-actions">
+    <button class="btn-primary" onclick="getStarted()">Get Started →</button>
+    <button class="btn-secondary" onclick="viewDocs()">
+      View Documentation
+    </button>
+  </div>
+
+  <div class="hero-stats">
+    <div class="stat" $for="stat in stats">
+      <div class="stat-value">{stat.value}</div>
+      <div class="stat-label">{stat.label}</div>
+    </div>
+  </div>
+</section>
+
+<script>
+  let badgetext = "✨ New Release";
+
+  const stats = [
+    { value: "5KB", label: "Smaller Than Your Avatar" },
+    { value: "Zero", label: "node_modules Nightmares" },
+    { value: "100%", label: "Red Squiggly Protection" },
+  ];
+
+  function getStarted() {
+    console.log("Getting started!");
+  }
+
+  function viewDocs() {
+    console.log("Viewing documentation!");
+  }
+</script>
