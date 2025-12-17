@@ -47,6 +47,23 @@ export type ShowDescriptor = {
 };
 
 // ============================================================================
+// Helper Functions
+// ============================================================================
+
+/**
+ * Strips curly braces from a binding expression.
+ * e.g., "{!isLoggedIn}" -> "!isLoggedIn"
+ *       "isLoggedIn" -> "isLoggedIn" (no change if no braces)
+ */
+function stripBindingBraces(expression: string): string {
+  const trimmed = expression.trim();
+  if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
+    return trimmed.slice(1, -1).trim();
+  }
+  return trimmed;
+}
+
+// ============================================================================
 // Main Directive Scanner
 // ============================================================================
 
@@ -245,7 +262,9 @@ function scanConditionals(
     if (isInsideUnprocessedLoop(ifElement, context)) continue;
 
     const group: ConditionalDescriptor[] = [];
-    const condition = ifElement.getAttribute(IF_DIRECTIVE)!;
+    const rawCondition = ifElement.getAttribute(IF_DIRECTIVE)!;
+    // Strip curly braces if present (e.g., "{!isLoggedIn}" -> "!isLoggedIn")
+    const condition = stripBindingBraces(rawCondition);
 
     // Create placeholder for the group
     const placeholder = document.createComment(` $if: ${condition} `);
@@ -271,7 +290,8 @@ function scanConditionals(
     let current = ifElement.nextElementSibling;
     while (current) {
       if (current.hasAttribute(ELSE_IF_DIRECTIVE)) {
-        const elseIfCondition = current.getAttribute(ELSE_IF_DIRECTIVE)!;
+        const rawElseIfCondition = current.getAttribute(ELSE_IF_DIRECTIVE)!;
+        const elseIfCondition = stripBindingBraces(rawElseIfCondition);
         const next = current.nextElementSibling;
         group.push(
           createConditionalDescriptor(
@@ -356,8 +376,11 @@ function scanShow(
   );
 
   for (const element of elements) {
-    const expression = element.getAttribute(SHOW_DIRECTIVE);
-    if (!expression) continue;
+    const rawExpression = element.getAttribute(SHOW_DIRECTIVE);
+    if (!rawExpression) continue;
+
+    // Strip curly braces if present
+    const expression = stripBindingBraces(rawExpression);
 
     // Skip if inside a loop template
     if (isInsideUnprocessedLoop(element, context)) continue;

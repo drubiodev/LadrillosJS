@@ -599,13 +599,22 @@ function extractDeclaredNames(code: string): {
  * It:
  * 1. Resolves all imports
  * 2. Strips import statements from the code
- * 3. Executes the remaining code in a sandbox with imports available
- * 4. Returns all declared variables and functions
+ * 3. Transforms variable access to go through the reactive state object
+ * 4. Executes the remaining code in a sandbox with imports available
+ * 5. Functions read/write directly to the reactive state for full reactivity
+ *
+ * The transformation ensures that functions declared in module scripts
+ * read/write from the reactive state, not from local closure variables.
+ * This makes `let x = 0; function inc() { x++; }` work reactively.
+ *
+ * @param reactiveState - The component's reactive state object. Module script
+ *                        functions will read/write directly to this object.
  */
 export async function executeModuleScriptWithReactivity(
   script: ScriptElement,
   componentUrl: string,
-  refs?: Map<string, HTMLElement>
+  refs?: Map<string, HTMLElement>,
+  reactiveState?: Record<string, unknown>
 ): Promise<Record<string, unknown>> {
   if (script.type !== "module") {
     throw new Error(
@@ -623,20 +632,22 @@ export async function executeModuleScriptWithReactivity(
 
   // 3. Extract names of declared variables/functions
   const { variables, functions } = extractDeclaredNames(executableCode);
-  const allNames = [...variables, ...functions];
 
-  // 4. Build and execute the sandboxed function
+  // 4. Transform code so variable access goes through __state__ object
+  //    This is the key to making module scripts reactive like regular scripts
+  const transformedCode = transformToStateAccess(executableCode, variables);
+
+  // 5. Build and execute the sandboxed function
   const importNames = Object.keys(importedValues);
   const importValues = Object.values(importedValues);
 
-  // Create the sandbox function
-  // It receives imports as parameters and returns declared variables
+  // Return all functions (they have closure over __state__ which is the reactive state)
   const returnStatement =
-    allNames.length > 0 ? `return { ${allNames.join(", ")} };` : "return {};";
+    functions.length > 0 ? `return { ${functions.join(", ")} };` : `return {};`;
 
   const wrappedCode = `
     "use strict";
-    ${executableCode}
+    ${transformedCode}
     ${returnStatement}
   `;
 
@@ -666,8 +677,11 @@ export async function executeModuleScriptWithReactivity(
     // Inject refs Map so functions can access element references
     // The refs Map is populated later by scanDirectives, but the
     // reference is captured by functions defined in the module
-    const injectedVars = ["refs"];
-    const injectedValues = [refs || new Map()];
+    //
+    // __state__ is the reactive state object - functions write directly to it
+    // for full reactivity support
+    const injectedVars = ["refs", "__state__"];
+    const injectedValues = [refs || new Map(), reactiveState || {}];
 
     const fn = new Function(
       ...importNames,
@@ -678,13 +692,75 @@ export async function executeModuleScriptWithReactivity(
 
     const result = fn(...importValues, ...safeGlobalValues, ...injectedValues);
 
-    return result || {};
+    // Return both the initial values (from __state__) and functions
+    // The reactiveState object now contains all variables set by the module script
+    return { ...(reactiveState || {}), ...(result || {}) };
   } catch (error) {
     console.error(`[LadrillosJS] Failed to execute module script:`, error);
-    console.error("Code:", executableCode);
+    console.error("Original code:", executableCode);
+    console.error("Transformed code:", transformedCode);
     console.error("Imports:", importedValues);
     throw error;
   }
+}
+
+/**
+ * Transforms variable declarations and accesses to use a __state__ object.
+ *
+ * This transformation allows module script functions to read/write from
+ * the reactive state instead of local closure variables.
+ *
+ * Transforms:
+ *   let isLoggedIn = false;
+ *   function login() { isLoggedIn = !isLoggedIn; }
+ *
+ * Into:
+ *   __state__.isLoggedIn = false;
+ *   function login() { __state__.isLoggedIn = !__state__.isLoggedIn; }
+ *
+ * This is similar to what Svelte's compiler does, but at runtime.
+ */
+function transformToStateAccess(code: string, variables: string[]): string {
+  if (variables.length === 0) return code;
+
+  let transformed = code;
+
+  // Step 1: Transform top-level variable declarations
+  // `let x = value;` → `__state__.x = value;`
+  for (const varName of variables) {
+    const declRegex = new RegExp(
+      `\\b(let|const|var)\\s+(${escapeRegex(varName)})\\s*=`,
+      "g"
+    );
+    transformed = transformed.replace(declRegex, `__state__.${varName} =`);
+  }
+
+  // Step 2: Replace all standalone variable references with __state__.varName
+  // Do this iteratively to handle all occurrences
+  for (const varName of variables) {
+    // This regex matches the variable name that is:
+    // - NOT preceded by a dot (so foo.bar won't match bar)
+    // - NOT preceded by __state__. (already transformed)
+    // - IS a word boundary on both sides
+    // - NOT followed by : (object key) or ( (function declaration)
+
+    // We'll use a simpler approach: split by the pattern and rejoin
+    const pattern = new RegExp(
+      `(?<!\\.)(?<!__state__\\.)\\b${escapeRegex(varName)}\\b(?!\\s*[:(])`,
+      "g"
+    );
+
+    transformed = transformed.replace(pattern, `__state__.${varName}`);
+  }
+
+  return transformed;
+}
+
+/**
+ * Escapes special regex characters in a string
+ */
+function escapeRegex(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 /**
@@ -692,13 +768,16 @@ export async function executeModuleScriptWithReactivity(
  * Returns merged state from all module scripts.
  * @param refs - Optional refs Map that will be populated by scanDirectives later.
  *               Functions in module scripts can capture this reference.
+ * @param reactiveState - The component's reactive state object. Module script
+ *                        functions will read/write directly to this object.
  */
 export async function executeModuleScriptsWithReactivity(
   scripts: ScriptElement[],
   externalScripts: ExternalScriptElement[],
   componentUrl: string,
   componentId?: string,
-  refs?: Map<string, HTMLElement>
+  refs?: Map<string, HTMLElement>,
+  reactiveState?: Record<string, unknown>
 ): Promise<Record<string, unknown>> {
   const mergedState: Record<string, unknown> = {};
 
@@ -723,7 +802,8 @@ export async function executeModuleScriptsWithReactivity(
       const state = await executeModuleScriptWithReactivity(
         script,
         componentUrl,
-        refs
+        refs,
+        reactiveState
       );
       Object.assign(mergedState, state);
     } catch (error) {

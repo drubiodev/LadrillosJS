@@ -1,4 +1,9 @@
-import { BindingDescriptor, ConditionalDescriptor, LoopDescriptor, TwoWayBindingDescriptor } from "../../types";
+import {
+  BindingDescriptor,
+  ConditionalDescriptor,
+  LoopDescriptor,
+  TwoWayBindingDescriptor,
+} from "../../types";
 import { REGEX_PATTERNS } from "../../utils/regex";
 import { analyzeBinding } from "../component/bindingParser";
 
@@ -7,7 +12,7 @@ type TemplateLoadResult = {
   twoWayBindings: TwoWayBindingDescriptor[];
   conditionals: ConditionalDescriptor[][];
   loops: LoopDescriptor[];
-}
+};
 
 /**
  * Injects the template HTML into the host element and scans for data bindings.
@@ -16,7 +21,7 @@ type TemplateLoadResult = {
 export const loadTemplate = (
   host: HTMLElement | ShadowRoot,
   template: string
-) :TemplateLoadResult=> {
+): TemplateLoadResult => {
   host.innerHTML = template;
   // scan for data bindings (text nodes + attributes)
   const bindings = getBindings(host);
@@ -24,17 +29,17 @@ export const loadTemplate = (
   // scan for loops
   // scan for conditionals
 
-  return{
+  return {
     bindings,
     twoWayBindings: [],
     conditionals: [],
-    loops: []
-  }
+    loops: [],
+  };
 };
 
 function getBindings(host: HTMLElement | ShadowRoot) {
   const bindings: BindingDescriptor[] = [];
-  
+
   // 1. Find text nodes with {} bindings
   const walker = document.createTreeWalker(host, NodeFilter.SHOW_TEXT, null);
   let node: Text | null;
@@ -73,32 +78,51 @@ function getBindings(host: HTMLElement | ShadowRoot) {
 /**
  * Scan all elements for attributes containing {} bindings
  */
-function getAttributeBindings(host: HTMLElement | ShadowRoot): BindingDescriptor[] {
+function getAttributeBindings(
+  host: HTMLElement | ShadowRoot
+): BindingDescriptor[] {
   const bindings: BindingDescriptor[] = [];
-  
+
+  // Directive attributes that should NOT be treated as regular bindings
+  // These are handled by the directive processor, not the binding system
+  const directiveAttributes = [
+    "$if",
+    "$else",
+    "$else-if",
+    "$for",
+    "$show",
+    "$bind",
+    "$ref",
+  ];
+
   // Get all elements in the host
-  const elements = Array.from(host.querySelectorAll('*'));
-  
+  const elements = Array.from(host.querySelectorAll("*"));
+
   for (const element of elements) {
     // Skip elements inside loops
-    if (element.hasAttribute('$for') || isInsideLoopElement(element)) {
+    if (element.hasAttribute("$for") || isInsideLoopElement(element)) {
       continue;
     }
-    
+
     // Check each attribute
     for (const attr of Array.from(element.attributes) as Attr[]) {
+      // Skip directive attributes - they're handled separately
+      if (directiveAttributes.includes(attr.name)) {
+        continue;
+      }
+
       const matches = [...attr.value.matchAll(REGEX_PATTERNS.bindings)];
-      
+
       if (matches.length > 0) {
         // Create a placeholder text node to store binding info
         // (We need a Text node for the BindingDescriptor structure)
         const placeholderNode = document.createTextNode(attr.value);
-        
+
         const attrBindings = matches.map((match) => {
           const raw = match[1].trim();
           return analyzeBinding(raw);
         });
-        
+
         bindings.push({
           node: placeholderNode,
           bindings: attrBindings,
@@ -111,7 +135,7 @@ function getAttributeBindings(host: HTMLElement | ShadowRoot): BindingDescriptor
       }
     }
   }
-  
+
   return bindings;
 }
 

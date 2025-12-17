@@ -152,19 +152,26 @@ export function createWebComponent(
       // This handles <script type="module"> with imports like:
       //   import { foo } from "./bar.js"
       // Module scripts now contribute to reactive state!
+      //
+      // IMPORTANT: We pass this.state so module script functions write
+      // directly to the reactive state. This makes `let x = 0; x++` work.
       if (sourcePath) {
         const moduleState = await executeModuleScriptsWithReactivity(
           scripts,
           externalScripts,
           sourcePath,
           this._componentId,
-          earlyRefs // Pass refs so functions can capture the reference
+          earlyRefs, // Pass refs so functions can capture the reference
+          this.state // Pass reactive state so functions write directly to it
         );
 
-        // Merge module script state into reactive state
-        // Module variables become reactive just like regular script variables
+        // Merge module script functions into reactive state
+        // Variables are already in this.state (written directly by transformed code)
+        // We just need to add the functions
         for (const [key, value] of Object.entries(moduleState)) {
-          this.state[key] = value;
+          if (typeof value === "function") {
+            this.state[key] = value;
+          }
         }
       }
 

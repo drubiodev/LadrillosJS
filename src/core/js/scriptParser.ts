@@ -194,9 +194,20 @@ function createVanillaEventHandler(
       (key) => typeof state[key] !== "function"
     );
 
-    // Destructure ALL variables from state (script vars + attribute vars)
-    const destructureVars =
-      varNames.length > 0 ? `let { ${varNames.join(", ")} } = state;` : "";
+    // Check if we have module script functions (reactive functions that manage state directly)
+    // Module script functions use __state__ which is the same as state, so they
+    // modify state directly. We should NOT sync local copies back or we'll overwrite!
+    const hasModuleScriptFunctions = funcNames.length > 0;
+
+    // For module scripts: use const (read-only access, functions manage state)
+    // For regular scripts: use let (local copies that get synced back)
+    const destructureVars = hasModuleScriptFunctions
+      ? varNames.length > 0
+        ? `const { ${varNames.join(", ")} } = state;`
+        : ""
+      : varNames.length > 0
+      ? `let { ${varNames.join(", ")} } = state;`
+      : "";
 
     // Destructure functions from state (includes module script functions)
     // This makes functions like drawOnCanvas() available in event handlers
@@ -204,11 +215,17 @@ function createVanillaEventHandler(
       funcNames.length > 0 ? `const { ${funcNames.join(", ")} } = state;` : "";
 
     // Extract function definitions from script content to re-create them
-    // with current variable values (not original closure values)
-    const funcDefs = extractFunctionDefinitions(scriptContent);
+    // with current variable values (not original closure values).
+    // BUT: Skip functions that already exist in state - those are reactive
+    // functions from module scripts that should NOT be shadowed!
+    const funcDefs = extractFunctionDefinitions(scriptContent, funcNames);
 
-    // Sync ALL variable changes back to state
-    const syncBack = varNames.map((key) => `state.${key} = ${key};`).join(" ");
+    // Only sync back for regular scripts (no module functions)
+    // Module script functions modify state directly via __state__, so syncing
+    // local copies back would OVERWRITE their changes!
+    const syncBack = hasModuleScriptFunctions
+      ? ""
+      : varNames.map((key) => `state.${key} = ${key};`).join(" ");
 
     const fn = new Function(
       ...allKeys,
@@ -243,15 +260,28 @@ function createVanillaEventHandler(
 /**
  * Extracts function definitions from script content.
  * These will be re-created in the event handler context with current state values.
+ *
+ * @param content - The script content to extract functions from
+ * @param skipFunctions - Function names to skip (already in state as reactive functions)
  */
-function extractFunctionDefinitions(content: string): string {
+function extractFunctionDefinitions(
+  content: string,
+  skipFunctions: string[] = []
+): string {
   // Match both regular and async function declarations
   const funcRegex =
-    /(?:async\s+)?function\s+[a-zA-Z_$][a-zA-Z0-9_$]*\s*\([^)]*\)\s*\{/g;
+    /(?:async\s+)?function\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*\([^)]*\)\s*\{/g;
   const functions: string[] = [];
   let match;
 
   while ((match = funcRegex.exec(content)) !== null) {
+    const funcName = match[1];
+
+    // Skip functions that already exist in state (reactive module script functions)
+    if (skipFunctions.includes(funcName)) {
+      continue;
+    }
+
     // Find the matching closing brace
     const startIndex = match.index;
     let braceCount = 0;
