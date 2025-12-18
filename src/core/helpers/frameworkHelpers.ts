@@ -1,0 +1,112 @@
+/**
+ * LadrillosJS Framework Helpers
+ *
+ * These are $ prefixed helper functions injected into component scripts.
+ * They follow the convention of Vue's $emit, $refs, and Svelte's $state.
+ *
+ * Available helpers:
+ * - $registerComponent(name, path, useShadowDOM?) - Register a child component
+ * - $use(path) - Shorthand for $registerComponent with auto-derived tag name
+ */
+
+import { ladrillos } from "../ladrillos";
+
+/**
+ * Resolves a relative path against a base URL.
+ * Used to resolve "./buttons.html" relative to the parent component's URL.
+ */
+function resolvePath(path: string, baseUrl: string): string {
+  // If path is already absolute, return as-is
+  if (
+    path.startsWith("http://") ||
+    path.startsWith("https://") ||
+    path.startsWith("/")
+  ) {
+    return path.startsWith("/")
+      ? new URL(path, window.location.origin).href
+      : path;
+  }
+
+  // Resolve relative path against base URL
+  return new URL(path, baseUrl).href;
+}
+
+/**
+ * Converts a filename to a kebab-case tag name.
+ * "./HeaderButtons.html" → "header-buttons"
+ */
+function filenameToTagName(path: string): string {
+  const filename =
+    path
+      .split("/")
+      .pop()
+      ?.replace(/\.[^.]+$/, "") || path;
+
+  return filename
+    .replace(/([a-z])([A-Z])/g, "$1-$2")
+    .replace(/([A-Z]+)([A-Z][a-z])/g, "$1-$2")
+    .toLowerCase();
+}
+
+/**
+ * Creates framework helpers bound to a specific component's base URL.
+ * This ensures relative paths like "./buttons.html" resolve correctly
+ * relative to the component that calls $registerComponent.
+ *
+ * @param componentUrl - The absolute URL of the component (e.g., "http://localhost/header/header.html")
+ * @returns Object containing bound helper functions
+ */
+export function createFrameworkHelpers(componentUrl: string) {
+  /**
+   * Registers a child component from within a component's script.
+   * Paths are resolved relative to the calling component's location.
+   *
+   * @example
+   * ```html
+   * <!-- In /header/header.html -->
+   * <script>
+   *   $registerComponent("header-buttons", "./buttons.html");
+   *   // Resolves to /header/buttons.html
+   * </script>
+   * ```
+   */
+  function $registerComponent(
+    name: string,
+    path: string,
+    useShadowDOM: boolean = false
+  ): Promise<void> {
+    const resolvedPath = resolvePath(path, componentUrl);
+    return ladrillos.registerComponent(name, resolvedPath, useShadowDOM);
+  }
+
+  /**
+   * Shorthand for registering a component with auto-derived tag name.
+   * "./HeaderButtons.html" → registers as <header-buttons>
+   */
+  function $use(path: string, useShadowDOM: boolean = false): Promise<void> {
+    const tagName = filenameToTagName(path);
+    const resolvedPath = resolvePath(path, componentUrl);
+    return ladrillos.registerComponent(tagName, resolvedPath, useShadowDOM);
+  }
+
+  return { $registerComponent, $use };
+}
+
+/**
+ * Names of all framework helpers (for Function parameter lists)
+ */
+export const frameworkHelperNames = ["$registerComponent", "$use"];
+
+/**
+ * Default helpers for entry point usage (resolve relative to page URL).
+ * Inside components, use createFrameworkHelpers(componentUrl) instead.
+ */
+export function getFrameworkHelperValues(): ((...args: any[]) => any)[] {
+  const helpers = createFrameworkHelpers(window.location.href);
+  return [helpers.$registerComponent, helpers.$use];
+}
+
+// For entry point / CDN usage - resolve relative to current page
+const defaultHelpers = createFrameworkHelpers(window.location.href);
+export const $registerComponent = defaultHelpers.$registerComponent;
+export const $use = defaultHelpers.$use;

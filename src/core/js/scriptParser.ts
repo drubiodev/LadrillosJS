@@ -6,6 +6,10 @@ import {
   RESERVED_WORDS,
 } from "../../utils/sandbox";
 import { createReactiveState } from "./reactivity";
+import {
+  frameworkHelperNames,
+  createFrameworkHelpers,
+} from "../helpers/frameworkHelpers";
 
 /**
  * Gets the actual HTMLElement from either a direct element or a ShadowRoot.
@@ -29,6 +33,7 @@ const getHostElement = (host: HTMLElement | ShadowRoot): HTMLElement =>
  * @param attributeOverrides - Attributes from HTML that override script defaults
  * @param onStateChange - Optional callback when state changes (for directive updates)
  * @param deferBindings - If true, don't apply bindings immediately (for module script support)
+ * @param componentUrl - The absolute URL of the component (for resolving relative paths in $registerComponent)
  * @returns The reactive state object - changes trigger automatic DOM updates
  */
 export async function loadScripts(
@@ -37,7 +42,8 @@ export async function loadScripts(
   bindings: BindingDescriptor[],
   attributeOverrides: Record<string, unknown> = {},
   onStateChange?: () => void,
-  deferBindings: boolean = false
+  deferBindings: boolean = false,
+  componentUrl?: string
 ): Promise<Record<string, unknown>> {
   const componentHost = getHostElement(host);
   const initialState: Record<string, unknown> = {};
@@ -48,7 +54,7 @@ export async function loadScripts(
   // Extract all declared variables and functions from component scripts
   // These serve as DEFAULT values
   for (const script of scripts) {
-    const members = extractScriptMembers(script.content);
+    const members = extractScriptMembers(script.content, componentUrl);
     for (const [key, value] of members) {
       initialState[key] = value;
     }
@@ -73,6 +79,8 @@ export async function loadScripts(
   (componentHost as any).__state = reactiveState;
   // Store script content for event handlers that need to be set up later
   (componentHost as any).__scriptContent = allScriptContent;
+  // Store component URL for correct path resolution in framework helpers
+  (componentHost as any).__componentUrl = componentUrl;
 
   // Make onclick="handleClick()" work by binding to reactive state
   // Pass script content so functions can be re-created with current state
@@ -174,8 +182,11 @@ function createVanillaEventHandler(
   componentHost?: HTMLElement
 ): ((event: Event) => void) | null {
   try {
+    // Get component URL from host for framework helpers path resolution
+    const componentUrl = (componentHost as any)?.__componentUrl;
+
     // Include safe globals like alert, console, Math, JSON, etc.
-    const allowed = getAllowedGlobalsWithValues();
+    const allowed = getAllowedGlobalsWithValues(componentUrl);
 
     // Block dangerous globals like window, document, fetch, etc.
     const safeBlocked = getSafeBlockedGlobals();
@@ -333,8 +344,14 @@ function extractFunctionDefinitions(
  *   function greet() { return `Hello ${name}`; }
  *
  * Returns: Map { 'name' => 'LadrillosJS', 'greet' => [Function] }
+ *
+ * @param content - The script content to execute
+ * @param componentUrl - The component's URL for resolving relative paths in helpers
  */
-function extractScriptMembers(content: string): Map<string, unknown> {
+function extractScriptMembers(
+  content: string,
+  componentUrl?: string
+): Map<string, unknown> {
   const members = new Map<string, unknown>();
 
   try {
@@ -351,7 +368,7 @@ function extractScriptMembers(content: string): Map<string, unknown> {
     `;
 
     // Set up the sandboxed execution environment
-    const allowed = getAllowedGlobalsWithValues();
+    const allowed = getAllowedGlobalsWithValues(componentUrl);
     const safeBlocked = getSafeBlockedGlobals();
 
     const allKeys = [...safeBlocked, ...allowed.keys];
@@ -418,18 +435,30 @@ function getSafeBlockedGlobals(): readonly string[] {
 
 /**
  * Gets safe globals (alert, console, Math, JSON, etc.) with their actual values.
+ * Also includes framework helpers like $registerComponent and $use.
  * These are passed into the sandbox so component code feels like vanilla JS.
+ *
+ * @param componentUrl - The component's URL for resolving relative paths in helpers
  */
-function getAllowedGlobalsWithValues(): { keys: string[]; values: unknown[] } {
+function getAllowedGlobalsWithValues(componentUrl?: string): {
+  keys: string[];
+  values: unknown[];
+} {
   const keys: string[] = [];
   const values: unknown[] = [];
 
+  // Add standard allowed globals (console, Math, JSON, etc.)
   for (const name of ALLOWED_GLOBALS) {
     if (name in globalThis) {
       keys.push(name);
       values.push((globalThis as any)[name]);
     }
   }
+
+  // Add framework helpers bound to component URL for correct path resolution
+  const helpers = createFrameworkHelpers(componentUrl || window.location.href);
+  keys.push(...frameworkHelperNames);
+  values.push(helpers.$registerComponent, helpers.$use);
 
   return { keys, values };
 }

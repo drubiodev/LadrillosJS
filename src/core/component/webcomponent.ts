@@ -134,13 +134,15 @@ export function createWebComponent(
       // Pass attribute overrides so they take precedence over defaults
       // Pass a callback that will update directives when state changes
       // DEFER bindings if we have module scripts (they need to load first)
+      // Pass sourcePath so $registerComponent resolves paths relative to this component
       this.state = await loadScripts(
         this._root,
         regularScripts,
         bindings,
         attributeOverrides,
         () => this._updateDirectives(),
-        hasModuleScripts // deferBindings = true if we have module scripts
+        hasModuleScripts, // deferBindings = true if we have module scripts
+        sourcePath // componentUrl for correct path resolution
       );
 
       // Create refs Map early so module script functions can capture the reference.

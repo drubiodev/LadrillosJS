@@ -10,5 +10,10 @@ export default defineConfig({
       formats: ["iife"], // Immediately Invoked Function Expression for CDN usage
     },
     outDir: "dist-cdn",
+    rollupOptions: {
+      output: {
+        exports: "named", // Use named exports only to avoid default export confusion
+      },
+    },
   },
 });

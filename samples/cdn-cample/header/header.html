@@ -21,25 +21,9 @@
       <polyline points="6 9 12 15 18 9" />
     </svg>
   </div>
-  <div class="header-right">
-    <button class="header-btn" title="More options">
-      <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
-        <circle cx="12" cy="5" r="2" />
-        <circle cx="12" cy="12" r="2" />
-        <circle cx="12" cy="19" r="2" />
-      </svg>
-    </button>
-    <button class="header-btn" title="Close">
-      <svg
-        class="icon"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2"
-      >
-        <line x1="18" y1="6" x2="6" y2="18" />
-        <line x1="6" y1="6" x2="18" y2="18" />
-      </svg>
-    </button>
-  </div>
+  <header-buttons></header-buttons>
 </div>
+
+<script>
+  $registerComponent("header-buttons", "./buttons.html", false);
+</script>

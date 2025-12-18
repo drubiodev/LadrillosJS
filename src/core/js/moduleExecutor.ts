@@ -1,4 +1,8 @@
 import { ScriptElement, ExternalScriptElement } from "../../types";
+import {
+  frameworkHelperNames,
+  createFrameworkHelpers,
+} from "../helpers/frameworkHelpers";
 
 /**
  * Executes module scripts at runtime with REACTIVITY support.
@@ -799,14 +803,28 @@ export async function executeModuleScriptWithReactivity(
     const injectedVars = ["refs", "__state__"];
     const injectedValues = [refs || new Map(), reactiveState || {}];
 
-    const fn = new Function(
+    // Create framework helpers bound to component's URL for correct path resolution
+    // This ensures $registerComponent("./child.html") resolves relative to THIS component
+    const helpers = createFrameworkHelpers(componentUrl);
+    const frameworkHelperValues = [helpers.$registerComponent, helpers.$use];
+
+    // Add framework helpers ($registerComponent, $use, etc.)
+    const allParamNames = [
       ...importNames,
       ...safeGlobals,
+      ...frameworkHelperNames,
       ...injectedVars,
-      wrappedCode
-    );
+    ];
+    const allParamValues = [
+      ...importValues,
+      ...safeGlobalValues,
+      ...frameworkHelperValues,
+      ...injectedValues,
+    ];
 
-    const result = fn(...importValues, ...safeGlobalValues, ...injectedValues);
+    const fn = new Function(...allParamNames, wrappedCode);
+
+    const result = fn(...allParamValues);
 
     // Return both the initial values (from __state__) and functions
     // The reactiveState object now contains all variables set by the module script
