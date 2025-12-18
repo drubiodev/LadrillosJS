@@ -6,18 +6,24 @@
     <title>Co-Driver</title>
     <!-- Use local CDN build instead of actual CDN -->
     <script src="http://localhost:3000/ladrillos.iife.js"></script>
-    <script>
-      ladrillosjs.registerComponent(
-        "header-component",
-        "./header/header.html",
-        false
-      );
-      ladrillosjs.registerComponent(
-        "content-component",
-        "./content/content.html",
-        false
-      );
-      ladrillosjs.registerComponent("input-area", "./input/input.html", false);
+    <script type="module">
+      await ladrillosjs.registerComponents([
+        {
+          name: "header-component",
+          path: "./header/header.html",
+          useShadowDOM: false,
+        },
+        {
+          name: "content-component",
+          path: "./content/content.html",
+          useShadowDOM: false,
+        },
+        {
+          name: "input-area",
+          path: "./input/input.html",
+          useShadowDOM: false,
+        },
+      ]);
     </script>
     <style>
       * {
