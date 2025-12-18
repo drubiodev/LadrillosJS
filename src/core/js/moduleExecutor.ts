@@ -201,11 +201,90 @@ export async function executeModuleScript(
 }
 
 /**
+ * Regex to extract top-level variable declarations from module code.
+ * Matches: let x, const y, var z (with optional = assignment)
+ * Does NOT match declarations inside functions/blocks.
+ */
+const TOP_LEVEL_VAR_REGEX =
+  /^(?:export\s+)?(?:let|const|var)\s+([a-zA-Z_$][a-zA-Z0-9_$]*)/gm;
+
+/**
+ * Extracts top-level variable names from module code.
+ * Used to auto-export all declarations (Vue-style).
+ */
+function extractTopLevelVariables(code: string): string[] {
+  const variables: string[] = [];
+  let match;
+
+  // Reset regex state
+  TOP_LEVEL_VAR_REGEX.lastIndex = 0;
+
+  while ((match = TOP_LEVEL_VAR_REGEX.exec(code)) !== null) {
+    variables.push(match[1]);
+  }
+
+  // Also extract function declarations: function foo() {}
+  const funcRegex = /^(?:export\s+)?function\s+([a-zA-Z_$][a-zA-Z0-9_$]*)/gm;
+  while ((match = funcRegex.exec(code)) !== null) {
+    if (!variables.includes(match[1])) {
+      variables.push(match[1]);
+    }
+  }
+
+  return variables;
+}
+
+/**
+ * Transforms module code to export all top-level declarations.
+ * This enables Vue-style "no export needed" behavior.
+ *
+ * Example:
+ *   const suggestionItems = ['a', 'b'];
+ * Becomes:
+ *   const suggestionItems = ['a', 'b'];
+ *   export { suggestionItems };  // Auto-added
+ */
+function autoExportAllDeclarations(code: string): string {
+  const variables = extractTopLevelVariables(code);
+
+  // Filter out variables that are already exported
+  const alreadyExported = new Set<string>();
+  const exportRegex =
+    /export\s+(?:let|const|var|function)\s+([a-zA-Z_$][a-zA-Z0-9_$]*)/g;
+  let match;
+  while ((match = exportRegex.exec(code)) !== null) {
+    alreadyExported.add(match[1]);
+  }
+
+  // Also check for `export { x, y }` style exports
+  const namedExportRegex = /export\s*\{([^}]+)\}/g;
+  while ((match = namedExportRegex.exec(code)) !== null) {
+    const names = match[1].split(",").map((n) =>
+      n
+        .trim()
+        .split(/\s+as\s+/)[0]
+        .trim()
+    );
+    names.forEach((n) => alreadyExported.add(n));
+  }
+
+  const toExport = variables.filter((v) => !alreadyExported.has(v));
+
+  if (toExport.length === 0) {
+    return code;
+  }
+
+  // Add export statement at the end
+  return `${code}\nexport { ${toExport.join(", ")} };`;
+}
+
+/**
  * Executes an external module script.
- * For external scripts, we don't need to rewrite imports - the browser handles it.
+ * For external scripts, we fetch the content, auto-export all declarations,
+ * and execute it via blob URL (Vue-style "no export needed").
  *
  * @param script - The external script element
- * @returns Promise that resolves when the module has loaded
+ * @returns Promise that resolves with the module exports
  */
 export async function executeExternalScript(
   script: ExternalScriptElement
@@ -226,9 +305,30 @@ export async function executeExternalScript(
   }
 
   try {
-    // For module scripts, use dynamic import
-    const moduleExports = await (0, eval)(`import("${script.src}")`);
-    return moduleExports;
+    // Fetch the module content
+    const response = await fetch(script.src);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch module: ${script.src}`);
+    }
+    const code = await response.text();
+
+    // Rewrite relative imports to absolute URLs (based on script's location)
+    const rewrittenCode = rewriteImports(code, script.src);
+
+    // Auto-export all top-level declarations (Vue-style)
+    const exportedCode = autoExportAllDeclarations(rewrittenCode);
+
+    // Create blob URL and import
+    const blob = new Blob([exportedCode], { type: "text/javascript" });
+    const blobUrl = URL.createObjectURL(blob);
+
+    try {
+      const moduleExports = await (0, eval)(`import("${blobUrl}")`);
+      return moduleExports;
+    } finally {
+      // Clean up blob URL
+      URL.revokeObjectURL(blobUrl);
+    }
   } catch (error) {
     console.error(
       `[LadrillosJS] Failed to load external module: ${script.src}`,
@@ -240,7 +340,7 @@ export async function executeExternalScript(
 
 /**
  * Executes all module scripts for a component.
- * Handles both inline and external module scripts.
+ * Handles both inline and external scripts (module and non-module).
  *
  * @param scripts - Inline scripts from the component
  * @param externalScripts - External scripts from the component
@@ -261,13 +361,29 @@ export async function executeAllModuleScripts(
   const externalModuleScripts = externalScripts.filter(
     (s) => s.type === "module"
   );
+  const externalRegularScripts = externalScripts.filter(
+    (s) => s.type !== "module"
+  );
 
-  // Execute external module scripts first (they may export things inline scripts need)
-  for (const script of externalModuleScripts) {
+  // Execute external NON-module scripts first (they may set up globals)
+  for (const script of externalRegularScripts) {
     try {
       await executeExternalScript(script);
     } catch (error) {
       console.error(`[LadrillosJS] External script failed:`, script.src, error);
+    }
+  }
+
+  // Execute external module scripts (they may export things inline scripts need)
+  for (const script of externalModuleScripts) {
+    try {
+      await executeExternalScript(script);
+    } catch (error) {
+      console.error(
+        `[LadrillosJS] External module script failed:`,
+        script.src,
+        error
+      );
     }
   }
 
@@ -781,18 +897,51 @@ export async function executeModuleScriptsWithReactivity(
 ): Promise<Record<string, unknown>> {
   const mergedState: Record<string, unknown> = {};
 
-  // Filter to only module scripts
+  // Filter to only module scripts (inline)
   const moduleScripts = scripts.filter((s) => s.type === "module");
+
+  // Separate external scripts by type
   const externalModuleScripts = externalScripts.filter(
     (s) => s.type === "module"
   );
+  const externalRegularScripts = externalScripts.filter(
+    (s) => s.type !== "module"
+  );
 
-  // Execute external module scripts first (for side effects)
-  for (const script of externalModuleScripts) {
+  // Execute external NON-module scripts first (they may set up globals needed by modules)
+  for (const script of externalRegularScripts) {
     try {
       await executeExternalScript(script);
     } catch (error) {
       console.error(`[LadrillosJS] External script failed:`, script.src, error);
+    }
+  }
+
+  // Execute external module scripts and merge their exports into state
+  for (const script of externalModuleScripts) {
+    try {
+      const moduleExports = await executeExternalScript(script);
+      // Merge module exports into state (functions, variables, etc.)
+      if (moduleExports && typeof moduleExports === "object") {
+        for (const [key, value] of Object.entries(
+          moduleExports as Record<string, unknown>
+        )) {
+          // Skip default export key, merge named exports
+          if (key !== "default") {
+            mergedState[key] = value;
+            // Also write to reactive state if provided
+            if (reactiveState) {
+              reactiveState[key] = value;
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error(
+        `[LadrillosJS] External module script failed:`,
+        script.src,
+        error
+      );
     }
   }
 

@@ -3,9 +3,9 @@
 </div>
 
 <div class="suggestions">
-  <button class="suggestion-btn">
-    What is the main purpose of this document?
+  <button $for="suggestion in suggestionItems" class="suggestion-btn">
+    {suggestion}
   </button>
-  <button class="suggestion-btn">Create a summary of this page</button>
-  <button class="suggestion-btn">Expand on this topic</button>
 </div>
+
+<script src="./content.js" type="module"></script>

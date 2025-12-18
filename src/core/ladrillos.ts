@@ -24,10 +24,15 @@ class Ladrillos {
 
     // TODO: Lazy components
 
+    // Resolve relative path to absolute URL
+    // This ensures script src paths inside components resolve correctly
+    // (similar to how Vue's transformAssetUrl uses a base URL)
+    const absolutePath = new URL(path, window.location.href).href;
+
     // Fetch and define component
     try {
-      const source = await fetchComponentSource(path);
-      const component = await parseComponent(source || "", name, path);
+      const source = await fetchComponentSource(absolutePath);
+      const component = await parseComponent(source || "", name, absolutePath);
 
       this.components[name] = component;
 

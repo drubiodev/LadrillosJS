@@ -382,6 +382,6 @@ export function createWebComponent(
   // Only define if not already defined (prevents errors on hot reload)
   if (!customElements.get(tagName)) {
     customElements.define(tagName, LadrillosWebComponent);
-    console.log(`Web component "${tagName}" registered.`);
+    console.log(`🧩 Web component "${tagName}" registered.`);
   }
 }

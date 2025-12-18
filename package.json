@@ -16,9 +16,11 @@
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "build:cdn": "vite build --config vite.cdn.config.ts",
     "dev": "tsc -p tsconfig.json -w",
+    "build:cdn": "vite build --config vite.cdn.config.ts",
+    "watch:cdn": "vite build --config vite.cdn.config.ts --watch",
     "serve:cdn": "npx serve dist-cdn -p 3000 --cors",
+    "dev:cdn": "concurrently \"npm run watch:cdn\" \"npm run serve:cdn\"",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "workspaces": [
@@ -35,6 +37,7 @@
   },
   "homepage": "https://github.com/drubiodev/LadrillosJS#readme",
   "devDependencies": {
+    "concurrently": "^9.2.1",
     "typescript": "~5.9.3",
     "vite": "^7.2.7"
   }
