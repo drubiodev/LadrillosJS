@@ -19,14 +19,12 @@ type UpdateBindingFn = (
 ) => void;
 
 // ============================================================================
-// Reactive State (Vue-style Proxy)
+// Reactive State
 // ============================================================================
 
 /**
  * Creates a reactive state object that automatically updates the DOM
  * when properties change.
- *
- * Inspired by Vue 3's reactivity system using JavaScript Proxy.
  *
  * How it works:
  *   1. Wraps the initial state in a Proxy

@@ -16,7 +16,7 @@ Build modular web apps with simple HTML components. No virtual DOM, no complex t
 - 🚀 **Zero Dependencies** — Pure JavaScript, works without build tools
 - 📦 **Single-File Components** — HTML, CSS, and JS in one `.html` file
 - ⚡ **Reactive State** — Variables update the DOM automatically
-- 🎯 **Familiar Syntax** — Vue-inspired directives (`$if`, `$for`, `$bind`)
+- 🎯 **Familiar Syntax** — directives (`$if`, `$for`, `$bind`)
 - 🔌 **Native Web Components** — Built on Custom Elements standard
 - 🎨 **Scoped Styles** — Optional Shadow DOM for style isolation
 

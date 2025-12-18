@@ -2,14 +2,18 @@
  * LadrillosJS Framework Helpers
  *
  * These are $ prefixed helper functions injected into component scripts.
- * They follow the convention of Vue's $emit, $refs, and Svelte's $state.
  *
  * Available helpers:
  * - $registerComponent(name, path, useShadowDOM?) - Register a child component
+ * - $registerComponents(configs) - Register multiple components at once (parallel)
  * - $use(path) - Shorthand for $registerComponent with auto-derived tag name
  */
 
-import { ladrillos } from "../ladrillos";
+import {
+  ladrillos,
+  ComponentConfig,
+  RegisterComponentsResult,
+} from "../ladrillos";
 
 /**
  * Resolves a relative path against a base URL.
@@ -80,6 +84,51 @@ export function createFrameworkHelpers(componentUrl: string) {
   }
 
   /**
+   * Register multiple components at once with parallel fetching.
+   *
+   * Benefits:
+   * - Parallel network requests (faster than sequential $registerComponent calls)
+   * - Shared fetch cache
+   * - Detailed error reporting
+   *
+   * @example
+   * ```html
+   * <script>
+   *   // Array syntax
+   *   await $registerComponents([
+   *     { name: 'nav-item', path: './nav-item.html' },
+   *     { name: 'nav-dropdown', path: './nav-dropdown.html', useShadowDOM: false }
+   *   ]);
+   *
+   *   // Object syntax
+   *   await $registerComponents({
+   *     'nav-item': './nav-item.html',
+   *     'nav-dropdown': { path: './nav-dropdown.html', useShadowDOM: false }
+   *   });
+   * </script>
+   * ```
+   */
+  function $registerComponents(
+    configs:
+      | ComponentConfig[]
+      | Record<string, string | Omit<ComponentConfig, "name">>
+  ): Promise<RegisterComponentsResult> {
+    // Normalize and resolve paths relative to component
+    const normalizedConfigs: ComponentConfig[] = Array.isArray(configs)
+      ? configs.map((config) => ({
+          ...config,
+          path: resolvePath(config.path, componentUrl),
+        }))
+      : Object.entries(configs).map(([name, value]) =>
+          typeof value === "string"
+            ? { name, path: resolvePath(value, componentUrl) }
+            : { name, ...value, path: resolvePath(value.path, componentUrl) }
+        );
+
+    return ladrillos.registerComponents(normalizedConfigs);
+  }
+
+  /**
    * Shorthand for registering a component with auto-derived tag name.
    * "./HeaderButtons.html" → registers as <header-buttons>
    */
@@ -89,13 +138,17 @@ export function createFrameworkHelpers(componentUrl: string) {
     return ladrillos.registerComponent(tagName, resolvedPath, useShadowDOM);
   }
 
-  return { $registerComponent, $use };
+  return { $registerComponent, $registerComponents, $use };
 }
 
 /**
  * Names of all framework helpers (for Function parameter lists)
  */
-export const frameworkHelperNames = ["$registerComponent", "$use"];
+export const frameworkHelperNames = [
+  "$registerComponent",
+  "$registerComponents",
+  "$use",
+];
 
 /**
  * Default helpers for entry point usage (resolve relative to page URL).
@@ -103,10 +156,15 @@ export const frameworkHelperNames = ["$registerComponent", "$use"];
  */
 export function getFrameworkHelperValues(): ((...args: any[]) => any)[] {
   const helpers = createFrameworkHelpers(window.location.href);
-  return [helpers.$registerComponent, helpers.$use];
+  return [
+    helpers.$registerComponent,
+    helpers.$registerComponents,
+    helpers.$use,
+  ];
 }
 
 // For entry point / CDN usage - resolve relative to current page
 const defaultHelpers = createFrameworkHelpers(window.location.href);
 export const $registerComponent = defaultHelpers.$registerComponent;
+export const $registerComponents = defaultHelpers.$registerComponents;
 export const $use = defaultHelpers.$use;

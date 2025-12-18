@@ -171,7 +171,7 @@ export const RESERVED_WORDS = new Set([
 
 /**
  * Framework helper names that are injected into component scripts.
- * These use the $ prefix convention (like Vue's $emit, $refs, Svelte's $state).
+ * These use the $ prefix convention
  */
 export const FRAMEWORK_HELPERS = Object.freeze([
   "$registerComponent",

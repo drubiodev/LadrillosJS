@@ -29,15 +29,12 @@ import {
  * - Shadow DOM encapsulation (optional)
  * - Reactive state that syncs with the DOM
  *
- * Attribute Precedence (follows Vue/Svelte/Lit convention):
  * - Attributes from HTML OVERRIDE script variable defaults
  * - Script variables serve as DEFAULT values when no attribute is provided
  *
  * Example:
  *   <my-counter count="5"></my-counter>  <!-- count = 5, not the default -->
  *   <my-counter></my-counter>            <!-- count = 0 (script default) -->
- *
- * Inspired by: Lit, Vue's defineCustomElement, Stencil
  */
 export function createWebComponent(
   component: LadrillosComponent,

@@ -214,7 +214,7 @@ const TOP_LEVEL_VAR_REGEX =
 
 /**
  * Extracts top-level variable names from module code.
- * Used to auto-export all declarations (Vue-style).
+ * Used to auto-export all declarations
  */
 function extractTopLevelVariables(code: string): string[] {
   const variables: string[] = [];
@@ -240,7 +240,7 @@ function extractTopLevelVariables(code: string): string[] {
 
 /**
  * Transforms module code to export all top-level declarations.
- * This enables Vue-style "no export needed" behavior.
+ * This enable "no export needed" behavior.
  *
  * Example:
  *   const suggestionItems = ['a', 'b'];
@@ -285,7 +285,7 @@ function autoExportAllDeclarations(code: string): string {
 /**
  * Executes an external module script.
  * For external scripts, we fetch the content, auto-export all declarations,
- * and execute it via blob URL (Vue-style "no export needed").
+ * and execute it via blob URL
  *
  * @param script - The external script element
  * @returns Promise that resolves with the module exports
@@ -319,7 +319,7 @@ export async function executeExternalScript(
     // Rewrite relative imports to absolute URLs (based on script's location)
     const rewrittenCode = rewriteImports(code, script.src);
 
-    // Auto-export all top-level declarations (Vue-style)
+    // Auto-export all top-level declarations
     const exportedCode = autoExportAllDeclarations(rewrittenCode);
 
     // Create blob URL and import
@@ -641,7 +641,6 @@ function stripImports(code: string): string {
  * declared inside functions (like `const myCanvas = refs.get(...)`).
  *
  * The approach: Track brace depth and only extract declarations at depth 0.
- * This is similar to how Vue's compiler-sfc uses AST walking.
  */
 function extractDeclaredNames(code: string): {
   variables: string[];
