@@ -258,10 +258,12 @@ function createVanillaEventHandler(
       ? ""
       : varNames.map((key) => `state.${key} = ${key};`).join(" ");
 
-    const fn = new Function(
-      ...allKeys,
-      `"use strict"; ${destructureVars} ${destructureFuncs} ${funcDefs} ${code}; ${syncBack}`
-    );
+    // Add sourceURL so DevTools shows the component name instead of VM123:5
+    const sourceUrl = componentUrl || "ladrillos-event-handler";
+    const fnBody = `"use strict"; ${destructureVars} ${destructureFuncs} ${funcDefs} ${code}; ${syncBack}
+//# sourceURL=${sourceUrl}`;
+
+    const fn = new Function(...allKeys, fnBody);
 
     return (event: Event) => {
       try {
@@ -383,10 +385,13 @@ function extractScriptMembers(
 
     // Always execute the script content (for side effects like console.log)
     // Only return members if there are any to extract
+    // Add sourceURL so DevTools shows the component name instead of VM123:5
+    const sourceUrl = componentUrl || "ladrillos-component";
     const wrappedScript = `
       "use strict";
       ${content}
       return { ${allNames.join(", ")} };
+//# sourceURL=${sourceUrl}
     `;
 
     // Set up the sandboxed execution environment
