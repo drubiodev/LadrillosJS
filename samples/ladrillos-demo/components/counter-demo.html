@@ -1,0 +1,114 @@
+<div class="demo-card">
+  <h3>🔢 Counter</h3>
+  <p class="description">Reactive state updates the DOM automatically</p>
+
+  <div class="demo-content">
+    <div class="counter-display">{count}</div>
+    <div class="button-group">
+      <button onclick="count--" class="btn btn-minus">−</button>
+      <button onclick="count = 0" class="btn btn-reset">Reset</button>
+      <button onclick="count++" class="btn btn-plus">+</button>
+    </div>
+    <p class="computed">Double: {count * 2} | Squared: {count * count}</p>
+  </div>
+
+  <div class="code-hint">
+    <code>let count = 0;</code><br />
+    <code>&lt;button onclick="count++"&gt;+&lt;/button&gt;</code>
+  </div>
+</div>
+
+<script>
+  let count = 0;
+</script>
+
+<style>
+  .demo-card {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    border-radius: 12px;
+    padding: 1.5rem;
+    color: white;
+    box-shadow: 0 4px 15px rgba(245, 87, 108, 0.4);
+  }
+
+  h3 {
+    margin: 0 0 0.5rem 0;
+    font-size: 1.25rem;
+  }
+
+  .description {
+    opacity: 0.9;
+    font-size: 0.875rem;
+    margin-bottom: 1rem;
+  }
+
+  .demo-content {
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+    text-align: center;
+  }
+
+  .counter-display {
+    font-size: 4rem;
+    font-weight: bold;
+    margin-bottom: 1rem;
+    text-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+  }
+
+  .button-group {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: center;
+    margin-bottom: 1rem;
+  }
+
+  .btn {
+    padding: 0.75rem 1.5rem;
+    font-size: 1.25rem;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: transform 0.1s, box-shadow 0.1s;
+    font-weight: bold;
+  }
+
+  .btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  }
+
+  .btn:active {
+    transform: translateY(0);
+  }
+
+  .btn-plus {
+    background: #4ade80;
+    color: #166534;
+  }
+
+  .btn-minus {
+    background: #fb7185;
+    color: #9f1239;
+  }
+
+  .btn-reset {
+    background: rgba(255, 255, 255, 0.3);
+    color: white;
+  }
+
+  .computed {
+    opacity: 0.9;
+    font-size: 0.9rem;
+    margin: 0;
+  }
+
+  .code-hint {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 6px;
+    padding: 0.75rem;
+    font-family: monospace;
+    font-size: 0.8rem;
+  }
+</style>

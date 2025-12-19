@@ -1,0 +1,180 @@
+<div class="demo-card">
+  <h3>👁️ Show/Hide Toggle</h3>
+  <p class="description">
+    Use <code>$show</code> for CSS-based visibility (keeps element in DOM)
+  </p>
+
+  <div class="demo-content">
+    <div class="toggle-group">
+      <button onclick="showPanel1 = !showPanel1" class="toggle-btn">
+        {showPanel1 ? 'Hide' : 'Show'} Panel 1
+      </button>
+      <button onclick="showPanel2 = !showPanel2" class="toggle-btn">
+        {showPanel2 ? 'Hide' : 'Show'} Panel 2
+      </button>
+      <button onclick="showPanel3 = !showPanel3" class="toggle-btn">
+        {showPanel3 ? 'Hide' : 'Show'} Panel 3
+      </button>
+    </div>
+
+    <div class="panels">
+      <div $show="{showPanel1}" class="panel panel-1">
+        <span class="icon">🎨</span>
+        <span>Panel 1 - Design</span>
+      </div>
+
+      <div $show="{showPanel2}" class="panel panel-2">
+        <span class="icon">⚙️</span>
+        <span>Panel 2 - Settings</span>
+      </div>
+
+      <div $show="{showPanel3}" class="panel panel-3">
+        <span class="icon">📊</span>
+        <span>Panel 3 - Analytics</span>
+      </div>
+    </div>
+
+    <div class="difference">
+      <h4>$show vs $if</h4>
+      <p>
+        <strong>$show:</strong> Toggles <code>display: none</code> (element
+        stays in DOM)
+      </p>
+      <p><strong>$if:</strong> Adds/removes element from DOM entirely</p>
+    </div>
+  </div>
+
+  <div class="code-hint">
+    <code>&lt;div $show="{isVisible}"&gt;...&lt;/div&gt;</code>
+  </div>
+</div>
+
+<script>
+  let showPanel1 = true;
+  let showPanel2 = true;
+  let showPanel3 = false;
+</script>
+
+<style>
+  .demo-card {
+    background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+    border-radius: 12px;
+    padding: 1.5rem;
+    color: #1f2937;
+    box-shadow: 0 4px 15px rgba(67, 233, 123, 0.4);
+  }
+
+  h3 {
+    margin: 0 0 0.5rem 0;
+    font-size: 1.25rem;
+  }
+
+  h4 {
+    margin: 0 0 0.5rem 0;
+    font-size: 0.9rem;
+  }
+
+  .description {
+    opacity: 0.8;
+    font-size: 0.875rem;
+    margin-bottom: 1rem;
+  }
+
+  .description code {
+    background: rgba(0, 0, 0, 0.1);
+    padding: 0.125rem 0.375rem;
+    border-radius: 4px;
+  }
+
+  .demo-content {
+    background: rgba(255, 255, 255, 0.7);
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+  }
+
+  .toggle-group {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .toggle-btn {
+    padding: 0.5rem 1rem;
+    background: white;
+    border: 2px solid #e5e7eb;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: all 0.2s;
+    font-weight: 500;
+  }
+
+  .toggle-btn:hover {
+    border-color: #43e97b;
+    background: #f0fdf4;
+  }
+
+  .panels {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+  }
+
+  .panel {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1rem;
+    border-radius: 8px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+  }
+
+  .panel .icon {
+    font-size: 1.5rem;
+  }
+
+  .panel-1 {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+  }
+
+  .panel-2 {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    color: white;
+  }
+
+  .panel-3 {
+    background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    color: white;
+  }
+
+  .difference {
+    background: rgba(0, 0, 0, 0.05);
+    padding: 1rem;
+    border-radius: 6px;
+    font-size: 0.85rem;
+  }
+
+  .difference p {
+    margin: 0.25rem 0;
+  }
+
+  .difference code {
+    background: rgba(0, 0, 0, 0.1);
+    padding: 0.125rem 0.375rem;
+    border-radius: 4px;
+    font-size: 0.8rem;
+  }
+
+  .code-hint {
+    background: rgba(0, 0, 0, 0.1);
+    border-radius: 6px;
+    padding: 0.75rem;
+    font-family: monospace;
+    font-size: 0.8rem;
+  }
+</style>

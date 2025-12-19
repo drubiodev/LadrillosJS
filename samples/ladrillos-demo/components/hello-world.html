@@ -1,0 +1,72 @@
+<div class="demo-card">
+  <h3>👋 Hello World</h3>
+  <p class="description">
+    Basic template binding with <code>{expression}</code> syntax
+  </p>
+
+  <div class="demo-content">
+    <h2>Hello, {name}!</h2>
+    <p>Welcome to <strong>{framework}</strong></p>
+    <p>Today is {currentDate}</p>
+  </div>
+
+  <div class="code-hint">
+    <code>&lt;h2&gt;Hello, {name}!&lt;/h2&gt;</code>
+  </div>
+</div>
+
+<script>
+  let name = "Developer";
+  let framework = "LadrillosJS";
+  let currentDate = new Date().toLocaleDateString();
+</script>
+
+<style>
+  .demo-card {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 12px;
+    padding: 1.5rem;
+    color: white;
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+  }
+
+  h3 {
+    margin: 0 0 0.5rem 0;
+    font-size: 1.25rem;
+  }
+
+  .description {
+    opacity: 0.9;
+    font-size: 0.875rem;
+    margin-bottom: 1rem;
+  }
+
+  .description code {
+    background: rgba(255, 255, 255, 0.2);
+    padding: 0.125rem 0.375rem;
+    border-radius: 4px;
+  }
+
+  .demo-content {
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+  }
+
+  .demo-content h2 {
+    margin: 0 0 0.5rem 0;
+  }
+
+  .demo-content p {
+    margin: 0.25rem 0;
+  }
+
+  .code-hint {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 6px;
+    padding: 0.75rem;
+    font-family: monospace;
+    font-size: 0.8rem;
+  }
+</style>

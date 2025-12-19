@@ -1,0 +1,186 @@
+<div class="demo-card">
+  <h3>🔀 Conditional Rendering</h3>
+  <p class="description">
+    Control visibility with <code>$if</code>, <code>$else-if</code>,
+    <code>$else</code>
+  </p>
+
+  <div class="demo-content">
+    <div class="controls">
+      <label>Status:</label>
+      <select $bind="status">
+        <option value="loading">Loading</option>
+        <option value="success">Success</option>
+        <option value="error">Error</option>
+        <option value="empty">Empty</option>
+      </select>
+    </div>
+
+    <div class="result-display">
+      <div $if="{status === 'loading'}" class="status-box loading">
+        <span class="icon">⏳</span>
+        <span>Loading data...</span>
+      </div>
+
+      <div $else-if="{status === 'success'}" class="status-box success">
+        <span class="icon">✅</span>
+        <span>Data loaded successfully!</span>
+      </div>
+
+      <div $else-if="{status === 'error'}" class="status-box error">
+        <span class="icon">❌</span>
+        <span>An error occurred!</span>
+      </div>
+
+      <div $else class="status-box empty">
+        <span class="icon">📭</span>
+        <span>No data available</span>
+      </div>
+    </div>
+
+    <div class="toggle-section">
+      <label>
+        <input type="checkbox" $bind="isAdvanced" />
+        Show advanced options
+      </label>
+
+      <div $if="{isAdvanced}" class="advanced-panel">
+        <p>🔧 Advanced settings are now visible!</p>
+        <p>This panel only appears when the checkbox is checked.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="code-hint">
+    <code>&lt;div $if="{status === 'loading'}"&gt;...&lt;/div&gt;</code><br />
+    <code>&lt;div $else-if="{status === 'error'}"&gt;...&lt;/div&gt;</code
+    ><br />
+    <code>&lt;div $else&gt;...&lt;/div&gt;</code>
+  </div>
+</div>
+
+<script>
+  let status = "loading";
+  let isAdvanced = false;
+</script>
+
+<style>
+  .demo-card {
+    background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
+    border-radius: 12px;
+    padding: 1.5rem;
+    color: #333;
+    box-shadow: 0 4px 15px rgba(168, 237, 234, 0.4);
+  }
+
+  h3 {
+    margin: 0 0 0.5rem 0;
+    font-size: 1.25rem;
+  }
+
+  .description {
+    opacity: 0.8;
+    font-size: 0.875rem;
+    margin-bottom: 1rem;
+  }
+
+  .description code {
+    background: rgba(0, 0, 0, 0.1);
+    padding: 0.125rem 0.375rem;
+    border-radius: 4px;
+  }
+
+  .demo-content {
+    background: rgba(255, 255, 255, 0.5);
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+  }
+
+  .controls {
+    margin-bottom: 1rem;
+  }
+
+  .controls label {
+    font-weight: 500;
+    margin-right: 0.5rem;
+  }
+
+  .controls select {
+    padding: 0.5rem;
+    border-radius: 6px;
+    border: 2px solid rgba(0, 0, 0, 0.1);
+    background: white;
+    font-size: 0.9rem;
+  }
+
+  .result-display {
+    margin-bottom: 1rem;
+  }
+
+  .status-box {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1rem;
+    border-radius: 8px;
+    font-weight: 500;
+  }
+
+  .status-box .icon {
+    font-size: 1.5rem;
+  }
+
+  .status-box.loading {
+    background: #fef3c7;
+    color: #92400e;
+  }
+
+  .status-box.success {
+    background: #d1fae5;
+    color: #065f46;
+  }
+
+  .status-box.error {
+    background: #fee2e2;
+    color: #991b1b;
+  }
+
+  .status-box.empty {
+    background: #f3f4f6;
+    color: #374151;
+  }
+
+  .toggle-section {
+    border-top: 1px solid rgba(0, 0, 0, 0.1);
+    padding-top: 1rem;
+  }
+
+  .toggle-section label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    font-weight: 500;
+  }
+
+  .advanced-panel {
+    margin-top: 1rem;
+    padding: 1rem;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 8px;
+  }
+
+  .advanced-panel p {
+    margin: 0.25rem 0;
+  }
+
+  .code-hint {
+    background: rgba(0, 0, 0, 0.1);
+    border-radius: 6px;
+    padding: 0.75rem;
+    font-family: monospace;
+    font-size: 0.75rem;
+  }
+</style>

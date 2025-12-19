@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LadrillosJS - Feature Showcase</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <script type="module">
+      import { registerComponents } from "ladrillosjs";
+
+      // Register all demo components
+      await registerComponents([
+        { name: "demo-hello-world", path: "./components/hello-world.html" },
+        { name: "demo-counter", path: "./components/counter-demo.html" },
+        {
+          name: "demo-two-way-binding",
+          path: "./components/two-way-binding.html",
+        },
+        {
+          name: "demo-conditional",
+          path: "./components/conditional-demo.html",
+        },
+        { name: "demo-list", path: "./components/list-demo.html" },
+        { name: "demo-show-hide", path: "./components/show-hide.html" },
+        { name: "demo-ref", path: "./components/ref-demo.html" },
+        { name: "demo-todo", path: "./components/todo-list.html" },
+        { name: "demo-event-sender", path: "./components/event-sender.html" },
+        {
+          name: "demo-event-receiver",
+          path: "./components/event-receiver.html",
+        },
+      ]);
+    </script>
+    <style>
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      html {
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+      }
+
+      body {
+        font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI",
+          Roboto, sans-serif;
+        line-height: 1.5;
+        background: #0f1219;
+        color: #e2e8f0;
+        min-height: 100vh;
+      }
+
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+
+      img,
+      picture,
+      video,
+      canvas,
+      svg {
+        display: block;
+        max-width: 100%;
+      }
+
+      button,
+      input,
+      select,
+      textarea {
+        font: inherit;
+      }
+
+      .header {
+        text-align: center;
+        padding: 4rem 1.5rem 2.5rem;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      }
+
+      .header h1 {
+        font-size: 3rem;
+        font-weight: 800;
+        background: linear-gradient(
+          135deg,
+          #667eea 0%,
+          #764ba2 50%,
+          #f093fb 100%
+        );
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        margin-bottom: 0.75rem;
+        letter-spacing: -0.02em;
+      }
+
+      .header .tagline {
+        font-size: 1.125rem;
+        color: #94a3b8;
+        margin-bottom: 1.5rem;
+        font-weight: 400;
+      }
+
+      .header .badges {
+        display: flex;
+        gap: 0.75rem;
+        justify-content: center;
+        flex-wrap: wrap;
+      }
+
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.5rem 1rem;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 9999px;
+        font-size: 0.875rem;
+        font-weight: 500;
+        color: #cbd5e1;
+      }
+
+      .container {
+        max-width: 1280px;
+        margin: 0 auto;
+        padding: 3rem 1.5rem;
+      }
+
+      .section-title {
+        font-size: 1.25rem;
+        font-weight: 600;
+        margin-bottom: 1.5rem;
+        padding-bottom: 0.75rem;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        color: #f1f5f9;
+        letter-spacing: -0.01em;
+      }
+
+      .section-title .icon {
+        font-size: 1.5rem;
+      }
+
+      /* Demo Grid Layouts */
+      .demo-grid {
+        display: grid;
+        gap: 1.5rem;
+        margin-bottom: 3.5rem;
+      }
+
+      .demo-grid.two-col {
+        grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+      }
+
+      .demo-grid.three-col {
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      }
+
+      .demo-grid.full-width {
+        grid-template-columns: 1fr;
+      }
+
+      .demo-grid.event-bus {
+        grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+      }
+
+      /* Footer */
+      .footer {
+        text-align: center;
+        padding: 3rem 1.5rem;
+        border-top: 1px solid rgba(255, 255, 255, 0.08);
+        color: #64748b;
+        font-size: 0.875rem;
+      }
+
+      .footer a {
+        color: #818cf8;
+        transition: color 0.2s;
+      }
+
+      .footer a:hover {
+        color: #a5b4fc;
+      }
+
+      /* Section Separators */
+      section {
+        margin-bottom: 1rem;
+      }
+
+      /* Description text */
+      .section-description {
+        color: #94a3b8;
+        margin-bottom: 1.25rem;
+        font-size: 0.9375rem;
+      }
+
+      .section-description code {
+        background: rgba(255, 255, 255, 0.08);
+        padding: 0.125rem 0.5rem;
+        border-radius: 4px;
+        font-family: "SF Mono", Monaco, "Cascadia Code", monospace;
+        font-size: 0.8125rem;
+      }
+
+      /* Responsive */
+      @media (max-width: 768px) {
+        .header h1 {
+          font-size: 2.25rem;
+        }
+
+        .header .tagline {
+          font-size: 1rem;
+        }
+
+        .demo-grid.event-bus,
+        .demo-grid.two-col {
+          grid-template-columns: 1fr;
+        }
+
+        .container {
+          padding: 2rem 1rem;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="header">
+      <h1>🧱 LadrillosJS</h1>
+      <p class="tagline">
+        A lightweight, zero-dependency web component framework
+      </p>
+      <div class="badges">
+        <span class="badge">🚀 Zero Dependencies</span>
+        <span class="badge">📦 Single-File Components</span>
+        <span class="badge">⚡ Reactive State</span>
+        <span class="badge">🎯 Familiar Syntax</span>
+      </div>
+    </header>
+
+    <main class="container">
+      <!-- Basics Section -->
+      <section>
+        <h2 class="section-title">
+          <span class="icon">🎯</span>
+          Basics
+        </h2>
+        <div class="demo-grid two-col">
+          <demo-hello-world></demo-hello-world>
+          <demo-counter></demo-counter>
+        </div>
+      </section>
+
+      <!-- Data Binding Section -->
+      <section>
+        <h2 class="section-title">
+          <span class="icon">🔗</span>
+          Data Binding
+        </h2>
+        <div class="demo-grid two-col">
+          <demo-two-way-binding></demo-two-way-binding>
+          <demo-ref></demo-ref>
+        </div>
+      </section>
+
+      <!-- Control Flow Section -->
+      <section>
+        <h2 class="section-title">
+          <span class="icon">🔀</span>
+          Control Flow
+        </h2>
+        <div class="demo-grid two-col">
+          <demo-conditional></demo-conditional>
+          <demo-show-hide></demo-show-hide>
+        </div>
+      </section>
+
+      <!-- Lists Section -->
+      <section>
+        <h2 class="section-title">
+          <span class="icon">📋</span>
+          List Rendering
+        </h2>
+        <div class="demo-grid full-width">
+          <demo-list></demo-list>
+        </div>
+      </section>
+
+      <!-- Real-World Example Section -->
+      <section>
+        <h2 class="section-title">
+          <span class="icon">✅</span>
+          Real-World Example
+        </h2>
+        <div class="demo-grid full-width">
+          <demo-todo></demo-todo>
+        </div>
+      </section>
+
+      <!-- Cross-Component Communication Section -->
+      <section>
+        <h2 class="section-title">
+          <span class="icon">📡</span>
+          Cross-Component Communication
+        </h2>
+        <p class="section-description">
+          Use <code>$emit</code> and <code>$listen</code>
+          to communicate between components without prop drilling!
+        </p>
+        <div class="demo-grid event-bus">
+          <demo-event-sender></demo-event-sender>
+          <demo-event-receiver></demo-event-receiver>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <p>Built with ❤️ using <strong>LadrillosJS</strong></p>
+      <p style="margin-top: 0.5rem">
+        <a href="https://github.com/drubiodev/LadrillosJS" target="_blank"
+          >GitHub</a
+        >
+        •
+        <a href="https://www.npmjs.com/package/ladrillosjs" target="_blank"
+          >NPM</a
+        >
+      </p>
+    </footer>
+  </body>
+</html>
