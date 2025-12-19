@@ -138,6 +138,8 @@ export function applyBindingsDeferred(
  *
  * This is what makes vanilla HTML syntax work:
  *   <button onclick="handleClick()">  →  just works!
+ *
+ * NOTE: Skips elements inside $for loops - those are handled by the loop renderer.
  */
 function transformInlineEventHandlers(
   host: HTMLElement | ShadowRoot,
@@ -148,6 +150,12 @@ function transformInlineEventHandlers(
   const elements = Array.from(host.querySelectorAll("*"));
 
   for (const element of elements) {
+    // Skip elements that are inside a $for template or have $for themselves
+    // These will be processed by the loop renderer with proper loop context
+    if (isInsideForLoop(element)) {
+      continue;
+    }
+
     for (const attrName of EVENT_ATTRIBUTES) {
       const handlerCode = element.getAttribute(attrName);
 
@@ -171,6 +179,28 @@ function transformInlineEventHandlers(
       }
     }
   }
+}
+
+/**
+ * Checks if an element is inside a $for loop template.
+ * Elements inside loops need special handling for their event handlers.
+ */
+function isInsideForLoop(element: Element): boolean {
+  // Check if the element itself has $for
+  if (element.hasAttribute("$for")) {
+    return true;
+  }
+
+  // Check ancestors
+  let current: Element | null = element.parentElement;
+  while (current) {
+    if (current.hasAttribute("$for")) {
+      return true;
+    }
+    current = current.parentElement;
+  }
+
+  return false;
 }
 
 /**

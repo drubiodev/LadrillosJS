@@ -25,6 +25,7 @@ import {
   DIRECTIVE_PATTERNS,
   escapeCssSelector,
 } from "../../utils/directives";
+import { EVENT_ATTRIBUTES } from "../../utils/jsevents";
 
 // ============================================================================
 // Types
@@ -552,6 +553,7 @@ function renderLoop(
 
 /**
  * Processes {bindings} within an element and its children.
+ * Also transforms inline event handlers (onclick, etc.) to work with component scope.
  */
 function processElementBindings(
   element: Element,
@@ -561,7 +563,7 @@ function processElementBindings(
     context: Record<string, unknown>
   ) => unknown
 ): void {
-  // Process attributes
+  // Process attributes - first replace bindings, then transform event handlers
   for (const attr of Array.from(element.attributes)) {
     if (attr.value.includes("{")) {
       const newValue = attr.value.replace(/\{([^}]+)\}/g, (_, expr) => {
@@ -571,6 +573,10 @@ function processElementBindings(
       attr.value = newValue;
     }
   }
+
+  // Transform inline event handlers (onclick, etc.) into proper event listeners
+  // This makes onclick="sendMessage('{suggestion}')" work in loops
+  transformLoopEventHandlers(element, context);
 
   // Process text nodes
   const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
@@ -596,6 +602,84 @@ function processElementBindings(
   // Recursively process child elements
   for (const child of Array.from(element.children)) {
     processElementBindings(child, context, evaluateExpression);
+  }
+}
+
+/**
+ * Transforms inline event handlers (onclick, oninput, etc.) on an element
+ * into proper event listeners with access to component scope.
+ *
+ * This is called during loop rendering to make syntax like:
+ *   onclick="sendMessage('{suggestion}')"
+ * work correctly - the binding is already replaced with the actual value.
+ */
+function transformLoopEventHandlers(
+  element: Element,
+  context: Record<string, unknown>
+): void {
+  for (const attrName of EVENT_ATTRIBUTES) {
+    const handlerCode = element.getAttribute(attrName);
+
+    if (handlerCode) {
+      // Remove the attribute so browser doesn't try to eval it globally
+      element.removeAttribute(attrName);
+
+      // onclick → click
+      const eventName = attrName.slice(2);
+
+      // Create event listener with component context
+      const handler = createLoopEventHandler(handlerCode, context);
+      if (handler) {
+        element.addEventListener(eventName, handler);
+      }
+    }
+  }
+}
+
+/**
+ * Creates an event handler function for loop-rendered elements.
+ * The handler has access to the loop context (including loop variables and functions).
+ */
+function createLoopEventHandler(
+  code: string,
+  context: Record<string, unknown>
+): ((event: Event) => void) | null {
+  try {
+    // Separate functions from variables in context
+    const contextKeys = Object.keys(context).filter(
+      (key) => !key.startsWith("__") // Skip internal markers
+    );
+    const funcNames = contextKeys.filter(
+      (key) => typeof context[key] === "function"
+    );
+    const varNames = contextKeys.filter(
+      (key) => typeof context[key] !== "function"
+    );
+
+    // Destructure variables and functions from context
+    const destructureVars =
+      varNames.length > 0 ? `const { ${varNames.join(", ")} } = context;` : "";
+    const destructureFuncs =
+      funcNames.length > 0
+        ? `const { ${funcNames.join(", ")} } = context;`
+        : "";
+
+    // Build function body with context available
+    const fnBody = `"use strict"; ${destructureVars} ${destructureFuncs} ${code}`;
+
+    // Create function with event and context as parameters
+    const fn = new Function("event", "context", fnBody);
+
+    return (event: Event) => {
+      try {
+        fn(event, context);
+      } catch (e) {
+        console.error(`Error in loop event handler: ${code}`, e);
+      }
+    };
+  } catch (e) {
+    console.warn(`Failed to create loop event handler: ${code}`, e);
+    return null;
   }
 }
 

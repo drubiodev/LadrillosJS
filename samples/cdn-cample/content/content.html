@@ -4,7 +4,11 @@
   </div>
 
   <div class="suggestions">
-    <button $for="suggestion in suggestionItems" class="suggestion-btn">
+    <button
+      $for="suggestion in suggestionItems"
+      class="suggestion-btn"
+      onclick="sendMessage('{suggestion}')"
+    >
       {suggestion}
     </button>
   </div>
@@ -25,3 +29,11 @@
 </div>
 
 <script src="./content.js" type="module"></script>
+
+<script>
+  const sendMessage = (text) => {
+    console.log("Message sent!");
+    console.log("Text:", text);
+    $emit("message:send", { text });
+  };
+</script>
