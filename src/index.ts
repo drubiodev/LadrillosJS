@@ -8,9 +8,10 @@ import {
   $registerComponents,
   $use,
 } from "./core/helpers/frameworkHelpers";
+import { $emit, $listen, EventCallback } from "./core/events/eventBus";
 
 // Export types for TypeScript users
-export type { ComponentConfig, RegisterComponentsResult };
+export type { ComponentConfig, RegisterComponentsResult, EventCallback };
 
 // Legacy export (for backwards compatibility)
 export const registerComponent = (
@@ -28,7 +29,7 @@ export const registerComponents = (
 ) => ladrillos.registerComponents(configs);
 
 // $ prefixed exports - same syntax inside and outside components!
-export { $registerComponent, $registerComponents, $use };
+export { $registerComponent, $registerComponents, $use, $emit, $listen };
 
 // Default export with all methods for CDN usage
 // This allows: ladrillosjs.$registerComponent() in CDN mode
@@ -38,4 +39,6 @@ export default {
   $registerComponent,
   $registerComponents,
   $use,
+  $emit,
+  $listen,
 };

@@ -2,8 +2,10 @@
   <div class="input-container">
     <input
       type="text"
+      $bind="messageText"
+      onkeyup="handleKeyup(event)"
       class="input-field"
-      placeholder="Message Co-Driver or @ mention a tab"
+      placeholder="Message Co-Driver"
     />
     <div class="input-actions">
       <div class="input-actions-left">
@@ -50,3 +52,20 @@
     </div>
   </div>
 </div>
+
+<script>
+  let messageText = "";
+
+  function handleKeyup(e) {
+    // Send on Enter key
+    console.log("Key up:", e.key, "| messageText:", messageText);
+    if (e.key === "Enter" && messageText.trim()) {
+      sendMessage();
+    }
+  }
+
+  function sendMessage() {
+    $emit("message:send", { text: messageText });
+    messageText = "";
+  }
+</script>

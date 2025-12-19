@@ -1,11 +1,27 @@
-<div class="greeting">
-  <h1>Nice to see you, {name}.<br />What's new?</h1>
+<div $if="{messages.length === 0}">
+  <div class="greeting">
+    <h1>Nice to see you, {name}.<br />What's new?</h1>
+  </div>
+
+  <div class="suggestions">
+    <button $for="suggestion in suggestionItems" class="suggestion-btn">
+      {suggestion}
+    </button>
+  </div>
 </div>
 
-<div class="suggestions">
-  <button $for="suggestion in suggestionItems" class="suggestion-btn">
-    {suggestion}
-  </button>
+<div class="messages" $ref="messagesContainer">
+  <div
+    $for="message in messages"
+    class="message-card"
+    data-type="{message.type}"
+  >
+    <div class="message-header">
+      <div class="message-sender">{message.sender}</div>
+      <div class="message-timestamp">{message.timestamp}</div>
+    </div>
+    <div class="message-content">{message.text}</div>
+  </div>
 </div>
 
 <script src="./content.js" type="module"></script>

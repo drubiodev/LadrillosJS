@@ -3,6 +3,8 @@ import {
   frameworkHelperNames,
   createFrameworkHelpers,
 } from "../helpers/frameworkHelpers";
+import { eventBusHelperNames, createEventBusHelpers } from "../events/eventBus";
+import { createReactiveArray } from "./reactivity";
 
 /**
  * Executes module scripts at runtime with REACTIVITY support.
@@ -12,10 +14,12 @@ import {
  * 2. Fetches and resolves ES module imports
  * 3. Extracts declared variables for reactive state integration
  * 4. Supports both side-effect execution AND variable extraction
+ * 5. Wraps imported arrays in reactive proxies for automatic UI updates
  *
  * This allows <script type="module"> in components to:
  * - Import from other files
  * - Declare reactive variables (let name = "value")
+ * - Import arrays that automatically trigger UI updates on mutation
  * - Work the same as regular scripts for template bindings
  *
  * @example
@@ -283,15 +287,282 @@ function autoExportAllDeclarations(code: string): string {
 }
 
 /**
+ * Transforms import statements to wrap imported values in reactive proxies.
+ * This enables imported arrays to trigger UI updates when mutated.
+ *
+ * Transforms:
+ *   import { foo, bar } from "./module.js";
+ *
+ * Into:
+ *   import { foo as __raw_foo, bar as __raw_bar } from "./module.js";
+ *   const foo = __wrapReactiveArray(__raw_foo, __ladrillos_componentId);
+ *   const bar = __wrapReactiveArray(__raw_bar, __ladrillos_componentId);
+ *
+ * @param code - The module code with imports
+ * @returns Transformed code with reactive import wrapping
+ */
+function transformImportsForReactivity(code: string): string {
+  // Match named imports: import { a, b as c } from "..."
+  const namedImportRegex =
+    /import\s*\{([^}]+)\}\s*from\s*(['"][^'"]+['"])\s*;?/g;
+
+  const wrapperStatements: string[] = [];
+  let transformedCode = code;
+
+  transformedCode = transformedCode.replace(
+    namedImportRegex,
+    (match, imports: string, specifier: string) => {
+      const importList = imports.split(",").map((s) => s.trim());
+      const newImports: string[] = [];
+
+      for (const imp of importList) {
+        if (!imp) continue;
+
+        // Handle "foo as bar" syntax
+        const asMatch = imp.match(/^(\w+)\s+as\s+(\w+)$/);
+        if (asMatch) {
+          const [, imported, local] = asMatch;
+          const rawName = `__raw_${local}`;
+          newImports.push(`${imported} as ${rawName}`);
+          wrapperStatements.push(
+            `const ${local} = __wrapReactiveArray(${rawName}, __ladrillos_componentId);`
+          );
+        } else {
+          // Simple import "foo"
+          const rawName = `__raw_${imp}`;
+          newImports.push(`${imp} as ${rawName}`);
+          wrapperStatements.push(
+            `const ${imp} = __wrapReactiveArray(${rawName}, __ladrillos_componentId);`
+          );
+        }
+      }
+
+      return `import { ${newImports.join(", ")} } from ${specifier};`;
+    }
+  );
+
+  // Insert wrapper statements after imports but before other code
+  if (wrapperStatements.length > 0) {
+    // Find the end of import statements
+    const lines = transformedCode.split("\n");
+    let lastImportIndex = -1;
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (line.startsWith("import ") || line.startsWith("import{")) {
+        lastImportIndex = i;
+      }
+    }
+
+    if (lastImportIndex >= 0) {
+      lines.splice(
+        lastImportIndex + 1,
+        0,
+        "",
+        "// === Reactive Import Wrappers ===",
+        ...wrapperStatements,
+        "// === End Reactive Import Wrappers ===",
+        ""
+      );
+      transformedCode = lines.join("\n");
+    }
+  }
+
+  return transformedCode;
+}
+
+/**
+ * Generates JavaScript code that defines the framework helpers ($emit, $listen, etc.)
+ * as module-level constants. This code is prepended to external module scripts
+ * so they have access to the same helpers as inline scripts.
+ *
+ * @param componentId - Component ID for event bus cleanup
+ * @param componentUrl - Component URL for path resolution
+ * @returns JavaScript code string to prepend
+ */
+function generateHelperInjectionCode(
+  componentId?: string,
+  componentUrl?: string
+): string {
+  const id = componentId || "anonymous";
+  const url = componentUrl || "unknown";
+
+  // We need to inline the event bus logic since external modules can't access our closures.
+  // This creates standalone $emit and $listen functions that use a global event bus.
+  // Also includes reactive array wrapping for imported arrays.
+  return `
+// === LadrillosJS Framework Helpers (auto-injected) ===
+const __ladrillos_componentId = "${id}";
+const __ladrillos_componentUrl = "${url}";
+
+// Global event bus (shared across all components)
+if (!globalThis.__ladrillosEventBus) {
+  globalThis.__ladrillosEventBus = {
+    listeners: new Map(),
+    componentListeners: new Map()
+  };
+}
+
+// Global state change callbacks (for reactive array updates)
+if (!globalThis.__ladrillosStateCallbacks) {
+  globalThis.__ladrillosStateCallbacks = new Map();
+}
+
+// Reactive array symbol
+const __REACTIVE_ARRAY = Symbol.for("ladrillos-reactive-array");
+
+// Array mutation methods to intercept
+const __ARRAY_METHODS = ["push", "pop", "shift", "unshift", "splice", "sort", "reverse", "fill", "copyWithin"];
+
+// Wrap an array in a reactive proxy
+const __wrapReactiveArray = (arr, componentId) => {
+  if (!Array.isArray(arr) || arr[__REACTIVE_ARRAY]) return arr;
+  
+  const onMutate = () => {
+    const callback = globalThis.__ladrillosStateCallbacks?.get(componentId);
+    if (callback) callback();
+  };
+  
+  return new Proxy(arr, {
+    get(target, key) {
+      if (key === __REACTIVE_ARRAY) return true;
+      const value = target[key];
+      if (typeof key === "string" && __ARRAY_METHODS.includes(key) && typeof value === "function") {
+        return (...args) => {
+          const result = value.apply(target, args);
+          onMutate();
+          return result;
+        };
+      }
+      if (Array.isArray(value)) return __wrapReactiveArray(value, componentId);
+      return value;
+    },
+    set(target, key, value) {
+      const index = parseInt(key, 10);
+      const isIndex = !isNaN(index);
+      const isLength = key === "length";
+      target[key] = Array.isArray(value) ? __wrapReactiveArray(value, componentId) : value;
+      if (isIndex || isLength) onMutate();
+      return true;
+    }
+  });
+};
+
+const $emit = (eventName, data) => {
+  const listeners = globalThis.__ladrillosEventBus.listeners.get(eventName);
+  if (!listeners || listeners.size === 0) return;
+  for (const registration of listeners) {
+    try {
+      registration.callback(data);
+    } catch (error) {
+      console.error(\`[LadrillosJS] Error in event listener for "\${eventName}":\`, error);
+    }
+  }
+};
+
+const $listen = (eventName, callback) => {
+  const bus = globalThis.__ladrillosEventBus;
+  let listeners = bus.listeners.get(eventName);
+  if (!listeners) {
+    listeners = new Set();
+    bus.listeners.set(eventName, listeners);
+  }
+  const registration = { callback, componentId: __ladrillos_componentId };
+  listeners.add(registration);
+
+  // Track by component ID for cleanup
+  let componentRegs = bus.componentListeners.get(__ladrillos_componentId);
+  if (!componentRegs) {
+    componentRegs = new Set();
+    bus.componentListeners.set(__ladrillos_componentId, componentRegs);
+  }
+  componentRegs.add({ event: eventName, registration });
+
+  // Return unsubscribe function
+  return () => {
+    listeners?.delete(registration);
+    if (listeners?.size === 0) bus.listeners.delete(eventName);
+    const compRegs = bus.componentListeners.get(__ladrillos_componentId);
+    if (compRegs) {
+      for (const reg of compRegs) {
+        if (reg.registration === registration) {
+          compRegs.delete(reg);
+          break;
+        }
+      }
+      if (compRegs.size === 0) bus.componentListeners.delete(__ladrillos_componentId);
+    }
+  };
+};
+
+// Global refs registry (shared across all components)
+// Each component gets its own Map, keyed by component ID
+if (!globalThis.__ladrillosRefs) {
+  globalThis.__ladrillosRefs = new Map();
+}
+
+// Get or create refs Map for this component
+if (!globalThis.__ladrillosRefs.has(__ladrillos_componentId)) {
+  globalThis.__ladrillosRefs.set(__ladrillos_componentId, new Map());
+}
+
+// $refs Map for this component - will be populated by scanDirectives
+const $refs = globalThis.__ladrillosRefs.get(__ladrillos_componentId);
+
+// Helper to resolve relative paths against component URL
+const __resolvePath = (path) => {
+  if (path.startsWith("http://") || path.startsWith("https://") || path.startsWith("/")) {
+    return path.startsWith("/") ? new URL(path, window.location.origin).href : path;
+  }
+  return new URL(path, __ladrillos_componentUrl).href;
+};
+
+// Helper to convert filename to tag name
+const __filenameToTagName = (path) => {
+  const filename = path.split("/").pop()?.replace(/\\.[^.]+$/, "") || path;
+  return filename.replace(/([a-z])([A-Z])/g, "$1-$2").replace(/[_\\s]+/g, "-").toLowerCase();
+};
+
+// $registerComponent - Register a child component
+const $registerComponent = async (name, path, useShadowDOM = false) => {
+  const resolvedPath = __resolvePath(path);
+  return globalThis.ladrillosjs.registerComponent({ name, path: resolvedPath, useShadowDOM });
+};
+
+// $registerComponents - Register multiple components at once
+const $registerComponents = async (configs) => {
+  const resolvedConfigs = configs.map(config => ({
+    ...config,
+    path: __resolvePath(config.path)
+  }));
+  return globalThis.ladrillosjs.registerComponents(resolvedConfigs);
+};
+
+// $use - Shorthand for $registerComponent with auto-derived tag name
+const $use = async (path, useShadowDOM = false) => {
+  const tagName = __filenameToTagName(path);
+  return $registerComponent(tagName, path, useShadowDOM);
+};
+
+// === End Framework Helpers ===
+
+`;
+}
+
+/**
  * Executes an external module script.
  * For external scripts, we fetch the content, auto-export all declarations,
- * and execute it via blob URL
+ * and execute it via blob URL with injected framework helpers.
  *
  * @param script - The external script element
+ * @param componentId - Optional component ID for event bus cleanup
+ * @param componentUrl - Optional component URL for path resolution
  * @returns Promise that resolves with the module exports
  */
 export async function executeExternalScript(
-  script: ExternalScriptElement
+  script: ExternalScriptElement,
+  componentId?: string,
+  componentUrl?: string
 ): Promise<unknown> {
   if (script.type !== "module") {
     // For non-module external scripts, create a script tag
@@ -319,11 +590,21 @@ export async function executeExternalScript(
     // Rewrite relative imports to absolute URLs (based on script's location)
     const rewrittenCode = rewriteImports(code, script.src);
 
+    // Transform imports to wrap values in reactive proxies
+    const reactiveCode = transformImportsForReactivity(rewrittenCode);
+
     // Auto-export all top-level declarations
-    const exportedCode = autoExportAllDeclarations(rewrittenCode);
+    const exportedCode = autoExportAllDeclarations(reactiveCode);
+
+    // Inject framework helpers at the top of the module
+    const helpersCode = generateHelperInjectionCode(
+      componentId,
+      componentUrl || script.src
+    );
+    const finalCode = helpersCode + exportedCode;
 
     // Create blob URL and import
-    const blob = new Blob([exportedCode], { type: "text/javascript" });
+    const blob = new Blob([finalCode], { type: "text/javascript" });
     const blobUrl = URL.createObjectURL(blob);
 
     try {
@@ -372,7 +653,7 @@ export async function executeAllModuleScripts(
   // Execute external NON-module scripts first (they may set up globals)
   for (const script of externalRegularScripts) {
     try {
-      await executeExternalScript(script);
+      await executeExternalScript(script, componentId, componentUrl);
     } catch (error) {
       console.error(`[LadrillosJS] External script failed:`, script.src, error);
     }
@@ -381,7 +662,7 @@ export async function executeAllModuleScripts(
   // Execute external module scripts (they may export things inline scripts need)
   for (const script of externalModuleScripts) {
     try {
-      await executeExternalScript(script);
+      await executeExternalScript(script, componentId, componentUrl);
     } catch (error) {
       console.error(
         `[LadrillosJS] External module script failed:`,
@@ -571,11 +852,37 @@ async function fetchModule(url: string): Promise<Record<string, unknown>> {
 }
 
 /**
+ * Recursively wraps arrays in an object with reactive proxies.
+ * This ensures imported arrays trigger reactivity updates when mutated.
+ *
+ * @param value - The value to potentially wrap
+ * @param onMutate - Callback when any array is mutated
+ * @returns The value with arrays wrapped in reactive proxies
+ */
+function wrapImportedValue(value: unknown, onMutate?: () => void): unknown {
+  if (!onMutate) return value;
+
+  if (Array.isArray(value)) {
+    return createReactiveArray(value, onMutate);
+  }
+
+  // Don't deeply wrap objects - just arrays at the top level
+  // This avoids issues with complex imported objects
+  return value;
+}
+
+/**
  * Resolves all imports in a module script and returns the imported values.
+ * If onMutate is provided, imported arrays will be wrapped in reactive proxies.
+ *
+ * @param code - The module script code containing imports
+ * @param baseUrl - Base URL for resolving relative imports
+ * @param onMutate - Optional callback to trigger when imported arrays are mutated
  */
 async function resolveImports(
   code: string,
-  baseUrl: string
+  baseUrl: string,
+  onMutate?: () => void
 ): Promise<Record<string, unknown>> {
   const imports = parseImports(code);
   const resolved: Record<string, unknown> = {};
@@ -599,16 +906,21 @@ async function resolveImports(
       const moduleExports = await fetchModule(url);
 
       for (const binding of imp.imports) {
+        let importedValue: unknown;
+
         if (binding.imported === "*") {
           // Namespace import
-          resolved[binding.local] = moduleExports;
+          importedValue = moduleExports;
         } else if (binding.imported === "default") {
           // Default import
-          resolved[binding.local] = moduleExports.default;
+          importedValue = moduleExports.default;
         } else {
           // Named import
-          resolved[binding.local] = moduleExports[binding.imported];
+          importedValue = moduleExports[binding.imported];
         }
+
+        // Wrap arrays in reactive proxies if onMutate is provided
+        resolved[binding.local] = wrapImportedValue(importedValue, onMutate);
       }
     } catch (error) {
       console.warn(
@@ -716,7 +1028,7 @@ function extractDeclaredNames(code: string): {
  *
  * This is the KEY function for reactivity support in module scripts.
  * It:
- * 1. Resolves all imports
+ * 1. Resolves all imports (wrapping arrays in reactive proxies)
  * 2. Strips import statements from the code
  * 3. Transforms variable access to go through the reactive state object
  * 4. Executes the remaining code in a sandbox with imports available
@@ -728,12 +1040,16 @@ function extractDeclaredNames(code: string): {
  *
  * @param reactiveState - The component's reactive state object. Module script
  *                        functions will read/write directly to this object.
+ * @param onStateChange - Optional callback when imported arrays are mutated.
+ *                        This triggers directive updates (like $for loops).
  */
 export async function executeModuleScriptWithReactivity(
   script: ScriptElement,
   componentUrl: string,
+  componentId?: string,
   refs?: Map<string, HTMLElement>,
-  reactiveState?: Record<string, unknown>
+  reactiveState?: Record<string, unknown>,
+  onStateChange?: () => void
 ): Promise<Record<string, unknown>> {
   if (script.type !== "module") {
     throw new Error(
@@ -743,8 +1059,12 @@ export async function executeModuleScriptWithReactivity(
 
   const code = script.content;
 
-  // 1. Resolve all imports
-  const importedValues = await resolveImports(code, componentUrl);
+  // 1. Resolve all imports (wrap arrays in reactive proxies for automatic UI updates)
+  const importedValues = await resolveImports(
+    code,
+    componentUrl,
+    onStateChange
+  );
 
   // 2. Strip import statements from the code
   const executableCode = stripImports(code);
@@ -793,31 +1113,44 @@ export async function executeModuleScriptWithReactivity(
       (name) => (globalThis as any)[name]
     );
 
-    // Inject refs Map so functions can access element references
-    // The refs Map is populated later by scanDirectives, but the
+    // Inject $refs Map so functions can access element references
+    // The $refs Map is populated later by scanDirectives, but the
     // reference is captured by functions defined in the module
     //
     // __state__ is the reactive state object - functions write directly to it
     // for full reactivity support
-    const injectedVars = ["refs", "__state__"];
+    const injectedVars = ["$refs", "__state__"];
     const injectedValues = [refs || new Map(), reactiveState || {}];
 
     // Create framework helpers bound to component's URL for correct path resolution
     // This ensures $registerComponent("./child.html") resolves relative to THIS component
     const helpers = createFrameworkHelpers(componentUrl);
-    const frameworkHelperValues = [helpers.$registerComponent, helpers.$use];
+    const frameworkHelperValues = [
+      helpers.$registerComponent,
+      helpers.$registerComponents,
+      helpers.$use,
+    ];
 
-    // Add framework helpers ($registerComponent, $use, etc.)
+    // Create event bus helpers bound to component ID for automatic cleanup
+    const eventBusHelpers = createEventBusHelpers(componentId || "anonymous");
+    const eventBusHelperValues = [
+      eventBusHelpers.$emit,
+      eventBusHelpers.$listen,
+    ];
+
+    // Add framework helpers ($registerComponent, $use, $emit, $listen, etc.)
     const allParamNames = [
       ...importNames,
       ...safeGlobals,
       ...frameworkHelperNames,
+      ...eventBusHelperNames,
       ...injectedVars,
     ];
     const allParamValues = [
       ...importValues,
       ...safeGlobalValues,
       ...frameworkHelperValues,
+      ...eventBusHelperValues,
       ...injectedValues,
     ];
 
@@ -903,6 +1236,8 @@ function escapeRegex(str: string): string {
  *               Functions in module scripts can capture this reference.
  * @param reactiveState - The component's reactive state object. Module script
  *                        functions will read/write directly to this object.
+ * @param onStateChange - Optional callback when imported arrays are mutated.
+ *                        This triggers directive updates (like $for loops).
  */
 export async function executeModuleScriptsWithReactivity(
   scripts: ScriptElement[],
@@ -910,7 +1245,8 @@ export async function executeModuleScriptsWithReactivity(
   componentUrl: string,
   componentId?: string,
   refs?: Map<string, HTMLElement>,
-  reactiveState?: Record<string, unknown>
+  reactiveState?: Record<string, unknown>,
+  onStateChange?: () => void
 ): Promise<Record<string, unknown>> {
   const mergedState: Record<string, unknown> = {};
 
@@ -928,7 +1264,7 @@ export async function executeModuleScriptsWithReactivity(
   // Execute external NON-module scripts first (they may set up globals needed by modules)
   for (const script of externalRegularScripts) {
     try {
-      await executeExternalScript(script);
+      await executeExternalScript(script, componentId, componentUrl);
     } catch (error) {
       console.error(`[LadrillosJS] External script failed:`, script.src, error);
     }
@@ -937,7 +1273,11 @@ export async function executeModuleScriptsWithReactivity(
   // Execute external module scripts and merge their exports into state
   for (const script of externalModuleScripts) {
     try {
-      const moduleExports = await executeExternalScript(script);
+      const moduleExports = await executeExternalScript(
+        script,
+        componentId,
+        componentUrl
+      );
       // Merge module exports into state (functions, variables, etc.)
       if (moduleExports && typeof moduleExports === "object") {
         for (const [key, value] of Object.entries(
@@ -968,8 +1308,10 @@ export async function executeModuleScriptsWithReactivity(
       const state = await executeModuleScriptWithReactivity(
         script,
         componentUrl,
+        componentId,
         refs,
-        reactiveState
+        reactiveState,
+        onStateChange
       );
       Object.assign(mergedState, state);
     } catch (error) {

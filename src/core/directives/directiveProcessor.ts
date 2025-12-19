@@ -40,6 +40,19 @@ export type DirectiveContext = {
   showElements: ShowDescriptor[];
 };
 
+/**
+ * Registry for two-way bindings.
+ * Maps state keys to the elements bound to them.
+ */
+export type TwoWayBindingRegistry = Map<
+  string,
+  Array<{
+    element: HTMLElement;
+    path: string[];
+    isContentEditable?: boolean;
+  }>
+>;
+
 export type ShowDescriptor = {
   element: HTMLElement;
   expression: string;
@@ -662,7 +675,10 @@ export function updateShowElements(
 }
 
 /**
- * Sets up two-way bindings.
+ * Sets up two-way bindings and returns a registry for state→input sync.
+ *
+ * Returns a function that should be called when state changes to update
+ * all bound input elements with the new state values.
  */
 export function setupTwoWayBindings(
   bindings: TwoWayBindingDescriptor[],
@@ -671,14 +687,22 @@ export function setupTwoWayBindings(
     expr: string,
     context: Record<string, unknown>
   ) => unknown
-): void {
+): (changedKey?: string) => void {
+  // Registry mapping state keys to bound elements
+  const registry: TwoWayBindingRegistry = new Map();
+
   for (const binding of bindings) {
-    setupTwoWayBinding(binding, state, evaluateExpression);
+    setupTwoWayBinding(binding, state, evaluateExpression, registry);
   }
+
+  // Return a function that updates all bound inputs when state changes
+  return (changedKey?: string) => {
+    updateBoundInputs(registry, state, evaluateExpression, changedKey);
+  };
 }
 
 /**
- * Sets up a single two-way binding.
+ * Sets up a single two-way binding and registers it for state→input sync.
  */
 function setupTwoWayBinding(
   binding: TwoWayBindingDescriptor,
@@ -686,7 +710,8 @@ function setupTwoWayBinding(
   evaluateExpression: (
     expr: string,
     context: Record<string, unknown>
-  ) => unknown
+  ) => unknown,
+  registry: TwoWayBindingRegistry
 ): void {
   const element = binding.element;
   const { raw, path, isContentEditable } = binding;
@@ -695,14 +720,97 @@ function setupTwoWayBinding(
   const initialValue = evaluateExpression(raw, state);
   setElementValue(element, initialValue, isContentEditable);
 
+  // Register this binding for state→input sync
+  // The key is the first part of the path (top-level state key)
+  const stateKey = path[0];
+  if (!registry.has(stateKey)) {
+    registry.set(stateKey, []);
+  }
+  registry.get(stateKey)!.push({
+    element: element as HTMLElement,
+    path,
+    isContentEditable,
+  });
+
+  // Also register for the full raw expression (handles nested paths)
+  if (raw !== stateKey && !registry.has(raw)) {
+    registry.set(raw, []);
+  }
+  if (raw !== stateKey) {
+    registry.get(raw)!.push({
+      element: element as HTMLElement,
+      path,
+      isContentEditable,
+    });
+  }
+
   // Determine event type based on element
   const eventType = getInputEventType(element);
 
+  // Track if we're currently updating from state to prevent feedback loops
+  let isUpdatingFromState = false;
+
+  // Store the flag on the element so updateBoundInputs can set it
+  (element as any).__isUpdatingFromState = () => isUpdatingFromState;
+  (element as any).__setUpdatingFromState = (val: boolean) => {
+    isUpdatingFromState = val;
+  };
+
   // Listen for changes and update state
   element.addEventListener(eventType, () => {
+    // Skip if this change was triggered by state→input sync
+    if (isUpdatingFromState) return;
+
     const newValue = getElementValue(element, isContentEditable);
     setNestedValue(state, path, newValue);
   });
+}
+
+/**
+ * Updates all bound input elements when state changes.
+ * Called by the reactivity system when a state property is modified.
+ *
+ * @param registry - Map of state keys to bound elements
+ * @param state - Current reactive state
+ * @param evaluateExpression - Function to evaluate expressions against state
+ * @param changedKey - The key that changed (optional, updates all if not provided)
+ */
+function updateBoundInputs(
+  registry: TwoWayBindingRegistry,
+  state: Record<string, unknown>,
+  evaluateExpression: (
+    expr: string,
+    context: Record<string, unknown>
+  ) => unknown,
+  changedKey?: string
+): void {
+  // If a specific key changed, only update elements bound to that key
+  const keysToUpdate = changedKey ? [changedKey] : Array.from(registry.keys());
+
+  for (const key of keysToUpdate) {
+    const bindings = registry.get(key);
+    if (!bindings) continue;
+
+    for (const binding of bindings) {
+      const { element, path, isContentEditable } = binding;
+
+      // Get the current value from state
+      const rawExpression = path.join(".");
+      const currentValue = evaluateExpression(rawExpression, state);
+
+      // Set flag to prevent feedback loop (input event → state update → input update)
+      const setFlag = (element as any).__setUpdatingFromState;
+      if (setFlag) setFlag(true);
+
+      // Update the element with the new value
+      setElementValue(element, currentValue, isContentEditable);
+
+      // Clear the flag after a microtask to ensure the event handler sees it
+      if (setFlag) {
+        queueMicrotask(() => setFlag(false));
+      }
+    }
+  }
 }
 
 /**

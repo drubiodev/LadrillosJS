@@ -18,6 +18,153 @@ type UpdateBindingFn = (
   state: Record<string, unknown>
 ) => void;
 
+/**
+ * Symbol to mark arrays that have already been wrapped with reactivity.
+ * Prevents double-wrapping and allows identification of reactive arrays.
+ */
+const REACTIVE_ARRAY = Symbol("reactive-array");
+
+/**
+ * Array methods that mutate the array and should trigger reactivity updates.
+ */
+const ARRAY_MUTATION_METHODS = [
+  "push",
+  "pop",
+  "shift",
+  "unshift",
+  "splice",
+  "sort",
+  "reverse",
+  "fill",
+  "copyWithin",
+] as const;
+
+// ============================================================================
+// Reactive Arrays
+// ============================================================================
+
+/**
+ * Wraps an array in a Proxy that intercepts mutation methods.
+ * When any mutation method is called, the onMutate callback is triggered,
+ * which updates all directives (like $for loops).
+ *
+ * Example:
+ *   const items = createReactiveArray(['a', 'b'], () => console.log('changed!'));
+ *   items.push('c');  // Logs: "changed!"
+ *   items[0] = 'x';   // Also triggers reactivity (index assignment)
+ *
+ * @param arr - The array to make reactive
+ * @param onMutate - Callback to trigger when the array is mutated
+ * @returns A reactive proxy of the array
+ */
+export function createReactiveArray<T>(arr: T[], onMutate: () => void): T[] {
+  // Don't double-wrap arrays that are already reactive
+  if ((arr as any)[REACTIVE_ARRAY]) {
+    return arr;
+  }
+
+  const reactiveArray = new Proxy(arr, {
+    get(target, key: string | symbol) {
+      // Mark this array as reactive
+      if (key === REACTIVE_ARRAY) {
+        return true;
+      }
+
+      const value = target[key as keyof typeof target];
+
+      // Intercept mutation methods
+      if (
+        typeof key === "string" &&
+        ARRAY_MUTATION_METHODS.includes(key as any) &&
+        typeof value === "function"
+      ) {
+        return (...args: unknown[]) => {
+          // Wrap any array arguments (e.g., for splice adding new items)
+          const wrappedArgs = args.map((arg) =>
+            Array.isArray(arg) ? createReactiveArray(arg, onMutate) : arg
+          );
+
+          // Call the original method
+          const result = (value as Function).apply(target, wrappedArgs);
+
+          // Trigger reactivity update
+          onMutate();
+
+          return result;
+        };
+      }
+
+      // Recursively wrap nested arrays
+      if (Array.isArray(value)) {
+        return createReactiveArray(value, onMutate);
+      }
+
+      return value;
+    },
+
+    set(target, key: string | symbol, value) {
+      const index = typeof key === "string" ? parseInt(key, 10) : NaN;
+      const isIndexAssignment = !isNaN(index);
+      const isLengthChange = key === "length";
+
+      // Wrap array values being assigned
+      const wrappedValue = Array.isArray(value)
+        ? createReactiveArray(value, onMutate)
+        : value;
+
+      // Check if value actually changed
+      const oldValue = target[key as keyof typeof target];
+      if (oldValue === wrappedValue) {
+        return true;
+      }
+
+      // Set the value
+      (target as any)[key] = wrappedValue;
+
+      // Trigger reactivity for index assignments or length changes
+      if (isIndexAssignment || isLengthChange) {
+        onMutate();
+      }
+
+      return true;
+    },
+
+    deleteProperty(target, key: string | symbol) {
+      const result = delete (target as any)[key];
+      if (result) {
+        onMutate();
+      }
+      return result;
+    },
+  });
+
+  return reactiveArray;
+}
+
+/**
+ * Recursively wraps all arrays in an object with reactive proxies.
+ * This ensures nested arrays also trigger reactivity updates.
+ *
+ * @param obj - Object containing potential arrays to wrap
+ * @param onMutate - Callback when any array is mutated
+ * @returns The object with all arrays wrapped
+ */
+function wrapArraysInObject(
+  obj: Record<string, unknown>,
+  onMutate: () => void
+): Record<string, unknown> {
+  for (const key of Object.keys(obj)) {
+    const value = obj[key];
+    if (Array.isArray(value)) {
+      obj[key] = createReactiveArray(value, onMutate);
+    } else if (value && typeof value === "object" && !Array.isArray(value)) {
+      // Recursively wrap arrays in nested objects
+      wrapArraysInObject(value as Record<string, unknown>, onMutate);
+    }
+  }
+  return obj;
+}
+
 // ============================================================================
 // Reactive State
 // ============================================================================
@@ -53,6 +200,27 @@ export function createReactiveState(
   // Build dependency map: which bindings depend on which state keys
   const registry = buildBindingRegistry(bindings, Object.keys(initialState));
 
+  // Helper to trigger all updates for a key
+  const triggerUpdate = (key: string, target: Record<string, unknown>) => {
+    const dependentBindings = registry.get(key);
+    if (dependentBindings) {
+      for (const binding of dependentBindings) {
+        updateBinding(binding, target);
+      }
+    }
+    if (onStateChange) {
+      onStateChange();
+    }
+  };
+
+  // Wrap any arrays in initialState with reactive proxies
+  // This enables array.push(), array.splice(), etc. to trigger updates
+  wrapArraysInObject(initialState, () => {
+    if (onStateChange) {
+      onStateChange();
+    }
+  });
+
   // Create a Proxy that intercepts property changes
   const reactiveState = new Proxy(initialState, {
     get(target, key: string) {
@@ -66,8 +234,17 @@ export function createReactiveState(
       // Skip if value hasn't actually changed (for existing keys)
       if (!isNewKey && target[key] === value) return true;
 
+      // Wrap arrays with reactive proxies before storing
+      const wrappedValue = Array.isArray(value)
+        ? createReactiveArray(value, () => {
+            if (onStateChange) {
+              onStateChange();
+            }
+          })
+        : value;
+
       // Update the underlying value
-      target[key] = value;
+      target[key] = wrappedValue;
 
       // If new key, register bindings that depend on it
       if (isNewKey) {
@@ -75,17 +252,7 @@ export function createReactiveState(
       }
 
       // Find and update all bindings that depend on this key
-      const dependentBindings = registry.get(key);
-      if (dependentBindings) {
-        for (const binding of dependentBindings) {
-          updateBinding(binding, target);
-        }
-      }
-
-      // Call the state change callback (for directive updates)
-      if (onStateChange) {
-        onStateChange();
-      }
+      triggerUpdate(key, target);
 
       return true;
     },

@@ -11,6 +11,7 @@ import {
   executeModuleScriptsWithReactivity,
   cleanupModuleScripts,
 } from "../js/moduleExecutor";
+import { cleanupComponentListeners } from "../events/eventBus";
 import {
   scanDirectives,
   renderLoops,
@@ -88,6 +89,9 @@ export function createWebComponent(
       | ((expr: string, ctx: Record<string, unknown>) => unknown)
       | null = null;
 
+    /** Two-way binding updater function - syncs state changes to input elements */
+    private _updateBoundInputs: ((changedKey?: string) => void) | null = null;
+
     // =========================================================================
     // Lifecycle Callbacks (Web Component Spec)
     // =========================================================================
@@ -132,6 +136,7 @@ export function createWebComponent(
       // Pass a callback that will update directives when state changes
       // DEFER bindings if we have module scripts (they need to load first)
       // Pass sourcePath so $registerComponent resolves paths relative to this component
+      // Pass componentId so event bus listeners can be cleaned up on disconnect
       this.state = await loadScripts(
         this._root,
         regularScripts,
@@ -139,13 +144,27 @@ export function createWebComponent(
         attributeOverrides,
         () => this._updateDirectives(),
         hasModuleScripts, // deferBindings = true if we have module scripts
-        sourcePath // componentUrl for correct path resolution
+        sourcePath, // componentUrl for correct path resolution
+        this._componentId // componentId for event bus cleanup
       );
 
       // Create refs Map early so module script functions can capture the reference.
       // The map will be populated later by scanDirectives, but functions
       // defined in module scripts need access to the same Map instance.
       const earlyRefs = new Map<string, HTMLElement>();
+
+      // Register the onStateChange callback globally so external module scripts
+      // can trigger UI updates when imported arrays are mutated.
+      // This is used by the __wrapReactiveArray helper injected into external scripts.
+      if (typeof globalThis !== "undefined") {
+        if (!(globalThis as any).__ladrillosStateCallbacks) {
+          (globalThis as any).__ladrillosStateCallbacks = new Map();
+        }
+        (globalThis as any).__ladrillosStateCallbacks.set(
+          this._componentId,
+          () => this._updateDirectives()
+        );
+      }
 
       // Execute module scripts with runtime import rewriting
       // This handles <script type="module"> with imports like:
@@ -154,6 +173,7 @@ export function createWebComponent(
       //
       // IMPORTANT: We pass this.state so module script functions write
       // directly to the reactive state. This makes `let x = 0; x++` work.
+      // We also pass the onStateChange callback so imported arrays become reactive.
       if (sourcePath) {
         const moduleState = await executeModuleScriptsWithReactivity(
           scripts,
@@ -161,8 +181,14 @@ export function createWebComponent(
           sourcePath,
           this._componentId,
           earlyRefs, // Pass refs so functions can capture the reference
-          this.state // Pass reactive state so functions write directly to it
+          this.state, // Pass reactive state so functions write directly to it
+          () => this._updateDirectives() // Pass callback for imported array reactivity
         );
+
+        // Mark state as having module scripts - this affects how event handlers
+        // treat functions (module scripts have reactive functions that should NOT
+        // be recreated, while regular scripts need fresh function bindings)
+        (this.state as any).__hasModuleScripts = true;
 
         // Merge module script functions into reactive state
         // Variables are already in this.state (written directly by transformed code)
@@ -195,6 +221,29 @@ export function createWebComponent(
       // Replace the directives refs with earlyRefs so everything uses the same Map
       this._directives.refs = earlyRefs;
 
+      // Also populate the global refs registry for external module scripts
+      // This allows external .js files to access refs via the global registry
+      if (typeof globalThis !== "undefined") {
+        if (!(globalThis as any).__ladrillosRefs) {
+          (globalThis as any).__ladrillosRefs = new Map();
+        }
+        // Get or create the refs Map for this component in the global registry
+        let globalRefs = (globalThis as any).__ladrillosRefs.get(
+          this._componentId
+        );
+        if (!globalRefs) {
+          globalRefs = new Map();
+          (globalThis as any).__ladrillosRefs.set(
+            this._componentId,
+            globalRefs
+          );
+        }
+        // Copy all refs into the global registry
+        for (const [key, value] of this._directives.refs) {
+          globalRefs.set(key, value);
+        }
+      }
+
       // Expose refs on the component for external access
       (this as any).refs = this._directives.refs;
       // Also store on host element so event handlers can access them
@@ -204,8 +253,9 @@ export function createWebComponent(
       this._updateDirectives();
 
       // Set up two-way bindings ($bind)
+      // Returns an updater function for state→input sync
       if (this._directives.twoWayBindings.length > 0) {
-        setupTwoWayBindings(
+        this._updateBoundInputs = setupTwoWayBindings(
           this._directives.twoWayBindings,
           this.state,
           this._evaluator
@@ -229,6 +279,17 @@ export function createWebComponent(
     disconnectedCallback(): void {
       // Clean up module script blob URLs to prevent memory leaks
       cleanupModuleScripts(this._componentId);
+
+      // Clean up event bus listeners to prevent memory leaks
+      cleanupComponentListeners(this._componentId);
+
+      // Clean up global state change callback
+      if (typeof globalThis !== "undefined") {
+        (globalThis as any).__ladrillosStateCallbacks?.delete(
+          this._componentId
+        );
+      }
+
       this._initialized = false;
     }
 
@@ -296,6 +357,11 @@ export function createWebComponent(
           this.state,
           this._evaluator
         );
+      }
+
+      // Update two-way bound inputs (state→input sync)
+      if (this._updateBoundInputs) {
+        this._updateBoundInputs();
       }
     }
 

@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Co-Driver</title>
     <!-- Use local CDN build instead of actual CDN -->
-    <script src="http://localhost:3000/ladrillos.iife.js"></script>
+    <script src="http://localhost:53023/ladrillos.iife.js"></script>
     <script type="module">
       await ladrillosjs.registerComponents([
         {
@@ -148,6 +148,103 @@
         border-color: rgba(255, 255, 255, 0.2);
         color: #e6edf3;
         transform: translateY(-2px);
+      }
+
+      /* Messages */
+      .messages {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        margin-top: 24px;
+        padding-bottom: 20px;
+        flex: 1;
+        overflow-y: auto;
+        min-height: 0;
+      }
+
+      /* Custom scrollbar */
+      .messages::-webkit-scrollbar {
+        width: 6px;
+      }
+
+      .messages::-webkit-scrollbar-track {
+        background: transparent;
+      }
+
+      .messages::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.15);
+        border-radius: 3px;
+      }
+
+      .messages::-webkit-scrollbar-thumb:hover {
+        background: rgba(255, 255, 255, 0.25);
+      }
+
+      .message-card {
+        max-width: 85%;
+        padding: 14px 18px;
+        border-radius: 16px;
+        animation: messageSlide 0.3s ease-out;
+      }
+
+      @keyframes messageSlide {
+        from {
+          opacity: 0;
+          transform: translateY(10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .message-card[data-type="user"] {
+        align-self: flex-end;
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+      }
+
+      .message-card[data-type="bot"] {
+        align-self: flex-start;
+        background: linear-gradient(
+          135deg,
+          rgba(56, 139, 253, 0.15) 0%,
+          rgba(136, 46, 224, 0.1) 100%
+        );
+        border: 1px solid rgba(56, 139, 253, 0.2);
+      }
+
+      .message-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 8px;
+        gap: 12px;
+      }
+
+      .message-sender {
+        font-size: 13px;
+        font-weight: 600;
+        color: #e6edf3;
+      }
+
+      .message-card[data-type="bot"] .message-sender {
+        color: #58a6ff;
+      }
+
+      .message-timestamp {
+        font-size: 11px;
+        color: #6e7681;
+      }
+
+      .message-content {
+        font-size: 14px;
+        line-height: 1.5;
+        color: #b0b8c1;
+      }
+
+      .message-card[data-type="bot"] .message-content {
+        color: #c9d1d9;
       }
 
       .input-area {

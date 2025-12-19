@@ -10,6 +10,7 @@ import {
   frameworkHelperNames,
   createFrameworkHelpers,
 } from "../helpers/frameworkHelpers";
+import { eventBusHelperNames, createEventBusHelpers } from "../events/eventBus";
 
 /**
  * Gets the actual HTMLElement from either a direct element or a ShadowRoot.
@@ -34,6 +35,7 @@ const getHostElement = (host: HTMLElement | ShadowRoot): HTMLElement =>
  * @param onStateChange - Optional callback when state changes (for directive updates)
  * @param deferBindings - If true, don't apply bindings immediately (for module script support)
  * @param componentUrl - The absolute URL of the component (for resolving relative paths in $registerComponent)
+ * @param componentId - Optional unique ID for this component instance (for event bus cleanup)
  * @returns The reactive state object - changes trigger automatic DOM updates
  */
 export async function loadScripts(
@@ -43,7 +45,8 @@ export async function loadScripts(
   attributeOverrides: Record<string, unknown> = {},
   onStateChange?: () => void,
   deferBindings: boolean = false,
-  componentUrl?: string
+  componentUrl?: string,
+  componentId?: string
 ): Promise<Record<string, unknown>> {
   const componentHost = getHostElement(host);
   const initialState: Record<string, unknown> = {};
@@ -54,7 +57,11 @@ export async function loadScripts(
   // Extract all declared variables and functions from component scripts
   // These serve as DEFAULT values
   for (const script of scripts) {
-    const members = extractScriptMembers(script.content, componentUrl);
+    const members = extractScriptMembers(
+      script.content,
+      componentUrl,
+      componentId
+    );
     for (const [key, value] of members) {
       initialState[key] = value;
     }
@@ -81,6 +88,8 @@ export async function loadScripts(
   (componentHost as any).__scriptContent = allScriptContent;
   // Store component URL for correct path resolution in framework helpers
   (componentHost as any).__componentUrl = componentUrl;
+  // Store component ID for event bus cleanup
+  (componentHost as any).__componentId = componentId;
 
   // Make onclick="handleClick()" work by binding to reactive state
   // Pass script content so functions can be re-created with current state
@@ -184,15 +193,22 @@ function createVanillaEventHandler(
   try {
     // Get component URL from host for framework helpers path resolution
     const componentUrl = (componentHost as any)?.__componentUrl;
+    const componentId = (componentHost as any)?.__componentId;
 
     // Include safe globals like alert, console, Math, JSON, etc.
-    const allowed = getAllowedGlobalsWithValues(componentUrl);
+    const allowed = getAllowedGlobalsWithValues(componentUrl, componentId);
 
     // Block dangerous globals like window, document, fetch, etc.
     const safeBlocked = getSafeBlockedGlobals();
 
-    // Build the function parameters: event + blocked + allowed + "state" reference + "refs"
-    const allKeys = ["event", "state", "refs", ...safeBlocked, ...allowed.keys];
+    // Build the function parameters: event + blocked + allowed + "state" reference + "$refs"
+    const allKeys = [
+      "event",
+      "state",
+      "$refs",
+      ...safeBlocked,
+      ...allowed.keys,
+    ];
 
     // Get ALL state keys (includes both script variables AND attribute values)
     const allStateKeys = Object.keys(state);
@@ -205,10 +221,10 @@ function createVanillaEventHandler(
       (key) => typeof state[key] !== "function"
     );
 
-    // Check if we have module script functions (reactive functions that manage state directly)
-    // Module script functions use __state__ which is the same as state, so they
-    // modify state directly. We should NOT sync local copies back or we'll overwrite!
-    const hasModuleScriptFunctions = funcNames.length > 0;
+    // Check if we have module script functions by looking for __moduleScript marker
+    // Module scripts set this marker when they're reactive functions that manage state directly
+    // Regular script functions need to be re-created each time to get fresh variable bindings
+    const hasModuleScriptFunctions = (state as any).__hasModuleScripts === true;
 
     // For module scripts: use const (read-only access, functions manage state)
     // For regular scripts: use let (local copies that get synced back)
@@ -220,16 +236,20 @@ function createVanillaEventHandler(
       ? `let { ${varNames.join(", ")} } = state;`
       : "";
 
-    // Destructure functions from state (includes module script functions)
-    // This makes functions like drawOnCanvas() available in event handlers
-    const destructureFuncs =
-      funcNames.length > 0 ? `const { ${funcNames.join(", ")} } = state;` : "";
+    // For module scripts: destructure functions from state (they're reactive)
+    // For regular scripts: DON'T destructure - we'll recreate them via funcDefs
+    const destructureFuncs = hasModuleScriptFunctions
+      ? funcNames.length > 0
+        ? `const { ${funcNames.join(", ")} } = state;`
+        : ""
+      : "";
 
     // Extract function definitions from script content to re-create them
     // with current variable values (not original closure values).
-    // BUT: Skip functions that already exist in state - those are reactive
-    // functions from module scripts that should NOT be shadowed!
-    const funcDefs = extractFunctionDefinitions(scriptContent, funcNames);
+    // For module scripts: skip all functions (they're reactive and manage state directly)
+    // For regular scripts: recreate ALL functions to get fresh variable bindings
+    const functionsToSkip = hasModuleScriptFunctions ? funcNames : [];
+    const funcDefs = extractFunctionDefinitions(scriptContent, functionsToSkip);
 
     // Only sync back for regular scripts (no module functions)
     // Module script functions modify state directly via __state__, so syncing
@@ -245,15 +265,15 @@ function createVanillaEventHandler(
 
     return (event: Event) => {
       try {
-        // Get refs from component host dynamically (they're set after script load)
-        const refs = componentHost
+        // Get $refs from component host dynamically (they're set after script load)
+        const $refs = componentHost
           ? (componentHost as any).__refs || new Map()
           : new Map();
 
         const allValues = [
           event,
           state, // Pass reactive state
-          refs, // Pass refs Map
+          $refs, // Pass $refs Map
           ...safeBlocked.map(() => undefined), // Shadow dangerous globals
           ...allowed.values, // Inject safe globals
         ];
@@ -347,10 +367,12 @@ function extractFunctionDefinitions(
  *
  * @param content - The script content to execute
  * @param componentUrl - The component's URL for resolving relative paths in helpers
+ * @param componentId - The component's unique ID for event bus cleanup
  */
 function extractScriptMembers(
   content: string,
-  componentUrl?: string
+  componentUrl?: string,
+  componentId?: string
 ): Map<string, unknown> {
   const members = new Map<string, unknown>();
 
@@ -368,7 +390,7 @@ function extractScriptMembers(
     `;
 
     // Set up the sandboxed execution environment
-    const allowed = getAllowedGlobalsWithValues(componentUrl);
+    const allowed = getAllowedGlobalsWithValues(componentUrl, componentId);
     const safeBlocked = getSafeBlockedGlobals();
 
     const allKeys = [...safeBlocked, ...allowed.keys];
@@ -435,12 +457,16 @@ function getSafeBlockedGlobals(): readonly string[] {
 
 /**
  * Gets safe globals (alert, console, Math, JSON, etc.) with their actual values.
- * Also includes framework helpers like $registerComponent and $use.
+ * Also includes framework helpers like $registerComponent, $use, $emit, $listen.
  * These are passed into the sandbox so component code feels like vanilla JS.
  *
  * @param componentUrl - The component's URL for resolving relative paths in helpers
+ * @param componentId - The component's unique ID for event bus cleanup
  */
-function getAllowedGlobalsWithValues(componentUrl?: string): {
+function getAllowedGlobalsWithValues(
+  componentUrl?: string,
+  componentId?: string
+): {
   keys: string[];
   values: unknown[];
 } {
@@ -458,7 +484,16 @@ function getAllowedGlobalsWithValues(componentUrl?: string): {
   // Add framework helpers bound to component URL for correct path resolution
   const helpers = createFrameworkHelpers(componentUrl || window.location.href);
   keys.push(...frameworkHelperNames);
-  values.push(helpers.$registerComponent, helpers.$use);
+  values.push(
+    helpers.$registerComponent,
+    helpers.$registerComponents,
+    helpers.$use
+  );
+
+  // Add event bus helpers bound to component ID for automatic cleanup
+  const eventBusHelpers = createEventBusHelpers(componentId || "anonymous");
+  keys.push(...eventBusHelperNames);
+  values.push(eventBusHelpers.$emit, eventBusHelpers.$listen);
 
   return { keys, values };
 }
