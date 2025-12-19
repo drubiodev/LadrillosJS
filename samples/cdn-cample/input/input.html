@@ -58,7 +58,6 @@
 
   function handleKeyup(e) {
     // Send on Enter key
-    console.log("Key up:", e.key, "| messageText:", messageText);
     if (e.key === "Enter" && messageText.trim()) {
       sendMessage();
     }
