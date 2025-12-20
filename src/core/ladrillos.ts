@@ -9,6 +9,7 @@ import {
   registerLazyComponent,
   forceLoadLazyComponent,
 } from "./lazy";
+import { warn, error } from "../utils/devWarnings";
 
 /**
  * Component registration configuration
@@ -55,7 +56,7 @@ class Ladrillos {
   ): Promise<void> {
     // check if component is already registered
     if (this.components[name]) {
-      console.warn(`Component with name "${name}" is already registered.`);
+      warn(`Component with name "<${name}>" is already registered.`);
       return;
     }
 
@@ -79,7 +80,10 @@ class Ladrillos {
 
       createWebComponent(component, useShadowDOM);
     } catch (e) {
-      console.error(`Error registering component "${name}":`, e);
+      error(`Error registering component \"<${name}>\"`, {
+        tagName: name,
+        sourcePath: path,
+      });
     }
   }
 

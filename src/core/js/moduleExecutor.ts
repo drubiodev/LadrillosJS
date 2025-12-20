@@ -5,6 +5,12 @@ import {
 } from "../helpers/frameworkHelpers";
 import { eventBusHelperNames, createEventBusHelpers } from "../events/eventBus";
 import { createReactiveArray } from "./reactivity";
+import {
+  error,
+  scriptError,
+  getComponentContext,
+  ErrorCode,
+} from "../../utils/devWarnings";
 
 /**
  * Executes module scripts at runtime with REACTIVITY support.
@@ -200,11 +206,13 @@ export async function executeModuleScript(
     // Using a comment to prevent bundlers from trying to resolve this
     const moduleExports = await (0, eval)(`import("${blobUrl}")`);
     return moduleExports;
-  } catch (error) {
-    console.error(`[LadrillosJS] Failed to execute module script:`, error);
-    console.error("Component URL:", componentUrl);
-    console.error("Original code:", script.content);
-    throw error;
+  } catch (err) {
+    scriptError(
+      "Failed to execute module script",
+      err as Error,
+      getComponentContext() || { sourcePath: componentUrl }
+    );
+    throw err;
   }
 }
 

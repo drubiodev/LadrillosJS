@@ -10,6 +10,7 @@ import { parseComponent } from "../component/extract";
 import { fetchComponentSource } from "../component/loader";
 import { createWebComponentClass } from "../component/webcomponent";
 import { LazyStrategy } from "./lazyStrategies";
+import { error, setComponentContext, ErrorCode } from "../../utils/devWarnings";
 
 /** Shared loading promises to dedupe fetches for same component */
 const loadingPromises = new Map<string, Promise<LadrillosComponent>>();
@@ -189,11 +190,10 @@ function createPlaceholderClass(componentName: string) {
 
         // Create real component instance and replace placeholder
         this.upgradeToRealComponent(realTagName);
-      } catch (error) {
-        console.error(
-          `Failed to load lazy component "${componentName}":`,
-          error
-        );
+      } catch (err) {
+        error(`Failed to load lazy component "<${componentName}>"`, {
+          tagName: componentName,
+        });
         this.isLoading = false;
       }
     }
@@ -216,7 +216,10 @@ function createPlaceholderClass(componentName: string) {
       if (this.parentNode) {
         this.parentNode.replaceChild(realElement, this);
       } else {
-        console.error(`❌ No parent node for placeholder`);
+        error(
+          `No parent node for placeholder - cannot upgrade lazy component`,
+          { tagName: componentName }
+        );
       }
     }
   };

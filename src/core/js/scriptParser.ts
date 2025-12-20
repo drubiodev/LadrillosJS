@@ -5,6 +5,13 @@ import {
   BLOCKED_GLOBALS,
   RESERVED_WORDS,
 } from "../../utils/sandbox";
+import {
+  expressionError,
+  scriptError,
+  warn,
+  getComponentContext,
+  ErrorCode,
+} from "../../utils/devWarnings";
 import { createReactiveState } from "./reactivity";
 import {
   frameworkHelperNames,
@@ -312,11 +319,14 @@ function createVanillaEventHandler(
         ];
         fn(...allValues);
       } catch (e) {
-        console.error(`Error in event handler: ${code}`, e);
+        expressionError(code, e as Error, {
+          context: getComponentContext(),
+          errorCode: ErrorCode.EVENT_HANDLER_FAILED,
+        });
       }
     };
   } catch (e) {
-    console.warn(`Failed to create event handler: ${code}`, e);
+    warn(`Failed to create event handler: ${code}`);
     return null;
   }
 }
@@ -442,7 +452,7 @@ function extractScriptMembers(
       members.set(key, value);
     }
   } catch (e) {
-    console.error("Error extracting script members:", e);
+    scriptError("Error extracting script members", e as Error);
   }
 
   return members;
@@ -557,7 +567,9 @@ function evaluateExpression(
     const fn = new Function(...allKeys, `"use strict"; return ${expression};`);
     return fn(...allValues);
   } catch (e) {
-    console.warn(`Failed to evaluate expression: ${expression}`, e);
+    expressionError(expression, e as Error, {
+      context: getComponentContext(),
+    });
     return `{${expression}}`; // Return original on error
   }
 }

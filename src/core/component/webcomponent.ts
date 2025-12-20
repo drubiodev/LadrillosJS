@@ -21,6 +21,7 @@ import {
   DirectiveContext,
 } from "../directives/directiveProcessor";
 import { createRefsProxy } from "../helpers/frameworkHelpers";
+import { setComponentContext } from "../../utils/devWarnings";
 
 /**
  * Creates a Web Component class from a Ladrillos component definition.
@@ -114,6 +115,14 @@ export function createWebComponentClass(
       // Prevent double initialization (can happen with some frameworks)
       if (this._initialized) return;
       this._initialized = true;
+
+      // Set component context for better error messages
+      // This allows error handlers to know which component is being processed
+      setComponentContext({
+        tagName,
+        sourcePath,
+        instanceId: this._componentId,
+      });
 
       // Create shadow DOM or use light DOM
       this._root = useShadowDOM ? this.attachShadow({ mode: "open" }) : this;
