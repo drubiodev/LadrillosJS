@@ -45,8 +45,8 @@ function getBindings(host: HTMLElement | ShadowRoot) {
   let node: Text | null;
 
   while ((node = walker.nextNode() as Text | null)) {
-    // Skip nodes that are inside loop elements
-    if (isInsideLoopElement(node)) {
+    // Skip nodes that are inside loop elements or $no:bind elements
+    if (isInsideLoopElement(node) || isInsideNoBind(node)) {
       continue;
     }
 
@@ -93,14 +93,20 @@ function getAttributeBindings(
     "$show",
     "$bind",
     "$ref",
+    "$no:bind",
   ];
 
   // Get all elements in the host
   const elements = Array.from(host.querySelectorAll("*"));
 
   for (const element of elements) {
-    // Skip elements inside loops
+    // Skip elements inside loops or $no:bind elements
     if (element.hasAttribute("$for") || isInsideLoopElement(element)) {
+      continue;
+    }
+
+    // Skip elements with $no:bind or inside $no:bind elements
+    if (element.hasAttribute("$no:bind") || isInsideNoBind(element)) {
       continue;
     }
 
@@ -143,6 +149,25 @@ function isInsideLoopElement(node: Node): boolean {
   let current = node.parentElement;
   while (current) {
     if (current.hasAttribute && current.hasAttribute("$for")) {
+      return true;
+    }
+    current = current.parentElement;
+  }
+  return false;
+}
+
+/**
+ * Check if a node is inside an element with $no:bind attribute.
+ * Elements with $no:bind skip all binding processing - useful for
+ * displaying literal template syntax like {name} in documentation.
+ *
+ * @example
+ * <code $no:bind>{name}</code>  <!-- Renders literally as "{name}" -->
+ */
+function isInsideNoBind(node: Node): boolean {
+  let current = node.parentElement;
+  while (current) {
+    if (current.hasAttribute && current.hasAttribute("$no:bind")) {
       return true;
     }
     current = current.parentElement;
