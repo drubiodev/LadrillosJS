@@ -20,6 +20,7 @@ import {
   setupTwoWayBindings,
   DirectiveContext,
 } from "../directives/directiveProcessor";
+import { createRefsProxy } from "../helpers/frameworkHelpers";
 
 /**
  * Creates a Web Component class from a Ladrillos component definition.
@@ -110,8 +111,6 @@ export function createWebComponentClass(
      * This is where we do our main initialization.
      */
     async connectedCallback(): Promise<void> {
-      console.log(`🔌 connectedCallback for ${tagName}`);
-
       // Prevent double initialization (can happen with some frameworks)
       if (this._initialized) return;
       this._initialized = true;
@@ -124,8 +123,6 @@ export function createWebComponentClass(
         this._root,
         template
       );
-
-      console.log(`📝 Template loaded for ${tagName}:`, template.slice(0, 100));
 
       // Load scoped styles
       loadStyles(this._root, styles, useShadowDOM);
@@ -158,7 +155,8 @@ export function createWebComponentClass(
       // Create refs Map early so module script functions can capture the reference.
       // The map will be populated later by scanDirectives, but functions
       // defined in module scripts need access to the same Map instance.
-      const earlyRefs = new Map<string, HTMLElement>();
+      // Wrap in Proxy for cleaner dot notation access: $refs.inputEl instead of $refs.get("inputEl")
+      const earlyRefs = createRefsProxy(new Map<string, HTMLElement>());
 
       // Register the onStateChange callback globally so external module scripts
       // can trigger UI updates when imported arrays are mutated.

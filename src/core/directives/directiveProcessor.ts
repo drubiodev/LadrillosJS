@@ -115,7 +115,7 @@ export function scanDirectives(
  * Scans for $ref directives and creates element references.
  *
  * Usage: <input $ref="inputElement">
- * Access: refs.get('inputElement')
+ * Access: $refs.inputElement (preferred) or $refs.get('inputElement')
  */
 function scanRefs(
   host: HTMLElement | ShadowRoot,

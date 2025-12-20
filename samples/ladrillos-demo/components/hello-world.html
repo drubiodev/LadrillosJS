@@ -7,7 +7,7 @@
   <div class="demo-content">
     <h2>Hello, {name}!</h2>
     <p>Welcome to <strong>{framework}</strong></p>
-    <p>Today is {currentDate}</p>
+    <p>Today is {new Date().toLocaleDateString()}</p>
   </div>
 
   <div class="code-hint">
@@ -18,7 +18,6 @@
 <script>
   let name = "Developer";
   let framework = "LadrillosJS";
-  let currentDate = new Date().toLocaleDateString();
 </script>
 
 <style>

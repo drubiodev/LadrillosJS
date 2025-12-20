@@ -298,6 +298,7 @@ function createVanillaEventHandler(
     return (event: Event) => {
       try {
         // Get $refs from component host dynamically (they're set after script load)
+        // Already wrapped in Proxy by webcomponent.ts for dot notation access
         const $refs = componentHost
           ? (componentHost as any).__refs || new Map()
           : new Map();

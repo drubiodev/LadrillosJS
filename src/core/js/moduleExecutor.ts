@@ -501,12 +501,31 @@ if (!globalThis.__ladrillosRefs) {
   globalThis.__ladrillosRefs = new Map();
 }
 
-// Get or create refs Map for this component
+// Helper to wrap refs Map in Proxy for cleaner dot notation access
+const __createRefsProxy = (map) => new Proxy(map, {
+  get(target, prop, receiver) {
+    if (prop in target) {
+      const value = Reflect.get(target, prop, receiver);
+      return typeof value === "function" ? value.bind(target) : value;
+    }
+    if (typeof prop === "string") return target.get(prop);
+    return undefined;
+  },
+  set(target, prop, value) {
+    if (typeof prop === "string") { target.set(prop, value); return true; }
+    return false;
+  },
+  has(target, prop) {
+    return typeof prop === "string" ? target.has(prop) || prop in target : prop in target;
+  }
+});
+
+// Get or create refs Map for this component (wrapped in Proxy)
 if (!globalThis.__ladrillosRefs.has(__ladrillos_componentId)) {
-  globalThis.__ladrillosRefs.set(__ladrillos_componentId, new Map());
+  globalThis.__ladrillosRefs.set(__ladrillos_componentId, __createRefsProxy(new Map()));
 }
 
-// $refs Map for this component - will be populated by scanDirectives
+// $refs for this component - supports both $refs.inputEl and $refs.get("inputEl")
 const $refs = globalThis.__ladrillosRefs.get(__ladrillos_componentId);
 
 // Helper to resolve relative paths against component URL

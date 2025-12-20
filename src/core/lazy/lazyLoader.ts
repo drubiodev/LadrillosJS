@@ -104,14 +104,8 @@ async function loadLazyComponent(name: string): Promise<string> {
     if (!source) {
       throw new Error(`Failed to fetch component source for "${name}"`);
     }
-    console.log(`📄 Source fetched for ${name}:`, source.slice(0, 200));
 
     const component = await parseComponent(source, name, config.absolutePath);
-    console.log(`🔍 Parsed component for ${name}:`, {
-      tagName: component.tagName,
-      templateLength: component.template?.length,
-      templatePreview: component.template?.slice(0, 100),
-    });
 
     // Store in registry
     componentsRegistry[name] = component;
@@ -132,8 +126,6 @@ async function loadLazyComponent(name: string): Promise<string> {
       component,
       useShadowDOM: config.useShadowDOM,
     });
-
-    console.log(`🧩 Lazy component "${name}" loaded.`);
 
     return component;
   })();
@@ -209,7 +201,6 @@ function createPlaceholderClass(componentName: string) {
     private upgradeToRealComponent(realTagName: string) {
       // Create real component using document.createElement (requires it to be defined)
       const realElement = document.createElement(realTagName);
-      console.log(`🔄 Upgrading placeholder to ${realTagName}`, realElement);
 
       // Copy attributes (except internal ones)
       for (const attr of Array.from(this.attributes)) {
@@ -224,10 +215,6 @@ function createPlaceholderClass(componentName: string) {
       // Replace in DOM
       if (this.parentNode) {
         this.parentNode.replaceChild(realElement, this);
-        console.log(
-          `✅ Replaced placeholder with real element`,
-          realElement.outerHTML.slice(0, 200)
-        );
       } else {
         console.error(`❌ No parent node for placeholder`);
       }

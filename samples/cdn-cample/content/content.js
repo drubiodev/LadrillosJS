@@ -5,7 +5,7 @@ const messages = __wrapReactiveArray([], __ladrillos_componentId);
 
 function scrollToBottom() {
   requestAnimationFrame(() => {
-    const messagesContainer = $refs.get("messagesContainer");
+    const messagesContainer = $refs.messagesContainer;
     if (messagesContainer) {
       messagesContainer.scrollTop = messagesContainer.scrollHeight;
     }
