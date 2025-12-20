@@ -10,15 +10,39 @@ import {
 } from "./core/helpers/frameworkHelpers";
 import { $emit, $listen, EventCallback } from "./core/events/eventBus";
 
+// Import lazy loading strategies
+import {
+  LazyStrategy,
+  lazyOnIdle,
+  lazyOnVisible,
+  lazyOnMedia,
+  lazyOnInteraction,
+  lazyOnDelay,
+} from "./core/lazy";
+
 // Export types for TypeScript users
-export type { ComponentConfig, RegisterComponentsResult, EventCallback };
+export type {
+  ComponentConfig,
+  RegisterComponentsResult,
+  EventCallback,
+  LazyStrategy,
+};
+
+// Export lazy loading strategies
+export {
+  lazyOnIdle,
+  lazyOnVisible,
+  lazyOnMedia,
+  lazyOnInteraction,
+  lazyOnDelay,
+};
 
 // Legacy export (for backwards compatibility)
 export const registerComponent = (
   name: string,
   path: string,
   useShadowDOM?: boolean,
-  lazy?: boolean
+  lazy?: boolean | LazyStrategy
 ) => ladrillos.registerComponent(name, path, useShadowDOM, lazy);
 
 // New batch registration export
@@ -28,6 +52,10 @@ export const registerComponents = (
     | Record<string, string | Omit<ComponentConfig, "name">>
 ) => ladrillos.registerComponents(configs);
 
+// Force load a lazy component
+export const loadLazyComponent = (name: string) =>
+  ladrillos.loadLazyComponent(name);
+
 // $ prefixed exports - same syntax inside and outside components!
 export { $registerComponent, $registerComponents, $use, $emit, $listen };
 
@@ -36,9 +64,16 @@ export { $registerComponent, $registerComponents, $use, $emit, $listen };
 export default {
   registerComponent,
   registerComponents,
+  loadLazyComponent,
   $registerComponent,
   $registerComponents,
   $use,
   $emit,
   $listen,
+  // Lazy loading strategies
+  lazyOnIdle,
+  lazyOnVisible,
+  lazyOnMedia,
+  lazyOnInteraction,
+  lazyOnDelay,
 };

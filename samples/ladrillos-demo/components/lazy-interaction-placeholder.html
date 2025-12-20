@@ -1,0 +1,163 @@
+<template>
+  <div class="demo-card placeholder">
+    <div class="demo-header">
+      <h3>👆 lazyOnInteraction</h3>
+      <span class="demo-badge pending">Click to Load</span>
+    </div>
+    <div class="demo-content">
+      <p class="demo-description">
+        👉 <strong>Click anywhere on this card</strong> to trigger lazy loading!
+      </p>
+      <div class="demo-info">
+        <div class="info-item">
+          <span class="label">Strategy:</span>
+          <code>lazyOnInteraction(['click', 'focusin'])</code>
+        </div>
+        <div class="info-item">
+          <span class="label">Status:</span>
+          <span class="waiting">⏳ Waiting for interaction...</span>
+        </div>
+      </div>
+      <div class="click-hint">
+        <div class="pulse-ring"></div>
+        <span>Click Me!</span>
+      </div>
+    </div>
+  </div>
+</template>
+
+<style>
+  .demo-card {
+    background: linear-gradient(
+      135deg,
+      rgba(251, 146, 60, 0.05) 0%,
+      rgba(194, 65, 12, 0.1) 100%
+    );
+    border: 2px dashed rgba(251, 146, 60, 0.4);
+    border-radius: 12px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: border-color 0.3s, transform 0.2s;
+  }
+
+  .demo-card:hover {
+    border-color: rgba(251, 146, 60, 0.7);
+    transform: scale(1.01);
+  }
+
+  .demo-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 1.25rem;
+    background: rgba(0, 0, 0, 0.2);
+    border-bottom: 1px dashed rgba(251, 146, 60, 0.3);
+  }
+
+  .demo-header h3 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #fb923c;
+    opacity: 0.7;
+    margin: 0;
+  }
+
+  .demo-badge.pending {
+    background: transparent;
+    border: 1px solid #f97316;
+    color: #fb923c;
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+
+  .demo-content {
+    padding: 1.25rem;
+  }
+
+  .demo-description {
+    color: #94a3b8;
+    margin-bottom: 1rem;
+    line-height: 1.6;
+    text-align: center;
+    font-size: 1rem;
+  }
+
+  .demo-info {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+  }
+
+  .info-item {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .info-item:last-child {
+    margin-bottom: 0;
+  }
+
+  .info-item .label {
+    color: #64748b;
+    font-weight: 500;
+  }
+
+  .info-item code {
+    background: rgba(251, 146, 60, 0.2);
+    color: #fdba74;
+    padding: 0.125rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.8rem;
+  }
+
+  .waiting {
+    color: #fb923c;
+    font-style: italic;
+  }
+
+  .click-hint {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    padding: 1.5rem;
+    position: relative;
+  }
+
+  .click-hint span {
+    background: linear-gradient(135deg, #f97316, #ea580c);
+    color: white;
+    padding: 0.75rem 2rem;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 1.1rem;
+    position: relative;
+    z-index: 1;
+  }
+
+  .pulse-ring {
+    position: absolute;
+    width: 120px;
+    height: 50px;
+    border-radius: 8px;
+    border: 2px solid rgba(249, 115, 22, 0.5);
+    animation: pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%,
+    100% {
+      transform: scale(1);
+      opacity: 1;
+    }
+    50% {
+      transform: scale(1.1);
+      opacity: 0.5;
+    }
+  }
+</style>

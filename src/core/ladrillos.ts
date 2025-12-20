@@ -2,6 +2,13 @@ import { LadrillosComponent } from "../types";
 import { parseComponent } from "./component/extract";
 import { fetchComponentSource } from "./component/loader";
 import { createWebComponent } from "./component/webcomponent";
+import {
+  LazyStrategy,
+  defaultLazyStrategy,
+  initLazyLoader,
+  registerLazyComponent,
+  forceLoadLazyComponent,
+} from "./lazy";
 
 /**
  * Component registration configuration
@@ -10,7 +17,13 @@ export interface ComponentConfig {
   name: string;
   path: string;
   useShadowDOM?: boolean;
-  lazy?: boolean;
+  /**
+   * Lazy loading configuration:
+   * - `false` (default): Load immediately
+   * - `true`: Lazy load using default strategy (visible with 100px margin)
+   * - `LazyStrategy`: Custom lazy loading strategy
+   */
+  lazy?: boolean | LazyStrategy;
 }
 
 /**
@@ -30,13 +43,15 @@ class Ladrillos {
 
   constructor() {
     this.components = {};
+    // Initialize lazy loader with our components registry
+    initLazyLoader(this.components);
   }
 
   async registerComponent(
     name: string,
     path: string,
     useShadowDOM: boolean = true,
-    lazy: boolean = false
+    lazy: boolean | LazyStrategy = false
   ): Promise<void> {
     // check if component is already registered
     if (this.components[name]) {
@@ -44,13 +59,18 @@ class Ladrillos {
       return;
     }
 
-    // TODO: Lazy components
-
     // Resolve relative path to absolute URL
     // This ensures script src paths inside components resolve correctly
     const absolutePath = new URL(path, window.location.href).href;
 
-    // Fetch and define component
+    // Handle lazy loading
+    if (lazy) {
+      const strategy = lazy === true ? defaultLazyStrategy : lazy;
+      registerLazyComponent(name, absolutePath, useShadowDOM, strategy);
+      return;
+    }
+
+    // Eager loading: Fetch and define component immediately
     try {
       const source = await fetchComponentSource(absolutePath);
       const component = await parseComponent(source || "", name, absolutePath);
@@ -105,8 +125,11 @@ class Ladrillos {
       skipped: [],
     };
 
-    // Early deduplication - filter out already registered components
-    const toRegister: Array<ComponentConfig & { absolutePath: string }> = [];
+    // Separate lazy and eager components
+    const lazyComponents: Array<ComponentConfig & { absolutePath: string }> =
+      [];
+    const eagerComponents: Array<ComponentConfig & { absolutePath: string }> =
+      [];
 
     for (const config of componentConfigs) {
       if (this.components[config.name]) {
@@ -116,23 +139,52 @@ class Ladrillos {
 
       // Resolve path once
       const absolutePath = new URL(config.path, window.location.href).href;
-      toRegister.push({ ...config, absolutePath });
+      const configWithPath = { ...config, absolutePath };
+
+      if (config.lazy) {
+        lazyComponents.push(configWithPath);
+      } else {
+        eagerComponents.push(configWithPath);
+      }
     }
 
-    if (toRegister.length === 0) {
+    // Register lazy components immediately (no network request yet)
+    for (const config of lazyComponents) {
+      try {
+        const strategy =
+          config.lazy === true
+            ? defaultLazyStrategy
+            : (config.lazy as LazyStrategy);
+        const useShadowDOM = config.useShadowDOM ?? true;
+        registerLazyComponent(
+          config.name,
+          config.absolutePath,
+          useShadowDOM,
+          strategy
+        );
+        result.success.push(config.name);
+      } catch (e) {
+        result.failed.push({
+          name: config.name,
+          error: e instanceof Error ? e : new Error(String(e)),
+        });
+      }
+    }
+
+    // Process eager components with parallel fetching
+    if (eagerComponents.length === 0) {
       return result;
     }
 
-    // Parallel fetch all component sources
-    // Using Promise.allSettled for graceful error handling per component
+    // Parallel fetch all eager component sources
     const fetchResults = await Promise.allSettled(
-      toRegister.map(async (config) => {
+      eagerComponents.map(async (config) => {
         const source = await fetchComponentSource(config.absolutePath);
         return { config, source };
       })
     );
 
-    // Parse components (can be done in parallel too)
+    // Parse components in parallel
     const parseResults = await Promise.allSettled(
       fetchResults.map(async (fetchResult, index) => {
         if (fetchResult.status === "rejected") {
@@ -156,10 +208,9 @@ class Ladrillos {
     );
 
     // Batch register all successfully parsed components
-    // This minimizes the number of customElements.define calls in tight succession
     for (let i = 0; i < parseResults.length; i++) {
       const parseResult = parseResults[i];
-      const config = toRegister[i];
+      const config = eagerComponents[i];
 
       if (parseResult.status === "rejected") {
         result.failed.push({
@@ -197,6 +248,16 @@ class Ladrillos {
     }
 
     return result;
+  }
+
+  /**
+   * Force load a lazy component programmatically.
+   * Useful for preloading components before they're visible.
+   */
+  async loadLazyComponent(
+    name: string
+  ): Promise<LadrillosComponent | undefined> {
+    return forceLoadLazyComponent(name);
   }
 }
 

@@ -1,0 +1,171 @@
+<template>
+  <div class="demo-card">
+    <div class="demo-header">
+      <h3>👆 lazyOnInteraction</h3>
+      <span class="demo-badge">Loaded!</span>
+    </div>
+    <div class="demo-content">
+      <p class="demo-description">
+        This component loaded when you clicked or focused on it! The triggering
+        event was <strong>replayed</strong> after load.
+      </p>
+      <div class="demo-info">
+        <div class="info-item">
+          <span class="label">Strategy:</span>
+          <code>lazyOnInteraction(['click', 'focusin'])</code>
+        </div>
+        <div class="info-item">
+          <span class="label">Use case:</span>
+          <span>Modals, dropdowns, interactive widgets</span>
+        </div>
+      </div>
+      <div class="interaction-demo">
+        <p>Try interacting with this loaded component:</p>
+        <button class="demo-button" @click="count++">
+          Clicked {count} times
+        </button>
+      </div>
+      <div class="load-indicator">
+        ✅ Component rendered at: <strong>{loadTime}</strong>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script>
+  let loadTime = new Date().toLocaleTimeString();
+  let count = 0;
+</script>
+
+<style>
+  .demo-card {
+    background: linear-gradient(
+      135deg,
+      rgba(251, 146, 60, 0.1) 0%,
+      rgba(194, 65, 12, 0.2) 100%
+    );
+    border: 1px solid rgba(251, 146, 60, 0.3);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  .demo-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 1.25rem;
+    background: rgba(0, 0, 0, 0.2);
+    border-bottom: 1px solid rgba(251, 146, 60, 0.2);
+  }
+
+  .demo-header h3 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #fb923c;
+    margin: 0;
+  }
+
+  .demo-badge {
+    background: #f97316;
+    color: white;
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+
+  .demo-content {
+    padding: 1.25rem;
+  }
+
+  .demo-description {
+    color: #94a3b8;
+    margin-bottom: 1rem;
+    line-height: 1.6;
+  }
+
+  .demo-description code {
+    background: rgba(255, 255, 255, 0.1);
+    padding: 0.125rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.8rem;
+  }
+
+  .demo-info {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+  }
+
+  .info-item {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .info-item:last-child {
+    margin-bottom: 0;
+  }
+
+  .info-item .label {
+    color: #64748b;
+    font-weight: 500;
+  }
+
+  .info-item code {
+    background: rgba(251, 146, 60, 0.2);
+    color: #fdba74;
+    padding: 0.125rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.8rem;
+  }
+
+  .interaction-demo {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    text-align: center;
+  }
+
+  .interaction-demo p {
+    color: #94a3b8;
+    margin-bottom: 0.75rem;
+    font-size: 0.875rem;
+  }
+
+  .demo-button {
+    background: linear-gradient(135deg, #f97316, #ea580c);
+    color: white;
+    border: none;
+    padding: 0.75rem 1.5rem;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s;
+  }
+
+  .demo-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(249, 115, 22, 0.4);
+  }
+
+  .demo-button:active {
+    transform: translateY(0);
+  }
+
+  .load-indicator {
+    background: rgba(251, 146, 60, 0.15);
+    border: 1px solid rgba(251, 146, 60, 0.3);
+    border-radius: 6px;
+    padding: 0.75rem 1rem;
+    font-size: 0.875rem;
+    color: #fed7aa;
+  }
+
+  .load-indicator strong {
+    color: #fb923c;
+  }
+</style>

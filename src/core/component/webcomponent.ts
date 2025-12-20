@@ -22,7 +22,10 @@ import {
 } from "../directives/directiveProcessor";
 
 /**
- * Creates a semantically correct Web Component from a Ladrillos component.
+ * Creates a Web Component class from a Ladrillos component definition.
+ *
+ * This function creates the class but does NOT register it with customElements.
+ * Use createWebComponent() if you want to both create and register.
  *
  * Follows the Web Components specification:
  * - Proper lifecycle callbacks (connectedCallback, disconnectedCallback, etc.)
@@ -37,10 +40,10 @@ import {
  *   <my-counter count="5"></my-counter>  <!-- count = 5, not the default -->
  *   <my-counter></my-counter>            <!-- count = 0 (script default) -->
  */
-export function createWebComponent(
+export function createWebComponentClass(
   component: LadrillosComponent,
   useShadowDOM: boolean
-): void {
+): typeof HTMLElement {
   const { tagName, template, scripts, externalScripts, styles, sourcePath } =
     component;
 
@@ -107,6 +110,8 @@ export function createWebComponent(
      * This is where we do our main initialization.
      */
     async connectedCallback(): Promise<void> {
+      console.log(`🔌 connectedCallback for ${tagName}`);
+
       // Prevent double initialization (can happen with some frameworks)
       if (this._initialized) return;
       this._initialized = true;
@@ -119,6 +124,8 @@ export function createWebComponent(
         this._root,
         template
       );
+
+      console.log(`📝 Template loaded for ${tagName}:`, template.slice(0, 100));
 
       // Load scoped styles
       loadStyles(this._root, styles, useShadowDOM);
@@ -444,9 +451,26 @@ export function createWebComponent(
     }
   }
 
+  return LadrillosWebComponent;
+}
+
+/**
+ * Creates and registers a Web Component from a Ladrillos component.
+ *
+ * This is the main entry point that:
+ * 1. Creates the component class
+ * 2. Registers it with customElements.define
+ */
+export function createWebComponent(
+  component: LadrillosComponent,
+  useShadowDOM: boolean
+): void {
+  const { tagName } = component;
+
   // Only define if not already defined (prevents errors on hot reload)
   if (!customElements.get(tagName)) {
-    customElements.define(tagName, LadrillosWebComponent);
+    const ComponentClass = createWebComponentClass(component, useShadowDOM);
+    customElements.define(tagName, ComponentClass);
     console.log(`🧩 Web component "${tagName}" registered.`);
   }
 }

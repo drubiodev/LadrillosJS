@@ -12,10 +12,18 @@
       rel="stylesheet"
     />
     <script type="module">
-      import { registerComponents } from "ladrillosjs";
+      import {
+        registerComponents,
+        lazyOnVisible,
+        lazyOnIdle,
+        lazyOnInteraction,
+        lazyOnMedia,
+        lazyOnDelay,
+      } from "ladrillosjs";
 
       // Register all demo components
       await registerComponents([
+        // Eager components (load immediately)
         { name: "demo-hello-world", path: "./components/hello-world.html" },
         { name: "demo-counter", path: "./components/counter-demo.html" },
         {
@@ -34,6 +42,44 @@
         {
           name: "demo-event-receiver",
           path: "./components/event-receiver.html",
+        },
+
+        // Lazy loading demos
+        {
+          name: "lazy-visible-demo",
+          path: "./components/lazy-visible-demo.html",
+          lazy: lazyOnVisible({ rootMargin: "100px" }),
+          useShadowDOM: false,
+        },
+        {
+          name: "lazy-idle-demo",
+          path: "./components/lazy-idle-demo.html",
+          lazy: lazyOnIdle(5000),
+          useShadowDOM: false,
+        },
+        {
+          name: "lazy-interaction-demo",
+          path: "./components/lazy-interaction-demo.html",
+          lazy: lazyOnInteraction(["click", "focusin"]),
+          useShadowDOM: false,
+        },
+        {
+          name: "lazy-media-demo",
+          path: "./components/lazy-media-demo.html",
+          lazy: lazyOnMedia("(max-width: 1200px)"),
+          useShadowDOM: false,
+        },
+        {
+          name: "lazy-delay-demo",
+          path: "./components/lazy-delay-demo.html",
+          lazy: lazyOnDelay(2000),
+          useShadowDOM: false,
+        },
+        {
+          name: "lazy-eager-demo",
+          path: "./components/lazy-eager-demo.html",
+          useShadowDOM: false,
+          lazy: lazyOnVisible(),
         },
       ]);
     </script>
@@ -174,6 +220,110 @@
 
       .demo-grid.event-bus {
         grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+      }
+
+      /* Lazy placeholder styles */
+      .lazy-placeholder {
+        border-radius: 12px;
+        overflow: hidden;
+        cursor: pointer;
+        transition: border-color 0.3s, transform 0.2s;
+      }
+
+      .lazy-placeholder.interaction {
+        background: linear-gradient(
+          135deg,
+          rgba(251, 146, 60, 0.05) 0%,
+          rgba(194, 65, 12, 0.1) 100%
+        );
+        border: 2px dashed rgba(251, 146, 60, 0.4);
+      }
+
+      .lazy-placeholder.interaction:hover {
+        border-color: rgba(251, 146, 60, 0.7);
+        transform: scale(1.01);
+      }
+
+      .placeholder-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1rem 1.25rem;
+        background: rgba(0, 0, 0, 0.2);
+        border-bottom: 1px dashed rgba(251, 146, 60, 0.3);
+      }
+
+      .placeholder-header h3 {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: #fb923c;
+        opacity: 0.7;
+        margin: 0;
+      }
+
+      .placeholder-badge {
+        background: transparent;
+        border: 1px solid #f97316;
+        color: #fb923c;
+        padding: 0.25rem 0.75rem;
+        border-radius: 9999px;
+        font-size: 0.75rem;
+        font-weight: 600;
+      }
+
+      .placeholder-content {
+        padding: 1.25rem;
+        text-align: center;
+      }
+
+      .placeholder-content p {
+        color: #94a3b8;
+        margin-bottom: 1rem;
+        font-size: 1rem;
+      }
+
+      .placeholder-info {
+        background: rgba(0, 0, 0, 0.2);
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+      }
+
+      .placeholder-info code {
+        background: rgba(251, 146, 60, 0.2);
+        color: #fdba74;
+        padding: 0.125rem 0.5rem;
+        border-radius: 4px;
+        font-size: 0.8rem;
+      }
+
+      .click-hint {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 1rem;
+      }
+
+      .click-hint span {
+        background: linear-gradient(135deg, #f97316, #ea580c);
+        color: white;
+        padding: 0.75rem 2rem;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 1.1rem;
+        animation: pulse-button 2s ease-in-out infinite;
+      }
+
+      @keyframes pulse-button {
+        0%,
+        100% {
+          transform: scale(1);
+          box-shadow: 0 0 0 0 rgba(249, 115, 22, 0.4);
+        }
+        50% {
+          transform: scale(1.05);
+          box-shadow: 0 0 20px 5px rgba(249, 115, 22, 0.2);
+        }
       }
 
       /* Footer */
@@ -321,6 +471,89 @@
         <div class="demo-grid event-bus">
           <demo-event-sender></demo-event-sender>
           <demo-event-receiver></demo-event-receiver>
+        </div>
+      </section>
+
+      <!-- Lazy Loading Section -->
+      <section>
+        <h2 class="section-title">
+          <span class="icon">⚡</span>
+          Lazy Loading Strategies
+        </h2>
+        <p class="section-description">
+          Load components on-demand using different strategies. Scroll down to
+          see <code>lazyOnVisible</code> in action! Check the load timestamps to
+          see when each component was initialized.
+        </p>
+
+        <h3
+          style="
+            color: #94a3b8;
+            font-size: 0.9rem;
+            margin-bottom: 1rem;
+            font-weight: 500;
+          "
+        >
+          🚀 Immediate Strategies
+        </h3>
+        <div class="demo-grid two-col" style="margin-bottom: 2rem">
+          <!-- lazyOnIdle - loads when browser is idle -->
+          <lazy-idle-demo></lazy-idle-demo>
+          <!-- lazyOnDelay - loads after 2 seconds -->
+          <lazy-delay-demo></lazy-delay-demo>
+        </div>
+
+        <h3
+          style="
+            color: #94a3b8;
+            font-size: 0.9rem;
+            margin-bottom: 1rem;
+            font-weight: 500;
+          "
+        >
+          👆 Interaction-Based
+        </h3>
+        <div class="demo-grid two-col" style="margin-bottom: 2rem">
+          <!-- lazyOnInteraction - loads on click/focus -->
+          <lazy-interaction-demo tabindex="0">
+            <!-- Placeholder content shown before component loads -->
+            <div class="lazy-placeholder interaction">
+              <div class="placeholder-header">
+                <h3>👆 lazyOnInteraction</h3>
+                <span class="placeholder-badge">Tab + Enter to Load</span>
+              </div>
+              <div class="placeholder-content">
+                <p>
+                  👉 <strong>Click or Tab here</strong> to trigger lazy loading!
+                </p>
+                <div class="placeholder-info">
+                  <code>lazyOnInteraction(['click', 'focusin'])</code>
+                </div>
+                <div class="click-hint">
+                  <span>Focus Me!</span>
+                </div>
+              </div>
+            </div>
+          </lazy-interaction-demo>
+          <!-- eager attribute override -->
+          <lazy-eager-demo eager></lazy-eager-demo>
+        </div>
+
+        <h3
+          style="
+            color: #94a3b8;
+            font-size: 0.9rem;
+            margin-bottom: 1rem;
+            font-weight: 500;
+          "
+        >
+          👁️ Visibility & Media Query
+        </h3>
+        <div class="demo-grid two-col">
+          <!-- lazyOnVisible - loads when visible -->
+          <lazy-visible-demo></lazy-visible-demo>
+          <!-- lazyOnMedia - loads based on media query -->
+          <lazy-media-demo></lazy-media-demo>
         </div>
       </section>
     </main>

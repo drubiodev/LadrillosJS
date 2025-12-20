@@ -95,7 +95,20 @@ export async function parseComponent(
     .trim();
   styleEls.forEach((s) => s.remove());
 
-  const html = doc.body.innerHTML.trim();
+  // Get template content
+  // <template> elements have special handling - content is in .content property
+  const templateEl = doc.querySelector("template");
+  let html: string;
+
+  if (templateEl) {
+    // Clone the template content and serialize it
+    const tempDiv = document.createElement("div");
+    tempDiv.appendChild(templateEl.content.cloneNode(true));
+    html = tempDiv.innerHTML.trim();
+  } else {
+    // Fallback to body innerHTML
+    html = doc.body.innerHTML.trim();
+  }
 
   return {
     tagName: name,
