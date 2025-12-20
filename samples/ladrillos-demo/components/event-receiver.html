@@ -11,7 +11,7 @@
 
     <div class="messages-section">
       <h4>📨 Received Messages:</h4>
-      <div $if="{messages.length === 0}" class="empty">
+      <div $if="messages.length === 0" class="empty">
         No messages yet. Send one from the sender component!
       </div>
       <div $else class="message-list">
@@ -22,14 +22,14 @@
       </div>
     </div>
 
-    <div $if="{notification}" class="notification">
+    <div $if="notification" class="notification">
       <div class="notification-header">
         <span class="notification-icon">🔔</span>
-        <span class="notification-title">{notification.title}</span>
+        <span class="notification-title">{notification?.title}</span>
         <button onclick="dismissNotification()" class="dismiss-btn">×</button>
       </div>
-      <p class="notification-message">{notification.message}</p>
-      <span class="notification-time">{notification.time}</span>
+      <p class="notification-message">{notification?.message}</p>
+      <span class="notification-time">{notification?.time}</span>
     </div>
 
     <button onclick="clearMessages()" class="clear-btn">
@@ -38,7 +38,7 @@
   </div>
 
   <div class="code-hint">
-    <code>$listen("demo:message", (data) =&gt; { ... })</code>
+    <code $no:bind>$listen("demo:message", (data) =&gt; { ... })</code>
   </div>
 </div>
 

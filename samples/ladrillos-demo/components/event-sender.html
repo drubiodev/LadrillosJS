@@ -15,7 +15,7 @@
       <div class="color-buttons">
         <button
           $for="c in colors"
-          onclick="sendTheme('{c.value}')"
+          onclick="sendTheme(c.value)"
           class="color-btn"
           style="background: {c.value}"
         >
@@ -37,7 +37,7 @@
   </div>
 
   <div class="code-hint">
-    <code>$emit("message-sent", { text: message })</code>
+    <code $no:bind>$emit("message-sent", { text: message })</code>
   </div>
 </div>
 

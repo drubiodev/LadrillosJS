@@ -24,6 +24,10 @@
       // Register all demo components
       await registerComponents([
         // Eager components (load immediately)
+        {
+          name: "test-loop-events",
+          path: "./components/test-loop-events.html",
+        },
         { name: "demo-hello-world", path: "./components/hello-world.html" },
         { name: "demo-counter", path: "./components/counter-demo.html" },
         {
@@ -433,6 +437,17 @@
         <div class="demo-grid two-col">
           <demo-conditional></demo-conditional>
           <demo-show-hide></demo-show-hide>
+        </div>
+      </section>
+
+      <!-- Test Loop Events Section -->
+      <section>
+        <h2 class="section-title">
+          <span class="icon">🧪</span>
+          Test Loop Events
+        </h2>
+        <div class="demo-grid full-width">
+          <test-loop-events></test-loop-events>
         </div>
       </section>
 

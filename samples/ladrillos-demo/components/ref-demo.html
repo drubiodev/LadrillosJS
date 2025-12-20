@@ -34,9 +34,7 @@
 
     <div class="scroll-section">
       <div $ref="scrollBox" class="scroll-box">
-        <p $for="i in Array.from({length: 20}, (_, i) => i + 1)">
-          Line {i} - Scroll to see more content
-        </p>
+        <p $for="i in lineNumbers">Line {i} - Scroll to see more content</p>
       </div>
       <div class="scroll-controls">
         <button onclick="scrollToTop()" class="action-btn">⬆️ Top</button>
@@ -52,48 +50,57 @@
 </div>
 
 <script>
+  let lineNumbers = [
+    1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
+  ];
+
   function focusInput() {
     $refs.inputEl.focus();
     $refs.inputEl.select();
   }
 
   function drawRandom() {
-    const canvas = $refs.canvas;
-    const ctx = canvas.getContext("2d");
-
     // Random color
-    const hue = Math.floor(Math.random() * 360);
-    ctx.fillStyle = `hsl(${hue}, 70%, 60%)`;
+    $refs.canvas.getContext("2d").fillStyle =
+      "hsl(" + Math.floor(Math.random() * 360) + ", 70%, 60%)";
 
     // Random shape
-    const x = Math.random() * 170;
-    const y = Math.random() * 70;
-    const size = 20 + Math.random() * 30;
-
-    ctx.beginPath();
+    $refs.canvas.getContext("2d").beginPath();
     if (Math.random() > 0.5) {
-      ctx.arc(x + size / 2, y + size / 2, size / 2, 0, Math.PI * 2);
+      $refs.canvas
+        .getContext("2d")
+        .arc(
+          Math.random() * 170 + 25,
+          Math.random() * 70 + 15,
+          15 + Math.random() * 15,
+          0,
+          Math.PI * 2
+        );
     } else {
-      ctx.rect(x, y, size, size);
+      $refs.canvas
+        .getContext("2d")
+        .rect(
+          Math.random() * 170,
+          Math.random() * 70,
+          20 + Math.random() * 30,
+          20 + Math.random() * 30
+        );
     }
-    ctx.fill();
+    $refs.canvas.getContext("2d").fill();
   }
 
   function clearCanvas() {
-    const canvas = $refs.canvas;
-    const ctx = canvas.getContext("2d");
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    $refs.canvas
+      .getContext("2d")
+      .clearRect(0, 0, $refs.canvas.width, $refs.canvas.height);
   }
 
   function scrollToTop() {
-    $refs.scrollBox.scrollTo({ top: 0, behavior: "smooth" });
+    $refs.scrollBox.scrollTop = 0;
   }
 
   function scrollToBottom() {
-    $refs.scrollBox.scrollTo({
-      top: $refs.scrollBox.scrollHeight,
-      behavior: "smooth",
-    });
+    $refs.scrollBox.scrollTop = $refs.scrollBox.scrollHeight;
   }
 </script>
 

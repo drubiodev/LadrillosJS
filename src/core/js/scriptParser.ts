@@ -81,6 +81,12 @@ export async function loadScripts(
     initialState[key] = value;
   }
 
+  // Add internal properties for loop event handlers BEFORE creating reactive state
+  // These are prefixed with __ so they're skipped during destructuring
+  (initialState as any).__scriptContent = allScriptContent;
+  (initialState as any).__componentUrl = componentUrl;
+  (initialState as any).__componentId = componentId;
+
   // Create reactive state - changes automatically update the DOM!
   const reactiveState = createReactiveState(
     initialState,
@@ -338,7 +344,7 @@ function createVanillaEventHandler(
  * @param content - The script content to extract functions from
  * @param skipFunctions - Function names to skip (already in state as reactive functions)
  */
-function extractFunctionDefinitions(
+export function extractFunctionDefinitions(
   content: string,
   skipFunctions: string[] = []
 ): string {

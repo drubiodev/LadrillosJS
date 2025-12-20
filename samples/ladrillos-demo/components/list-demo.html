@@ -46,15 +46,17 @@
       <ul class="dynamic-list">
         <li $for="(item, i) in dynamicItems">
           {item}
-          <button onclick="removeItem({i})" class="remove-btn">×</button>
+          <button onclick="removeItem(i)" class="remove-btn">x</button>
         </li>
       </ul>
     </div>
   </div>
 
   <div class="code-hint">
-    <code>&lt;li $for="item in items"&gt;{item}&lt;/li&gt;</code><br />
-    <code>&lt;li $for="(item, i) in items"&gt;#{i}: {item}&lt;/li&gt;</code>
+    <code $no:bind>&lt;li $for="item in items"&gt;{item}&lt;/li&gt;</code><br />
+    <code $no:bind
+      >&lt;li $for="(item, i) in items"&gt;#{i}: {item}&lt;/li&gt;</code
+    >
   </div>
 </div>
 
@@ -87,6 +89,7 @@
   }
 
   function removeItem(index) {
+    console.log("Removing item at index:", index);
     dynamicItems = dynamicItems.filter((_, i) => i !== index);
   }
 </script>

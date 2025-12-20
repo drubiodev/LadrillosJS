@@ -26,6 +26,10 @@ import {
   escapeCssSelector,
 } from "../../utils/directives";
 import { EVENT_ATTRIBUTES } from "../../utils/jsevents";
+import {
+  extractFunctionDefinitions,
+  extractVariableNames,
+} from "../js/scriptParser";
 
 // ============================================================================
 // Types
@@ -527,10 +531,16 @@ function renderLoop(
     // Clone the template
     const clone = loop.template.cloneNode(true) as Element;
 
+    const scriptContentFromState = (state as any).__scriptContent;
+
     // Create a scoped context with loop variables
-    const loopContext = {
+    // Include __reactiveState__ reference so event handlers can sync back to it
+    const loopContext: Record<string, unknown> = {
       ...state,
       [loop.itemName]: item,
+      __reactiveState__: state, // Reference to the original reactive state for sync-back
+      __scriptContent__: scriptContentFromState || "",
+      __componentUrl__: (state as any).__componentUrl || "",
     };
 
     if (loop.indexName) {
@@ -639,40 +649,111 @@ function transformLoopEventHandlers(
 /**
  * Creates an event handler function for loop-rendered elements.
  * The handler has access to the loop context (including loop variables and functions).
+ *
+ * IMPORTANT: Functions from the original script need to be re-created with access
+ * to the reactive state, otherwise they operate on stale closure variables.
  */
 function createLoopEventHandler(
   code: string,
   context: Record<string, unknown>
 ): ((event: Event) => void) | null {
   try {
-    // Separate functions from variables in context
+    // Get reactive state and script content from context (set by renderLoop)
+    const reactiveState = context.__reactiveState__ as
+      | Record<string, unknown>
+      | undefined;
+    const scriptContent = (context.__scriptContent__ as string) || "";
+
+    // Separate functions from variables in context (skip internal markers)
     const contextKeys = Object.keys(context).filter(
-      (key) => !key.startsWith("__") // Skip internal markers
+      (key) => !key.startsWith("__")
     );
+
+    // Get list of state variable names (excluding loop variables and functions)
+    const stateVarNames = reactiveState
+      ? Object.keys(reactiveState).filter(
+          (key) =>
+            !key.startsWith("__") && typeof reactiveState[key] !== "function"
+        )
+      : [];
+
+    // Get loop-specific variables (item, index, etc.) - these are in context but not in state
+    const loopVarNames = contextKeys.filter(
+      (key) =>
+        !stateVarNames.includes(key) && typeof context[key] !== "function"
+    );
+
+    // All variable names for destructuring
+    const allVarNames = [...stateVarNames, ...loopVarNames];
+
+    // If we have script content, re-create functions so they work with reactive state
+    // Otherwise, destructure functions from context (fallback for module scripts)
+    const hasScriptContent = scriptContent.trim().length > 0;
     const funcNames = contextKeys.filter(
       (key) => typeof context[key] === "function"
     );
-    const varNames = contextKeys.filter(
-      (key) => typeof context[key] !== "function"
-    );
 
-    // Destructure variables and functions from context
-    const destructureVars =
-      varNames.length > 0 ? `const { ${varNames.join(", ")} } = context;` : "";
-    const destructureFuncs =
-      funcNames.length > 0
-        ? `const { ${funcNames.join(", ")} } = context;`
+    // Check if we have module script functions (they manage state directly)
+    const hasModuleScripts =
+      reactiveState && (reactiveState as any).__hasModuleScripts === true;
+
+    let funcDefs = "";
+    let destructureFuncs = "";
+
+    if (hasModuleScripts) {
+      // Module script functions are reactive - just destructure them
+      destructureFuncs =
+        funcNames.length > 0
+          ? `const { ${funcNames.join(", ")} } = context;`
+          : "";
+    } else if (hasScriptContent) {
+      // Regular scripts: re-create functions from script content so they
+      // work with the local variables that will be synced back to state
+      funcDefs = extractFunctionDefinitions(scriptContent, []);
+    } else {
+      // Fallback: destructure functions from context
+      destructureFuncs =
+        funcNames.length > 0
+          ? `const { ${funcNames.join(", ")} } = context;`
+          : "";
+    }
+
+    // Destructure loop variables as const (they're read-only within the iteration)
+    const destructureLoopVars =
+      loopVarNames.length > 0
+        ? `const { ${loopVarNames.join(", ")} } = context;`
         : "";
 
-    // Build function body with context available
-    const fnBody = `"use strict"; ${destructureVars} ${destructureFuncs} ${code}`;
+    // Destructure state variables as let (for sync-back)
+    // Use reactiveState if available, otherwise fall back to context
+    const stateSource =
+      reactiveState && stateVarNames.length > 0 ? "reactiveState" : "context";
+    const destructureStateVars =
+      stateVarNames.length > 0
+        ? `let { ${stateVarNames.join(", ")} } = ${stateSource};`
+        : "";
 
-    // Create function with event and context as parameters
-    const fn = new Function("event", "context", fnBody);
+    // Sync state variables back after execution (only for regular scripts)
+    const syncBack =
+      !hasModuleScripts && reactiveState && stateVarNames.length > 0
+        ? stateVarNames.map((key) => `reactiveState.${key} = ${key};`).join(" ")
+        : "";
+
+    // Build function body
+    const fnBody = `"use strict";
+      ${destructureLoopVars}
+      ${destructureStateVars}
+      ${destructureFuncs}
+      ${funcDefs}
+      ${code};
+      ${syncBack}`;
+
+    // Create function with event, context, and reactiveState as parameters
+    const fn = new Function("event", "context", "reactiveState", fnBody);
 
     return (event: Event) => {
       try {
-        fn(event, context);
+        fn(event, context, reactiveState);
       } catch (e) {
         console.error(`Error in loop event handler: ${code}`, e);
       }

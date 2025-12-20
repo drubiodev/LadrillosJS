@@ -199,10 +199,13 @@ export function createWebComponentClass(
           () => this._updateDirectives() // Pass callback for imported array reactivity
         );
 
-        // Mark state as having module scripts - this affects how event handlers
-        // treat functions (module scripts have reactive functions that should NOT
-        // be recreated, while regular scripts need fresh function bindings)
-        (this.state as any).__hasModuleScripts = true;
+        // Mark state as having module scripts ONLY if there are actual module scripts
+        // This affects how event handlers treat functions:
+        // - Module scripts have reactive functions that should NOT be recreated
+        // - Regular scripts need fresh function bindings each time
+        if (hasModuleScripts || externalScripts.length > 0) {
+          (this.state as any).__hasModuleScripts = true;
+        }
 
         // Merge module script functions into reactive state
         // Variables are already in this.state (written directly by transformed code)
