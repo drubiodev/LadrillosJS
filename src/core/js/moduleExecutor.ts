@@ -581,6 +581,9 @@ const $use = async (path, useShadowDOM = false) => {
  * For external scripts, we fetch the content, auto-export all declarations,
  * and execute it via blob URL with injected framework helpers.
  *
+ * If the script has the 'external' attribute, it's loaded as a plain
+ * external script without any framework processing (no helpers, no auto-exports).
+ *
  * @param script - The external script element
  * @param componentId - Optional component ID for event bus cleanup
  * @param componentUrl - Optional component URL for path resolution
@@ -591,8 +594,33 @@ export async function executeExternalScript(
   componentId?: string,
   componentUrl?: string
 ): Promise<unknown> {
+  // Scripts with 'external' attribute are loaded as plain scripts
+  // without any framework processing (no helpers, no auto-exports, no reactivity)
+  // This is useful for loading third-party libraries like highlight.js
+  if (script.external) {
+    // Check if this script is already loaded
+    const existing = document.querySelector(`script[src="${script.src}"]`);
+    if (existing) return Promise.resolve(undefined);
+
+    return new Promise((resolve, reject) => {
+      const scriptEl = document.createElement("script");
+      scriptEl.src = script.src;
+      if (script.type) {
+        scriptEl.type = script.type;
+      }
+      scriptEl.onload = () => resolve(undefined);
+      scriptEl.onerror = (e) =>
+        reject(new Error(`Failed to load external script: ${script.src}`));
+      document.head.appendChild(scriptEl);
+    });
+  }
+
   if (script.type !== "module") {
     // For non-module external scripts, create a script tag
+    // Check if this script is already loaded
+    const existing = document.querySelector(`script[src="${script.src}"]`);
+    if (existing) return Promise.resolve(undefined);
+
     return new Promise((resolve, reject) => {
       const scriptEl = document.createElement("script");
       scriptEl.src = script.src;
@@ -647,6 +675,104 @@ export async function executeExternalScript(
       error
     );
     throw error;
+  }
+}
+
+/**
+ * Loads external scripts marked with the 'external' attribute.
+ * These are third-party libraries (like highlight.js) that need to be loaded
+ * BEFORE the component's inline scripts run, since they may depend on globals
+ * provided by these libraries.
+ *
+ * @param externalScripts - External scripts from the component
+ * @returns Promise that resolves when all external scripts are loaded
+ */
+export async function loadPlainExternalScripts(
+  externalScripts: ExternalScriptElement[]
+): Promise<void> {
+  // Filter to only scripts with the 'external' attribute
+  const plainExternalScripts = externalScripts.filter((s) => s.external);
+
+  // Load them sequentially to maintain order (some may depend on others)
+  for (const script of plainExternalScripts) {
+    try {
+      await executeExternalScript(script);
+    } catch (error) {
+      console.error(
+        `[LadrillosJS] Failed to load external script: ${script.src}`,
+        error
+      );
+    }
+  }
+}
+
+// Cache for fetched external CSS (shared across all component instances)
+const externalCssCache = new Map<string, string>();
+
+/**
+ * Loads external stylesheets (<link rel="stylesheet">) into the component.
+ * For Shadow DOM components, fetches CSS content and injects directly into shadow root.
+ * For light DOM components, adds <link> to document head.
+ *
+ * @param externalStyles - External stylesheets from the component
+ * @param root - The component's root (shadow root or element itself)
+ * @param useShadowDOM - Whether the component uses Shadow DOM
+ * @returns Promise that resolves when all stylesheets are loaded
+ */
+export async function loadExternalStyles(
+  externalStyles: Array<{ href: string; rel: string }>,
+  root?: ShadowRoot | HTMLElement,
+  useShadowDOM?: boolean
+): Promise<void> {
+  for (const style of externalStyles) {
+    if (useShadowDOM && root) {
+      // For Shadow DOM: fetch CSS and inject as <style> element
+      // This ensures styles penetrate the shadow boundary
+      try {
+        let cssText = externalCssCache.get(style.href);
+
+        if (!cssText) {
+          const response = await fetch(style.href);
+          if (!response.ok) {
+            console.error(
+              `[LadrillosJS] Failed to load stylesheet: ${style.href}`
+            );
+            continue;
+          }
+          cssText = await response.text();
+          externalCssCache.set(style.href, cssText);
+        }
+
+        const styleEl = document.createElement("style");
+        styleEl.textContent = cssText;
+        styleEl.setAttribute("data-external-href", style.href);
+        // Insert at the beginning so component styles can override if needed
+        root.insertBefore(styleEl, root.firstChild);
+      } catch (error) {
+        console.error(
+          `[LadrillosJS] Failed to load stylesheet: ${style.href}`,
+          error
+        );
+      }
+    } else {
+      // For light DOM: add <link> to document head (if not already present)
+      const existing = document.querySelector(`link[href="${style.href}"]`);
+      if (existing) continue;
+
+      await new Promise<void>((resolve) => {
+        const link = document.createElement("link");
+        link.rel = style.rel || "stylesheet";
+        link.href = style.href;
+        link.onload = () => resolve();
+        link.onerror = () => {
+          console.error(
+            `[LadrillosJS] Failed to load stylesheet: ${style.href}`
+          );
+          resolve(); // Don't block on CSS errors
+        };
+        document.head.appendChild(link);
+      });
+    }
   }
 }
 

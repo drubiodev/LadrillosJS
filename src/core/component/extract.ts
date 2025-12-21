@@ -81,11 +81,36 @@ export async function parseComponent(
         }
       }
 
-      return { src, type };
+      // Check if the script has the 'external' attribute
+      // These scripts should be loaded as-is without framework processing
+      const external = s.hasAttribute("external");
+
+      return { src, type, external };
     })
     .filter((s) => s.src.length > 0);
 
   scriptEls.forEach((s) => s.remove());
+
+  // get external stylesheets (<link rel="stylesheet">)
+  const linkEls = Array.from(doc.querySelectorAll('link[rel="stylesheet"]'));
+  const externalStyles = linkEls
+    .map((l) => {
+      let href = l.getAttribute("href") || "";
+      const rel = l.getAttribute("rel") || "stylesheet";
+
+      // Resolve relative URLs against component URL
+      if (componentUrl && href && !href.startsWith("http")) {
+        try {
+          href = new URL(href, componentUrl).toString();
+        } catch {
+          // ignore resolution errors; keep original
+        }
+      }
+
+      return { href, rel };
+    })
+    .filter((l) => l.href.length > 0);
+  linkEls.forEach((l) => l.remove());
 
   // get styles
   const styleEls = Array.from(doc.querySelectorAll("style"));
@@ -115,6 +140,7 @@ export async function parseComponent(
     template: html,
     scripts,
     externalScripts,
+    externalStyles,
     styles: styles,
     sourcePath: componentUrl,
     lazy: false,

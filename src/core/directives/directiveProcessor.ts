@@ -112,6 +112,56 @@ export function scanDirectives(
   return context;
 }
 
+/**
+ * Scans the template for all directives and returns descriptors for each.
+ * This version accepts an existing refs Map to populate (used when refs
+ * need to be available before scripts run).
+ */
+export function scanDirectivesWithRefs(
+  host: HTMLElement | ShadowRoot,
+  existingRefs: RefMap
+): DirectiveContext {
+  const context: DirectiveContext = {
+    loops: [],
+    conditionals: [],
+    twoWayBindings: [],
+    refs: existingRefs,
+    showElements: [],
+  };
+
+  // Process in order: refs first, then loops (so we can skip loop internals),
+  // then conditionals, then show, then bind
+  scanRefs(host, context);
+  scanLoops(host, context);
+  scanConditionals(host, context);
+  scanShow(host, context);
+  scanTwoWayBindings(host, context);
+
+  return context;
+}
+
+/**
+ * Scans for $ref directives only and populates the refs Map.
+ * This can be called early (before scripts run) to make refs available.
+ */
+export function scanRefsOnly(
+  host: HTMLElement | ShadowRoot,
+  refs: RefMap
+): void {
+  const elements = Array.from(
+    host.querySelectorAll(`[${escapeCssSelector(REF_DIRECTIVE)}]`)
+  );
+
+  for (const element of elements) {
+    const refName = element.getAttribute(REF_DIRECTIVE);
+    if (refName) {
+      refs.set(refName, element as HTMLElement);
+      // Note: Don't remove the attribute here - let scanDirectives do it later
+      // so that we don't break the directive scanning flow
+    }
+  }
+}
+
 // ============================================================================
 // $ref Directive
 // ============================================================================

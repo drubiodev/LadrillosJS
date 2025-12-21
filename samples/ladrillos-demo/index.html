@@ -25,6 +25,10 @@
       await registerComponents([
         // Eager components (load immediately)
         {
+          name: "code-block",
+          path: "./components/code-block.html",
+        },
+        {
           name: "test-loop-events",
           path: "./components/test-loop-events.html",
         },
@@ -559,6 +563,31 @@
           <!-- lazyOnMedia - loads based on media query -->
           <lazy-media-demo></lazy-media-demo>
         </div>
+      </section>
+
+      <section>
+        <h2 class="section-title">External Scripts</h2>
+        <code-block filename="counter.html">
+          <template>
+            <div>
+              <h2>Count: {count}</h2>
+              <button onclick="increment()">Add</button>
+              <button onclick="reset()">Reset</button>
+            </div>
+
+            <script>
+              let count = 0;
+
+              const increment = () => {
+                count++;
+              };
+
+              const reset = () => {
+                count = 0;
+              };
+            </script>
+          </template>
+        </code-block>
       </section>
     </main>
 

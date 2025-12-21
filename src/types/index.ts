@@ -9,11 +9,17 @@ export type ExternalScriptElement = {
   external?: boolean;
 };
 
+export type ExternalStyleElement = {
+  href: string;
+  rel: string;
+};
+
 export type LadrillosComponent = {
   tagName: string;
   template: string;
   scripts: ScriptElement[];
   externalScripts: ExternalScriptElement[];
+  externalStyles: ExternalStyleElement[];
   styles: string;
   sourcePath?: string;
   lazy?: boolean;

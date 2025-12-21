@@ -43,6 +43,7 @@ const getHostElement = (host: HTMLElement | ShadowRoot): HTMLElement =>
  * @param deferBindings - If true, don't apply bindings immediately (for module script support)
  * @param componentUrl - The absolute URL of the component (for resolving relative paths in $registerComponent)
  * @param componentId - Optional unique ID for this component instance (for event bus cleanup)
+ * @param refs - Optional refs Map (for $refs access in scripts)
  * @returns The reactive state object - changes trigger automatic DOM updates
  */
 export async function loadScripts(
@@ -53,7 +54,8 @@ export async function loadScripts(
   onStateChange?: () => void,
   deferBindings: boolean = false,
   componentUrl?: string,
-  componentId?: string
+  componentId?: string,
+  refs?: Map<string, HTMLElement>
 ): Promise<Record<string, unknown>> {
   const componentHost = getHostElement(host);
   const initialState: Record<string, unknown> = {};
@@ -98,7 +100,9 @@ export async function loadScripts(
       script.content,
       reactiveState,
       componentUrl,
-      componentId
+      componentId,
+      componentHost, // Pass host element for $host access
+      refs // Pass refs for $refs access
     );
   }
 
@@ -308,12 +312,30 @@ function createVanillaEventHandler(
       ? ""
       : varNames.map((key) => `state.${key} = ${key};`).join(" ");
 
+    // Check if the code or any function definitions use async/await
+    const isAsync =
+      /\bawait\b/.test(code) ||
+      /\bawait\b/.test(funcDefs) ||
+      /\basync\b/.test(funcDefs);
+
     // Add sourceURL so DevTools shows the component name instead of VM123:5
     const sourceUrl = componentUrl || "ladrillos-event-handler";
-    const fnBody = `"use strict"; ${destructureVars} ${destructureFuncs} ${funcDefs} ${code}; ${syncBack}
+
+    // For async handlers, wrap in try/finally to ensure sync-back happens after await
+    // For sync handlers, sync-back runs at the end as before
+    const fnBody = isAsync
+      ? `"use strict"; ${destructureVars} ${destructureFuncs} ${funcDefs} try { await (async () => { ${code} })(); } finally { ${syncBack} }
+//# sourceURL=${sourceUrl}`
+      : `"use strict"; ${destructureVars} ${destructureFuncs} ${funcDefs} ${code}; ${syncBack}
 //# sourceURL=${sourceUrl}`;
 
-    const fn = new Function(...allKeys, fnBody);
+    // Use AsyncFunction constructor for async handlers
+    const AsyncFunction = Object.getPrototypeOf(
+      async function () {}
+    ).constructor;
+    const fn = isAsync
+      ? new AsyncFunction(...allKeys, fnBody)
+      : new Function(...allKeys, fnBody);
 
     return (event: Event) => {
       try {
@@ -330,16 +352,52 @@ function createVanillaEventHandler(
           ...safeBlocked.map(() => undefined), // Shadow dangerous globals
           ...allowed.values, // Inject safe globals
         ];
-        fn(...allValues);
+
+        // Handle both sync and async handlers
+        const result = fn(...allValues);
+
+        // If the handler returns a promise, catch any async errors
+        if (result && typeof result.catch === "function") {
+          result.catch((e: Error) => {
+            const ctx = {
+              tagName: componentHost?.tagName?.toLowerCase(),
+              sourcePath: (state as any).__componentUrl,
+              instanceId: (state as any).__componentId,
+            };
+            expressionError(code, e, {
+              context: ctx.tagName ? ctx : getComponentContext(),
+              errorCode: ErrorCode.EVENT_HANDLER_FAILED,
+            });
+          });
+        }
       } catch (e) {
+        // Build context from state metadata (more reliable than global context
+        // since multiple components can initialize in parallel)
+        const ctx = {
+          tagName: componentHost?.tagName?.toLowerCase(),
+          sourcePath: (state as any).__componentUrl,
+          instanceId: (state as any).__componentId,
+        };
         expressionError(code, e as Error, {
-          context: getComponentContext(),
+          context: ctx.tagName ? ctx : getComponentContext(),
           errorCode: ErrorCode.EVENT_HANDLER_FAILED,
         });
       }
     };
   } catch (e) {
-    warn(`Failed to create event handler: ${code}`);
+    // Build context from component host for accurate error attribution
+    // Use component host's tagName directly (more reliable than global context
+    // which can be overwritten by parallel component initialization)
+    const ctx = componentHost?.tagName
+      ? {
+          tagName: componentHost.tagName.toLowerCase(),
+          sourcePath: (state as any).__componentUrl,
+          instanceId: (state as any).__componentId,
+        }
+      : null;
+    // Pass ctx explicitly to override global context
+    warn(`Failed to create event handler: ${code}`, ctx);
+    console.error("Handler creation error:", e);
     return null;
   }
 }
@@ -355,10 +413,11 @@ export function extractFunctionDefinitions(
   content: string,
   skipFunctions: string[] = []
 ): string {
-  // Match both regular and async function declarations
+  const functions: string[] = [];
+
+  // Match regular and async function declarations: function foo() {...}
   const funcRegex =
     /(?:async\s+)?function\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*\([^)]*\)\s*\{/g;
-  const functions: string[] = [];
   let match;
 
   while ((match = funcRegex.exec(content)) !== null) {
@@ -370,41 +429,88 @@ export function extractFunctionDefinitions(
     }
 
     // Find the matching closing brace
+    const funcDef = extractBracedBlock(content, match.index);
+    if (funcDef) {
+      functions.push(funcDef);
+    }
+  }
+
+  // Match arrow functions: const/let foo = (...) => {...} or const/let foo = async (...) => {...}
+  const arrowRegex =
+    /(?:const|let)\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*=\s*(?:async\s*)?\([^)]*\)\s*=>\s*\{/g;
+
+  while ((match = arrowRegex.exec(content)) !== null) {
+    const funcName = match[1];
+
+    // Skip functions that already exist in state (reactive module script functions)
+    if (skipFunctions.includes(funcName)) {
+      continue;
+    }
+
+    // Find the matching closing brace for the arrow function body
     const startIndex = match.index;
-    let braceCount = 0;
-    let endIndex = startIndex;
-    let inString = false;
-    let stringChar = "";
+    const bodyStart = content.indexOf("{", startIndex + match[0].length - 1);
+    const funcDef = extractBracedBlock(content, startIndex, bodyStart);
+    if (funcDef) {
+      functions.push(funcDef);
+    }
+  }
 
-    for (let i = startIndex; i < content.length; i++) {
-      const char = content[i];
-      const prevChar = i > 0 ? content[i - 1] : "";
+  // Join with semicolons to ensure proper statement separation
+  // Arrow functions especially need this since they don't always have trailing semicolons
+  return (
+    functions.map((f) => f.trim()).join(";\n") +
+    (functions.length > 0 ? ";" : "")
+  );
+}
 
-      // Handle string detection (skip braces inside strings)
-      if ((char === '"' || char === "'" || char === "`") && prevChar !== "\\") {
-        if (!inString) {
-          inString = true;
-          stringChar = char;
-        } else if (char === stringChar) {
-          inString = false;
-        }
-      }
+/**
+ * Extracts a complete braced block from content starting at startIndex.
+ * Handles nested braces and strings correctly.
+ */
+function extractBracedBlock(
+  content: string,
+  startIndex: number,
+  braceStart?: number
+): string | null {
+  let braceCount = 0;
+  let endIndex = startIndex;
+  let inString = false;
+  let stringChar = "";
+  let foundFirstBrace = false;
 
+  const searchStart = braceStart ?? startIndex;
+
+  for (let i = searchStart; i < content.length; i++) {
+    const char = content[i];
+    const prevChar = i > 0 ? content[i - 1] : "";
+
+    // Handle string detection (skip braces inside strings)
+    if ((char === '"' || char === "'" || char === "`") && prevChar !== "\\") {
       if (!inString) {
-        if (char === "{") braceCount++;
-        if (char === "}") braceCount--;
-
-        if (braceCount === 0 && char === "}") {
-          endIndex = i + 1;
-          break;
-        }
+        inString = true;
+        stringChar = char;
+      } else if (char === stringChar) {
+        inString = false;
       }
     }
 
-    functions.push(content.slice(startIndex, endIndex));
+    if (!inString) {
+      if (char === "{") {
+        braceCount++;
+        foundFirstBrace = true;
+      }
+      if (char === "}") braceCount--;
+
+      if (foundFirstBrace && braceCount === 0 && char === "}") {
+        endIndex = i + 1;
+        break;
+      }
+    }
   }
 
-  return functions.join("\n");
+  if (braceCount !== 0) return null;
+  return content.slice(startIndex, endIndex);
 }
 
 // ============================================================================
@@ -550,12 +656,16 @@ function extractScriptMembersValuesOnly(content: string): Map<string, unknown> {
  * @param reactiveState - The reactive state proxy
  * @param componentUrl - The component's URL for framework helpers
  * @param componentId - The component's ID for event bus cleanup
+ * @param hostElement - The component's host element (for $host access)
+ * @param refs - Optional refs Map (for $refs access)
  */
 function executeScriptWithReactiveState(
   content: string,
   reactiveState: Record<string, unknown>,
   componentUrl?: string,
-  componentId?: string
+  componentId?: string,
+  hostElement?: HTMLElement,
+  refs?: Map<string, HTMLElement>
 ): void {
   try {
     const variableNames = extractVariableNames(content);
@@ -574,10 +684,18 @@ function executeScriptWithReactiveState(
     const allowed = getAllowedGlobalsWithValues(componentUrl, componentId);
     const safeBlocked = getSafeBlockedGlobals();
 
-    // Add __state__ as a parameter
-    const allKeys = ["__state__", ...safeBlocked, ...allowed.keys];
+    // Add __state__, $host, and $refs as parameters
+    const allKeys = [
+      "__state__",
+      "$host",
+      "$refs",
+      ...safeBlocked,
+      ...allowed.keys,
+    ];
     const allValues = [
       reactiveState, // __state__ points to reactive proxy
+      hostElement, // $host points to the component's host element
+      refs, // $refs points to the refs Map
       ...safeBlocked.map(() => undefined), // Shadow dangerous globals
       ...allowed.values, // Inject safe globals
     ];
@@ -661,7 +779,8 @@ function transformToStateAccess(code: string, variables: string[]): string {
   );
 
   // Step 2: Transform top-level variable declarations
-  // `let x = value;` → `__state__.x = value;`
+  // `let x = value;` → `__state__.x ??= value;`
+  // Use ??= to preserve attribute overrides (attributes win over script defaults)
   for (const varName of variables) {
     const declRegex = new RegExp(
       `\\b(let|const|var)\\s+(${escapeRegex(varName)})\\s*=`,
@@ -669,7 +788,7 @@ function transformToStateAccess(code: string, variables: string[]): string {
     );
     protected_code = protected_code.replace(
       declRegex,
-      `__state__.${varName} =`
+      `__state__.${varName} ??=`
     );
   }
 

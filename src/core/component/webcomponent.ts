@@ -10,10 +10,14 @@ import {
 import {
   executeModuleScriptsWithReactivity,
   cleanupModuleScripts,
+  loadPlainExternalScripts,
+  loadExternalStyles,
 } from "../js/moduleExecutor";
 import { cleanupComponentListeners } from "../events/eventBus";
 import {
   scanDirectives,
+  scanRefsOnly,
+  scanDirectivesWithRefs,
   renderLoops,
   updateConditionals,
   updateShowElements,
@@ -46,8 +50,15 @@ export function createWebComponentClass(
   component: LadrillosComponent,
   useShadowDOM: boolean
 ): typeof HTMLElement {
-  const { tagName, template, scripts, externalScripts, styles, sourcePath } =
-    component;
+  const {
+    tagName,
+    template,
+    scripts,
+    externalScripts,
+    externalStyles,
+    styles,
+    sourcePath,
+  } = component;
 
   // Pre-extract variable names from scripts for observedAttributes
   // This runs once when the component class is defined
@@ -144,12 +155,37 @@ export function createWebComponentClass(
       const regularScripts = scripts.filter((s) => s.type !== "module");
       const hasModuleScripts = scripts.some((s) => s.type === "module");
 
+      // Create refs Map EARLY so scripts can access $refs
+      // Wrap in Proxy for cleaner dot notation access: $refs.inputEl instead of $refs.get("inputEl")
+      const earlyRefs = createRefsProxy(new Map<string, HTMLElement>());
+
+      // Scan for $ref attributes and populate refs BEFORE running scripts
+      // This allows scripts to immediately use $refs.elementName
+      scanRefsOnly(this._root, earlyRefs);
+
+      // Load external stylesheets (<link rel="stylesheet">) FIRST
+      // These are third-party CSS files (like highlight.js themes) that need
+      // to be available for proper styling.
+      // For Shadow DOM: injects CSS directly into shadow root (styles don't cross shadow boundary)
+      // For light DOM: adds <link> to document head
+      if (externalStyles && externalStyles.length > 0) {
+        await loadExternalStyles(externalStyles, this._root, useShadowDOM);
+      }
+
+      // Load external scripts marked with 'external' attribute NEXT
+      // These are third-party libraries (like highlight.js) that the inline
+      // scripts may depend on. They need to load before inline scripts run.
+      if (externalScripts.length > 0) {
+        await loadPlainExternalScripts(externalScripts);
+      }
+
       // Initialize reactive state and event handlers (for regular scripts)
       // Pass attribute overrides so they take precedence over defaults
       // Pass a callback that will update directives when state changes
       // DEFER bindings if we have module scripts (they need to load first)
       // Pass sourcePath so $registerComponent resolves paths relative to this component
       // Pass componentId so event bus listeners can be cleaned up on disconnect
+      // Pass earlyRefs so scripts can access $refs immediately
       this.state = await loadScripts(
         this._root,
         regularScripts,
@@ -158,14 +194,9 @@ export function createWebComponentClass(
         () => this._updateDirectives(),
         hasModuleScripts, // deferBindings = true if we have module scripts
         sourcePath, // componentUrl for correct path resolution
-        this._componentId // componentId for event bus cleanup
+        this._componentId, // componentId for event bus cleanup
+        earlyRefs // refs for $refs access in scripts
       );
-
-      // Create refs Map early so module script functions can capture the reference.
-      // The map will be populated later by scanDirectives, but functions
-      // defined in module scripts need access to the same Map instance.
-      // Wrap in Proxy for cleaner dot notation access: $refs.inputEl instead of $refs.get("inputEl")
-      const earlyRefs = createRefsProxy(new Map<string, HTMLElement>());
 
       // Register the onStateChange callback globally so external module scripts
       // can trigger UI updates when imported arrays are mutated.
@@ -226,17 +257,10 @@ export function createWebComponentClass(
       // Create expression evaluator for directives
       this._evaluator = createExpressionEvaluator();
 
-      // Scan and process all directives ($for, $if, $show, $bind, $ref)
-      this._directives = scanDirectives(this._root);
-
-      // Copy refs from scanDirectives into the earlyRefs Map that module
-      // script functions captured. This ensures drawOnCanvas() etc. can
-      // access refs.get("myCanvas") correctly.
-      for (const [key, value] of this._directives.refs) {
-        earlyRefs.set(key, value);
-      }
-      // Replace the directives refs with earlyRefs so everything uses the same Map
-      this._directives.refs = earlyRefs;
+      // Scan and process all directives ($for, $if, $show, $bind)
+      // Use scanDirectivesWithRefs to reuse the earlyRefs Map we already populated
+      // Note: scanRefsOnly was already called earlier, so refs are already in earlyRefs
+      this._directives = scanDirectivesWithRefs(this._root, earlyRefs);
 
       // Also populate the global refs registry for external module scripts
       // This allows external .js files to access refs via the global registry

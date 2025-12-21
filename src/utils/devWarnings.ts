@@ -254,9 +254,11 @@ export function findExpressionPosition(
 
 /**
  * Format component info for error messages.
+ * If context is explicitly passed (even null), uses that.
+ * Only falls back to currentContext if context is undefined.
  */
 function formatComponentInfo(context?: ComponentContext | null): string {
-  const ctx = context || currentContext;
+  const ctx = context !== undefined ? context : currentContext;
   if (!ctx) return "";
 
   const parts: string[] = [];

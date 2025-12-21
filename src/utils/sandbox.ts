@@ -1,114 +1,114 @@
 /**
- * Globals that are allowed
+ * Globals that are explicitly injected into the scope.
+ * These are passed as function parameters with their actual values.
+ *
+ * Note: With BLOCKED_GLOBALS now empty, most browser APIs are accessible
+ * directly through the global scope (window). This list is for convenience
+ * to ensure common APIs work without window. prefix.
  */
 export const ALLOWED_GLOBALS = Object.freeze([
+  // User dialogs
   "alert",
   "confirm",
-  "prompt", // User dialogs
-  "console", // Debugging
-  "JSON", // Data parsing
-  "Math", // Math operations
-  "Date", // Date handling
+  "prompt",
+  // Debugging
+  "console",
+  // Data & Types
+  "JSON",
+  "Math",
+  "Date",
   "Array",
   "Object",
   "String",
   "Number",
-  "Boolean", // Primitives
+  "Boolean",
+  "Map",
+  "Set",
+  "WeakMap",
+  "WeakSet",
+  "Symbol",
+  "BigInt",
+  "Promise",
+  "Proxy",
+  "Reflect",
+  // Number utilities
   "parseInt",
   "parseFloat",
   "isNaN",
-  "isFinite", // Number utilities
+  "isFinite",
+  "Infinity",
+  "NaN",
+  // URL encoding
   "encodeURIComponent",
-  "decodeURIComponent", // URL encoding
+  "decodeURIComponent",
   "encodeURI",
   "decodeURI",
-]);
-
-/**
- * Blocked globals to prevent access to dangerous browser APIs
- * These will be shadowed with undefined in expression evaluation
- * NOTE: Excludes reserved words that can't be used as parameter names
- */
-export const BLOCKED_GLOBALS = Object.freeze([
-  // Global objects
-  "window",
-  "document",
-  "globalThis",
-  "self",
-  "top",
-  "parent",
-  "frames",
-
-  // Code execution
-  "eval",
-  "Function",
-  "GeneratorFunction",
-  "AsyncFunction",
-  "AsyncGeneratorFunction",
-
+  // Timers
+  "setTimeout",
+  "clearTimeout",
+  "setInterval",
+  "clearInterval",
+  "requestAnimationFrame",
+  "cancelAnimationFrame",
+  "requestIdleCallback",
+  "cancelIdleCallback",
+  "queueMicrotask",
   // Network
   "fetch",
-  "XMLHttpRequest",
-  "WebSocket",
-  "EventSource",
+  "AbortController",
+  "AbortSignal",
+  "Headers",
   "Request",
   "Response",
-
-  // Storage
-  "localStorage",
-  "sessionStorage",
-  "indexedDB",
-  "caches",
-
-  // Workers
-  "Worker",
-  "SharedWorker",
-  "ServiceWorker",
-
-  // Navigation & Location
+  "URL",
+  "URLSearchParams",
+  // Browser APIs
   "navigator",
   "location",
   "history",
-
-  // Windows (not dialogs)
-  "open",
-  "close",
-  "print",
-
-  // Messaging
-  "postMessage",
-  "BroadcastChannel",
-  "MessageChannel",
-
-  // Timers
-  "setTimeout",
-  "setInterval",
-  "setImmediate",
-  "requestAnimationFrame",
-  "requestIdleCallback",
-  "queueMicrotask",
-
-  // Prototype manipulation
-  "__proto__",
-
-  // Other dangerous APIs
-  "Proxy",
-  "Reflect",
-
-  // Crypto
+  "localStorage",
+  "sessionStorage",
   "crypto",
-
-  // DOM manipulation
+  // DOM
+  "document",
+  "window",
+  "globalThis",
   "Element",
-  "Node",
   "HTMLElement",
-  "DocumentFragment",
-  "MutationObserver",
-  "IntersectionObserver",
-  "ResizeObserver",
+  "Event",
+  "CustomEvent",
+  "EventTarget",
+  // Text
+  "TextEncoder",
+  "TextDecoder",
+  "Blob",
+  "File",
+  "FileReader",
+  "FormData",
+  // Error types
+  "Error",
+  "TypeError",
+  "RangeError",
+  "SyntaxError",
+  "ReferenceError",
+  // Other utilities
+  "atob",
+  "btoa",
+  "structuredClone",
+]);
 
-  // Cookies
-  "cookieStore",
+/**
+ * Blocked globals that are shadowed with undefined.
+ *
+ * Previously this list blocked many browser APIs (fetch, setTimeout, etc.)
+ * but this was too restrictive. Developers should have full access to JS.
+ *
+ * Only truly dangerous APIs that could break the framework should be blocked.
+ * Currently empty - we trust developers to write safe code.
+ */
+export const BLOCKED_GLOBALS = Object.freeze([
+  // Currently no blocked globals - developers have full JS access
+  // If you need to block something dangerous in the future, add it here
 ]);
 
 // Reserved words and keywords that cannot be used as parameter names
