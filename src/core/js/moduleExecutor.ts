@@ -1216,34 +1216,56 @@ export async function executeModuleScriptWithReactivity(
 function transformToStateAccess(code: string, variables: string[]): string {
   if (variables.length === 0) return code;
 
-  let transformed = code;
+  // Step 1: Protect string literals by replacing them with placeholders
+  const strings: string[] = [];
+  let protected_code = code.replace(
+    /(["'`])(?:(?!\1)[^\\]|\\.)*\1/g,
+    (match) => {
+      strings.push(match);
+      return `__STRING_PLACEHOLDER_${strings.length - 1}__`;
+    }
+  );
 
-  // Step 1: Transform top-level variable declarations
+  // Step 2: Transform top-level variable declarations
   // `let x = value;` → `__state__.x = value;`
   for (const varName of variables) {
     const declRegex = new RegExp(
       `\\b(let|const|var)\\s+(${escapeRegex(varName)})\\s*=`,
       "g"
     );
-    transformed = transformed.replace(declRegex, `__state__.${varName} =`);
+    protected_code = protected_code.replace(
+      declRegex,
+      `__state__.${varName} =`
+    );
   }
 
-  // Step 2: Replace all standalone variable references with __state__.varName
+  // Step 3: Replace all standalone variable references with __state__.varName
   // Do this iteratively to handle all occurrences
   for (const varName of variables) {
     // This regex matches the variable name that is:
-    // - NOT preceded by a dot (so foo.bar won't match bar)
+    // - NOT preceded by a single dot (property access like foo.bar)
+    //   but IS allowed after spread operator (...)
     // - NOT preceded by __state__. (already transformed)
     // - IS a word boundary on both sides
     // - NOT followed by : (object key) or ( (function declaration)
-
-    // We'll use a simpler approach: split by the pattern and rejoin
+    //
+    // The lookbehind (?<![^.]\\.) means: not preceded by a dot that itself
+    // is not preceded by a dot. This allows ...varName but blocks .varName
     const pattern = new RegExp(
-      `(?<!\\.)(?<!__state__\\.)\\b${escapeRegex(varName)}\\b(?!\\s*[:(])`,
+      `(?<![^.]\\.)(?<!__state__\\.)\\b${escapeRegex(varName)}\\b(?!\\s*[:(])`,
       "g"
     );
 
-    transformed = transformed.replace(pattern, `__state__.${varName}`);
+    protected_code = protected_code.replace(pattern, `__state__.${varName}`);
+  }
+
+  // Step 4: Restore string literals
+  let transformed = protected_code;
+  for (let i = 0; i < strings.length; i++) {
+    transformed = transformed.replace(
+      `__STRING_PLACEHOLDER_${i}__`,
+      strings[i]
+    );
   }
 
   return transformed;

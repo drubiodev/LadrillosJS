@@ -59,6 +59,7 @@
 
   // Listen for notifications
   $listen("demo:notification", (data) => {
+    console.log("Received notification:", data);
     notification = data;
   });
 

@@ -30,6 +30,7 @@ import {
   extractFunctionDefinitions,
   extractVariableNames,
 } from "../js/scriptParser";
+import { createEventBusHelpers } from "../events/eventBus";
 
 // ============================================================================
 // Types
@@ -739,6 +740,15 @@ function createLoopEventHandler(
         ? stateVarNames.map((key) => `reactiveState.${key} = ${key};`).join(" ")
         : "";
 
+    // Get component ID for event bus helpers
+    const componentId =
+      (context.__componentId__ as string) ||
+      (reactiveState as any)?.__componentId ||
+      "anonymous";
+
+    // Create event bus helpers bound to component
+    const eventBusHelpers = createEventBusHelpers(componentId);
+
     // Build function body
     const fnBody = `"use strict";
       ${destructureLoopVars}
@@ -748,12 +758,25 @@ function createLoopEventHandler(
       ${code};
       ${syncBack}`;
 
-    // Create function with event, context, and reactiveState as parameters
-    const fn = new Function("event", "context", "reactiveState", fnBody);
+    // Create function with event, context, reactiveState, and event bus helpers as parameters
+    const fn = new Function(
+      "event",
+      "context",
+      "reactiveState",
+      "$emit",
+      "$listen",
+      fnBody
+    );
 
     return (event: Event) => {
       try {
-        fn(event, context, reactiveState);
+        fn(
+          event,
+          context,
+          reactiveState,
+          eventBusHelpers.$emit,
+          eventBusHelpers.$listen
+        );
       } catch (e) {
         console.error(`Error in loop event handler: ${code}`, e);
       }

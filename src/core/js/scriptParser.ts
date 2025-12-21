@@ -61,14 +61,10 @@ export async function loadScripts(
   // Collect all script content for re-execution in event handlers
   const allScriptContent = scripts.map((s) => s.content).join("\n");
 
-  // Extract all declared variables and functions from component scripts
-  // These serve as DEFAULT values
+  // Phase 1: Extract initial values ONLY (no side effects)
+  // This gets default values for variables without running $listen, etc.
   for (const script of scripts) {
-    const members = extractScriptMembers(
-      script.content,
-      componentUrl,
-      componentId
-    );
+    const members = extractScriptMembersValuesOnly(script.content);
     for (const [key, value] of members) {
       initialState[key] = value;
     }
@@ -94,6 +90,17 @@ export async function loadScripts(
     (binding, state) => updateSingleBinding(binding, state),
     onStateChange
   );
+
+  // Phase 2: Re-execute scripts with __state__ transformation
+  // This ensures $listen callbacks and other side effects use the reactive state
+  for (const script of scripts) {
+    executeScriptWithReactiveState(
+      script.content,
+      reactiveState,
+      componentUrl,
+      componentId
+    );
+  }
 
   // Store reactive state on host element (for debugging and event handlers)
   (componentHost as any).__state = reactiveState;
@@ -465,6 +472,124 @@ function extractScriptMembers(
 }
 
 /**
+ * Extracts ONLY variable values from script content, without running side effects.
+ * This is used in Phase 1 to get default values before reactive state is created.
+ *
+ * Unlike extractScriptMembers, this function:
+ * - Only extracts variable declarations and their values
+ * - Stubs out $listen and $emit to prevent side effects
+ * - Does NOT extract functions (they'll be handled in Phase 2)
+ *
+ * @param content - The script content to parse
+ */
+function extractScriptMembersValuesOnly(content: string): Map<string, unknown> {
+  const members = new Map<string, unknown>();
+
+  try {
+    const variableNames = extractVariableNames(content);
+    const functionNames = extractFunctionNames(content);
+    const allNames = [...variableNames, ...functionNames];
+
+    if (allNames.length === 0) {
+      return members;
+    }
+
+    const wrappedScript = `
+      "use strict";
+      ${content}
+      return { ${allNames.join(", ")} };
+    `;
+
+    // Stub out $listen and $emit to prevent side effects during value extraction
+    const stubListen = () => () => {}; // Returns unsubscribe function
+    const stubEmit = () => {};
+
+    // Minimal globals needed for value extraction
+    const safeGlobals = [
+      "console",
+      "Math",
+      "JSON",
+      "Date",
+      "Array",
+      "Object",
+      "String",
+      "Number",
+      "Boolean",
+    ];
+    const safeGlobalValues = safeGlobals.map(
+      (name) => (globalThis as any)[name]
+    );
+
+    const allKeys = [...safeGlobals, "$listen", "$emit"];
+    const allValues = [...safeGlobalValues, stubListen, stubEmit];
+
+    const fn = new Function(...allKeys, wrappedScript);
+    const result = fn(...allValues);
+
+    for (const [key, value] of Object.entries(result)) {
+      members.set(key, value);
+    }
+  } catch (e) {
+    // Silently handle errors - Phase 2 will re-execute with proper error handling
+  }
+
+  return members;
+}
+
+/**
+ * Executes script content with __state__ transformation for reactivity.
+ * This is Phase 2: runs after reactive state is created, so $listen callbacks
+ * and other side effects can access the reactive state.
+ *
+ * The script is transformed so that:
+ * - Variable declarations become __state__.varName = value
+ * - Variable references become __state__.varName
+ * - Callbacks capture __state__ reference (the reactive proxy)
+ *
+ * @param content - The script content to execute
+ * @param reactiveState - The reactive state proxy
+ * @param componentUrl - The component's URL for framework helpers
+ * @param componentId - The component's ID for event bus cleanup
+ */
+function executeScriptWithReactiveState(
+  content: string,
+  reactiveState: Record<string, unknown>,
+  componentUrl?: string,
+  componentId?: string
+): void {
+  try {
+    const variableNames = extractVariableNames(content);
+
+    // Transform the script to use __state__ for variable access
+    const transformedContent = transformToStateAccess(content, variableNames);
+
+    const sourceUrl = componentUrl || "ladrillos-component";
+    const wrappedScript = `
+      "use strict";
+      ${transformedContent}
+//# sourceURL=${sourceUrl}
+    `;
+
+    // Set up the sandboxed execution environment
+    const allowed = getAllowedGlobalsWithValues(componentUrl, componentId);
+    const safeBlocked = getSafeBlockedGlobals();
+
+    // Add __state__ as a parameter
+    const allKeys = ["__state__", ...safeBlocked, ...allowed.keys];
+    const allValues = [
+      reactiveState, // __state__ points to reactive proxy
+      ...safeBlocked.map(() => undefined), // Shadow dangerous globals
+      ...allowed.values, // Inject safe globals
+    ];
+
+    const fn = new Function(...allKeys, wrappedScript);
+    fn(...allValues);
+  } catch (e) {
+    scriptError("Error executing script with reactive state", e as Error);
+  }
+}
+
+/**
  * Finds variable declarations: let x = ..., const y = ..., var z = ...
  * Exported so webcomponent.ts can use it for observedAttributes.
  */
@@ -493,6 +618,91 @@ function extractFunctionNames(content: string): string[] {
   }
 
   return names;
+}
+
+// ============================================================================
+// State Access Transformation
+// ============================================================================
+
+/**
+ * Escapes special regex characters in a string
+ */
+function escapeRegex(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * Transforms variable declarations and accesses to use a __state__ object.
+ *
+ * This transformation allows script functions and callbacks (like $listen) to
+ * read/write from the reactive state instead of local closure variables.
+ *
+ * Transforms:
+ *   let messages = [];
+ *   $listen("event", (data) => { messages = [...messages, data]; });
+ *
+ * Into:
+ *   __state__.messages = [];
+ *   $listen("event", (data) => { __state__.messages = [...__state__.messages, data]; });
+ *
+ * This is similar to what Svelte's compiler does, but at runtime.
+ */
+function transformToStateAccess(code: string, variables: string[]): string {
+  if (variables.length === 0) return code;
+
+  // Step 1: Protect string literals by replacing them with placeholders
+  const strings: string[] = [];
+  let protected_code = code.replace(
+    /(["'`])(?:(?!\1)[^\\]|\\.)*\1/g,
+    (match) => {
+      strings.push(match);
+      return `__STRING_PLACEHOLDER_${strings.length - 1}__`;
+    }
+  );
+
+  // Step 2: Transform top-level variable declarations
+  // `let x = value;` → `__state__.x = value;`
+  for (const varName of variables) {
+    const declRegex = new RegExp(
+      `\\b(let|const|var)\\s+(${escapeRegex(varName)})\\s*=`,
+      "g"
+    );
+    protected_code = protected_code.replace(
+      declRegex,
+      `__state__.${varName} =`
+    );
+  }
+
+  // Step 3: Replace all standalone variable references with __state__.varName
+  // Do this iteratively to handle all occurrences
+  for (const varName of variables) {
+    // This regex matches the variable name that is:
+    // - NOT preceded by a single dot (property access like foo.bar)
+    //   but IS allowed after spread operator (...)
+    // - NOT preceded by __state__. (already transformed)
+    // - IS a word boundary on both sides
+    // - NOT followed by : (object key) or ( (function declaration)
+    //
+    // The lookbehind (?<![^.]\.) means: not preceded by a dot that itself
+    // is not preceded by a dot. This allows ...varName but blocks .varName
+    const pattern = new RegExp(
+      `(?<![^.]\\.)(?<!__state__\\.)\\b${escapeRegex(varName)}\\b(?!\\s*[:(])`,
+      "g"
+    );
+
+    protected_code = protected_code.replace(pattern, `__state__.${varName}`);
+  }
+
+  // Step 4: Restore string literals
+  let transformed = protected_code;
+  for (let i = 0; i < strings.length; i++) {
+    transformed = transformed.replace(
+      `__STRING_PLACEHOLDER_${i}__`,
+      strings[i]
+    );
+  }
+
+  return transformed;
 }
 
 // ============================================================================
