@@ -12,10 +12,12 @@
     }
   },
   "files": [
-    "dist"
+    "dist/index.js",
+    "dist/index.d.ts"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "vite build --config vite.npm.config.ts",
+    "build:dev": "tsc -p tsconfig.json",
     "dev": "tsc -p tsconfig.json -w",
     "build:cdn": "vite build --config vite.cdn.config.ts",
     "watch:cdn": "vite build --config vite.cdn.config.ts --watch",
@@ -38,7 +40,9 @@
   "homepage": "https://github.com/drubiodev/LadrillosJS#readme",
   "devDependencies": {
     "concurrently": "^9.2.1",
+    "terser": "^5.44.1",
     "typescript": "~5.9.3",
-    "vite": "^7.2.7"
+    "vite": "^7.2.7",
+    "vite-plugin-dts": "^4.5.4"
   }
 }
