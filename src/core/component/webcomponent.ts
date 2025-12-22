@@ -25,7 +25,7 @@ import {
   DirectiveContext,
 } from "../directives/directiveProcessor";
 import { createRefsProxy } from "../helpers/frameworkHelpers";
-import { setComponentContext } from "../../utils/devWarnings";
+import { setComponentContext, warn } from "../../utils/devWarnings";
 
 /**
  * Creates a Web Component class from a Ladrillos component definition.
@@ -413,13 +413,47 @@ export function createWebComponentClass(
      */
     private _getAttributeOverrides(): Record<string, unknown> {
       const overrides: Record<string, unknown> = {};
+      const skippedReserved: string[] = [];
 
       // Collect all attributes on the element
       for (const attr of Array.from(this.attributes)) {
         // Skip standard HTML attributes and framework internals
-        if (this._isReservedAttribute(attr.name)) continue;
+        if (this._isReservedAttribute(attr.name)) {
+          // Track reserved attributes that look like they might be intended as state
+          // (have a non-empty value that's not a standard HTML usage)
+          if (attr.value && attr.value.trim() !== "") {
+            skippedReserved.push(attr.name);
+          }
+          continue;
+        }
 
         overrides[attr.name] = this._parseAttributeValue(attr.value);
+      }
+
+      // Warn developers about reserved attributes that were skipped
+      if (skippedReserved.length > 0) {
+        const suggestions = skippedReserved.map((name) => {
+          const alternatives: Record<string, string> = {
+            title: "heading",
+            class: "className",
+            style: "customStyle",
+            id: "componentId",
+            hidden: "isHidden",
+          };
+          const alt =
+            alternatives[name] ||
+            `my${name.charAt(0).toUpperCase()}${name.slice(1)}`;
+          return `"${name}" → try "${alt}"`;
+        });
+
+        warn(
+          `Reserved HTML attribute(s) used on <${tagName}>: ${skippedReserved
+            .map((n) => `"${n}"`)
+            .join(", ")}.\n` +
+            `  These won't be available as component state because they're standard HTML attributes.\n` +
+            `  Suggestions: ${suggestions.join(", ")}`,
+          { tagName, sourcePath }
+        );
       }
 
       return overrides;
@@ -458,6 +492,9 @@ export function createWebComponentClass(
      *   "" (empty) -> true (boolean attribute)
      *   '[1,2,3]' / '{"a":1}' -> parsed JSON
      *   anything else -> string
+     *
+     * Note: HTML entities are automatically decoded by the browser when
+     * reading attribute values, so '&quot;' becomes '"' before we see it.
      */
     private _parseAttributeValue(value: string | null): unknown {
       if (value === null) return null;
@@ -470,11 +507,18 @@ export function createWebComponentClass(
       if (!isNaN(num) && value.trim() !== "") return num;
 
       // Try JSON parse for objects/arrays
+      // The browser already decodes HTML entities (&quot; -> ") when we read the attribute
       try {
-        return JSON.parse(value);
+        const trimmed = value.trim();
+        // Only try JSON parse if it looks like JSON (starts with [ or {)
+        if (trimmed.startsWith("[") || trimmed.startsWith("{")) {
+          return JSON.parse(trimmed);
+        }
       } catch {
-        return value; // Return as string
+        // Not valid JSON, return as string
       }
+
+      return value;
     }
 
     /**

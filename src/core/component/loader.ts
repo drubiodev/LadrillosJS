@@ -3,8 +3,8 @@ import { getCachedComponentSource, setCachedComponentSource } from "./cache";
 /**
  * Resolves a component path, supporting folder-as-component pattern.
  * If the path doesn't end with .html, tries to resolve as:
- * 1. Direct path (in case it's a file without extension configured by server)
- * 2. path/index.html (folder-as-component convention)
+ * 1. path/index.html (folder-as-component convention) - tried first to avoid 404 console noise
+ * 2. Direct path (in case it's a file without extension configured by server)
  *
  * @example
  * // These are equivalent:
@@ -29,7 +29,19 @@ async function resolveComponentPath(
     ? basePath.slice(0, -1)
     : basePath;
 
-  // Try direct path first (some servers might serve HTML without extension)
+  // Try folder/index.html pattern FIRST (folder-as-component convention)
+  // This avoids 404 console errors from trying the direct path first
+  const indexPath = `${normalizedPath}/index.html`;
+  try {
+    const indexResponse = await fetch(indexPath);
+    if (indexResponse.ok) {
+      return { path: indexPath, response: indexResponse };
+    }
+  } catch {
+    // Ignore and try next resolution
+  }
+
+  // Fallback: Try direct path (some servers might serve HTML without extension)
   try {
     const directResponse = await fetch(normalizedPath);
     if (directResponse.ok) {
@@ -38,17 +50,6 @@ async function resolveComponentPath(
       if (contentType.includes("text/html")) {
         return { path: normalizedPath, response: directResponse };
       }
-    }
-  } catch {
-    // Ignore and try next resolution
-  }
-
-  // Try folder/index.html pattern (folder-as-component convention)
-  const indexPath = `${normalizedPath}/index.html`;
-  try {
-    const indexResponse = await fetch(indexPath);
-    if (indexResponse.ok) {
-      return { path: indexPath, response: indexResponse };
     }
   } catch {
     // Ignore
