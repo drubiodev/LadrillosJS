@@ -20,28 +20,12 @@ import {
   lazyOnDelay,
 } from "./core/lazy";
 
-// Import dev warning utilities for users who want to customize error handling
-import {
-  setComponentContext,
-  getComponentContext,
-  ComponentContext,
-  warn,
-  error,
-  expressionError,
-  scriptError,
-  deprecate,
-  ErrorCode,
-  getErrorDocsUrl,
-  __DEV__,
-} from "./utils/devWarnings";
-
 // Export types for TypeScript users
 export type {
   ComponentConfig,
   RegisterComponentsResult,
   EventCallback,
   LazyStrategy,
-  ComponentContext,
 };
 
 // Export lazy loading strategies
@@ -51,20 +35,6 @@ export {
   lazyOnMedia,
   lazyOnInteraction,
   lazyOnDelay,
-};
-
-// Export dev warning utilities for advanced users
-export {
-  setComponentContext,
-  getComponentContext,
-  warn,
-  error,
-  expressionError,
-  scriptError,
-  deprecate,
-  ErrorCode,
-  getErrorDocsUrl,
-  __DEV__,
 };
 
 // Legacy export (for backwards compatibility)
@@ -106,15 +76,4 @@ export default {
   lazyOnMedia,
   lazyOnInteraction,
   lazyOnDelay,
-  // Dev warning utilities
-  setComponentContext,
-  getComponentContext,
-  warn,
-  error,
-  expressionError,
-  scriptError,
-  deprecate,
-  ErrorCode,
-  getErrorDocsUrl,
-  __DEV__,
 };
