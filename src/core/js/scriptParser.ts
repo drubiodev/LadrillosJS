@@ -669,7 +669,7 @@ function executeScriptWithReactiveState(
 ): void {
   try {
     const variableNames = extractVariableNames(content);
-    
+
     // Combine script variables with template bindings for transformation
     // This allows scripts to reference auto-bound props like {title} -> title
     const allVariables = [...new Set([...variableNames, ...templateBindings])];
@@ -794,10 +794,15 @@ function transformToStateAccess(code: string, variables: string[]): string {
         let transformedExpr = expr;
         for (const varName of variables) {
           const pattern = new RegExp(
-            `(?<![^.]\\.)(?<!__state__\\.)\\b${escapeRegex(varName)}\\b(?!\\s*[:(])`,
+            `(?<![^.]\\.)(?<!__state__\\.)\\b${escapeRegex(
+              varName
+            )}\\b(?!\\s*[:(])`,
             "g"
           );
-          transformedExpr = transformedExpr.replace(pattern, `__state__.${varName}`);
+          transformedExpr = transformedExpr.replace(
+            pattern,
+            `__state__.${varName}`
+          );
         }
         return `\${${transformedExpr}}`;
       });
