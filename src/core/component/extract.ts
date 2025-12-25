@@ -1,6 +1,76 @@
 import { LadrillosComponent } from "../../types";
+import { REGEX_PATTERNS } from "../../utils/regex";
 
 const parser = new DOMParser();
+
+/**
+ * Extracts simple variable names from template bindings.
+ * Only extracts top-level identifiers (e.g., 'title' from {title}, 'name' from {name.first}).
+ * Ignores complex expressions, function calls, and literals.
+ */
+function extractTemplateBindingVariables(template: string): string[] {
+  const variables = new Set<string>();
+  const matches = template.matchAll(REGEX_PATTERNS.bindings);
+
+  for (const match of matches) {
+    const expression = match[1].trim();
+    // Extract the first identifier (handles both 'title' and 'user.name' -> 'user')
+    const identifierMatch = expression.match(/^([a-zA-Z_$][a-zA-Z0-9_$]*)/);
+    if (identifierMatch) {
+      const varName = identifierMatch[1];
+      // Skip JavaScript keywords, literals, and common globals
+      const skipList = [
+        "true",
+        "false",
+        "null",
+        "undefined",
+        "new",
+        "this",
+        "typeof",
+        "instanceof",
+        "void",
+        "delete",
+        "in",
+        "of",
+        "if",
+        "else",
+        "for",
+        "while",
+        "do",
+        "switch",
+        "case",
+        "break",
+        "continue",
+        "return",
+        "throw",
+        "try",
+        "catch",
+        "finally",
+        "function",
+        "class",
+        "const",
+        "let",
+        "var",
+        "Math",
+        "Date",
+        "JSON",
+        "Array",
+        "Object",
+        "String",
+        "Number",
+        "Boolean",
+        "console",
+        "window",
+        "document",
+      ];
+      if (!skipList.includes(varName)) {
+        variables.add(varName);
+      }
+    }
+  }
+
+  return Array.from(variables);
+}
 
 export async function parseComponent(
   source: string,
@@ -135,6 +205,9 @@ export async function parseComponent(
     html = doc.body.innerHTML.trim();
   }
 
+  // Extract variable names from template bindings for auto-attribute observation
+  const templateBindings = extractTemplateBindingVariables(html);
+
   return {
     tagName: name,
     template: html,
@@ -144,6 +217,7 @@ export async function parseComponent(
     styles: styles,
     sourcePath: componentUrl,
     lazy: false,
+    templateBindings,
   };
 }
 

@@ -44,6 +44,7 @@ const getHostElement = (host: HTMLElement | ShadowRoot): HTMLElement =>
  * @param componentUrl - The absolute URL of the component (for resolving relative paths in $registerComponent)
  * @param componentId - Optional unique ID for this component instance (for event bus cleanup)
  * @param refs - Optional refs Map (for $refs access in scripts)
+ * @param templateBindings - Variable names from template bindings (for auto-prop access in scripts)
  * @returns The reactive state object - changes trigger automatic DOM updates
  */
 export async function loadScripts(
@@ -55,7 +56,8 @@ export async function loadScripts(
   deferBindings: boolean = false,
   componentUrl?: string,
   componentId?: string,
-  refs?: Map<string, HTMLElement>
+  refs?: Map<string, HTMLElement>,
+  templateBindings: string[] = []
 ): Promise<Record<string, unknown>> {
   const componentHost = getHostElement(host);
   const initialState: Record<string, unknown> = {};
@@ -63,18 +65,9 @@ export async function loadScripts(
   // Collect all script content for re-execution in event handlers
   const allScriptContent = scripts.map((s) => s.content).join("\n");
 
-  // Phase 1: Extract initial values ONLY (no side effects)
-  // This gets default values for variables without running $listen, etc.
-  for (const script of scripts) {
-    const members = extractScriptMembersValuesOnly(script.content);
-    for (const [key, value] of members) {
-      initialState[key] = value;
-    }
-  }
-
-  // Apply attribute overrides - ATTRIBUTES WIN over script defaults
-  // Also creates state entries for attributes that don't have script defaults
-  // This allows: <my-component count="5"> without needing `let count` in script
+  // Apply attribute overrides FIRST - these are the prop values from usage
+  // This allows: <my-component title="Data"> to make title="Data" available
+  // before any script code runs
   for (const [key, value] of Object.entries(attributeOverrides)) {
     initialState[key] = value;
   }
@@ -86,6 +79,7 @@ export async function loadScripts(
   (initialState as any).__componentId = componentId;
 
   // Create reactive state - changes automatically update the DOM!
+  // Start with attribute overrides so script code can reference them
   const reactiveState = createReactiveState(
     initialState,
     bindings,
@@ -93,8 +87,11 @@ export async function loadScripts(
     onStateChange
   );
 
-  // Phase 2: Re-execute scripts with __state__ transformation
-  // This ensures $listen callbacks and other side effects use the reactive state
+  // Execute scripts with __state__ transformation
+  // Scripts run with attribute values already in state
+  // `let title = "Default"` becomes `__state__.title ??= "Default"`
+  // Since title is already "Data" from attributes, ??= won't overwrite it
+  // Derived values like `const test = ${title}...` will use the attribute value
   for (const script of scripts) {
     executeScriptWithReactiveState(
       script.content,
@@ -102,7 +99,8 @@ export async function loadScripts(
       componentUrl,
       componentId,
       componentHost, // Pass host element for $host access
-      refs // Pass refs for $refs access
+      refs, // Pass refs for $refs access
+      templateBindings // Pass template bindings so auto-props are accessible
     );
   }
 
@@ -658,6 +656,7 @@ function extractScriptMembersValuesOnly(content: string): Map<string, unknown> {
  * @param componentId - The component's ID for event bus cleanup
  * @param hostElement - The component's host element (for $host access)
  * @param refs - Optional refs Map (for $refs access)
+ * @param templateBindings - Variable names from template bindings (auto-props)
  */
 function executeScriptWithReactiveState(
   content: string,
@@ -665,13 +664,18 @@ function executeScriptWithReactiveState(
   componentUrl?: string,
   componentId?: string,
   hostElement?: HTMLElement,
-  refs?: Map<string, HTMLElement>
+  refs?: Map<string, HTMLElement>,
+  templateBindings: string[] = []
 ): void {
   try {
     const variableNames = extractVariableNames(content);
+    
+    // Combine script variables with template bindings for transformation
+    // This allows scripts to reference auto-bound props like {title} -> title
+    const allVariables = [...new Set([...variableNames, ...templateBindings])];
 
     // Transform the script to use __state__ for variable access
-    const transformedContent = transformToStateAccess(content, variableNames);
+    const transformedContent = transformToStateAccess(content, allVariables);
 
     const sourceUrl = componentUrl || "ladrillos-component";
     const wrappedScript = `
@@ -768,17 +772,39 @@ function escapeRegex(str: string): string {
 function transformToStateAccess(code: string, variables: string[]): string {
   if (variables.length === 0) return code;
 
-  // Step 1: Protect string literals by replacing them with placeholders
+  // Step 1: Protect regular string literals (single and double quotes) with placeholders
+  // Template literals are handled separately to allow transforming expressions inside ${}
   const strings: string[] = [];
   let protected_code = code.replace(
-    /(["'`])(?:(?!\1)[^\\]|\\.)*\1/g,
+    /(["'])(?:(?!\1)[^\\]|\\.)*\1/g,
     (match) => {
       strings.push(match);
       return `__STRING_PLACEHOLDER_${strings.length - 1}__`;
     }
   );
 
-  // Step 2: Transform top-level variable declarations
+  // Step 2: Handle template literals specially - transform expressions inside ${}
+  // Match template literals and process their interpolations
+  protected_code = protected_code.replace(
+    /`(?:[^`\\$]|\\.|\$(?!\{)|\$\{[^}]*\})*`/g,
+    (templateLiteral) => {
+      // Transform expressions inside ${...}
+      return templateLiteral.replace(/\$\{([^}]+)\}/g, (match, expr) => {
+        // Transform variable references in the expression
+        let transformedExpr = expr;
+        for (const varName of variables) {
+          const pattern = new RegExp(
+            `(?<![^.]\\.)(?<!__state__\\.)\\b${escapeRegex(varName)}\\b(?!\\s*[:(])`,
+            "g"
+          );
+          transformedExpr = transformedExpr.replace(pattern, `__state__.${varName}`);
+        }
+        return `\${${transformedExpr}}`;
+      });
+    }
+  );
+
+  // Step 3: Transform top-level variable declarations
   // `let x = value;` → `__state__.x ??= value;`
   // Use ??= to preserve attribute overrides (attributes win over script defaults)
   for (const varName of variables) {
@@ -792,7 +818,7 @@ function transformToStateAccess(code: string, variables: string[]): string {
     );
   }
 
-  // Step 3: Replace all standalone variable references with __state__.varName
+  // Step 4: Replace all standalone variable references with __state__.varName
   // Do this iteratively to handle all occurrences
   for (const varName of variables) {
     // This regex matches the variable name that is:
@@ -812,7 +838,7 @@ function transformToStateAccess(code: string, variables: string[]): string {
     protected_code = protected_code.replace(pattern, `__state__.${varName}`);
   }
 
-  // Step 4: Restore string literals
+  // Step 5: Restore regular string literals
   let transformed = protected_code;
   for (let i = 0; i < strings.length; i++) {
     transformed = transformed.replace(

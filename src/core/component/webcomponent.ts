@@ -58,12 +58,19 @@ export function createWebComponentClass(
     externalStyles,
     styles,
     sourcePath,
+    templateBindings = [],
   } = component;
 
   // Pre-extract variable names from scripts for observedAttributes
   // This runs once when the component class is defined
   const allScriptContent = scripts.map((s) => s.content).join("\n");
   const declaredVariables = extractVariableNames(allScriptContent);
+
+  // Combine script variables + template binding variables for observed attributes
+  // This allows {title} in template to auto-bind from title="value" attribute
+  const allObservedAttributes = [
+    ...new Set([...declaredVariables, ...templateBindings]),
+  ];
 
   class LadrillosWebComponent extends HTMLElement {
     // =========================================================================
@@ -72,11 +79,11 @@ export function createWebComponentClass(
 
     /**
      * Attributes to observe for changes.
-     * Automatically derived from script variable declarations.
+     * Derived from both script variable declarations AND template bindings.
      * When these attributes change, attributeChangedCallback is called.
      */
     static get observedAttributes(): string[] {
-      return declaredVariables;
+      return allObservedAttributes;
     }
 
     // =========================================================================
@@ -186,6 +193,7 @@ export function createWebComponentClass(
       // Pass sourcePath so $registerComponent resolves paths relative to this component
       // Pass componentId so event bus listeners can be cleaned up on disconnect
       // Pass earlyRefs so scripts can access $refs immediately
+      // Pass templateBindings so auto-props are accessible in scripts
       this.state = await loadScripts(
         this._root,
         regularScripts,
@@ -195,7 +203,8 @@ export function createWebComponentClass(
         hasModuleScripts, // deferBindings = true if we have module scripts
         sourcePath, // componentUrl for correct path resolution
         this._componentId, // componentId for event bus cleanup
-        earlyRefs // refs for $refs access in scripts
+        earlyRefs, // refs for $refs access in scripts
+        templateBindings // auto-props from template bindings
       );
 
       // Register the onStateChange callback globally so external module scripts
@@ -417,7 +426,8 @@ export function createWebComponentClass(
 
       // Collect all attributes on the element
       for (const attr of Array.from(this.attributes)) {
-        // Skip standard HTML attributes and framework internals
+        // Skip standard HTML attributes UNLESS they're explicitly used in template bindings
+        // This allows {title} in template to work with title="value" attribute
         if (this._isReservedAttribute(attr.name)) {
           // Track reserved attributes that look like they might be intended as state
           // (have a non-empty value that's not a standard HTML usage)
@@ -431,8 +441,12 @@ export function createWebComponentClass(
       }
 
       // Warn developers about reserved attributes that were skipped
-      if (skippedReserved.length > 0) {
-        const suggestions = skippedReserved.map((name) => {
+      // (only if they're not in template bindings - those are intentional)
+      const actuallySkipped = skippedReserved.filter(
+        (name) => !templateBindings.includes(name)
+      );
+      if (actuallySkipped.length > 0) {
+        const suggestions = actuallySkipped.map((name) => {
           const alternatives: Record<string, string> = {
             title: "heading",
             class: "className",
@@ -447,7 +461,7 @@ export function createWebComponentClass(
         });
 
         warn(
-          `Reserved HTML attribute(s) used on <${tagName}>: ${skippedReserved
+          `Reserved HTML attribute(s) used on <${tagName}>: ${actuallySkipped
             .map((n) => `"${n}"`)
             .join(", ")}.\n` +
             `  These won't be available as component state because they're standard HTML attributes.\n` +
@@ -462,8 +476,16 @@ export function createWebComponentClass(
     /**
      * Checks if an attribute is a reserved HTML attribute that shouldn't
      * become component state.
+     *
+     * Exception: If the attribute is explicitly used in template bindings,
+     * it's allowed (e.g., {title} in template makes title attribute valid).
      */
     private _isReservedAttribute(name: string): boolean {
+      // If explicitly used in template bindings, allow it
+      if (templateBindings.includes(name)) {
+        return false;
+      }
+
       const reserved = [
         "id",
         "class",

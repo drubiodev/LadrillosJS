@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Co-Driver</title>
+    <!-- Use local CDN build instead of actual CDN -->
+    <script src="http://localhost:3000/ladrillos.iife.js"></script>
+    <script type="module">
+      await ladrillosjs.registerComponents([
+        {
+          name: "header-component",
+          path: "/components/header",
+        },
+      ]);
+    </script>
+  </head>
+  <body>
+    <header-component title="Data"></header-component>
+  </body>
+</html>

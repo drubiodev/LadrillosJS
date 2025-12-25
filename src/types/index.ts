@@ -23,6 +23,11 @@ export type LadrillosComponent = {
   styles: string;
   sourcePath?: string;
   lazy?: boolean;
+  /**
+   * Variable names found in template bindings (e.g., {title} -> 'title').
+   * Used to auto-observe attributes that map to template expressions.
+   */
+  templateBindings?: string[];
 };
 
 export type ComponentRegistration = {
