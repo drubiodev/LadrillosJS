@@ -1,0 +1,35 @@
+<input
+  type="search"
+  placeholder="Search..."
+  $ref="searchInput"
+  onkeyup="searchData()"
+/>
+<div $if="loading">LOADING....</div>
+<ul $else>
+  <li $for="item in data">({item.id}) {item.name}</li>
+</ul>
+
+<script>
+  let data = [];
+  let loading = false;
+
+  const searchData = () => {
+    loading = true;
+    console.log($refs.searchInput.value);
+
+    fetch("/api/search?query=" + encodeURIComponent($refs.searchInput.value))
+      .then((response) => response.json())
+      .then((result) => {
+        console.log("Search results:", result);
+        data = result;
+      })
+      .catch((error) => {
+        console.error("Error fetching search results:", error);
+      })
+      .finally(() => {
+        setTimeout(() => {
+          loading = false;
+        }, 500);
+      });
+  };
+</script>

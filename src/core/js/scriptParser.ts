@@ -301,14 +301,31 @@ function createVanillaEventHandler(
     // For module scripts: skip all functions (they're reactive and manage state directly)
     // For regular scripts: recreate ALL functions to get fresh variable bindings
     const functionsToSkip = hasModuleScriptFunctions ? funcNames : [];
-    const funcDefs = extractFunctionDefinitions(scriptContent, functionsToSkip);
+    const rawFuncDefs = extractFunctionDefinitions(
+      scriptContent,
+      functionsToSkip
+    );
 
-    // Only sync back for regular scripts (no module functions)
-    // Module script functions modify state directly via __state__, so syncing
-    // local copies back would OVERWRITE their changes!
-    const syncBack = hasModuleScriptFunctions
-      ? ""
-      : varNames.map((key) => `state.${key} = ${key};`).join(" ");
+    // Transform function definitions to use state.varName for variable access
+    // This ensures async callbacks (like .then()) write directly to reactive state
+    // instead of local destructured copies that won't be synced back
+    const funcDefs = transformFunctionDefsToStateAccess(rawFuncDefs, varNames);
+
+    // Since functions are now transformed to write directly to state.varName,
+    // we no longer need sync-back. Sync-back would actually OVERWRITE changes
+    // made inside functions with the stale local copies.
+    // Only sync back for inline code that modifies variables directly (e.g., onclick="count++")
+    // We detect this by checking if the handler code itself references any state variables
+    const codeReferencesVars = varNames.some((v) =>
+      new RegExp(`\\b${v}\\b`).test(code)
+    );
+    const syncBack =
+      hasModuleScriptFunctions || !codeReferencesVars
+        ? ""
+        : varNames
+            .filter((key) => new RegExp(`\\b${key}\\b`).test(code))
+            .map((key) => `state.${key} = ${key};`)
+            .join(" ");
 
     // Check if the code or any function definitions use async/await
     const isAsync =
@@ -844,6 +861,85 @@ function transformToStateAccess(code: string, variables: string[]): string {
   }
 
   // Step 5: Restore regular string literals
+  let transformed = protected_code;
+  for (let i = 0; i < strings.length; i++) {
+    transformed = transformed.replace(
+      `__STRING_PLACEHOLDER_${i}__`,
+      strings[i]
+    );
+  }
+
+  return transformed;
+}
+
+/**
+ * Transforms function definitions to use state.varName for variable access.
+ * This ensures async callbacks (like .then()) write directly to reactive state
+ * instead of local destructured copies.
+ *
+ * Example:
+ *   const searchData = async () => { data = result; }
+ * Becomes:
+ *   const searchData = async () => { state.data = result; }
+ *
+ * This is different from transformToStateAccess (which uses __state__) because
+ * event handlers pass the state as "state" parameter.
+ */
+function transformFunctionDefsToStateAccess(
+  funcDefs: string,
+  variables: string[]
+): string {
+  if (!funcDefs || variables.length === 0) return funcDefs;
+
+  // Step 1: Protect string literals from transformation
+  const strings: string[] = [];
+  let protected_code = funcDefs.replace(
+    /"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'/g,
+    (match) => {
+      strings.push(match);
+      return `__STRING_PLACEHOLDER_${strings.length - 1}__`;
+    }
+  );
+
+  // Step 2: Handle template literals - transform expressions inside ${}
+  protected_code = protected_code.replace(
+    /`(?:[^`\\$]|\\.|\$(?!\{)|\$\{[^}]*\})*`/g,
+    (templateLiteral) => {
+      return templateLiteral.replace(/\$\{([^}]+)\}/g, (match, expr) => {
+        let transformedExpr = expr;
+        for (const varName of variables) {
+          const pattern = new RegExp(
+            `(?<![^.]\\.)(?<!state\\.)\\b${escapeRegex(
+              varName
+            )}\\b(?!\\s*[:(])`,
+            "g"
+          );
+          transformedExpr = transformedExpr.replace(
+            pattern,
+            `state.${varName}`
+          );
+        }
+        return `\${${transformedExpr}}`;
+      });
+    }
+  );
+
+  // Step 3: Replace variable references with state.varName
+  // Skip function parameter names by not transforming inside parameter lists
+  for (const varName of variables) {
+    // Match variable that is:
+    // - NOT preceded by a dot (property access)
+    // - NOT preceded by state. (already transformed)
+    // - IS a word boundary
+    // - NOT followed by : (object key) or ( (function declaration)
+    const pattern = new RegExp(
+      `(?<![^.]\\.)(?<!state\\.)\\b${escapeRegex(varName)}\\b(?!\\s*[:(])`,
+      "g"
+    );
+    protected_code = protected_code.replace(pattern, `state.${varName}`);
+  }
+
+  // Step 4: Restore string literals
   let transformed = protected_code;
   for (let i = 0; i < strings.length; i++) {
     transformed = transformed.replace(
