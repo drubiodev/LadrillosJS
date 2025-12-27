@@ -1,0 +1,19 @@
+/* variables */
+:root {
+  --color-bg: #0a0a0a;
+  --color-text: #fdfdfd;
+  --max-width: 56rem;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  font-family: Arial, sans-serif;
+  background-color: var(--color-bg);
+  color: var(--color-text);
+}
