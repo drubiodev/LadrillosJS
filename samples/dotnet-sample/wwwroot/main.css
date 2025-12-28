@@ -17,3 +17,9 @@ body {
   background-color: var(--color-bg);
   color: var(--color-text);
 }
+
+main {
+  max-width: var(--max-width);
+  margin: 0 auto;
+  padding: 1rem;
+}

@@ -58,16 +58,31 @@ async function resolveComponentPath(
   return null;
 }
 
+/**
+ * Result of fetching a component source
+ */
+export interface FetchComponentResult {
+  /** The HTML source content */
+  source: string;
+  /** The actual resolved path (may differ from input for folder-as-component) */
+  resolvedPath: string;
+}
+
 export async function fetchComponentSource(
   path: string
-): Promise<string | undefined> {
+): Promise<FetchComponentResult | undefined> {
   if (!path) {
     throw new Error("Path cannot be null or empty");
   }
 
   // check cache for component source
   const cachedSource = getCachedComponentSource(path);
-  if (cachedSource) return cachedSource;
+  if (cachedSource) {
+    // Return cached source with the original path
+    // (we can't know the resolved path from cache alone, but the caller
+    // should use the resolvedPath from the first fetch)
+    return { source: cachedSource, resolvedPath: path };
+  }
 
   try {
     const resolved = await resolveComponentPath(path);
@@ -89,7 +104,7 @@ export async function fetchComponentSource(
       setCachedComponentSource(resolved.path, text);
     }
 
-    return text;
+    return { source: text, resolvedPath: resolved.path };
   } catch (error) {
     console.error(`Error fetching component from ${path}:`, error);
     return undefined;

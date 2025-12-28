@@ -1237,10 +1237,15 @@ export async function executeModuleScriptWithReactivity(
   const returnStatement =
     functions.length > 0 ? `return { ${functions.join(", ")} };` : `return {};`;
 
+  // Wrap in an async IIFE to support top-level await in module scripts
+  // This allows users to write: await ladrillosjs.registerComponents([...])
+  // without needing to wrap it in an async function themselves
   const wrappedCode = `
     "use strict";
-    ${transformedCode}
-    ${returnStatement}
+    return (async () => {
+      ${transformedCode}
+      ${returnStatement}
+    })();
   `;
 
   try {
@@ -1291,6 +1296,17 @@ export async function executeModuleScriptWithReactivity(
       eventBusHelpers.$listen,
     ];
 
+    // Create a context-aware ladrillosjs object that resolves paths relative to this component
+    // This allows users to use either ladrillosjs.registerComponents() or $registerComponents()
+    // We spread the global object FIRST, then override with context-aware versions
+    const globalLadrillos = (globalThis as any).ladrillosjs || {};
+    const contextAwareLadrillosjs = {
+      ...globalLadrillos,
+      // Override with context-aware versions that resolve paths relative to THIS component
+      registerComponent: helpers.$registerComponent,
+      registerComponents: helpers.$registerComponents,
+    };
+
     // Add framework helpers ($registerComponent, $use, $emit, $listen, etc.)
     const allParamNames = [
       ...importNames,
@@ -1298,6 +1314,7 @@ export async function executeModuleScriptWithReactivity(
       ...frameworkHelperNames,
       ...eventBusHelperNames,
       ...injectedVars,
+      "ladrillosjs", // Inject context-aware ladrillosjs
     ];
     const allParamValues = [
       ...importValues,
@@ -1305,11 +1322,13 @@ export async function executeModuleScriptWithReactivity(
       ...frameworkHelperValues,
       ...eventBusHelperValues,
       ...injectedValues,
+      contextAwareLadrillosjs,
     ];
 
     const fn = new Function(...allParamNames, wrappedCode);
 
-    const result = fn(...allParamValues);
+    // The function now returns a Promise due to the async IIFE wrapper
+    const result = await fn(...allParamValues);
 
     // Return both the initial values (from __state__) and functions
     // The reactiveState object now contains all variables set by the module script

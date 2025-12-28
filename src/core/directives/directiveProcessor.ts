@@ -27,6 +27,12 @@ import {
 } from "../../utils/directives";
 import { EVENT_ATTRIBUTES } from "../../utils/jsevents";
 import {
+  isEventDirective,
+  parseEventDirective,
+  createModifiedHandler,
+  getListenerOptions,
+} from "../../utils/keyModifiers";
+import {
   extractFunctionDefinitions,
   extractVariableNames,
 } from "../js/scriptParser";
@@ -670,6 +676,10 @@ function processElementBindings(
  * Transforms inline event handlers (onclick, oninput, etc.) on an element
  * into proper event listeners with access to component scope.
  *
+ * Also handles $on: event directives with key/event modifiers:
+ *   $on:keyup.enter="submit()"
+ *   $on:click.prevent="handleClick()"
+ *
  * This is called during loop rendering to make syntax like:
  *   onclick="sendMessage('{suggestion}')"
  * work correctly - the binding is already replaced with the actual value.
@@ -678,6 +688,7 @@ function transformLoopEventHandlers(
   element: Element,
   context: Record<string, unknown>
 ): void {
+  // Process standard inline event handlers (onclick, oninput, etc.)
   for (const attrName of EVENT_ATTRIBUTES) {
     const handlerCode = element.getAttribute(attrName);
 
@@ -694,6 +705,48 @@ function transformLoopEventHandlers(
         element.addEventListener(eventName, handler);
       }
     }
+  }
+
+  // Process $on: event directives with modifiers
+  processLoopEventDirectives(element, context);
+}
+
+/**
+ * Processes $on: event directives on loop-rendered elements.
+ *
+ * Syntax: $on:event.modifier1.modifier2="handler()"
+ *
+ * Examples:
+ *   $on:keyup.enter="submit()"
+ *   $on:click.ctrl.prevent="handleClick()"
+ */
+function processLoopEventDirectives(
+  element: Element,
+  context: Record<string, unknown>
+): void {
+  // Get all attributes that start with $on:
+  const attrs = Array.from(element.attributes);
+  const eventAttrs = attrs.filter((attr) => isEventDirective(attr.name));
+
+  for (const attr of eventAttrs) {
+    const parsed = parseEventDirective(attr.name);
+    if (!parsed) continue;
+
+    const handlerCode = attr.value;
+    element.removeAttribute(attr.name);
+
+    // Create the base event handler with loop context
+    const baseHandler = createLoopEventHandler(handlerCode, context);
+    if (!baseHandler) continue;
+
+    // Wrap the handler with modifier checks
+    const modifiedHandler = createModifiedHandler(baseHandler, parsed);
+
+    // Get listener options (passive, capture, once)
+    const options = getListenerOptions(parsed.eventModifiers);
+
+    // Add the event listener
+    element.addEventListener(parsed.eventName, modifiedHandler, options);
   }
 }
 

@@ -6,6 +6,12 @@ import {
   RESERVED_WORDS,
 } from "../../utils/sandbox";
 import {
+  isEventDirective,
+  parseEventDirective,
+  createModifiedHandler,
+  getListenerOptions,
+} from "../../utils/keyModifiers";
+import {
   expressionError,
   scriptError,
   warn,
@@ -161,6 +167,10 @@ export function applyBindingsDeferred(
  * This is what makes vanilla HTML syntax work:
  *   <button onclick="handleClick()">  →  just works!
  *
+ * Also handles $on: directives with key/event modifiers:
+ *   <input $on:keyup.enter="submit()">  →  calls submit() only on Enter key
+ *   <button $on:click.prevent="handleClick()">  →  prevents default and calls handler
+ *
  * NOTE: Skips elements inside $for loops - those are handled by the loop renderer.
  */
 function transformInlineEventHandlers(
@@ -178,6 +188,7 @@ function transformInlineEventHandlers(
       continue;
     }
 
+    // Process standard inline event handlers (onclick, oninput, etc.)
     for (const attrName of EVENT_ATTRIBUTES) {
       const handlerCode = element.getAttribute(attrName);
 
@@ -200,6 +211,58 @@ function transformInlineEventHandlers(
         }
       }
     }
+
+    // Process $on: event directives with modifiers
+    processEventDirectives(element, state, scriptContent, componentHost);
+  }
+}
+
+/**
+ * Processes $on: event directives on an element.
+ *
+ * Syntax: $on:event.modifier1.modifier2="handler()"
+ *
+ * Examples:
+ *   $on:keyup.enter="submit()"
+ *   $on:click.ctrl.prevent="handleClick()"
+ *   $on:keydown.escape="closeModal()"
+ *   $on:keydown.w="moveUp()"
+ */
+function processEventDirectives(
+  element: Element,
+  state: Record<string, unknown>,
+  scriptContent: string,
+  componentHost: HTMLElement
+): void {
+  // Get all attributes that start with $on:
+  const attrs = Array.from(element.attributes);
+  const eventAttrs = attrs.filter((attr) => isEventDirective(attr.name));
+
+  for (const attr of eventAttrs) {
+    const parsed = parseEventDirective(attr.name);
+    if (!parsed) continue;
+
+    const handlerCode = attr.value;
+    element.removeAttribute(attr.name);
+
+    // Create the base event handler with component context
+    const baseHandler = createVanillaEventHandler(
+      handlerCode,
+      state,
+      scriptContent,
+      componentHost
+    );
+
+    if (!baseHandler) continue;
+
+    // Wrap the handler with modifier checks
+    const modifiedHandler = createModifiedHandler(baseHandler, parsed);
+
+    // Get listener options (passive, capture, once)
+    const options = getListenerOptions(parsed.eventModifiers);
+
+    // Add the event listener
+    element.addEventListener(parsed.eventName, modifiedHandler, options);
   }
 }
 

@@ -101,12 +101,17 @@ async function loadLazyComponent(name: string): Promise<string> {
 
   // Create shared loading promise
   const loadPromise = (async () => {
-    const source = await fetchComponentSource(config.absolutePath);
-    if (!source) {
+    const fetchResult = await fetchComponentSource(config.absolutePath);
+    if (!fetchResult) {
       throw new Error(`Failed to fetch component source for "${name}"`);
     }
 
-    const component = await parseComponent(source, name, config.absolutePath);
+    // Use the resolved path for correct relative path resolution in child components
+    const component = await parseComponent(
+      fetchResult.source,
+      name,
+      fetchResult.resolvedPath
+    );
 
     // Store in registry
     componentsRegistry[name] = component;

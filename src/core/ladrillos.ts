@@ -73,8 +73,18 @@ class Ladrillos {
 
     // Eager loading: Fetch and define component immediately
     try {
-      const source = await fetchComponentSource(absolutePath);
-      const component = await parseComponent(source || "", name, absolutePath);
+      const fetchResult = await fetchComponentSource(absolutePath);
+      if (!fetchResult) {
+        throw new Error(
+          `Failed to fetch component source from ${absolutePath}`
+        );
+      }
+      // Use the resolved path (e.g., /components/search/index.html instead of /components/search)
+      const component = await parseComponent(
+        fetchResult.source,
+        name,
+        fetchResult.resolvedPath
+      );
 
       this.components[name] = component;
 
@@ -183,8 +193,8 @@ class Ladrillos {
     // Parallel fetch all eager component sources
     const fetchResults = await Promise.allSettled(
       eagerComponents.map(async (config) => {
-        const source = await fetchComponentSource(config.absolutePath);
-        return { config, source };
+        const result = await fetchComponentSource(config.absolutePath);
+        return { config, result };
       })
     );
 
@@ -195,17 +205,18 @@ class Ladrillos {
           throw fetchResult.reason;
         }
 
-        const { config, source } = fetchResult.value;
-        if (!source) {
+        const { config, result } = fetchResult.value;
+        if (!result) {
           throw new Error(
             `Failed to fetch component source from ${config.absolutePath}`
           );
         }
 
+        // Use the resolved path for correct relative path resolution in child components
         const component = await parseComponent(
-          source,
+          result.source,
           config.name,
-          config.absolutePath
+          result.resolvedPath
         );
         return { config, component };
       })
