@@ -4,12 +4,56 @@ import { REGEX_PATTERNS } from "../../utils/regex";
 const parser = new DOMParser();
 
 /**
+ * Extracts loop variable names from $for directives.
+ * These are locally scoped variables that should NOT be treated as state variables.
+ *
+ * Examples:
+ *   $for="item in items" → ["item"]
+ *   $for="(item, index) in items" → ["item", "index"]
+ *   $for="(user, i) in users" → ["user", "i"]
+ */
+function extractLoopVariables(template: string): Set<string> {
+  const loopVars = new Set<string>();
+
+  // Match $for="..." attribute values
+  // Pattern: $for="item in array" or $for="(item, index) in array"
+  const forRegex = /\$for\s*=\s*["']([^"']+)["']/g;
+
+  let match;
+  while ((match = forRegex.exec(template)) !== null) {
+    const forExpr = match[1].trim();
+
+    // Check for destructured form: (item, index) in array
+    const destructuredMatch = forExpr.match(
+      /^\(\s*([a-zA-Z_$][a-zA-Z0-9_$]*)\s*,\s*([a-zA-Z_$][a-zA-Z0-9_$]*)\s*\)\s+in\s+/
+    );
+    if (destructuredMatch) {
+      loopVars.add(destructuredMatch[1]); // item variable
+      loopVars.add(destructuredMatch[2]); // index variable
+      continue;
+    }
+
+    // Check for simple form: item in array
+    const simpleMatch = forExpr.match(/^([a-zA-Z_$][a-zA-Z0-9_$]*)\s+in\s+/);
+    if (simpleMatch) {
+      loopVars.add(simpleMatch[1]); // item variable
+    }
+  }
+
+  return loopVars;
+}
+
+/**
  * Extracts simple variable names from template bindings.
  * Only extracts top-level identifiers (e.g., 'title' from {title}, 'name' from {name.first}).
  * Ignores complex expressions, function calls, and literals.
+ *
+ * IMPORTANT: Excludes loop variables from $for directives, as those are locally
+ * scoped and should not be transformed to __state__ access.
  */
 function extractTemplateBindingVariables(template: string): string[] {
   const variables = new Set<string>();
+  const loopVariables = extractLoopVariables(template);
   const matches = template.matchAll(REGEX_PATTERNS.bindings);
 
   for (const match of matches) {
@@ -63,7 +107,8 @@ function extractTemplateBindingVariables(template: string): string[] {
         "window",
         "document",
       ];
-      if (!skipList.includes(varName)) {
+      // Skip loop variables (from $for directives) - they are locally scoped
+      if (!skipList.includes(varName) && !loopVariables.has(varName)) {
         variables.add(varName);
       }
     }

@@ -495,7 +495,7 @@ export function scriptError(
   const componentInfo = formatComponentInfo(ctx);
 
   if (supportsStyledConsole()) {
-    console.groupCollapsed(
+    console.group(
       `%c${PREFIX}%c Script Error%c${componentInfo}`,
       styles.prefix,
       styles.error,
