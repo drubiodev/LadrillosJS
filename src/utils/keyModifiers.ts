@@ -1,7 +1,6 @@
 /**
  * LadrillosJS Key Modifiers
  *
- * Provides Vue/Alpine-style key modifiers for event handling.
  * Supports keyboard keys, mouse modifiers, and event behavior modifiers.
  *
  * Syntax: $on:event.modifier1.modifier2="handler()"
