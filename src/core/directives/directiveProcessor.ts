@@ -635,6 +635,11 @@ function processElementBindings(
     if (attr.value.includes("{")) {
       const newValue = attr.value.replace(/\{([^}]+)\}/g, (_, expr) => {
         const result = evaluateExpression(expr.trim(), context);
+        // Serialize objects/arrays to JSON so child components can parse them
+        // This allows email="{item}" to pass the actual object, not "[object Object]"
+        if (result !== null && typeof result === "object") {
+          return JSON.stringify(result);
+        }
         return String(result ?? "");
       });
       attr.value = newValue;

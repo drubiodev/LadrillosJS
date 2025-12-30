@@ -130,7 +130,7 @@
 
 <div>
   <div $if="loading">LOADING....</div>
-  <search-card $for="item in data"></search-card>
+  <search-card $for="item in data" email="{item}"></search-card>
 </div>
 
 <script type="module">

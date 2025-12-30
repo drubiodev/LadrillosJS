@@ -1,0 +1,101 @@
+[
+  {
+    "id": "email_1759404204639_rcsddgue6",
+    "threadId": "email_1759404204639_oqluqiru9",
+    "from": "jake.miller@guitarworld.com",
+    "to": "me@example.com",
+    "subject": "Your Fender Stratocaster has shipped!",
+    "body": "Great news! Your American Professional II Stratocaster in Miami Blue is on its way. Expected delivery: January 3rd. Don't forget to check out our premium strap collection!",
+    "timestamp": "2025-12-28T14:32:00Z"
+  },
+  {
+    "id": "email_1759404204640_abc123xyz",
+    "threadId": "email_1759404204639_oqluqiru9",
+    "from": "me@example.com",
+    "to": "jake.miller@guitarworld.com",
+    "subject": "Re: Your Fender Stratocaster has shipped!",
+    "body": "That's awesome, thanks Jake! Quick question - does the guitar come with a case or gig bag? I want to make sure I have something ready for transport.",
+    "timestamp": "2025-12-28T15:45:00Z"
+  },
+  {
+    "id": "email_1759404204641_def456uvw",
+    "threadId": "email_1759404204639_oqluqiru9",
+    "from": "jake.miller@guitarworld.com",
+    "to": "me@example.com",
+    "subject": "Re: Your Fender Stratocaster has shipped!",
+    "body": "Great question! The American Professional II comes with Fender's deluxe molded hardshell case. You're all set! Let me know if you need anything else.",
+    "timestamp": "2025-12-28T16:20:00Z"
+  },
+  {
+    "id": "email_1759404305712_kxm2nfgh7",
+    "threadId": "email_1759404305712_plw8jk3m2",
+    "from": "support@spotify.com",
+    "to": "me@example.com",
+    "subject": "Your 2025 Wrapped is here! 🎵",
+    "body": "You listened to 47,832 minutes of music this year! Your top artist was Pink Floyd and your most played song was 'Comfortably Numb'. Check out your full Wrapped experience now.",
+    "timestamp": "2025-12-27T09:15:00Z"
+  },
+  {
+    "id": "email_1759404412845_vnb5rt9q1",
+    "threadId": "email_1759404412845_hjk7wer43",
+    "from": "newsletter@theverge.com",
+    "to": "me@example.com",
+    "subject": "Apple's M5 chip rumors are heating up",
+    "body": "This week in tech: Apple's next-gen M5 chip could deliver 40% better performance. Plus, NVIDIA announces new RTX 5090 specs, and why developers are excited about WebGPU.",
+    "timestamp": "2025-12-26T18:45:00Z"
+  },
+  {
+    "id": "email_1759404523978_qaz8plm56",
+    "threadId": "email_1759404523978_wsx3edc90",
+    "from": "lessons@justinguitar.com",
+    "to": "me@example.com",
+    "subject": "Week 4: Mastering Barre Chords 🎸",
+    "body": "Hey there! This week we're tackling the F major barre chord. I know it's tough, but with the exercises in this lesson, you'll nail it. Remember: practice 15 minutes daily beats 2 hours once a week!",
+    "timestamp": "2025-12-25T11:00:00Z"
+  },
+  {
+    "id": "email_1759404523979_ghi789rst",
+    "threadId": "email_1759404523978_wsx3edc90",
+    "from": "me@example.com",
+    "to": "lessons@justinguitar.com",
+    "subject": "Re: Week 4: Mastering Barre Chords 🎸",
+    "body": "Hi Justin! I've been practicing but my index finger keeps muting the high E string. Any tips for proper finger placement? Thanks!",
+    "timestamp": "2025-12-26T08:30:00Z"
+  },
+  {
+    "id": "email_1759404523980_jkl012mno",
+    "threadId": "email_1759404523978_wsx3edc90",
+    "from": "lessons@justinguitar.com",
+    "to": "me@example.com",
+    "subject": "Re: Week 4: Mastering Barre Chords 🎸",
+    "body": "Hey! That's super common. Try rolling your index finger slightly so the harder edge (near the thumb side) is pressing the strings instead of the flat pad. Also make sure you're close to the fret. Keep at it! 🎸",
+    "timestamp": "2025-12-26T10:15:00Z"
+  },
+  {
+    "id": "email_1759404634101_yhn2ujm78",
+    "threadId": "email_1759404634101_rfv6tgb34",
+    "from": "orders@sweetwater.com",
+    "to": "me@example.com",
+    "subject": "Review your new Boss Katana 100 MkII",
+    "body": "Thanks for purchasing the Boss Katana 100 MkII! We'd love to hear what you think. Leave a review and get 10% off your next purchase. Questions? Your Sales Engineer Mike is here to help.",
+    "timestamp": "2025-12-24T16:20:00Z"
+  },
+  {
+    "id": "email_1759404634102_pqr345stu",
+    "threadId": "email_1759404634101_rfv6tgb34",
+    "from": "me@example.com",
+    "to": "orders@sweetwater.com",
+    "subject": "Re: Review your new Boss Katana 100 MkII",
+    "body": "Hey Mike! The Katana sounds incredible. I'm blown away by the Brown channel - getting amazing classic rock tones. Quick question: is there a way to connect to the Tone Studio app via Bluetooth or is USB the only option?",
+    "timestamp": "2025-12-25T14:00:00Z"
+  },
+  {
+    "id": "email_1759404634103_vwx678yza",
+    "threadId": "email_1759404634101_rfv6tgb34",
+    "from": "mike.reynolds@sweetwater.com",
+    "to": "me@example.com",
+    "subject": "Re: Review your new Boss Katana 100 MkII",
+    "body": "So glad you're loving the Katana! The Brown channel is a beast. Unfortunately, Tone Studio requires a USB connection - no Bluetooth on this model. But once you dial in your presets, you can save them directly to the amp. Let me know if you need any help with the setup!",
+    "timestamp": "2025-12-26T09:45:00Z"
+  }
+]

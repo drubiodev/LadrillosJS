@@ -19,27 +19,18 @@
   </div>
   <div class="card-content">
     <div class="card-header">
-      <h3 class="card-title">{title}</h3>
-      <span class="card-date">{date}</span>
+      <h3 class="card-title">{email.subject}</h3>
+      <span class="card-date">{formattedDate}</span>
     </div>
-    <p class="card-subtitle">{subtitle}</p>
-    <p class="card-preview">{preview}</p>
-    <details class="card-details" $if="hasDetails">
-      <summary>See more</summary>
-      <div class="card-details-content">
-        <slot name="details"></slot>
-      </div>
-    </details>
+    <p class="card-subtitle">{email.from}</p>
+    <p class="card-preview">{email.body}</p>
   </div>
 </div>
 
 <script>
-  const title = "THIS IS THE TITLE";
-  const subtitle = "This is the subtitle";
-  const preview =
-    "This is a preview of the content inside the card component. It gives a brief overview of the content.";
-  const date = "2024-06-10";
-  const hasDetails = true;
+  const formattedDate = email?.timestamp
+    ? new Date(email.timestamp).toLocaleDateString()
+    : "";
 </script>
 
 <style>

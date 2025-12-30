@@ -23,6 +23,7 @@
     "watch:cdn": "vite build --config vite.cdn.config.ts --watch",
     "serve:cdn": "npx serve dist-cdn -p 3000 --cors",
     "dev:cdn": "concurrently \"npm run watch:cdn\" \"npm run serve:cdn\"",
+    "dev:dotnet": "concurrently \"npm run dev:cdn\" \"cd samples/dotnet-sample && dotnet watch run\"",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "workspaces": [
