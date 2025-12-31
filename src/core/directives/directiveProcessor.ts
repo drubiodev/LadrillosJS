@@ -37,6 +37,7 @@ import {
   extractVariableNames,
 } from "../js/scriptParser";
 import { createEventBusHelpers } from "../events/eventBus";
+import { diffKeyed, diffUnkeyed, createKeyGetter } from "../diff/listDiff";
 
 // ============================================================================
 // Types
@@ -558,7 +559,8 @@ export function renderLoops(
 }
 
 /**
- * Renders a single loop.
+ * Renders a single loop with keyed diffing for optimal DOM updates.
+ * Uses LIS-based algorithm to minimize DOM operations.
  */
 function renderLoop(
   loop: LoopDescriptor,
@@ -568,59 +570,206 @@ function renderLoop(
     context: Record<string, unknown>
   ) => unknown
 ): void {
-  // Clear previously rendered elements
-  for (const el of loop.renderedElements) {
-    el.remove();
-  }
-  loop.renderedElements = [];
-
   // Get the array to iterate over
   const arrayValue = evaluateExpression(loop.arrayName, state);
 
   if (!arrayValue || !isIterable(arrayValue)) {
+    // Clear all if array is empty/invalid
+    for (const el of loop.renderedElements) {
+      el.remove();
+    }
+    loop.renderedElements = [];
+    loop.previousItems = [];
     return;
   }
 
-  const items = Array.from(arrayValue as Iterable<unknown>);
-  const fragment = document.createDocumentFragment();
+  const newItems = Array.from(arrayValue as Iterable<unknown>);
+  const oldItems = loop.previousItems || [];
+  const oldElements = loop.renderedElements;
 
-  items.forEach((item, index) => {
-    // Clone the template
+  // Initialize key getter if not already done (cached for performance)
+  if (!loop.keyGetter) {
+    loop.keyGetter = createKeyGetter(loop.keyAttribute, loop.itemName);
+  }
+
+  // Helper to create a new element for an item
+  const createElement = (item: unknown, index: number): Element => {
     const clone = loop.template.cloneNode(true) as Element;
+    const loopContext = createLoopContext(state, loop, item, index);
+    processElementBindings(clone, loopContext, evaluateExpression);
+    return clone;
+  };
 
-    const scriptContentFromState = (state as any).__scriptContent;
+  // Use keyed diffing if key attribute is specified, otherwise use simple diff
+  if (loop.keyAttribute) {
+    // Keyed diffing - optimal for reordering, additions, removals
+    const operations = diffKeyed(oldItems, newItems, loop.keyGetter);
 
-    // Create a scoped context with loop variables
-    // Include __reactiveState__ reference so event handlers can sync back to it
-    const loopContext: Record<string, unknown> = {
-      ...state,
-      [loop.itemName]: item,
-      __reactiveState__: state, // Reference to the original reactive state for sync-back
-      __scriptContent__: scriptContentFromState || "",
-      __componentUrl__: (state as any).__componentUrl || "",
-    };
-
-    if (loop.indexName) {
-      loopContext[loop.indexName] = index;
+    // Build key-to-element map for reuse
+    const keyToElement = new Map<unknown, Element>();
+    for (let i = 0; i < oldItems.length; i++) {
+      const key = loop.keyGetter(oldItems[i], i);
+      if (oldElements[i]) {
+        keyToElement.set(key, oldElements[i]);
+      }
     }
 
-    // Process bindings within the clone
-    processElementBindings(clone, loopContext, evaluateExpression);
+    // Process operations
+    const newElements: Element[] = new Array(newItems.length);
 
-    fragment.appendChild(clone);
-    loop.renderedElements.push(clone);
-  });
+    // Handle removes first
+    for (const op of operations) {
+      if (op.type === "remove" && op.key !== undefined) {
+        const el = keyToElement.get(op.key);
+        if (el) {
+          el.remove();
+          keyToElement.delete(op.key);
+        }
+      }
+    }
 
-  // Insert all elements after the placeholder
-  loop.placeholder.parentNode?.insertBefore(
-    fragment,
-    loop.placeholder.nextSibling
-  );
+    // Build new element array and handle inserts/updates
+    for (let i = 0; i < newItems.length; i++) {
+      const item = newItems[i];
+      const key = loop.keyGetter(item, i);
+      const existingEl = keyToElement.get(key);
+
+      if (existingEl) {
+        // Reuse existing element - just update bindings if content changed
+        const loopContext = createLoopContext(state, loop, item, i);
+        updateElementBindings(existingEl, loopContext, evaluateExpression);
+        newElements[i] = existingEl;
+      } else {
+        // Create new element
+        newElements[i] = createElement(item, i);
+      }
+    }
+
+    // Reorder/insert elements into correct positions
+    const fragment = document.createDocumentFragment();
+    for (const el of newElements) {
+      fragment.appendChild(el);
+    }
+    loop.placeholder.parentNode?.insertBefore(
+      fragment,
+      loop.placeholder.nextSibling
+    );
+
+    loop.renderedElements = newElements;
+  } else {
+    // Non-keyed: simple length-based diff
+    const minLen = Math.min(oldItems.length, newItems.length);
+
+    // Update existing elements in place
+    for (let i = 0; i < minLen; i++) {
+      const loopContext = createLoopContext(state, loop, newItems[i], i);
+      updateElementBindings(oldElements[i], loopContext, evaluateExpression);
+    }
+
+    // Remove excess elements
+    for (let i = newItems.length; i < oldItems.length; i++) {
+      oldElements[i]?.remove();
+    }
+
+    // Add new elements
+    const fragment = document.createDocumentFragment();
+    for (let i = oldItems.length; i < newItems.length; i++) {
+      const el = createElement(newItems[i], i);
+      fragment.appendChild(el);
+      oldElements[i] = el;
+    }
+    if (fragment.childNodes.length > 0) {
+      // Insert after last existing element or after placeholder
+      const insertPoint =
+        oldElements[minLen - 1]?.nextSibling || loop.placeholder.nextSibling;
+      loop.placeholder.parentNode?.insertBefore(fragment, insertPoint);
+    }
+
+    loop.renderedElements = oldElements.slice(0, newItems.length);
+  }
+
+  // Store current items for next diff
+  loop.previousItems = [...newItems];
+}
+
+/**
+ * Creates a loop context object for element binding.
+ */
+function createLoopContext(
+  state: Record<string, unknown>,
+  loop: LoopDescriptor,
+  item: unknown,
+  index: number
+): Record<string, unknown> {
+  const scriptContentFromState = (state as any).__scriptContent;
+  const loopContext: Record<string, unknown> = {
+    ...state,
+    [loop.itemName]: item,
+    __reactiveState__: state,
+    __scriptContent__: scriptContentFromState || "",
+    __componentUrl__: (state as any).__componentUrl || "",
+  };
+  if (loop.indexName) {
+    loopContext[loop.indexName] = index;
+  }
+  return loopContext;
+}
+
+/**
+ * Updates bindings on an existing element (for keyed diffing reuse).
+ */
+function updateElementBindings(
+  element: Element,
+  context: Record<string, unknown>,
+  evaluateExpression: (
+    expr: string,
+    context: Record<string, unknown>
+  ) => unknown
+): void {
+  // Update text bindings
+  const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+  let node: Text | null;
+
+  while ((node = walker.nextNode() as Text | null)) {
+    const originalTemplate = (node as any).__originalTemplate;
+    if (originalTemplate) {
+      node.textContent = originalTemplate.replace(
+        /\{([^}]+)\}/g,
+        (_: string, expr: string) => {
+          const result = evaluateExpression(expr.trim(), context);
+          return String(result ?? "");
+        }
+      );
+    }
+  }
+
+  // Update attribute bindings
+  for (const attr of Array.from(element.attributes)) {
+    const originalTemplate = (attr as any).__originalTemplate;
+    if (originalTemplate) {
+      attr.value = originalTemplate.replace(
+        /\{([^}]+)\}/g,
+        (_: string, expr: string) => {
+          const result = evaluateExpression(expr.trim(), context);
+          if (result !== null && typeof result === "object") {
+            return JSON.stringify(result);
+          }
+          return String(result ?? "");
+        }
+      );
+    }
+  }
+
+  // Recursively update children
+  for (const child of Array.from(element.children)) {
+    updateElementBindings(child, context, evaluateExpression);
+  }
 }
 
 /**
  * Processes {bindings} within an element and its children.
  * Also transforms inline event handlers (onclick, etc.) to work with component scope.
+ * Stores original templates for efficient updates during keyed diffing.
  */
 function processElementBindings(
   element: Element,
@@ -633,6 +782,8 @@ function processElementBindings(
   // Process attributes - first replace bindings, then transform event handlers
   for (const attr of Array.from(element.attributes)) {
     if (attr.value.includes("{")) {
+      // Store original template for keyed diffing reuse
+      (attr as any).__originalTemplate = attr.value;
       const newValue = attr.value.replace(/\{([^}]+)\}/g, (_, expr) => {
         const result = evaluateExpression(expr.trim(), context);
         // Serialize objects/arrays to JSON so child components can parse them
@@ -662,6 +813,8 @@ function processElementBindings(
   }
 
   for (const textNode of textNodes) {
+    // Store original template for keyed diffing reuse
+    (textNode as any).__originalTemplate = textNode.textContent;
     textNode.textContent = textNode.textContent!.replace(
       /\{([^}]+)\}/g,
       (_, expr) => {

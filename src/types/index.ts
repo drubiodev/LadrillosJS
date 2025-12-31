@@ -92,6 +92,10 @@ export type LoopDescriptor = {
   placeholder: Comment; // Comment node to mark position in DOM
   renderedElements: Element[]; // Currently rendered elements
   originalParent: Element | ShadowRoot; // Reference to parent
+  /** Previous items for keyed diffing (to detect changes) */
+  previousItems?: unknown[];
+  /** Cached key getter function for performance */
+  keyGetter?: (item: unknown, index: number) => unknown;
 };
 
 /**

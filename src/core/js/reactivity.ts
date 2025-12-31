@@ -1,4 +1,5 @@
 import { BindingDescriptor } from "../../types";
+import { getCachedVariableRegex } from "../cache/expressionCache";
 
 // ============================================================================
 // Types
@@ -327,6 +328,7 @@ function registerNewKey(
 /**
  * Checks if an expression depends on a variable name.
  * Uses word boundary matching to avoid false positives.
+ * Caches regex patterns for performance.
  *
  * Examples:
  *   - expressionDependsOn("name.toUpperCase()", "name") → true
@@ -338,15 +340,9 @@ function expressionDependsOn(
   expression: string,
   variableName: string
 ): boolean {
-  const regex = new RegExp(`\\b${escapeRegex(variableName)}\\b`);
+  // Use cached regex for performance (avoids creating new RegExp each call)
+  const regex = getCachedVariableRegex(variableName);
   return regex.test(expression);
-}
-
-/**
- * Escapes special regex characters in a string
- */
-function escapeRegex(str: string): string {
-  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 // ============================================================================

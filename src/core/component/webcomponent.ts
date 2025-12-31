@@ -26,6 +26,10 @@ import {
 } from "../directives/directiveProcessor";
 import { createRefsProxy } from "../helpers/frameworkHelpers";
 import { setComponentContext, warn } from "../../utils/devWarnings";
+import {
+  scheduleComponentUpdate,
+  unregisterComponent,
+} from "../scheduler/batchScheduler";
 
 /**
  * Creates a Web Component class from a Ladrillos component definition.
@@ -333,6 +337,9 @@ export function createWebComponentClass(
       // Clean up event bus listeners to prevent memory leaks
       cleanupComponentListeners(this._componentId);
 
+      // Clean up batch scheduler registration to prevent memory leaks
+      unregisterComponent(this._componentId);
+
       // Clean up global state change callback
       if (typeof globalThis !== "undefined") {
         (globalThis as any).__ladrillosStateCallbacks?.delete(
@@ -382,8 +389,22 @@ export function createWebComponentClass(
     /**
      * Updates all directives when state changes.
      * Called by the reactive system on every state mutation.
+     * Uses batch scheduling to coalesce multiple updates into one.
      */
     private _updateDirectives(): void {
+      if (!this._directives || !this._evaluator) return;
+
+      // Schedule the update to batch multiple state changes
+      scheduleComponentUpdate(this._componentId, () => {
+        this._performDirectiveUpdates();
+      });
+    }
+
+    /**
+     * Actually performs the directive updates.
+     * Called by the scheduler after batching.
+     */
+    private _performDirectiveUpdates(): void {
       if (!this._directives || !this._evaluator) return;
 
       // Update loops

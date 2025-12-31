@@ -20,6 +20,9 @@ import {
   lazyOnDelay,
 } from "./core/lazy";
 
+// Import performance utilities
+import { nextTick, batch } from "./core/scheduler/batchScheduler";
+
 // Export types for TypeScript users
 export type {
   ComponentConfig,
@@ -36,6 +39,9 @@ export {
   lazyOnInteraction,
   lazyOnDelay,
 };
+
+// Export performance utilities
+export { nextTick, batch };
 
 // Legacy export (for backwards compatibility)
 export const registerComponent = (
@@ -76,4 +82,7 @@ export default {
   lazyOnMedia,
   lazyOnInteraction,
   lazyOnDelay,
+  // Performance utilities
+  nextTick,
+  batch,
 };
