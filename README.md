@@ -406,6 +406,14 @@ await registerComponents([
 | `lazyOnMedia`       | Mobile/desktop specific components           |
 | `lazyOnDelay`       | Chat widgets, notifications                  |
 
+### Eager Override
+
+Force a lazy component to load immediately by adding the `eager` attribute:
+
+```html
+<lazy-footer eager></lazy-footer>
+```
+
 ---
 
 ## 📋 API Reference
