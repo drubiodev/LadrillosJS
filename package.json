@@ -9,21 +9,36 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./core": {
+      "types": "./dist/core.d.ts",
+      "default": "./dist/core.js"
+    },
+    "./lazy": {
+      "types": "./dist/lazy.d.ts",
+      "default": "./dist/lazy.js"
+    },
+    "./events": {
+      "types": "./dist/events.d.ts",
+      "default": "./dist/events.js"
     }
   },
   "files": [
-    "dist/index.js",
-    "dist/index.d.ts"
+    "dist/*.js",
+    "dist/*.d.ts"
   ],
   "scripts": {
     "build": "vite build --config vite.npm.config.ts",
     "build:dev": "tsc -p tsconfig.json",
     "dev": "tsc -p tsconfig.json -w",
     "build:cdn": "vite build --config vite.cdn.config.ts",
-    "watch:cdn": "vite build --config vite.cdn.config.ts --watch",
+    "build:cdn:dev": "vite build --config vite.cdn.dev.config.ts",
+    "watch:cdn": "vite build --config vite.cdn.dev.config.ts --watch",
     "serve:cdn": "npx serve dist-cdn -p 3000 --cors",
     "dev:cdn": "concurrently \"npm run watch:cdn\" \"npm run serve:cdn\"",
     "dev:dotnet": "concurrently \"npm run dev:cdn\" \"cd samples/dotnet-sample && dotnet watch run\"",
+    "verify:build": "node scripts/verify-treeshaking.js",
+    "build:all": "npm run build && npm run build:cdn && npm run verify:build",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "workspaces": [
@@ -40,7 +55,9 @@
   },
   "homepage": "https://github.com/drubiodev/LadrillosJS#readme",
   "devDependencies": {
+    "@swc/core": "^1.15.8",
     "concurrently": "^9.2.1",
+    "source-map-explorer": "^2.5.3",
     "terser": "^5.44.1",
     "typescript": "~5.9.3",
     "vite": "^7.2.7",

@@ -6,7 +6,16 @@
  * - Code frame generation for templates
  * - Console styling for better readability
  * - Error codes with documentation links
+ *
+ * Bundle size optimization:
+ * The global `__DEV__` constant is replaced at build time by the bundler.
+ * All dev-only code wrapped in `if (__DEV__)` is completely eliminated
+ * from production builds via dead code elimination.
  */
+
+// Ensure __DEV__ is recognized by TypeScript
+// This is a compile-time constant defined by the bundler
+declare const __DEV__: boolean;
 
 // ============================================================================
 // Configuration
@@ -14,43 +23,6 @@
 
 const PREFIX = "[LadrillosJS]";
 const DOCS_BASE_URL = "https://ladrillosjs.dev/errors";
-
-/**
- * Whether we're in development mode.
- * In production, warnings are suppressed and errors show minimal info.
- *
- * Detection priority:
- * 1. Check for import.meta.env.MODE (Vite)
- * 2. Check for process.env.NODE_ENV (Node.js/bundlers)
- * 3. Default to true (dev mode) in browser
- */
-function detectDevMode(): boolean {
-  try {
-    // Vite sets import.meta.env.MODE
-    if (typeof import.meta !== "undefined" && (import.meta as any).env?.MODE) {
-      return (import.meta as any).env.MODE !== "production";
-    }
-  } catch {
-    // import.meta might not be available
-  }
-
-  try {
-    // Node.js / bundlers that replace process.env
-    if (
-      typeof globalThis !== "undefined" &&
-      (globalThis as any).process?.env?.NODE_ENV
-    ) {
-      return (globalThis as any).process.env.NODE_ENV !== "production";
-    }
-  } catch {
-    // process might not be available
-  }
-
-  // Default to dev mode in browser
-  return true;
-}
-
-export const __DEV__ = detectDevMode();
 
 // ============================================================================
 // Console Styling
