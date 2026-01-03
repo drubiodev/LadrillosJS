@@ -3,7 +3,7 @@
     <input
       type="text"
       $bind="messageText"
-      onkeyup="handleKeyup(event)"
+      $on:keyup.enter=" sendMessage()"
       class="input-field"
       placeholder="Message Co-Driver"
     />
@@ -55,13 +55,6 @@
 
 <script>
   let messageText = "";
-
-  function handleKeyup(e) {
-    // Send on Enter key
-    if (e.key === "Enter" && messageText.trim()) {
-      sendMessage();
-    }
-  }
 
   function sendMessage() {
     $emit("message:send", { text: messageText });
