@@ -32,8 +32,7 @@ export default defineConfig({
     rollupOptions: {
       output: {
         exports: "named",
-        // Use .dev.iife.js suffix for dev builds
-        entryFileNames: "ladrillos.dev.iife.js",
+        entryFileNames: "ladrillos.iife.js",
       },
     },
   },

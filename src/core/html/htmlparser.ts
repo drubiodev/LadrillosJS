@@ -20,7 +20,7 @@ type TemplateLoadResult = {
  */
 export const loadTemplate = (
   host: HTMLElement | ShadowRoot,
-  template: string
+  template: string,
 ): TemplateLoadResult => {
   host.innerHTML = template;
   // scan for data bindings (text nodes + attributes)
@@ -50,10 +50,12 @@ function getBindings(host: HTMLElement | ShadowRoot) {
       continue;
     }
 
-    const matches = [...node.textContent.matchAll(REGEX_PATTERNS.bindings)];
+    const textContent = node.textContent;
+    if (!textContent) continue;
+    const matches = [...textContent.matchAll(REGEX_PATTERNS.bindings)];
 
     if (matches.length > 0) {
-      const original = node.textContent;
+      const original = textContent;
 
       const nodeBindings = matches.map((match) => {
         const raw = match[1].trim();
@@ -79,7 +81,7 @@ function getBindings(host: HTMLElement | ShadowRoot) {
  * Scan all elements for attributes containing {} bindings
  */
 function getAttributeBindings(
-  host: HTMLElement | ShadowRoot
+  host: HTMLElement | ShadowRoot,
 ): BindingDescriptor[] {
   const bindings: BindingDescriptor[] = [];
 
