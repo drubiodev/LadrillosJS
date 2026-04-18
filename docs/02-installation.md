@@ -91,8 +91,8 @@ import {
   loadLazyComponent, // Force load a lazy component
 
   // Framework Helpers (same syntax as inside components!)
-  $registerComponent, // Register component (for external scripts)
-  $registerComponents, // Register multiple (for external scripts)
+  registerComponent, // Register component (for external scripts)
+  registerComponents, // Register multiple (for external scripts)
   $use, // Shorthand registration
 
   // Event Bus

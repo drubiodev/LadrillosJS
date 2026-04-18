@@ -47,7 +47,7 @@ const getHostElement = (host: HTMLElement | ShadowRoot): HTMLElement =>
  * @param attributeOverrides - Attributes from HTML that override script defaults
  * @param onStateChange - Optional callback when state changes (for directive updates)
  * @param deferBindings - If true, don't apply bindings immediately (for module script support)
- * @param componentUrl - The absolute URL of the component (for resolving relative paths in $registerComponent)
+ * @param componentUrl - The absolute URL of the component (for resolving relative paths in registerComponent)
  * @param componentId - Optional unique ID for this component instance (for event bus cleanup)
  * @param refs - Optional refs Map (for $refs access in scripts)
  * @param templateBindings - Variable names from template bindings (for auto-prop access in scripts)
@@ -63,7 +63,7 @@ export async function loadScripts(
   componentUrl?: string,
   componentId?: string,
   refs?: Map<string, HTMLElement>,
-  templateBindings: string[] = []
+  templateBindings: string[] = [],
 ): Promise<Record<string, unknown>> {
   const componentHost = getHostElement(host);
   const initialState: Record<string, unknown> = {};
@@ -90,7 +90,7 @@ export async function loadScripts(
     initialState,
     bindings,
     (binding, state) => updateSingleBinding(binding, state),
-    onStateChange
+    onStateChange,
   );
 
   // Execute scripts with __state__ transformation
@@ -106,7 +106,7 @@ export async function loadScripts(
       componentId,
       componentHost, // Pass host element for $host access
       refs, // Pass refs for $refs access
-      templateBindings // Pass template bindings so auto-props are accessible
+      templateBindings, // Pass template bindings so auto-props are accessible
     );
   }
 
@@ -127,7 +127,7 @@ export async function loadScripts(
       host,
       reactiveState,
       allScriptContent,
-      componentHost
+      componentHost,
     );
 
     // Apply initial bindings with current state values
@@ -144,7 +144,7 @@ export async function loadScripts(
 export function applyBindingsDeferred(
   host: HTMLElement | ShadowRoot,
   bindings: BindingDescriptor[],
-  state: Record<string, unknown>
+  state: Record<string, unknown>,
 ): void {
   const componentHost = getHostElement(host);
   const allScriptContent = (componentHost as any).__scriptContent || "";
@@ -177,7 +177,7 @@ function transformInlineEventHandlers(
   host: HTMLElement | ShadowRoot,
   state: Record<string, unknown>,
   scriptContent: string,
-  componentHost: HTMLElement
+  componentHost: HTMLElement,
 ): void {
   const elements = Array.from(host.querySelectorAll("*"));
 
@@ -204,7 +204,7 @@ function transformInlineEventHandlers(
           handlerCode,
           state,
           scriptContent,
-          componentHost
+          componentHost,
         );
         if (handler) {
           element.addEventListener(eventName, handler);
@@ -232,7 +232,7 @@ function processEventDirectives(
   element: Element,
   state: Record<string, unknown>,
   scriptContent: string,
-  componentHost: HTMLElement
+  componentHost: HTMLElement,
 ): void {
   // Get all attributes that start with $on:
   const attrs = Array.from(element.attributes);
@@ -250,7 +250,7 @@ function processEventDirectives(
       handlerCode,
       state,
       scriptContent,
-      componentHost
+      componentHost,
     );
 
     if (!baseHandler) continue;
@@ -303,7 +303,7 @@ function createVanillaEventHandler(
   code: string,
   state: Record<string, unknown>,
   scriptContent: string,
-  componentHost?: HTMLElement
+  componentHost?: HTMLElement,
 ): ((event: Event) => void) | null {
   try {
     // Get component URL from host for framework helpers path resolution
@@ -330,10 +330,10 @@ function createVanillaEventHandler(
 
     // Separate functions from variables in state
     const funcNames = allStateKeys.filter(
-      (key) => typeof state[key] === "function"
+      (key) => typeof state[key] === "function",
     );
     const varNames = allStateKeys.filter(
-      (key) => typeof state[key] !== "function"
+      (key) => typeof state[key] !== "function",
     );
 
     // Check if we have module script functions by looking for __moduleScript marker
@@ -348,8 +348,8 @@ function createVanillaEventHandler(
         ? `const { ${varNames.join(", ")} } = state;`
         : ""
       : varNames.length > 0
-      ? `let { ${varNames.join(", ")} } = state;`
-      : "";
+        ? `let { ${varNames.join(", ")} } = state;`
+        : "";
 
     // For module scripts: destructure functions from state (they're reactive)
     // For regular scripts: DON'T destructure - we'll recreate them via funcDefs
@@ -366,7 +366,7 @@ function createVanillaEventHandler(
     const functionsToSkip = hasModuleScriptFunctions ? funcNames : [];
     const rawFuncDefs = extractFunctionDefinitions(
       scriptContent,
-      functionsToSkip
+      functionsToSkip,
     );
 
     // Transform function definitions to use state.varName for variable access
@@ -380,7 +380,7 @@ function createVanillaEventHandler(
     // Only sync back for inline code that modifies variables directly (e.g., onclick="count++")
     // We detect this by checking if the handler code itself references any state variables
     const codeReferencesVars = varNames.some((v) =>
-      new RegExp(`\\b${v}\\b`).test(code)
+      new RegExp(`\\b${v}\\b`).test(code),
     );
     const syncBack =
       hasModuleScriptFunctions || !codeReferencesVars
@@ -409,7 +409,7 @@ function createVanillaEventHandler(
 
     // Use AsyncFunction constructor for async handlers
     const AsyncFunction = Object.getPrototypeOf(
-      async function () {}
+      async function () {},
     ).constructor;
     const fn = isAsync
       ? new AsyncFunction(...allKeys, fnBody)
@@ -474,8 +474,10 @@ function createVanillaEventHandler(
         }
       : null;
     // Pass ctx explicitly to override global context
-    warn(`Failed to create event handler: ${code}`, ctx);
-    console.error("Handler creation error:", e);
+    warn(
+      `Failed to create event handler: ${code} — ${(e as Error).message}`,
+      ctx,
+    );
     return null;
   }
 }
@@ -489,7 +491,7 @@ function createVanillaEventHandler(
  */
 export function extractFunctionDefinitions(
   content: string,
-  skipFunctions: string[] = []
+  skipFunctions: string[] = [],
 ): string {
   const functions: string[] = [];
 
@@ -549,7 +551,7 @@ export function extractFunctionDefinitions(
 function extractBracedBlock(
   content: string,
   startIndex: number,
-  braceStart?: number
+  braceStart?: number,
 ): string | null {
   let braceCount = 0;
   let endIndex = startIndex;
@@ -612,7 +614,7 @@ function extractBracedBlock(
 function extractScriptMembers(
   content: string,
   componentUrl?: string,
-  componentId?: string
+  componentId?: string,
 ): Map<string, unknown> {
   const members = new Map<string, unknown>();
 
@@ -701,7 +703,7 @@ function extractScriptMembersValuesOnly(content: string): Map<string, unknown> {
       "Boolean",
     ];
     const safeGlobalValues = safeGlobals.map(
-      (name) => (globalThis as any)[name]
+      (name) => (globalThis as any)[name],
     );
 
     const allKeys = [...safeGlobals, "$listen", "$emit"];
@@ -745,7 +747,7 @@ function executeScriptWithReactiveState(
   componentId?: string,
   hostElement?: HTMLElement,
   refs?: Map<string, HTMLElement>,
-  templateBindings: string[] = []
+  templateBindings: string[] = [],
 ): void {
   try {
     const variableNames = extractVariableNames(content);
@@ -860,7 +862,7 @@ function transformToStateAccess(code: string, variables: string[]): string {
     (match) => {
       strings.push(match);
       return `__STRING_PLACEHOLDER_${strings.length - 1}__`;
-    }
+    },
   );
 
   // Step 2: Handle template literals specially - transform expressions inside ${}
@@ -875,18 +877,18 @@ function transformToStateAccess(code: string, variables: string[]): string {
         for (const varName of variables) {
           const pattern = new RegExp(
             `(?<![^.]\\.)(?<!__state__\\.)\\b${escapeRegex(
-              varName
+              varName,
             )}\\b(?!\\s*[:(])`,
-            "g"
+            "g",
           );
           transformedExpr = transformedExpr.replace(
             pattern,
-            `__state__.${varName}`
+            `__state__.${varName}`,
           );
         }
         return `\${${transformedExpr}}`;
       });
-    }
+    },
   );
 
   // Step 3: Transform top-level variable declarations
@@ -895,11 +897,11 @@ function transformToStateAccess(code: string, variables: string[]): string {
   for (const varName of variables) {
     const declRegex = new RegExp(
       `\\b(let|const|var)\\s+(${escapeRegex(varName)})\\s*=`,
-      "g"
+      "g",
     );
     protected_code = protected_code.replace(
       declRegex,
-      `__state__.${varName} ??=`
+      `__state__.${varName} ??=`,
     );
   }
 
@@ -917,7 +919,7 @@ function transformToStateAccess(code: string, variables: string[]): string {
     // is not preceded by a dot. This allows ...varName but blocks .varName
     const pattern = new RegExp(
       `(?<![^.]\\.)(?<!__state__\\.)\\b${escapeRegex(varName)}\\b(?!\\s*[:(])`,
-      "g"
+      "g",
     );
 
     protected_code = protected_code.replace(pattern, `__state__.${varName}`);
@@ -928,7 +930,7 @@ function transformToStateAccess(code: string, variables: string[]): string {
   for (let i = 0; i < strings.length; i++) {
     transformed = transformed.replace(
       `__STRING_PLACEHOLDER_${i}__`,
-      strings[i]
+      strings[i],
     );
   }
 
@@ -950,7 +952,7 @@ function transformToStateAccess(code: string, variables: string[]): string {
  */
 function transformFunctionDefsToStateAccess(
   funcDefs: string,
-  variables: string[]
+  variables: string[],
 ): string {
   if (!funcDefs || variables.length === 0) return funcDefs;
 
@@ -961,7 +963,7 @@ function transformFunctionDefsToStateAccess(
     (match) => {
       strings.push(match);
       return `__STRING_PLACEHOLDER_${strings.length - 1}__`;
-    }
+    },
   );
 
   // Step 2: Handle template literals - transform expressions inside ${}
@@ -973,18 +975,18 @@ function transformFunctionDefsToStateAccess(
         for (const varName of variables) {
           const pattern = new RegExp(
             `(?<![^.]\\.)(?<!state\\.)\\b${escapeRegex(
-              varName
+              varName,
             )}\\b(?!\\s*[:(])`,
-            "g"
+            "g",
           );
           transformedExpr = transformedExpr.replace(
             pattern,
-            `state.${varName}`
+            `state.${varName}`,
           );
         }
         return `\${${transformedExpr}}`;
       });
-    }
+    },
   );
 
   // Step 3: Replace variable references with state.varName
@@ -997,7 +999,7 @@ function transformFunctionDefsToStateAccess(
     // - NOT followed by : (object key) or ( (function declaration)
     const pattern = new RegExp(
       `(?<![^.]\\.)(?<!state\\.)\\b${escapeRegex(varName)}\\b(?!\\s*[:(])`,
-      "g"
+      "g",
     );
     protected_code = protected_code.replace(pattern, `state.${varName}`);
   }
@@ -1007,7 +1009,7 @@ function transformFunctionDefsToStateAccess(
   for (let i = 0; i < strings.length; i++) {
     transformed = transformed.replace(
       `__STRING_PLACEHOLDER_${i}__`,
-      strings[i]
+      strings[i],
     );
   }
 
@@ -1028,7 +1030,7 @@ function getSafeBlockedGlobals(): readonly string[] {
 
 /**
  * Gets safe globals (alert, console, Math, JSON, etc.) with their actual values.
- * Also includes framework helpers like $registerComponent, $use, $emit, $listen.
+ * Also includes framework helpers like registerComponent, $use, $emit, $listen.
  * These are passed into the sandbox so component code feels like vanilla JS.
  *
  * @param componentUrl - The component's URL for resolving relative paths in helpers
@@ -1036,7 +1038,7 @@ function getSafeBlockedGlobals(): readonly string[] {
  */
 function getAllowedGlobalsWithValues(
   componentUrl?: string,
-  componentId?: string
+  componentId?: string,
 ): {
   keys: string[];
   values: unknown[];
@@ -1056,9 +1058,9 @@ function getAllowedGlobalsWithValues(
   const helpers = createFrameworkHelpers(componentUrl || window.location.href);
   keys.push(...frameworkHelperNames);
   values.push(
-    helpers.$registerComponent,
-    helpers.$registerComponents,
-    helpers.$use
+    helpers.registerComponent,
+    helpers.registerComponents,
+    helpers.$use,
   );
 
   // Add event bus helpers bound to component ID for automatic cleanup
@@ -1079,7 +1081,7 @@ function getAllowedGlobalsWithValues(
  */
 function evaluateExpression(
   expression: string,
-  state: Record<string, unknown>
+  state: Record<string, unknown>,
 ): unknown {
   try {
     const keys = Object.keys(state);
@@ -1105,7 +1107,7 @@ function evaluateExpression(
  */
 function updateSingleBinding(
   descriptor: BindingDescriptor,
-  state: Record<string, unknown>
+  state: Record<string, unknown>,
 ): void {
   let result = descriptor.original;
 
@@ -1138,7 +1140,7 @@ function updateSingleBinding(
  */
 function applyBindings(
   bindings: BindingDescriptor[],
-  state: Record<string, unknown>
+  state: Record<string, unknown>,
 ): void {
   for (const descriptor of bindings) {
     updateSingleBinding(descriptor, state);
@@ -1156,7 +1158,7 @@ function applyBindings(
  */
 export function createExpressionEvaluator(): (
   expr: string,
-  context: Record<string, unknown>
+  context: Record<string, unknown>,
 ) => unknown {
   return evaluateExpression;
 }

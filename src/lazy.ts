@@ -8,7 +8,7 @@
  * ```ts
  * import { lazyOnVisible, lazyOnIdle } from 'ladrillosjs/lazy';
  *
- * $registerComponent('heavy-widget', '/components/heavy.html', {
+ * registerComponent('heavy-widget', '/components/heavy.html', {
  *   lazy: lazyOnVisible({ rootMargin: '100px' })
  * });
  * ```

@@ -52,7 +52,7 @@ class Ladrillos {
     name: string,
     path: string,
     useShadowDOM: boolean = true,
-    lazy: boolean | LazyStrategy = false
+    lazy: boolean | LazyStrategy = false,
   ): Promise<void> {
     // check if component is already registered
     if (this.components[name]) {
@@ -76,24 +76,28 @@ class Ladrillos {
       const fetchResult = await fetchComponentSource(absolutePath);
       if (!fetchResult) {
         throw new Error(
-          `Failed to fetch component source from ${absolutePath}`
+          `Failed to fetch component source from ${absolutePath}`,
         );
       }
       // Use the resolved path (e.g., /components/search/index.html instead of /components/search)
       const component = await parseComponent(
         fetchResult.source,
         name,
-        fetchResult.resolvedPath
+        fetchResult.resolvedPath,
       );
 
       this.components[name] = component;
 
       createWebComponent(component, useShadowDOM);
     } catch (e) {
-      error(`Error registering component \"<${name}>\"`, {
-        tagName: name,
-        sourcePath: path,
-      });
+      error(
+        `Error registering component \"<${name}>\"`,
+        {
+          tagName: name,
+          sourcePath: path,
+        },
+        e,
+      );
     }
   }
 
@@ -124,13 +128,15 @@ class Ladrillos {
   async registerComponents(
     configs:
       | ComponentConfig[]
-      | Record<string, string | Omit<ComponentConfig, "name">>
+      | Record<string, string | Omit<ComponentConfig, "name">>,
   ): Promise<RegisterComponentsResult> {
     // Normalize input to array format
     const componentConfigs: ComponentConfig[] = Array.isArray(configs)
       ? configs
       : Object.entries(configs).map(([name, value]) =>
-          typeof value === "string" ? { name, path: value } : { name, ...value }
+          typeof value === "string"
+            ? { name, path: value }
+            : { name, ...value },
         );
 
     const result: RegisterComponentsResult = {
@@ -174,7 +180,7 @@ class Ladrillos {
           config.name,
           config.absolutePath,
           useShadowDOM,
-          strategy
+          strategy,
         );
         result.success.push(config.name);
       } catch (e) {
@@ -195,7 +201,7 @@ class Ladrillos {
       eagerComponents.map(async (config) => {
         const result = await fetchComponentSource(config.absolutePath);
         return { config, result };
-      })
+      }),
     );
 
     // Parse components in parallel
@@ -208,7 +214,7 @@ class Ladrillos {
         const { config, result } = fetchResult.value;
         if (!result) {
           throw new Error(
-            `Failed to fetch component source from ${config.absolutePath}`
+            `Failed to fetch component source from ${config.absolutePath}`,
           );
         }
 
@@ -216,10 +222,10 @@ class Ladrillos {
         const component = await parseComponent(
           result.source,
           config.name,
-          result.resolvedPath
+          result.resolvedPath,
         );
         return { config, component };
-      })
+      }),
     );
 
     // Batch register all successfully parsed components
@@ -235,9 +241,10 @@ class Ladrillos {
               ? parseResult.reason
               : new Error(String(parseResult.reason)),
         });
-        console.error(
-          `Error registering component "${config.name}":`,
-          parseResult.reason
+        error(
+          `Error registering component "${config.name}"`,
+          { tagName: config.name, sourcePath: config.path },
+          parseResult.reason,
         );
         continue;
       }
@@ -270,7 +277,7 @@ class Ladrillos {
    * Useful for preloading components before they're visible.
    */
   async loadLazyComponent(
-    name: string
+    name: string,
   ): Promise<LadrillosComponent | undefined> {
     return forceLoadLazyComponent(name);
   }

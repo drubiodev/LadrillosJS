@@ -22,6 +22,8 @@
  * });
  */
 
+import { error } from "../../utils/devWarnings";
+
 // ============================================================================
 // Types
 // ============================================================================
@@ -110,7 +112,7 @@ export function queueJob(job: SchedulerJob): number {
  */
 export function createSchedulerJob(
   fn: FlushCallback,
-  id?: number
+  id?: number,
 ): SchedulerJob {
   const job = fn as SchedulerJob;
   job.id = id ?? ++jobIdCounter;
@@ -145,7 +147,7 @@ function flushJobs(): void {
         try {
           job();
         } catch (e) {
-          console.error("[LadrillosJS] Error in scheduled update:", e);
+          error("Error in scheduled update", null, e);
         }
       }
     }
@@ -224,7 +226,7 @@ const componentJobs = new Map<string, SchedulerJob>();
  */
 export function scheduleComponentUpdate(
   componentId: string,
-  updateFn: () => void
+  updateFn: () => void,
 ): void {
   let job = componentJobs.get(componentId);
 

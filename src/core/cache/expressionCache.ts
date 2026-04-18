@@ -11,6 +11,8 @@
  * By caching the compiled functions, we only pay this cost once per unique expression.
  */
 
+import { warn } from "../../utils/devWarnings";
+
 // ============================================================================
 // Types
 // ============================================================================
@@ -60,7 +62,7 @@ const pathCache = new Map<string, string[]>();
  */
 export function getCachedEvaluator(
   expression: string,
-  contextKeys: string[]
+  contextKeys: string[],
 ): ExpressionEvaluator {
   // Create a cache key that includes context keys
   // (same expression might need different context)
@@ -89,7 +91,7 @@ export function getCachedEvaluator(
  */
 function compileExpression(
   expression: string,
-  contextKeys: string[]
+  contextKeys: string[],
 ): ExpressionEvaluator {
   try {
     // Destructure all context keys for direct access in expression
@@ -107,7 +109,7 @@ function compileExpression(
     return new Function("__ctx__", fnBody) as ExpressionEvaluator;
   } catch (e) {
     // Return a function that returns undefined for invalid expressions
-    console.warn(`[LadrillosJS] Invalid expression: ${expression}`, e);
+    warn(`Invalid expression: ${expression} — ${(e as Error).message}`);
     return () => undefined;
   }
 }
@@ -152,7 +154,7 @@ export function getCachedVariableRegex(variableName: string): RegExp {
  */
 export function expressionDependsOnCached(
   expression: string,
-  variableName: string
+  variableName: string,
 ): boolean {
   return getCachedVariableRegex(variableName).test(expression);
 }
@@ -194,7 +196,7 @@ export function getCachedPath(pathString: string): readonly string[] {
  */
 export function getByPath(
   obj: Record<string, unknown>,
-  pathString: string
+  pathString: string,
 ): unknown {
   const path = getCachedPath(pathString);
   let current: unknown = obj;
@@ -224,7 +226,7 @@ export function getByPath(
 export function setByPath(
   obj: Record<string, unknown>,
   pathString: string,
-  value: unknown
+  value: unknown,
 ): void {
   const path = getCachedPath(pathString);
 

@@ -1,10 +1,11 @@
 {
   "name": "ladrillosjs",
-  "version": "2.0.0-beta.6",
+  "version": "2.0.0",
   "description": "A lightweight, zero-dependency web component framework for building modular web applications.",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "sideEffects": false,
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -24,11 +25,30 @@
     }
   },
   "files": [
-    "dist/*.js",
-    "dist/*.d.ts"
+    "dist/**/*.js",
+    "dist/**/*.js.map",
+    "dist/**/*.d.ts",
+    "LICENSE",
+    "README.md",
+    "CHANGELOG.md"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "web-components",
+    "custom-elements",
+    "reactive",
+    "framework",
+    "lightweight",
+    "zero-dependency",
+    "shadow-dom",
+    "lazy-loading",
+    "html-components"
   ],
   "scripts": {
-    "build": "vite build --config vite.npm.config.ts",
+    "clean": "rimraf dist dist-cdn coverage",
+    "build": "npm run clean && vite build --config vite.npm.config.ts",
     "build:dev": "tsc -p tsconfig.json",
     "dev": "tsc -p tsconfig.json -w",
     "build:cdn": "vite build --config vite.cdn.config.ts",
@@ -39,11 +59,13 @@
     "dev:dotnet": "concurrently \"npm run dev:cdn\" \"cd samples/dotnet-sample && dotnet watch run\"",
     "verify:build": "node scripts/verify-treeshaking.js",
     "build:all": "npm run build && npm run build:cdn && npm run verify:build",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:ci": "vitest run --coverage --reporter=verbose",
+    "prepublishOnly": "npm run clean && npm run typecheck && npm run build && npm run verify:build && npm run test"
   },
-  "workspaces": [
-    "samples/*"
-  ],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/drubiodev/LadrillosJS.git"
@@ -54,13 +76,19 @@
     "url": "https://github.com/drubiodev/LadrillosJS/issues"
   },
   "homepage": "https://github.com/drubiodev/LadrillosJS#readme",
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
   "devDependencies": {
-    "@swc/core": "^1.15.8",
+    "@vitest/coverage-v8": "^2.1.8",
     "concurrently": "^9.2.1",
-    "source-map-explorer": "^2.5.3",
+    "happy-dom": "^15.11.7",
+    "rimraf": "^6.0.1",
     "terser": "^5.44.1",
     "typescript": "~5.9.3",
     "vite": "^7.2.7",
-    "vite-plugin-dts": "^4.5.4"
+    "vite-plugin-dts": "^4.5.4",
+    "vitest": "^2.1.8"
   }
 }

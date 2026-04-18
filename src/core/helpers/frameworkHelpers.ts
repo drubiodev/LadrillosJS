@@ -4,9 +4,9 @@
  * These are $ prefixed helper functions injected into component scripts.
  *
  * Available helpers:
- * - $registerComponent(name, path, useShadowDOM?) - Register a child component
- * - $registerComponents(configs) - Register multiple components at once (parallel)
- * - $use(path) - Shorthand for $registerComponent with auto-derived tag name
+ * - registerComponent(name, path, useShadowDOM?) - Register a child component
+ * - registerComponents(configs) - Register multiple components at once (parallel)
+ * - $use(path) - Shorthand for registerComponent with auto-derived tag name
  * - createRefsProxy(map) - Wrap a Map in a Proxy for cleaner dot notation access
  */
 
@@ -27,7 +27,7 @@ import {
  * $refs.get("input").focus();  // Also works!
  */
 export function createRefsProxy<T extends HTMLElement = HTMLElement>(
-  map: Map<string, T>
+  map: Map<string, T>,
 ): Map<string, T> & Record<string, T> {
   return new Proxy(map, {
     get(target, prop, receiver) {
@@ -100,7 +100,7 @@ function filenameToTagName(path: string): string {
 /**
  * Creates framework helpers bound to a specific component's base URL.
  * This ensures relative paths like "./buttons.html" resolve correctly
- * relative to the component that calls $registerComponent.
+ * relative to the component that calls registerComponent.
  *
  * @param componentUrl - The absolute URL of the component (e.g., "http://localhost/header/header.html")
  * @returns Object containing bound helper functions
@@ -114,15 +114,15 @@ export function createFrameworkHelpers(componentUrl: string) {
    * ```html
    * <!-- In /header/header.html -->
    * <script>
-   *   $registerComponent("header-buttons", "./buttons.html");
+   *   registerComponent("header-buttons", "./buttons.html");
    *   // Resolves to /header/buttons.html
    * </script>
    * ```
    */
-  function $registerComponent(
+  function registerComponent(
     name: string,
     path: string,
-    useShadowDOM: boolean = false
+    useShadowDOM: boolean = false,
   ): Promise<void> {
     const resolvedPath = resolvePath(path, componentUrl);
     return ladrillos.registerComponent(name, resolvedPath, useShadowDOM);
@@ -132,7 +132,7 @@ export function createFrameworkHelpers(componentUrl: string) {
    * Register multiple components at once with parallel fetching.
    *
    * Benefits:
-   * - Parallel network requests (faster than sequential $registerComponent calls)
+   * - Parallel network requests (faster than sequential registerComponent calls)
    * - Shared fetch cache
    * - Detailed error reporting
    *
@@ -140,23 +140,23 @@ export function createFrameworkHelpers(componentUrl: string) {
    * ```html
    * <script>
    *   // Array syntax
-   *   await $registerComponents([
+   *   await registerComponents([
    *     { name: 'nav-item', path: './nav-item.html' },
    *     { name: 'nav-dropdown', path: './nav-dropdown.html', useShadowDOM: false }
    *   ]);
    *
    *   // Object syntax
-   *   await $registerComponents({
+   *   await registerComponents({
    *     'nav-item': './nav-item.html',
    *     'nav-dropdown': { path: './nav-dropdown.html', useShadowDOM: false }
    *   });
    * </script>
    * ```
    */
-  function $registerComponents(
+  function registerComponents(
     configs:
       | ComponentConfig[]
-      | Record<string, string | Omit<ComponentConfig, "name">>
+      | Record<string, string | Omit<ComponentConfig, "name">>,
   ): Promise<RegisterComponentsResult> {
     // Normalize and resolve paths relative to component
     const normalizedConfigs: ComponentConfig[] = Array.isArray(configs)
@@ -167,7 +167,7 @@ export function createFrameworkHelpers(componentUrl: string) {
       : Object.entries(configs).map(([name, value]) =>
           typeof value === "string"
             ? { name, path: resolvePath(value, componentUrl) }
-            : { name, ...value, path: resolvePath(value.path, componentUrl) }
+            : { name, ...value, path: resolvePath(value.path, componentUrl) },
         );
 
     return ladrillos.registerComponents(normalizedConfigs);
@@ -183,15 +183,15 @@ export function createFrameworkHelpers(componentUrl: string) {
     return ladrillos.registerComponent(tagName, resolvedPath, useShadowDOM);
   }
 
-  return { $registerComponent, $registerComponents, $use };
+  return { registerComponent, registerComponents, $use };
 }
 
 /**
  * Names of all framework helpers (for Function parameter lists)
  */
 export const frameworkHelperNames = [
-  "$registerComponent",
-  "$registerComponents",
+  "registerComponent",
+  "registerComponents",
   "$use",
 ];
 
@@ -201,15 +201,11 @@ export const frameworkHelperNames = [
  */
 export function getFrameworkHelperValues(): ((...args: any[]) => any)[] {
   const helpers = createFrameworkHelpers(window.location.href);
-  return [
-    helpers.$registerComponent,
-    helpers.$registerComponents,
-    helpers.$use,
-  ];
+  return [helpers.registerComponent, helpers.registerComponents, helpers.$use];
 }
 
 // For entry point / CDN usage - resolve relative to current page
 const defaultHelpers = createFrameworkHelpers(window.location.href);
-export const $registerComponent = defaultHelpers.$registerComponent;
-export const $registerComponents = defaultHelpers.$registerComponents;
+export const registerComponent = defaultHelpers.registerComponent;
+export const registerComponents = defaultHelpers.registerComponents;
 export const $use = defaultHelpers.$use;

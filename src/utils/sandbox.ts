@@ -174,6 +174,6 @@ export const RESERVED_WORDS = new Set([
  * These use the $ prefix convention
  */
 export const FRAMEWORK_HELPERS = Object.freeze([
-  "$registerComponent",
-  "$use", // Alias for $registerComponent with auto-derived tag name
+  "registerComponent",
+  "$use", // Alias for registerComponent with auto-derived tag name
 ]);

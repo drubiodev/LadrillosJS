@@ -19,7 +19,7 @@ src/
 │   ├── diff/             # List diffing algorithm
 │   ├── directives/       # Directive processing
 │   ├── events/           # Event bus
-│   ├── helpers/          # Framework helpers ($registerComponent, etc.)
+│   ├── helpers/          # Framework helpers (registerComponent, etc.)
 │   ├── html/             # HTML/template parsing
 │   ├── js/               # JavaScript processing & reactivity
 │   ├── lazy/             # Lazy loading strategies

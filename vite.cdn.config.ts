@@ -58,5 +58,6 @@ export default defineConfig({
         preset: "smallest",
       },
     },
+    emptyOutDir: true,
   },
 });

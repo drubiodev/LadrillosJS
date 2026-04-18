@@ -1,3 +1,38 @@
+# Dependencies
 /node_modules
+samples/*/node_modules
+
+# Build output
 /dist
 /dist-cdn
+samples/*/dist
+*.tsbuildinfo
+
+# Test & coverage
+/coverage
+/.nyc_output
+
+# Environment & local config
+.env
+.env.*
+!.env.example
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+.idea/
+*.swp
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Tooling
+.claude/
+.cache/
+
+# .NET sample build artifacts
+samples/dotnet-sample/bin/
+samples/dotnet-sample/obj/

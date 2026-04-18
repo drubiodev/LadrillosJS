@@ -52,7 +52,7 @@ import {
  */
 export function createWebComponentClass(
   component: LadrillosComponent,
-  useShadowDOM: boolean
+  useShadowDOM: boolean,
 ): typeof HTMLElement {
   const {
     tagName,
@@ -150,10 +150,7 @@ export function createWebComponentClass(
       this._root = useShadowDOM ? this.attachShadow({ mode: "open" }) : this;
 
       // Parse template and find bindings
-      const { bindings, twoWayBindings, conditionals, loops } = loadTemplate(
-        this._root,
-        template
-      );
+      const { bindings } = loadTemplate(this._root, template);
 
       // Load scoped styles
       loadStyles(this._root, styles, useShadowDOM);
@@ -194,7 +191,7 @@ export function createWebComponentClass(
       // Pass attribute overrides so they take precedence over defaults
       // Pass a callback that will update directives when state changes
       // DEFER bindings if we have module scripts (they need to load first)
-      // Pass sourcePath so $registerComponent resolves paths relative to this component
+      // Pass sourcePath so registerComponent resolves paths relative to this component
       // Pass componentId so event bus listeners can be cleaned up on disconnect
       // Pass earlyRefs so scripts can access $refs immediately
       // Pass templateBindings so auto-props are accessible in scripts
@@ -208,7 +205,7 @@ export function createWebComponentClass(
         sourcePath, // componentUrl for correct path resolution
         this._componentId, // componentId for event bus cleanup
         earlyRefs, // refs for $refs access in scripts
-        templateBindings // auto-props from template bindings
+        templateBindings, // auto-props from template bindings
       );
 
       // Register the onStateChange callback globally so external module scripts
@@ -220,7 +217,7 @@ export function createWebComponentClass(
         }
         (globalThis as any).__ladrillosStateCallbacks.set(
           this._componentId,
-          () => this._updateDirectives()
+          () => this._updateDirectives(),
         );
       }
 
@@ -240,7 +237,7 @@ export function createWebComponentClass(
           this._componentId,
           earlyRefs, // Pass refs so functions can capture the reference
           this.state, // Pass reactive state so functions write directly to it
-          () => this._updateDirectives() // Pass callback for imported array reactivity
+          () => this._updateDirectives(), // Pass callback for imported array reactivity
         );
 
         // Mark state as having module scripts ONLY if there are actual module scripts
@@ -283,13 +280,13 @@ export function createWebComponentClass(
         }
         // Get or create the refs Map for this component in the global registry
         let globalRefs = (globalThis as any).__ladrillosRefs.get(
-          this._componentId
+          this._componentId,
         );
         if (!globalRefs) {
           globalRefs = new Map();
           (globalThis as any).__ladrillosRefs.set(
             this._componentId,
-            globalRefs
+            globalRefs,
           );
         }
         // Copy all refs into the global registry
@@ -312,7 +309,7 @@ export function createWebComponentClass(
         this._updateBoundInputs = setupTwoWayBindings(
           this._directives.twoWayBindings,
           this.state,
-          this._evaluator
+          this._evaluator,
         );
       }
 
@@ -322,7 +319,7 @@ export function createWebComponentClass(
           bubbles: true,
           composed: true, // Crosses shadow DOM boundary
           detail: { state: this.state, refs: this._directives.refs },
-        })
+        }),
       );
     }
 
@@ -343,7 +340,7 @@ export function createWebComponentClass(
       // Clean up global state change callback
       if (typeof globalThis !== "undefined") {
         (globalThis as any).__ladrillosStateCallbacks?.delete(
-          this._componentId
+          this._componentId,
         );
       }
 
@@ -360,7 +357,7 @@ export function createWebComponentClass(
     attributeChangedCallback(
       name: string,
       oldValue: string | null,
-      newValue: string | null
+      newValue: string | null,
     ): void {
       // Only process if value actually changed and component is initialized
       if (oldValue === newValue) return;
@@ -417,7 +414,7 @@ export function createWebComponentClass(
         updateConditionals(
           this._directives.conditionals,
           this.state,
-          this._evaluator
+          this._evaluator,
         );
       }
 
@@ -426,7 +423,7 @@ export function createWebComponentClass(
         updateShowElements(
           this._directives.showElements,
           this.state,
-          this._evaluator
+          this._evaluator,
         );
       }
 
@@ -464,7 +461,7 @@ export function createWebComponentClass(
       // Warn developers about reserved attributes that were skipped
       // (only if they're not in template bindings - those are intentional)
       const actuallySkipped = skippedReserved.filter(
-        (name) => !templateBindings.includes(name)
+        (name) => !templateBindings.includes(name),
       );
       if (actuallySkipped.length > 0) {
         const suggestions = actuallySkipped.map((name) => {
@@ -487,7 +484,7 @@ export function createWebComponentClass(
             .join(", ")}.\n` +
             `  These won't be available as component state because they're standard HTML attributes.\n` +
             `  Suggestions: ${suggestions.join(", ")}`,
-          { tagName, sourcePath }
+          { tagName, sourcePath },
         );
       }
 
@@ -584,7 +581,7 @@ export function createWebComponentClass(
  */
 export function createWebComponent(
   component: LadrillosComponent,
-  useShadowDOM: boolean
+  useShadowDOM: boolean,
 ): void {
   const { tagName } = component;
 

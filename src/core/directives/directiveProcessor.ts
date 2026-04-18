@@ -38,6 +38,7 @@ import {
 } from "../js/scriptParser";
 import { createEventBusHelpers } from "../events/eventBus";
 import { diffKeyed, diffUnkeyed, createKeyGetter } from "../diff/listDiff";
+import { warn, error } from "../../utils/devWarnings";
 
 // ============================================================================
 // Types
@@ -98,7 +99,7 @@ function stripBindingBraces(expression: string): string {
  * This should be called after the template HTML is injected into the DOM.
  */
 export function scanDirectives(
-  host: HTMLElement | ShadowRoot
+  host: HTMLElement | ShadowRoot,
 ): DirectiveContext {
   const context: DirectiveContext = {
     loops: [],
@@ -126,7 +127,7 @@ export function scanDirectives(
  */
 export function scanDirectivesWithRefs(
   host: HTMLElement | ShadowRoot,
-  existingRefs: RefMap
+  existingRefs: RefMap,
 ): DirectiveContext {
   const context: DirectiveContext = {
     loops: [],
@@ -153,10 +154,10 @@ export function scanDirectivesWithRefs(
  */
 export function scanRefsOnly(
   host: HTMLElement | ShadowRoot,
-  refs: RefMap
+  refs: RefMap,
 ): void {
   const elements = Array.from(
-    host.querySelectorAll(`[${escapeCssSelector(REF_DIRECTIVE)}]`)
+    host.querySelectorAll(`[${escapeCssSelector(REF_DIRECTIVE)}]`),
   );
 
   for (const element of elements) {
@@ -181,10 +182,10 @@ export function scanRefsOnly(
  */
 function scanRefs(
   host: HTMLElement | ShadowRoot,
-  context: DirectiveContext
+  context: DirectiveContext,
 ): void {
   const elements = Array.from(
-    host.querySelectorAll(`[${escapeCssSelector(REF_DIRECTIVE)}]`)
+    host.querySelectorAll(`[${escapeCssSelector(REF_DIRECTIVE)}]`),
   );
 
   for (const element of elements) {
@@ -211,10 +212,10 @@ function scanRefs(
  */
 function scanLoops(
   host: HTMLElement | ShadowRoot,
-  context: DirectiveContext
+  context: DirectiveContext,
 ): void {
   const elements = Array.from(
-    host.querySelectorAll(`[${escapeCssSelector(FOR_DIRECTIVE)}]`)
+    host.querySelectorAll(`[${escapeCssSelector(FOR_DIRECTIVE)}]`),
   );
 
   for (const element of elements) {
@@ -223,7 +224,7 @@ function scanLoops(
 
     const parsed = parseForExpression(expression);
     if (!parsed) {
-      console.warn(`Invalid $for expression: "${expression}"`);
+      warn(`Invalid $for expression: "${expression}"`);
       continue;
     }
 
@@ -326,11 +327,11 @@ function parseForExpression(expression: string): {
  */
 function scanConditionals(
   host: HTMLElement | ShadowRoot,
-  context: DirectiveContext
+  context: DirectiveContext,
 ): void {
   // Find all $if elements (these start conditional groups)
   const ifElements = Array.from(
-    host.querySelectorAll(`[${escapeCssSelector(IF_DIRECTIVE)}]`)
+    host.querySelectorAll(`[${escapeCssSelector(IF_DIRECTIVE)}]`),
   );
 
   for (const ifElement of ifElements) {
@@ -358,8 +359,8 @@ function scanConditionals(
         "if",
         placeholder,
         parent as Element | ShadowRoot,
-        nextSibling
-      )
+        nextSibling,
+      ),
     );
 
     // Look for following $else-if and $else elements
@@ -376,8 +377,8 @@ function scanConditionals(
             "else-if",
             placeholder,
             parent as Element | ShadowRoot,
-            current.nextSibling
-          )
+            current.nextSibling,
+          ),
         );
         current.remove();
         current = next;
@@ -389,8 +390,8 @@ function scanConditionals(
             "else",
             placeholder,
             parent as Element | ShadowRoot,
-            current.nextSibling
-          )
+            current.nextSibling,
+          ),
         );
         current.remove();
         break; // $else must be last
@@ -417,7 +418,7 @@ function createConditionalDescriptor(
   type: "if" | "else-if" | "else",
   placeholder: Comment,
   parent: Element | ShadowRoot,
-  nextSibling: Node | null
+  nextSibling: Node | null,
 ): ConditionalDescriptor {
   // Remove directive attribute
   element.removeAttribute(IF_DIRECTIVE);
@@ -445,10 +446,10 @@ function createConditionalDescriptor(
  */
 function scanShow(
   host: HTMLElement | ShadowRoot,
-  context: DirectiveContext
+  context: DirectiveContext,
 ): void {
   const elements = Array.from(
-    host.querySelectorAll(`[${escapeCssSelector(SHOW_DIRECTIVE)}]`)
+    host.querySelectorAll(`[${escapeCssSelector(SHOW_DIRECTIVE)}]`),
   );
 
   for (const element of elements) {
@@ -484,10 +485,10 @@ function scanShow(
  */
 function scanTwoWayBindings(
   host: HTMLElement | ShadowRoot,
-  context: DirectiveContext
+  context: DirectiveContext,
 ): void {
   const elements = Array.from(
-    host.querySelectorAll(`[${escapeCssSelector(BIND_DIRECTIVE)}]`)
+    host.querySelectorAll(`[${escapeCssSelector(BIND_DIRECTIVE)}]`),
   );
 
   for (const element of elements) {
@@ -526,7 +527,7 @@ function scanTwoWayBindings(
  */
 function isInsideUnprocessedLoop(
   element: Element,
-  context: DirectiveContext
+  context: DirectiveContext,
 ): boolean {
   let current = element.parentElement;
   while (current) {
@@ -550,8 +551,8 @@ export function renderLoops(
   state: Record<string, unknown>,
   evaluateExpression: (
     expr: string,
-    context: Record<string, unknown>
-  ) => unknown
+    context: Record<string, unknown>,
+  ) => unknown,
 ): void {
   for (const loop of loops) {
     renderLoop(loop, state, evaluateExpression);
@@ -567,8 +568,8 @@ function renderLoop(
   state: Record<string, unknown>,
   evaluateExpression: (
     expr: string,
-    context: Record<string, unknown>
-  ) => unknown
+    context: Record<string, unknown>,
+  ) => unknown,
 ): void {
   // Get the array to iterate over
   const arrayValue = evaluateExpression(loop.arrayName, state);
@@ -652,7 +653,7 @@ function renderLoop(
     }
     loop.placeholder.parentNode?.insertBefore(
       fragment,
-      loop.placeholder.nextSibling
+      loop.placeholder.nextSibling,
     );
 
     loop.renderedElements = newElements;
@@ -699,7 +700,7 @@ function createLoopContext(
   state: Record<string, unknown>,
   loop: LoopDescriptor,
   item: unknown,
-  index: number
+  index: number,
 ): Record<string, unknown> {
   const scriptContentFromState = (state as any).__scriptContent;
   const loopContext: Record<string, unknown> = {
@@ -723,8 +724,8 @@ function updateElementBindings(
   context: Record<string, unknown>,
   evaluateExpression: (
     expr: string,
-    context: Record<string, unknown>
-  ) => unknown
+    context: Record<string, unknown>,
+  ) => unknown,
 ): void {
   // Update text bindings
   const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
@@ -738,7 +739,7 @@ function updateElementBindings(
         (_: string, expr: string) => {
           const result = evaluateExpression(expr.trim(), context);
           return String(result ?? "");
-        }
+        },
       );
     }
   }
@@ -755,7 +756,7 @@ function updateElementBindings(
             return JSON.stringify(result);
           }
           return String(result ?? "");
-        }
+        },
       );
     }
   }
@@ -776,8 +777,8 @@ function processElementBindings(
   context: Record<string, unknown>,
   evaluateExpression: (
     expr: string,
-    context: Record<string, unknown>
-  ) => unknown
+    context: Record<string, unknown>,
+  ) => unknown,
 ): void {
   // Process attributes - first replace bindings, then transform event handlers
   for (const attr of Array.from(element.attributes)) {
@@ -820,7 +821,7 @@ function processElementBindings(
       (_, expr) => {
         const result = evaluateExpression(expr.trim(), context);
         return String(result ?? "");
-      }
+      },
     );
   }
 
@@ -844,7 +845,7 @@ function processElementBindings(
  */
 function transformLoopEventHandlers(
   element: Element,
-  context: Record<string, unknown>
+  context: Record<string, unknown>,
 ): void {
   // Process standard inline event handlers (onclick, oninput, etc.)
   for (const attrName of EVENT_ATTRIBUTES) {
@@ -880,7 +881,7 @@ function transformLoopEventHandlers(
  */
 function processLoopEventDirectives(
   element: Element,
-  context: Record<string, unknown>
+  context: Record<string, unknown>,
 ): void {
   // Get all attributes that start with $on:
   const attrs = Array.from(element.attributes);
@@ -917,7 +918,7 @@ function processLoopEventDirectives(
  */
 function createLoopEventHandler(
   code: string,
-  context: Record<string, unknown>
+  context: Record<string, unknown>,
 ): ((event: Event) => void) | null {
   try {
     // Get reactive state and script content from context (set by renderLoop)
@@ -928,21 +929,21 @@ function createLoopEventHandler(
 
     // Separate functions from variables in context (skip internal markers)
     const contextKeys = Object.keys(context).filter(
-      (key) => !key.startsWith("__")
+      (key) => !key.startsWith("__"),
     );
 
     // Get list of state variable names (excluding loop variables and functions)
     const stateVarNames = reactiveState
       ? Object.keys(reactiveState).filter(
           (key) =>
-            !key.startsWith("__") && typeof reactiveState[key] !== "function"
+            !key.startsWith("__") && typeof reactiveState[key] !== "function",
         )
       : [];
 
     // Get loop-specific variables (item, index, etc.) - these are in context but not in state
     const loopVarNames = contextKeys.filter(
       (key) =>
-        !stateVarNames.includes(key) && typeof context[key] !== "function"
+        !stateVarNames.includes(key) && typeof context[key] !== "function",
     );
 
     // All variable names for destructuring
@@ -952,7 +953,7 @@ function createLoopEventHandler(
     // Otherwise, destructure functions from context (fallback for module scripts)
     const hasScriptContent = scriptContent.trim().length > 0;
     const funcNames = contextKeys.filter(
-      (key) => typeof context[key] === "function"
+      (key) => typeof context[key] === "function",
     );
 
     // Check if we have module script functions (they manage state directly)
@@ -1026,7 +1027,7 @@ function createLoopEventHandler(
       "reactiveState",
       "$emit",
       "$listen",
-      fnBody
+      fnBody,
     );
 
     return (event: Event) => {
@@ -1036,14 +1037,16 @@ function createLoopEventHandler(
           context,
           reactiveState,
           eventBusHelpers.$emit,
-          eventBusHelpers.$listen
+          eventBusHelpers.$listen,
         );
       } catch (e) {
-        console.error(`Error in loop event handler: ${code}`, e);
+        error(`Error in loop event handler: ${code}`, null, e);
       }
     };
   } catch (e) {
-    console.warn(`Failed to create loop event handler: ${code}`, e);
+    warn(
+      `Failed to create loop event handler: ${code} — ${(e as Error).message}`,
+    );
     return null;
   }
 }
@@ -1056,8 +1059,8 @@ export function updateConditionals(
   state: Record<string, unknown>,
   evaluateExpression: (
     expr: string,
-    context: Record<string, unknown>
-  ) => unknown
+    context: Record<string, unknown>,
+  ) => unknown,
 ): void {
   for (const group of conditionals) {
     updateConditionalGroup(group, state, evaluateExpression);
@@ -1072,8 +1075,8 @@ function updateConditionalGroup(
   state: Record<string, unknown>,
   evaluateExpression: (
     expr: string,
-    context: Record<string, unknown>
-  ) => unknown
+    context: Record<string, unknown>,
+  ) => unknown,
 ): void {
   // Remove all currently visible elements
   for (const desc of group) {
@@ -1097,7 +1100,7 @@ function updateConditionalGroup(
       // Insert this element after the placeholder
       desc.placeholder.parentNode?.insertBefore(
         desc.element,
-        desc.placeholder.nextSibling
+        desc.placeholder.nextSibling,
       );
       break; // Only show the first matching condition
     }
@@ -1112,8 +1115,8 @@ export function updateShowElements(
   state: Record<string, unknown>,
   evaluateExpression: (
     expr: string,
-    context: Record<string, unknown>
-  ) => unknown
+    context: Record<string, unknown>,
+  ) => unknown,
 ): void {
   for (const desc of showElements) {
     const result = evaluateExpression(desc.expression, state);
@@ -1134,8 +1137,8 @@ export function setupTwoWayBindings(
   state: Record<string, unknown>,
   evaluateExpression: (
     expr: string,
-    context: Record<string, unknown>
-  ) => unknown
+    context: Record<string, unknown>,
+  ) => unknown,
 ): (changedKey?: string) => void {
   // Registry mapping state keys to bound elements
   const registry: TwoWayBindingRegistry = new Map();
@@ -1158,9 +1161,9 @@ function setupTwoWayBinding(
   state: Record<string, unknown>,
   evaluateExpression: (
     expr: string,
-    context: Record<string, unknown>
+    context: Record<string, unknown>,
   ) => unknown,
-  registry: TwoWayBindingRegistry
+  registry: TwoWayBindingRegistry,
 ): void {
   const element = binding.element;
   const { raw, path, isContentEditable } = binding;
@@ -1229,9 +1232,9 @@ function updateBoundInputs(
   state: Record<string, unknown>,
   evaluateExpression: (
     expr: string,
-    context: Record<string, unknown>
+    context: Record<string, unknown>,
   ) => unknown,
-  changedKey?: string
+  changedKey?: string,
 ): void {
   // If a specific key changed, only update elements bound to that key
   const keysToUpdate = changedKey ? [changedKey] : Array.from(registry.keys());
@@ -1283,7 +1286,7 @@ function getInputEventType(element: HTMLElement): string {
  */
 function getElementValue(
   element: HTMLElement,
-  isContentEditable?: boolean
+  isContentEditable?: boolean,
 ): unknown {
   if (isContentEditable) {
     return element.textContent || "";
@@ -1320,7 +1323,7 @@ function getElementValue(
 function setElementValue(
   element: HTMLElement,
   value: unknown,
-  isContentEditable?: boolean
+  isContentEditable?: boolean,
 ): void {
   if (isContentEditable) {
     element.textContent = String(value ?? "");
@@ -1356,7 +1359,7 @@ function setElementValue(
 function setNestedValue(
   obj: Record<string, unknown>,
   path: string[],
-  value: unknown
+  value: unknown,
 ): void {
   let current: any = obj;
 

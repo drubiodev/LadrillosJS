@@ -102,7 +102,7 @@ export function getComponentContext(): ComponentContext | null {
  */
 export function withComponentContext<T>(
   context: ComponentContext,
-  fn: () => T
+  fn: () => T,
 ): T {
   const previousContext = currentContext;
   currentContext = context;
@@ -118,7 +118,7 @@ export function withComponentContext<T>(
  */
 export async function withComponentContextAsync<T>(
   context: ComponentContext,
-  fn: () => Promise<T>
+  fn: () => Promise<T>,
 ): Promise<T> {
   const previousContext = currentContext;
   currentContext = context;
@@ -144,7 +144,7 @@ export async function withComponentContextAsync<T>(
 export function generateCodeFrame(
   source: string,
   start: number = 0,
-  end: number = source.length
+  end: number = source.length,
 ): string {
   const lines = source.split("\n");
   let count = 0;
@@ -173,12 +173,12 @@ export function generateCodeFrame(
           const pad = start - (count - lineLength);
           const length = Math.min(
             end > count ? end - start : lineLength - pad,
-            lineContent.length - pad
+            lineContent.length - pad,
           );
           res.push(
             `     │ ${"".padStart(Math.max(0, pad))}${"^".repeat(
-              Math.max(1, length)
-            )}`
+              Math.max(1, length),
+            )}`,
           );
         }
       }
@@ -195,7 +195,7 @@ export function generateCodeFrame(
  */
 export function findExpressionPosition(
   template: string,
-  expression: string
+  expression: string,
 ): { start: number; end: number } | null {
   // Look for {expression} pattern
   const searchPattern = `{${expression}}`;
@@ -253,7 +253,7 @@ function formatComponentInfo(context?: ComponentContext | null): string {
  */
 function formatMessage(
   message: string,
-  context?: ComponentContext | null
+  context?: ComponentContext | null,
 ): string {
   const componentInfo = formatComponentInfo(context);
   return `${message}${componentInfo}`;
@@ -301,6 +301,43 @@ export function getErrorDocsUrl(code: ErrorCode): string {
   return `${DOCS_BASE_URL}/${code}`;
 }
 
+// ============================================================================
+// Custom Error Handler
+// ============================================================================
+
+/**
+ * Custom error handler signature. If registered via `configure({ onError })`,
+ * framework errors are forwarded here in addition to being logged.
+ */
+export type LadrillosErrorHandler = (
+  error: Error,
+  context?: ComponentContext | null,
+) => void;
+
+let customErrorHandler: LadrillosErrorHandler | null = null;
+
+/**
+ * Register (or clear) a custom error handler. Called by `configure()`.
+ * Pass `null` to remove.
+ */
+export function setErrorHandler(handler: LadrillosErrorHandler | null): void {
+  customErrorHandler = handler;
+}
+
+/**
+ * Dispatch an error through the custom handler (if registered). Swallows
+ * handler errors to avoid recursive failures.
+ */
+function dispatchError(err: unknown, context?: ComponentContext | null): void {
+  if (!customErrorHandler) return;
+  try {
+    const errorObj = err instanceof Error ? err : new Error(String(err));
+    customErrorHandler(errorObj, context ?? null);
+  } catch {
+    /* swallow */
+  }
+}
+
 /**
  * Log a styled warning message (dev mode only).
  * Includes component context if available.
@@ -320,10 +357,14 @@ export function warn(message: string, context?: ComponentContext | null): void {
 /**
  * Log a styled error message.
  * Errors are always logged, even in production.
+ *
+ * If a custom error handler is registered via `configure({ onError })`, it is
+ * also invoked so embedders can route framework errors to telemetry.
  */
 export function error(
   message: string,
-  context?: ComponentContext | null
+  context?: ComponentContext | null,
+  cause?: unknown,
 ): void {
   const fullMessage = formatMessage(message, context);
 
@@ -332,6 +373,16 @@ export function error(
   } else {
     console.error(`${PREFIX} ${fullMessage}`);
   }
+
+  if (cause !== undefined && typeof console !== "undefined") {
+    console.error(cause);
+  }
+
+  const errorObj =
+    cause instanceof Error
+      ? cause
+      : new Error(fullMessage, cause !== undefined ? { cause } : undefined);
+  dispatchError(errorObj, context);
 }
 
 /**
@@ -351,7 +402,7 @@ export function expressionError(
     context?: ComponentContext | null;
     template?: string;
     errorCode?: ErrorCode;
-  } = {}
+  } = {},
 ): void {
   const ctx = options.context || currentContext;
   const code = options.errorCode || inferErrorCode(originalError);
@@ -374,7 +425,7 @@ export function expressionError(
       `%c${PREFIX}%c ${errorType}%c${componentInfo}`,
       styles.prefix,
       styles.error,
-      styles.dim
+      styles.dim,
     );
 
     console.log(`%cExpression:%c ${expression}`, styles.dim, styles.expression);
@@ -383,7 +434,7 @@ export function expressionError(
       console.log(
         `%cComponent:%c <${ctx.tagName}>`,
         styles.dim,
-        styles.component
+        styles.component,
       );
     }
 
@@ -397,7 +448,7 @@ export function expressionError(
       if (position) {
         console.log(`%cLocation in template:%c`, styles.dim, styles.reset);
         console.log(
-          generateCodeFrame(options.template, position.start, position.end)
+          generateCodeFrame(options.template, position.start, position.end),
         );
       }
     }
@@ -405,7 +456,7 @@ export function expressionError(
     console.log(
       `%cError:%c ${originalError.message}`,
       styles.dim,
-      styles.reset
+      styles.reset,
     );
     console.log(`%cDocs:%c ${getErrorDocsUrl(code)}`, styles.dim, styles.file);
 
@@ -433,7 +484,7 @@ export function expressionError(
           generateCodeFrame(options.template, position.start, position.end)
             .split("\n")
             .map((l) => `    ${l}`)
-            .join("\n")
+            .join("\n"),
         );
       }
     }
@@ -451,15 +502,15 @@ export function expressionError(
 export function scriptError(
   message: string,
   originalError: Error,
-  context?: ComponentContext | null
+  context?: ComponentContext | null,
 ): void {
   const ctx = context || currentContext;
 
   if (!__DEV__) {
     console.error(
       `${PREFIX} Script error. See: ${getErrorDocsUrl(
-        ErrorCode.SCRIPT_EXTRACT_FAILED
-      )}`
+        ErrorCode.SCRIPT_EXTRACT_FAILED,
+      )}`,
     );
     return;
   }
@@ -471,7 +522,7 @@ export function scriptError(
       `%c${PREFIX}%c Script Error%c${componentInfo}`,
       styles.prefix,
       styles.error,
-      styles.dim
+      styles.dim,
     );
 
     console.log(`%cMessage:%c ${message}`, styles.dim, styles.reset);
@@ -480,7 +531,7 @@ export function scriptError(
       console.log(
         `%cComponent:%c <${ctx.tagName}>`,
         styles.dim,
-        styles.component
+        styles.component,
       );
     }
 
@@ -576,7 +627,7 @@ function getErrorType(err: Error): string {
 export function createError(
   message: string,
   code: ErrorCode,
-  context?: ComponentContext | null
+  context?: ComponentContext | null,
 ): Error {
   const ctx = context || currentContext;
   const fullMessage = formatMessage(message, ctx);
@@ -604,7 +655,7 @@ const deprecationWarnings = new Set<string>();
 export function deprecate(
   feature: string,
   replacement?: string,
-  version?: string
+  version?: string,
 ): void {
   if (!__DEV__) return;
 
@@ -628,7 +679,7 @@ export function deprecate(
     console.warn(
       `%c${PREFIX}%c ⚠️ Deprecation: ${message}`,
       styles.prefix,
-      "color: #ff9800"
+      "color: #ff9800",
     );
   } else {
     console.warn(`${PREFIX} ⚠️ Deprecation: ${message}`);

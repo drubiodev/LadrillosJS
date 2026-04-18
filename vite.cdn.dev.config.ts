@@ -35,5 +35,6 @@ export default defineConfig({
         entryFileNames: "ladrillos.iife.js",
       },
     },
+    emptyOutDir: true,
   },
 });

@@ -4,11 +4,13 @@ import {
   RegisterComponentsResult,
 } from "./core/ladrillos";
 import {
-  $registerComponent,
-  $registerComponents,
+  registerComponent,
+  registerComponents,
   $use,
 } from "./core/helpers/frameworkHelpers";
 import { $emit, $listen, EventCallback } from "./core/events/eventBus";
+import { configure, LadrillosConfig } from "./core/configure";
+import { ErrorCode, type LadrillosErrorHandler } from "./utils/devWarnings";
 
 // Import lazy loading strategies
 import {
@@ -20,13 +22,19 @@ import {
   lazyOnDelay,
 } from "./core/lazy";
 
-// Export types for TypeScript users
+// Export public types
 export type {
   ComponentConfig,
   RegisterComponentsResult,
   EventCallback,
   LazyStrategy,
+  LadrillosConfig,
+  LadrillosErrorHandler,
 };
+export type { LadrillosComponent } from "./types";
+
+// Export error code enum for consumers to branch on
+export { ErrorCode };
 
 // Export lazy loading strategies
 export {
@@ -37,39 +45,26 @@ export {
   lazyOnDelay,
 };
 
-// Legacy export (for backwards compatibility)
-export const registerComponent = (
-  name: string,
-  path: string,
-  useShadowDOM?: boolean,
-  lazy?: boolean | LazyStrategy
-) => ladrillos.registerComponent(name, path, useShadowDOM, lazy);
-
-// New batch registration export
-export const registerComponents = (
-  configs:
-    | ComponentConfig[]
-    | Record<string, string | Omit<ComponentConfig, "name">>
-) => ladrillos.registerComponents(configs);
-
 // Force load a lazy component
 export const loadLazyComponent = (name: string) =>
   ladrillos.loadLazyComponent(name);
 
-// $ prefixed exports - same syntax inside and outside components!
-export { $registerComponent, $registerComponents, $use, $emit, $listen };
+// Framework configuration
+export { configure };
+
+// Component registration + $use alias + event bus helpers
+export { registerComponent, registerComponents, $use, $emit, $listen };
 
 // Default export with all methods for CDN usage
-// This allows: ladrillosjs.$registerComponent() in CDN mode
+// This allows: ladrillosjs.registerComponent() in CDN mode
 export default {
   registerComponent,
   registerComponents,
-  loadLazyComponent,
-  $registerComponent,
-  $registerComponents,
   $use,
   $emit,
   $listen,
+  loadLazyComponent,
+  configure,
   // Lazy loading strategies
   lazyOnIdle,
   lazyOnVisible,

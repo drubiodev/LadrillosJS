@@ -44,7 +44,10 @@
 ### 1. Add the Script
 
 ```html
-<script src="https://cdn.jsdelivr.net/npm/ladrillosjs/dist/ladrillosjs.umd.js"></script>
+<script type="module">
+  import ladrillosjs from "https://cdn.jsdelivr.net/npm/ladrillosjs@2/dist/index.js";
+  window.ladrillosjs = ladrillosjs;
+</script>
 ```
 
 ### 2. Create a Component
@@ -89,9 +92,9 @@ Save this as `counter.html`:
 <!DOCTYPE html>
 <html>
   <head>
-    <script src="https://cdn.jsdelivr.net/npm/ladrillosjs/dist/ladrillosjs.umd.js"></script>
     <script type="module">
-      ladrillosjs.registerComponent("my-counter", "./counter.html");
+      import { registerComponent } from "https://cdn.jsdelivr.net/npm/ladrillosjs@2/dist/index.js";
+      registerComponent("my-counter", "./counter.html");
     </script>
   </head>
   <body>
@@ -108,19 +111,26 @@ That's it! Your reactive component is ready. 🎉
 
 ### CDN (No Build Step)
 
-```html
-<!-- Global (UMD) -->
-<script src="https://cdn.jsdelivr.net/npm/ladrillosjs/dist/ladrillosjs.umd.js"></script>
-<script type="module">
-  ladrillosjs.registerComponent("my-component", "./component.html");
-</script>
+LadrillosJS v2 is distributed as native ES modules. Import directly from a CDN:
 
-<!-- ES Module -->
+```html
+<!-- ES Module (recommended) -->
 <script type="module">
-  import { registerComponent } from "https://cdn.jsdelivr.net/npm/ladrillosjs/dist/ladrillosjs.es.js";
+  import {
+    registerComponent,
+    registerComponents,
+  } from "https://cdn.jsdelivr.net/npm/ladrillosjs@2/dist/index.js";
+
   registerComponent("my-component", "./component.html");
 </script>
+
+<!-- Also available on unpkg -->
+<script type="module">
+  import { registerComponent } from "https://unpkg.com/ladrillosjs@2/dist/index.js";
+</script>
 ```
+
+> **Note:** LadrillosJS v2 is ESM-only. Legacy UMD/IIFE global builds are not published to npm.
 
 ### NPM (With Build Tools)
 
@@ -139,6 +149,22 @@ await registerComponents([
   { name: "app-header", path: "./components/header.html" },
   { name: "app-footer", path: "./components/footer.html" },
 ]);
+```
+
+### Granular Imports (Tree-Shaking)
+
+```javascript
+// Full API
+import { registerComponent, $emit, $listen } from "ladrillosjs";
+
+// Core only (no lazy loading, no event bus)
+import { registerComponent } from "ladrillosjs/core";
+
+// Lazy loading strategies only
+import { lazyOnVisible, lazyOnIdle } from "ladrillosjs/lazy";
+
+// Event bus only
+import { $emit, $listen } from "ladrillosjs/events";
 ```
 
 ---
@@ -418,7 +444,7 @@ Force a lazy component to load immediately by adding the `eager` attribute:
 
 ## 📋 API Reference
 
-### registerComponent
+### `registerComponent`
 
 ```javascript
 registerComponent(name, path, useShadowDOM?, lazy?)
@@ -442,7 +468,7 @@ registerComponent("my-nav", "./nav.html", false);
 registerComponent("my-footer", "./footer.html", true, lazyOnVisible());
 ```
 
-### registerComponents
+### `registerComponents`
 
 Register multiple components with parallel fetching:
 
@@ -454,6 +480,37 @@ const result = await registerComponents([
 ]);
 
 // Returns: { success: [...], failed: [...], skipped: [...] }
+```
+
+### `$use`
+
+Infer the component tag name from the file path:
+
+```javascript
+await $use("./components/user-card.html"); // Registers as <user-card>
+```
+
+### `loadLazyComponent`
+
+Force a lazy component to load immediately from JavaScript:
+
+```javascript
+import { loadLazyComponent } from "ladrillosjs";
+
+await loadLazyComponent("my-lazy-footer");
+```
+
+### `configure`
+
+Configure framework-level options (optional):
+
+```javascript
+import { configure } from "ladrillosjs";
+
+configure({
+  cacheSize: 50, // Component LRU cache size (default: 25)
+  onError: (err) => telemetry.capture(err), // Custom error handler
+});
 ```
 
 ### Event Bus
@@ -539,7 +596,7 @@ A complete CRUD example combining all directives:
 
   function toggleTodo(id) {
     todos = todos.map((t) =>
-      t.id === id ? { ...t, completed: !t.completed } : t
+      t.id === id ? { ...t, completed: !t.completed } : t,
     );
   }
 

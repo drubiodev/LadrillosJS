@@ -237,8 +237,8 @@ Register child components from within a parent:
 
 <script>
   // Register child components with paths relative to THIS component
-  $registerComponent("nav-logo", "./logo.html");
-  $registerComponent("nav-menu", "./menu.html");
+  registerComponent("nav-logo", "./logo.html");
+  registerComponent("nav-menu", "./menu.html");
 
   // Or use $use for automatic naming
   // $use('./logo.html')  → registers as 'logo'

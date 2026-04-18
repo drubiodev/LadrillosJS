@@ -255,8 +255,8 @@ Inside component scripts, you have access to:
 | `$host`               | The component element       |
 | `$emit`               | Event bus emit function     |
 | `$listen`             | Event bus listen function   |
-| `$registerComponent`  | Register child components   |
-| `$registerComponents` | Register multiple children  |
+| `registerComponent`  | Register child components   |
+| `registerComponents` | Register multiple children  |
 | `$use`                | Shorthand registration      |
 
 ```html
@@ -266,7 +266,7 @@ Inside component scripts, you have access to:
   $host.classList.add("ready");
   $emit("component:ready");
   $listen("theme:change", updateTheme);
-  $registerComponent("child", "./child.html");
+  registerComponent("child", "./child.html");
 </script>
 ```
 

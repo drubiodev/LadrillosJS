@@ -1,40 +1,25 @@
-import {
-  BindingDescriptor,
-  ConditionalDescriptor,
-  LoopDescriptor,
-  TwoWayBindingDescriptor,
-} from "../../types";
+import { BindingDescriptor } from "../../types";
 import { REGEX_PATTERNS } from "../../utils/regex";
 import { analyzeBinding } from "../component/bindingParser";
 
 type TemplateLoadResult = {
   bindings: BindingDescriptor[];
-  twoWayBindings: TwoWayBindingDescriptor[];
-  conditionals: ConditionalDescriptor[][];
-  loops: LoopDescriptor[];
 };
 
 /**
  * Injects the template HTML into the host element and scans for data bindings.
  * Returns a list of all bindings found in text nodes and attributes.
+ *
+ * Directive scanning ($for / $if / $show / $bind) is performed separately
+ * by `scanDirectivesWithRefs` in the web component lifecycle.
  */
 export const loadTemplate = (
   host: HTMLElement | ShadowRoot,
   template: string,
 ): TemplateLoadResult => {
   host.innerHTML = template;
-  // scan for data bindings (text nodes + attributes)
   const bindings = getBindings(host);
-  // scan two way bindings
-  // scan for loops
-  // scan for conditionals
-
-  return {
-    bindings,
-    twoWayBindings: [],
-    conditionals: [],
-    loops: [],
-  };
+  return { bindings };
 };
 
 function getBindings(host: HTMLElement | ShadowRoot) {

@@ -19,8 +19,9 @@ export default defineConfig({
     dts({
       rollupTypes: false,
       insertTypesEntry: true,
-      copyDtsFiles: false,
-      include: ["src/index.ts", "src/core.ts", "src/lazy.ts", "src/events.ts"],
+      copyDtsFiles: true,
+      include: ["src/**/*.ts"],
+      exclude: ["src/global.d.ts", "**/*.test.ts", "**/*.spec.ts"],
       tsconfigPath: "./tsconfig.json",
     }),
   ],
@@ -66,7 +67,7 @@ export default defineConfig({
         comments: false,
       },
     },
-    sourcemap: false,
+    sourcemap: true,
     rollupOptions: {
       output: {
         preserveModules: false,

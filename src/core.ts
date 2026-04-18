@@ -6,7 +6,7 @@
  *
  * @example
  * ```ts
- * import { $registerComponent } from 'ladrillosjs/core';
+ * import { registerComponent } from 'ladrillosjs/core';
  * ```
  *
  * For additional features, import from:
@@ -14,41 +14,34 @@
  * - 'ladrillosjs/events' - Event bus for cross-component communication
  */
 
+import { ComponentConfig, RegisterComponentsResult } from "./core/ladrillos";
 import {
-  ladrillos,
-  ComponentConfig,
-  RegisterComponentsResult,
-} from "./core/ladrillos";
-import {
-  $registerComponent,
-  $registerComponents,
+  registerComponent,
+  registerComponents,
   $use,
 } from "./core/helpers/frameworkHelpers";
+import { configure, LadrillosConfig } from "./core/configure";
+import { ErrorCode, type LadrillosErrorHandler } from "./utils/devWarnings";
 
-// Export types
-export type { ComponentConfig, RegisterComponentsResult };
+// Export public types
+export type {
+  ComponentConfig,
+  RegisterComponentsResult,
+  LadrillosConfig,
+  LadrillosErrorHandler,
+};
+export type { LadrillosComponent } from "./types";
 
-// Core registration functions
-export const registerComponent = (
-  name: string,
-  path: string,
-  useShadowDOM?: boolean
-) => ladrillos.registerComponent(name, path, useShadowDOM, false);
+// Export error code enum
+export { ErrorCode };
 
-export const registerComponents = (
-  configs:
-    | ComponentConfig[]
-    | Record<string, string | Omit<ComponentConfig, "name">>
-) => ladrillos.registerComponents(configs);
-
-// $ prefixed exports
-export { $registerComponent, $registerComponents, $use };
+// Public exports
+export { registerComponent, registerComponents, $use, configure };
 
 // Default export for CDN usage
 export default {
   registerComponent,
   registerComponents,
-  $registerComponent,
-  $registerComponents,
   $use,
+  configure,
 };

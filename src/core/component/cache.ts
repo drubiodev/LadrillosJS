@@ -1,5 +1,25 @@
 const cache = new Map<string, string>();
-const maxCacheSize = 25; // TODO: make configurable for developer to set
+let maxCacheSize = 25;
+
+/**
+ * Set the maximum number of component sources retained in the LRU cache.
+ * When the new size is smaller than the current cache, the least-recently
+ * used entries are evicted until the limit is satisfied.
+ */
+export const setCacheSize = (size: number): void => {
+  if (!Number.isFinite(size) || size < 1) {
+    throw new Error(
+      `[LadrillosJS] configure({ cacheSize }) requires a positive integer, got ${size}`,
+    );
+  }
+  maxCacheSize = Math.floor(size);
+  // Evict to respect new limit
+  while (cache.size > maxCacheSize) {
+    const firstKey = cache.keys().next().value;
+    if (!firstKey) break;
+    cache.delete(firstKey);
+  }
+};
 
 /**
  * LRU Cache: Gets cached content and marks it as recently used
@@ -29,7 +49,7 @@ export const getCachedComponentSource = (path: string): string | undefined => {
  */
 export const setCachedComponentSource = (
   path: string,
-  content: string
+  content: string,
 ): void => {
   if (cache.has(path)) {
     // Update existing: remove and re-add to mark as most recent

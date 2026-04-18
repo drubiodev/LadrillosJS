@@ -12,7 +12,7 @@
  */
 export type LazyStrategy = (
   load: () => void,
-  element: Element
+  element: Element,
 ) => (() => void) | void;
 
 /**
@@ -96,11 +96,11 @@ export const lazyOnMedia: LazyStrategyFactory<string> = (query) => (load) => {
   const mql = matchMedia(query);
   if (mql.matches) {
     load();
-  } else {
-    const handler = () => load();
-    mql.addEventListener("change", handler, { once: true });
-    return () => mql.removeEventListener("change", handler);
+    return;
   }
+  const handler = () => load();
+  mql.addEventListener("change", handler, { once: true });
+  return () => mql.removeEventListener("change", handler);
 };
 
 /**
@@ -114,7 +114,7 @@ export const lazyOnMedia: LazyStrategyFactory<string> = (query) => (load) => {
  * { name: 'form', path: './form.html', lazy: lazyOnInteraction(['focus', 'click']) }
  */
 export const lazyOnInteraction: LazyStrategyFactory<string | string[]> = (
-  events = ["click", "focusin"]
+  events = ["click", "focusin"],
 ) => {
   const eventList = typeof events === "string" ? [events] : events;
 
