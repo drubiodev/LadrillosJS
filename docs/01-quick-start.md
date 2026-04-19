@@ -1,33 +1,43 @@
 # Quick Start Guide
 
-Get a LadrillosJS component working in under 5 minutes!
+Get a LadrillosJS component working in under 5 minutes — **no build tools, no npm install, no configuration**. Just drop in a CDN link and you're ready to go.
+
+## Why It's So Simple
+
+LadrillosJS is delivered as a single file from a CDN, which means:
+
+- **Zero installation** — just add a `<script>` tag
+- **No build step** — write HTML, CSS, and JS directly
+- **No dependencies** — nothing to configure
+- **Works anywhere** — any browser, any static host
 
 ## Step 1: Create Your HTML Page
 
-Create an `index.html` file:
+Create an `index.html` file. The only thing you need is a single import from the CDN:
 
 ```html
 <!DOCTYPE html>
 <html lang="en">
-  <head>
+
+<head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>My LadrillosJS App</title>
 
-    <!-- Include LadrillosJS from CDN -->
-    <script src="https://cdn.jsdelivr.net/npm/ladrillosjs/dist/ladrillosjs.umd.js"></script>
-
-    <!-- Register your components -->
+    <!-- That's it! Import from the CDN and register your components -->
     <script type="module">
-      ladrillosjs.registerComponent("my-counter", "./components/counter.html");
+        import { registerComponent } from "https://cdn.jsdelivr.net/npm/ladrillosjs/dist/index.min.js";
+        registerComponent("my-counter", "./components/counter.html");
     </script>
-  </head>
-  <body>
+</head>
+
+<body>
     <h1>My First LadrillosJS App</h1>
 
     <!-- Use your component like any HTML element! -->
     <my-counter></my-counter>
-  </body>
+</body>
+
 </html>
 ```
 
