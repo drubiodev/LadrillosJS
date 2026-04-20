@@ -36,3 +36,6 @@ yarn-error.log*
 # .NET sample build artifacts
 samples/dotnet-sample/bin/
 samples/dotnet-sample/obj/
+
+# Playground Folder
+playground/*
