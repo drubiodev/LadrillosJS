@@ -15,6 +15,7 @@ import {
   ComponentConfig,
   RegisterComponentsResult,
 } from "../ladrillos";
+import type { LazyStrategy } from "../lazy";
 
 /**
  * Wraps a Map in a Proxy to allow cleaner dot notation access.
@@ -123,9 +124,10 @@ export function createFrameworkHelpers(componentUrl: string) {
     name: string,
     path: string,
     useShadowDOM: boolean = false,
+    lazy: boolean | LazyStrategy = false,
   ): Promise<void> {
     const resolvedPath = resolvePath(path, componentUrl);
-    return ladrillos.registerComponent(name, resolvedPath, useShadowDOM);
+    return ladrillos.registerComponent(name, resolvedPath, useShadowDOM, lazy);
   }
 
   /**
@@ -161,14 +163,14 @@ export function createFrameworkHelpers(componentUrl: string) {
     // Normalize and resolve paths relative to component
     const normalizedConfigs: ComponentConfig[] = Array.isArray(configs)
       ? configs.map((config) => ({
-          ...config,
-          path: resolvePath(config.path, componentUrl),
-        }))
+        ...config,
+        path: resolvePath(config.path, componentUrl),
+      }))
       : Object.entries(configs).map(([name, value]) =>
-          typeof value === "string"
-            ? { name, path: resolvePath(value, componentUrl) }
-            : { name, ...value, path: resolvePath(value.path, componentUrl) },
-        );
+        typeof value === "string"
+          ? { name, path: resolvePath(value, componentUrl) }
+          : { name, ...value, path: resolvePath(value.path, componentUrl) },
+      );
 
     return ladrillos.registerComponents(normalizedConfigs);
   }
@@ -177,10 +179,14 @@ export function createFrameworkHelpers(componentUrl: string) {
    * Shorthand for registering a component with auto-derived tag name.
    * "./HeaderButtons.html" → registers as <header-buttons>
    */
-  function $use(path: string, useShadowDOM: boolean = false): Promise<void> {
+  function $use(
+    path: string,
+    useShadowDOM: boolean = false,
+    lazy: boolean | LazyStrategy = false,
+  ): Promise<void> {
     const tagName = filenameToTagName(path);
     const resolvedPath = resolvePath(path, componentUrl);
-    return ladrillos.registerComponent(tagName, resolvedPath, useShadowDOM);
+    return ladrillos.registerComponent(tagName, resolvedPath, useShadowDOM, lazy);
   }
 
   return { registerComponent, registerComponents, $use };
