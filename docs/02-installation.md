@@ -20,7 +20,7 @@ Perfect for quick prototypes, learning, or projects without a build system.
 
 ```html
 <script type="module">
-  import { registerComponent } from "https://cdn.jsdelivr.net/npm/ladrillosjs/dist/ladrillosjs.es.js";
+  import { registerComponent } from "https://cdn.jsdelivr.net/npm/ladrillosjs/dist/index.min.js";
 
   registerComponent("my-component", "./component.html");
 </script>

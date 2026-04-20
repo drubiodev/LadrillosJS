@@ -205,21 +205,67 @@ Use standard `onclick`, `oninput`, etc. They work with your reactive state:
 
 ### Event Modifiers
 
-Use `$on:event.modifier` for common patterns:
+Modifiers extend a `$on:` directive with extra behavior (prevent default, key filters, mouse buttons, etc.).
+
+**Syntax:**
+
+```
+$on:<event>[.<modifier>][.<modifier>]...="<handler>"
+```
+
+- `<event>` — any DOM event name (`click`, `submit`, `keyup`, `keydown`, `input`, ...)
+- `<modifier>` — zero or more dot-separated modifiers, applied in order
+- `<handler>` — an expression or function call, same as `onclick="..."`
+
+**Example:**
 
 ```html
-<!-- Prevent default -->
 <form $on:submit.prevent="handleSubmit()">
-  <!-- Stop propagation -->
-  <button $on:click.stop="handleClick()">
-    <!-- Key modifiers -->
-    <input $on:keyup.enter="submit()" />
-    <input $on:keydown.escape="cancel()" />
-
-    <!-- Combine modifiers -->
-    <a href="#" $on:click.prevent.stop="handleLink()"></a>
-  </button>
+  <input $on:keyup.enter="submit()" />
+  <input $on:keydown.escape="cancel()" />
+  <button type="submit">Submit</button>
 </form>
+```
+
+**Event behavior modifiers:**
+
+- `.prevent` — calls `event.preventDefault()`
+- `.stop` — calls `event.stopPropagation()`
+- `.self` — only trigger if `event.target === event.currentTarget`
+- `.once` — remove the listener after the first invocation
+- `.passive` — register as a passive listener
+- `.capture` — listen in the capture phase
+
+**System (modifier key) modifiers:**
+
+- `.ctrl`, `.alt`, `.shift`, `.meta`
+- `.exact` — only fire when *exactly* the specified system modifiers are pressed
+
+**Mouse button modifiers (for `click` / mouse events):**
+
+- `.left`, `.middle`, `.right`
+
+**Key modifiers (for `keyup` / `keydown`):**
+
+- Navigation: `.enter`, `.tab`, `.esc` (or `.escape`), `.space`
+- Arrows: `.up`, `.down`, `.left`, `.right`
+- Editing: `.delete`, `.backspace`, `.insert`
+- Position: `.home`, `.end`, `.pageup`, `.pagedown`
+- Function keys: `.f1` – `.f12`
+- Any other `KeyboardEvent.key` value (lowercased), e.g. `.a`, `.z`, `.slash`
+
+Modifiers can be combined, e.g. `$on:click.prevent.stop="handleLink()"` or `$on:keydown.ctrl.s.prevent="save()"`.
+
+**Example — save on `Ctrl+S`:**
+
+```html
+<textarea $on:keydown.ctrl.s.prevent="save()"></textarea>
+
+<script>
+  function save() {
+    console.log("Saved!");
+  }
+</script>
 ```
 
 ---
@@ -299,14 +345,28 @@ Use `<script type="module">` for imports:
 
 ### External Scripts
 
+Use the `external` attribute on a `<script src="...">` tag to load a third-party library **as-is**, without LadrillosJS parsing or wrapping it.
+
+Mark a script as `external` when:
+
+- It's a library or utility that doesn't touch component state or reactive variables (e.g. `lodash`, `dayjs`, `highlight.js`, analytics snippets, polyfills).
+- It attaches itself to `window` / a global and you just want to call into it.
+- It should be loaded once and shared across all components — the framework dedupes external scripts by URL so the same library isn't fetched twice.
+
+Do **not** use `external` for code that needs to read or mutate the component's reactive state, refs, or `$emit`/`$listen`. That code belongs in a regular `<script>` or `<script type="module">` block inside the component.
+
 ```html
+<!-- Third-party lib loaded once, globally available -->
 <script src="https://unpkg.com/some-library.js" external></script>
 
 <script>
-  // some-library is now available
+  // someLibrary is now on window and can be used here.
+  // It has no awareness of this component's reactive state.
   someLibrary.doSomething();
 </script>
 ```
+
+> **Tip:** If you need the library *inside* your reactive logic, prefer `<script type="module">` with an `import` from an ESM CDN (e.g. `https://esm.sh/...`) instead of `external`.
 
 ### External Styles
 
