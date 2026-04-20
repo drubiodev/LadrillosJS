@@ -230,31 +230,41 @@ export function createWebComponentClass(
       // directly to the reactive state. This makes `let x = 0; x++` work.
       // We also pass the onStateChange callback so imported arrays become reactive.
       if (sourcePath) {
-        const moduleState = await executeModuleScriptsWithReactivity(
-          scripts,
-          externalScripts,
-          sourcePath,
-          this._componentId,
-          earlyRefs, // Pass refs so functions can capture the reference
-          this.state, // Pass reactive state so functions write directly to it
-          () => this._updateDirectives(), // Pass callback for imported array reactivity
-        );
+        // Suspend per-key reactive binding updates while module scripts run.
+        // Module scripts assign __state__.x one-by-one, but some bindings may
+        // reference variables declared later in the same script. We apply all
+        // bindings together once module execution finishes.
+        (this.state as any).__suspendReactivity = true;
+        try {
+          const moduleState = await executeModuleScriptsWithReactivity(
+            scripts,
+            externalScripts,
+            sourcePath,
+            this._componentId,
+            earlyRefs, // Pass refs so functions can capture the reference
+            this.state, // Pass reactive state so functions write directly to it
+            () => this._updateDirectives(), // Pass callback for imported array reactivity
+            this, // Pass host element so $host is available in module scripts
+          );
 
-        // Mark state as having module scripts ONLY if there are actual module scripts
-        // This affects how event handlers treat functions:
-        // - Module scripts have reactive functions that should NOT be recreated
-        // - Regular scripts need fresh function bindings each time
-        if (hasModuleScripts || externalScripts.length > 0) {
-          (this.state as any).__hasModuleScripts = true;
-        }
-
-        // Merge module script functions into reactive state
-        // Variables are already in this.state (written directly by transformed code)
-        // We just need to add the functions
-        for (const [key, value] of Object.entries(moduleState)) {
-          if (typeof value === "function") {
-            this.state[key] = value;
+          // Mark state as having module scripts ONLY if there are actual module scripts
+          // This affects how event handlers treat functions:
+          // - Module scripts have reactive functions that should NOT be recreated
+          // - Regular scripts need fresh function bindings each time
+          if (hasModuleScripts || externalScripts.length > 0) {
+            (this.state as any).__hasModuleScripts = true;
           }
+
+          // Merge module script functions into reactive state
+          // Variables are already in this.state (written directly by transformed code)
+          // We just need to add the functions
+          for (const [key, value] of Object.entries(moduleState)) {
+            if (typeof value === "function") {
+              this.state[key] = value;
+            }
+          }
+        } finally {
+          (this.state as any).__suspendReactivity = false;
         }
       }
 
@@ -482,8 +492,8 @@ export function createWebComponentClass(
           `Reserved HTML attribute(s) used on <${tagName}>: ${actuallySkipped
             .map((n) => `"${n}"`)
             .join(", ")}.\n` +
-            `  These won't be available as component state because they're standard HTML attributes.\n` +
-            `  Suggestions: ${suggestions.join(", ")}`,
+          `  These won't be available as component state because they're standard HTML attributes.\n` +
+          `  Suggestions: ${suggestions.join(", ")}`,
           { tagName, sourcePath },
         );
       }

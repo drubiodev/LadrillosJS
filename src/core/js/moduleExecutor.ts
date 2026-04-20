@@ -144,8 +144,8 @@ export function rewriteImports(code: string, baseUrl: string): string {
   if (tsImports.length > 0) {
     console.info(
       `[LadrillosJS] TypeScript imports detected: ${tsImports.join(", ")}. ` +
-        `These work with dev servers (Vite, etc.) that transpile on-the-fly. ` +
-        `For production without a bundler, use .js files.`,
+      `These work with dev servers (Vite, etc.) that transpile on-the-fly. ` +
+      `For production without a bundler, use .js files.`,
     );
   }
 
@@ -155,7 +155,7 @@ export function rewriteImports(code: string, baseUrl: string): string {
       `[LadrillosJS] Bare import specifiers found: ${bareSpecifiers.join(
         ", ",
       )}. ` +
-        `These require an import map, bundler, or CDN URL to work at runtime.`,
+      `These require an import map, bundler, or CDN URL to work at runtime.`,
     );
   }
 
@@ -1203,6 +1203,7 @@ export async function executeModuleScriptWithReactivity(
   refs?: Map<string, HTMLElement>,
   reactiveState?: Record<string, unknown>,
   onStateChange?: () => void,
+  hostElement?: HTMLElement,
 ): Promise<Record<string, unknown>> {
   if (script.type !== "module") {
     throw new Error(
@@ -1277,8 +1278,8 @@ export async function executeModuleScriptWithReactivity(
     //
     // __state__ is the reactive state object - functions write directly to it
     // for full reactivity support
-    const injectedVars = ["$refs", "__state__"];
-    const injectedValues = [refs || new Map(), reactiveState || {}];
+    const injectedVars = ["$refs", "__state__", "$host"];
+    const injectedValues = [refs || new Map(), reactiveState || {}, hostElement];
 
     // Create framework helpers bound to component's URL for correct path resolution
     // This ensures registerComponent("./child.html") resolves relative to THIS component
@@ -1441,6 +1442,7 @@ export async function executeModuleScriptsWithReactivity(
   refs?: Map<string, HTMLElement>,
   reactiveState?: Record<string, unknown>,
   onStateChange?: () => void,
+  hostElement?: HTMLElement,
 ): Promise<Record<string, unknown>> {
   const mergedState: Record<string, unknown> = {};
 
@@ -1506,6 +1508,7 @@ export async function executeModuleScriptsWithReactivity(
         refs,
         reactiveState,
         onStateChange,
+        hostElement,
       );
       Object.assign(mergedState, state);
     } catch (error) {

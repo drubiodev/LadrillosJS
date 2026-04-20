@@ -238,10 +238,10 @@ export function createReactiveState(
       // Wrap arrays with reactive proxies before storing
       const wrappedValue = Array.isArray(value)
         ? createReactiveArray(value, () => {
-            if (onStateChange) {
-              onStateChange();
-            }
-          })
+          if (onStateChange) {
+            onStateChange();
+          }
+        })
         : value;
 
       // Update the underlying value
@@ -250,6 +250,14 @@ export function createReactiveState(
       // If new key, register bindings that depend on it
       if (isNewKey) {
         registerNewKey(key, bindings, registry);
+      }
+
+      // Skip binding updates while reactivity is suspended (e.g. during
+      // module-script bootstrap). Callers re-apply bindings once all state
+      // is populated, avoiding spurious ReferenceErrors for variables that
+      // are declared later in the same script.
+      if ((target as any).__suspendReactivity) {
+        return true;
       }
 
       // Find and update all bindings that depend on this key

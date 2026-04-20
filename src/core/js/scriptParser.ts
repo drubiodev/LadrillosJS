@@ -341,15 +341,11 @@ function createVanillaEventHandler(
     // Regular script functions need to be re-created each time to get fresh variable bindings
     const hasModuleScriptFunctions = (state as any).__hasModuleScripts === true;
 
-    // For module scripts: use const (read-only access, functions manage state)
-    // For regular scripts: use let (local copies that get synced back)
-    const destructureVars = hasModuleScriptFunctions
-      ? varNames.length > 0
-        ? `const { ${varNames.join(", ")} } = state;`
-        : ""
-      : varNames.length > 0
-        ? `let { ${varNames.join(", ")} } = state;`
-        : "";
+    // Always use `let` for variables so inline handlers like onclick="count++"
+    // can mutate them. Any mutations are synced back to reactive state below
+    // when the inline code references the variable.
+    const destructureVars =
+      varNames.length > 0 ? `let { ${varNames.join(", ")} } = state;` : "";
 
     // For module scripts: destructure functions from state (they're reactive)
     // For regular scripts: DON'T destructure - we'll recreate them via funcDefs
@@ -374,21 +370,21 @@ function createVanillaEventHandler(
     // instead of local destructured copies that won't be synced back
     const funcDefs = transformFunctionDefsToStateAccess(rawFuncDefs, varNames);
 
-    // Since functions are now transformed to write directly to state.varName,
-    // we no longer need sync-back. Sync-back would actually OVERWRITE changes
-    // made inside functions with the stale local copies.
-    // Only sync back for inline code that modifies variables directly (e.g., onclick="count++")
-    // We detect this by checking if the handler code itself references any state variables
+    // Sync back any variables the inline handler code references.
+    // Inline code operates on local `let` copies (from the destructure above),
+    // so we assign them back to reactive state after the handler runs.
+    // Functions in regular scripts are re-created via funcDefs with fresh
+    // bindings, and module-script functions write directly to state via
+    // __state__ — neither needs this sync-back. Only raw inline code does.
     const codeReferencesVars = varNames.some((v) =>
       new RegExp(`\\b${v}\\b`).test(code),
     );
-    const syncBack =
-      hasModuleScriptFunctions || !codeReferencesVars
-        ? ""
-        : varNames
-            .filter((key) => new RegExp(`\\b${key}\\b`).test(code))
-            .map((key) => `state.${key} = ${key};`)
-            .join(" ");
+    const syncBack = !codeReferencesVars
+      ? ""
+      : varNames
+        .filter((key) => new RegExp(`\\b${key}\\b`).test(code))
+        .map((key) => `state.${key} = ${key};`)
+        .join(" ");
 
     // Check if the code or any function definitions use async/await
     const isAsync =
@@ -409,7 +405,7 @@ function createVanillaEventHandler(
 
     // Use AsyncFunction constructor for async handlers
     const AsyncFunction = Object.getPrototypeOf(
-      async function () {},
+      async function () { },
     ).constructor;
     const fn = isAsync
       ? new AsyncFunction(...allKeys, fnBody)
@@ -468,10 +464,10 @@ function createVanillaEventHandler(
     // which can be overwritten by parallel component initialization)
     const ctx = componentHost?.tagName
       ? {
-          tagName: componentHost.tagName.toLowerCase(),
-          sourcePath: (state as any).__componentUrl,
-          instanceId: (state as any).__componentId,
-        }
+        tagName: componentHost.tagName.toLowerCase(),
+        sourcePath: (state as any).__componentUrl,
+        instanceId: (state as any).__componentId,
+      }
       : null;
     // Pass ctx explicitly to override global context
     warn(
@@ -687,8 +683,8 @@ function extractScriptMembersValuesOnly(content: string): Map<string, unknown> {
     `;
 
     // Stub out $listen and $emit to prevent side effects during value extraction
-    const stubListen = () => () => {}; // Returns unsubscribe function
-    const stubEmit = () => {};
+    const stubListen = () => () => { }; // Returns unsubscribe function
+    const stubEmit = () => { };
 
     // Minimal globals needed for value extraction
     const safeGlobals = [
