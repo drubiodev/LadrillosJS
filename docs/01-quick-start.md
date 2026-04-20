@@ -97,7 +97,11 @@ Create a folder called `components` and add `counter.html`:
 
 ## Step 3: Serve Your Files
 
-LadrillosJS needs to fetch component files, so you need a local server. Use any of these:
+LadrillosJS needs to fetch component files via HTTP, so you **must** serve your project through a local web server. Opening `index.html` directly from the filesystem (double-clicking the file or using a `file://` URL) **will not work** — browsers block `fetch()` requests from `file://` origins for security reasons, and you'll see CORS errors like:
+
+> Access to fetch at 'file:///.../components/counter.html' from origin 'null' has been blocked by CORS policy
+
+Use any of these to start a local server:
 
 ```bash
 # Option 1: Python (built-in)
@@ -109,6 +113,8 @@ npx serve
 # Option 3: VS Code Live Server extension
 # Just right-click index.html → "Open with Live Server"
 ```
+
+> **Note:** This is a browser-level restriction, not a LadrillosJS limitation. Any framework that loads files via `fetch()` (React, Vue, Svelte, etc.) has the same requirement.
 
 ## Step 4: Open in Browser
 
