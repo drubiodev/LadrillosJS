@@ -32,7 +32,7 @@ export default defineConfig({
     rollupOptions: {
       output: {
         exports: "named",
-        entryFileNames: "ladrillos.iife.js",
+        entryFileNames: "ladrillos.dev.iife.js",
       },
     },
     emptyOutDir: true,
