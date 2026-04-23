@@ -123,7 +123,7 @@ export function createFrameworkHelpers(componentUrl: string) {
   function registerComponent(
     name: string,
     path: string,
-    useShadowDOM: boolean = false,
+    useShadowDOM: boolean = true,
     lazy: boolean | LazyStrategy = false,
   ): Promise<void> {
     const resolvedPath = resolvePath(path, componentUrl);
@@ -181,7 +181,7 @@ export function createFrameworkHelpers(componentUrl: string) {
    */
   function $use(
     path: string,
-    useShadowDOM: boolean = false,
+    useShadowDOM: boolean = true,
     lazy: boolean | LazyStrategy = false,
   ): Promise<void> {
     const tagName = filenameToTagName(path);

@@ -551,7 +551,7 @@ const __filenameToTagName = (path) => {
 };
 
 // registerComponent - Register a child component
-const registerComponent = async (name, path, useShadowDOM = false) => {
+const registerComponent = async (name, path, useShadowDOM = true) => {
   const resolvedPath = __resolvePath(path);
   return globalThis.ladrillosjs.registerComponent({ name, path: resolvedPath, useShadowDOM });
 };
@@ -566,7 +566,7 @@ const registerComponents = async (configs) => {
 };
 
 // $use - Shorthand for registerComponent with auto-derived tag name
-const $use = async (path, useShadowDOM = false) => {
+const $use = async (path, useShadowDOM = true) => {
   const tagName = __filenameToTagName(path);
   return registerComponent(tagName, path, useShadowDOM);
 };
@@ -1309,22 +1309,29 @@ export async function executeModuleScriptWithReactivity(
     };
 
     // Add framework helpers (registerComponent, $use, $emit, $listen, etc.)
-    const allParamNames = [
-      ...importNames,
-      ...safeGlobals,
-      ...frameworkHelperNames,
-      ...eventBusHelperNames,
-      ...injectedVars,
-      "ladrillosjs", // Inject context-aware ladrillosjs
-    ];
-    const allParamValues = [
-      ...importValues,
-      ...safeGlobalValues,
-      ...frameworkHelperValues,
-      ...eventBusHelperValues,
-      ...injectedValues,
-      contextAwareLadrillosjs,
-    ];
+    // Deduplicate: if the user explicitly imported a name that collides with a
+    // framework-injected name (e.g. `import { registerComponent } from "ladrillosjs"`),
+    // the user's import wins and we skip the injected version to avoid
+    // "Duplicate parameter name" errors when building the Function.
+    const importNameSet = new Set(importNames);
+    const allParamNames: string[] = [...importNames];
+    const allParamValues: unknown[] = [...importValues];
+
+    const appendUnique = (names: readonly string[], values: readonly unknown[]) => {
+      for (let i = 0; i < names.length; i++) {
+        const name = names[i];
+        if (importNameSet.has(name)) continue;
+        importNameSet.add(name);
+        allParamNames.push(name);
+        allParamValues.push(values[i]);
+      }
+    };
+
+    appendUnique(safeGlobals, safeGlobalValues);
+    appendUnique(frameworkHelperNames, frameworkHelperValues);
+    appendUnique(eventBusHelperNames, eventBusHelperValues);
+    appendUnique(injectedVars, injectedValues);
+    appendUnique(["ladrillosjs"], [contextAwareLadrillosjs]);
 
     const fn = new Function(...allParamNames, wrappedCode);
 
