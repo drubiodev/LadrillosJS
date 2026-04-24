@@ -1,15 +1,10 @@
-<link
-  rel="stylesheet"
-  href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css"
-/>
-<script
-  src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"
-  external
-></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js" external></script>
 <style>
   .hljs {
     background: transparent !important;
   }
+
   /* ============================================
    Code Windows
    ============================================ */
@@ -18,6 +13,7 @@
     margin: 0 auto;
     width: 100%;
   }
+
   .code-window {
     position: relative;
     background: #020617;
@@ -67,9 +63,11 @@
   .code-dots span:nth-child(1) {
     background: #ef4444;
   }
+
   .code-dots span:nth-child(2) {
     background: #f59e0b;
   }
+
   .code-dots span:nth-child(3) {
     background: #10b981;
   }
@@ -157,6 +155,7 @@
       opacity: 0;
       transform: translateY(-2px);
     }
+
     to {
       opacity: 1;
       transform: translateY(0);
@@ -226,30 +225,18 @@
       <span class="code-title">{filename}</span>
       <div class="copied-indicator" id="copiedIndicator" $if="copied">
         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            stroke-width="2"
-            d="M5 13l4 4L19 7"
-          ></path>
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
         </svg>
         Copied
       </div>
       <button class="copy-button" onclick="await copyCode()">Copy</button>
     </div>
     <div class="code-body">
-      <pre
-        class="code-content"
-      ><code $ref="codeEl" class="language-html"></code></pre>
+      <pre class="code-content"><code $ref="codeEl" class="language-html"></code></pre>
       <div class="code-actions" $if="!filename">
         <div class="copied-indicator" id="copiedIndicator" $if="copied">
           <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M5 13l4 4L19 7"
-            ></path>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
           </svg>
           Copied
         </div>
@@ -267,7 +254,8 @@
   let filename = null;
   let copied = false;
   const innerRe = /(?<=<template\b[^>]*>)[\s\S]*?(?=<\/template>)/gi;
-  const html = $host.innerHTML.match(innerRe);
+  const source = $host.__originalHTML ?? $host.innerHTML;
+  const html = source.match(innerRe);
   $refs.codeEl.textContent = html;
   hljs.highlightElement($refs.codeEl);
 

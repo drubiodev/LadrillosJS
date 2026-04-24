@@ -146,6 +146,22 @@ export function createWebComponentClass(
         instanceId: this._componentId,
       });
 
+      // Preserve original light-DOM children (slotted/projected content) BEFORE
+      // loadTemplate overwrites innerHTML. Scripts can access this via
+      // `$host.__originalHTML` (full HTML string) or `$host.__originalChildren`
+      // (a detached DocumentFragment) to implement slot-like projection.
+      //
+      // In shadow-DOM mode the light children are untouched (template goes into
+      // the shadow root), but we still expose the same API for consistency so
+      // component authors don't have to branch on rendering mode.
+      const originalHTML = this.innerHTML;
+      const originalChildren = document.createDocumentFragment();
+      while (this.firstChild) {
+        originalChildren.appendChild(this.firstChild);
+      }
+      (this as any).__originalHTML = originalHTML;
+      (this as any).__originalChildren = originalChildren;
+
       // Create shadow DOM or use light DOM
       this._root = useShadowDOM ? this.attachShadow({ mode: "open" }) : this;
 

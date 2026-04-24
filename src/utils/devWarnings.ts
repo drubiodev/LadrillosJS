@@ -14,8 +14,16 @@
  */
 
 // Ensure __DEV__ is recognized by TypeScript
-// This is a compile-time constant defined by the bundler
+// This is a compile-time constant defined by the bundler.
 declare const __DEV__: boolean;
+
+// Runtime-safe alias. When the bundler's `define` replaces `__DEV__` with a
+// literal, terser evaluates this expression to that literal and dead-code
+// eliminates every `if (!IS_DEV)` branch. When the module is consumed from a
+// build that did NOT substitute `__DEV__` (e.g. a raw `tsc` output), the
+// `typeof` guard prevents a `ReferenceError` and defaults to production mode.
+const IS_DEV: boolean =
+  typeof __DEV__ !== "undefined" ? __DEV__ : false;
 
 // ============================================================================
 // Configuration
@@ -343,7 +351,7 @@ function dispatchError(err: unknown, context?: ComponentContext | null): void {
  * Includes component context if available.
  */
 export function warn(message: string, context?: ComponentContext | null): void {
-  if (!__DEV__) return;
+  if (!IS_DEV) return;
 
   const fullMessage = formatMessage(message, context);
 
@@ -410,7 +418,7 @@ export function expressionError(
   // Determine error type for better messaging
   const errorType = getErrorType(originalError);
 
-  if (!__DEV__) {
+  if (!IS_DEV) {
     // Production: minimal output with docs link
     console.error(`${PREFIX} Expression error. See: ${getErrorDocsUrl(code)}`);
     return;
@@ -506,7 +514,7 @@ export function scriptError(
 ): void {
   const ctx = context || currentContext;
 
-  if (!__DEV__) {
+  if (!IS_DEV) {
     console.error(
       `${PREFIX} Script error. See: ${getErrorDocsUrl(
         ErrorCode.SCRIPT_EXTRACT_FAILED,
@@ -657,7 +665,7 @@ export function deprecate(
   replacement?: string,
   version?: string,
 ): void {
-  if (!__DEV__) return;
+  if (!IS_DEV) return;
 
   // Only warn once per feature
   if (deprecationWarnings.has(feature)) return;

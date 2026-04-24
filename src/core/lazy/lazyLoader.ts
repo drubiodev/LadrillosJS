@@ -214,8 +214,14 @@ function createPlaceholderClass(componentName: string) {
         }
       }
 
-      // Don't move children - the real component has its own template
-      // The placeholder children were just for showing a loading state
+      // Move original light-DOM children (slotted/projected content) to the
+      // real element. These may be meaningful to the component (e.g. a
+      // <code-block> wrapping a <template> the component reads in its script).
+      // The real component's connectedCallback will snapshot these as
+      // __originalHTML / __originalChildren before rendering its own template.
+      while (this.firstChild) {
+        realElement.appendChild(this.firstChild);
+      }
 
       // Replace in DOM
       if (this.parentNode) {
