@@ -238,17 +238,25 @@ export async function parseComponent(
   // Get template content
   // <template> elements have special handling - content is in .content property
   //
-  // Only a `<template>` that is a DIRECT child of <body> counts as the
-  // component's root template. A plain `doc.querySelector("template")` would
-  // match nested <template> elements inside child custom elements
+  // Only a `<template>` that is a DIRECT child of <body> or <head> counts as
+  // the component's root template. A plain `doc.querySelector("template")`
+  // would match nested <template> elements inside child custom elements
   // (e.g. a <code-block> that wraps a <template> of source code to display),
   // causing the framework to mistakenly treat that nested template as the
   // component's root and drop everything else.
-  const templateEl = doc.body
-    ? (Array.from(doc.body.children).find(
-      (el) => el.tagName === "TEMPLATE"
-    ) as HTMLTemplateElement | undefined)
-    : undefined;
+  //
+  // We must also check <head>: when a component file begins with a
+  // <template>/<script>/<style> (with no prior flow content), the HTML
+  // parser places those elements in <head>. This also happens in dev when
+  // Vite injects its client <script> at the top of fetched HTML.
+  const findTopLevelTemplate = (parent: Element | null) =>
+    parent
+      ? (Array.from(parent.children).find(
+        (el) => el.tagName === "TEMPLATE"
+      ) as HTMLTemplateElement | undefined)
+      : undefined;
+  const templateEl =
+    findTopLevelTemplate(doc.body) ?? findTopLevelTemplate(doc.head);
   let html: string;
 
   if (templateEl) {
