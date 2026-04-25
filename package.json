@@ -81,8 +81,7 @@
   },
   "homepage": "https://github.com/drubiodev/LadrillosJS#readme",
   "publishConfig": {
-    "access": "public",
-    "provenance": true
+    "access": "public"
   },
   "devDependencies": {
     "@vitest/coverage-v8": "^4.1.4",
