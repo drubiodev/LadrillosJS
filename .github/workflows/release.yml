@@ -28,7 +28,7 @@ jobs:
         run: npm run typecheck
 
       - name: Test
-        run: npm run test:ci
+        run: npm run test
 
       - name: Build (npm + CDN)
         run: npm run build:all
