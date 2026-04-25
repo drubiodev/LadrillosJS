@@ -68,7 +68,7 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:ci": "vitest run --coverage --reporter=verbose",
-    "prepublishOnly": "npm run clean && npm run typecheck && npm run build && npm run verify:build && npm run test"
+    "prepublishOnly": "npm run clean && npm run typecheck && npm run build && npm run build:cdn && npm run verify:build && npm run test"
   },
   "repository": {
     "type": "git",

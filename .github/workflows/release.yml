@@ -36,7 +36,26 @@ jobs:
       - name: Verify bundles
         run: npm run verify:build
 
+      - name: Determine npm dist-tag
+        id: disttag
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "version=$VERSION"
+          if [[ "$VERSION" == *-* ]]; then
+            # Prerelease (e.g. 2.0.0-rc.1, 2.0.0-beta.0, 2.0.0-alpha.3)
+            PRE_ID="${VERSION#*-}"      # rc.1
+            PRE_ID="${PRE_ID%%.*}"      # rc
+            case "$PRE_ID" in
+              rc|beta|alpha|next) TAG="$PRE_ID" ;;
+              *) TAG="next" ;;
+            esac
+          else
+            TAG="latest"
+          fi
+          echo "Publishing with dist-tag: $TAG"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
       - name: Publish to npm with provenance
-        run: npm publish --provenance --access public
+        run: npm publish --provenance --access public --tag ${{ steps.disttag.outputs.tag }}
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
