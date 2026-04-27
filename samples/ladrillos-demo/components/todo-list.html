@@ -6,65 +6,50 @@
 
   <div class="demo-content">
     <form onsubmit="addTodo(event)" class="add-form">
-      <input
-        type="text"
-        $bind="newTodo"
-        placeholder="What needs to be done?"
-        class="todo-input"
-      />
+      <input type="text" $bind="newTodo" placeholder="What needs to be done?" class="todo-input" />
       <button type="submit" class="add-btn">Add</button>
     </form>
 
     <div class="filter-bar">
-      <button
-        onclick="filter = 'all'"
-        class="filter-btn {filter === 'all' ? 'active' : ''}"
-      >
+      <button onclick="filter = 'all'" class="filter-btn {filter === 'all' ? 'active' : ''}">
         All ({todos.length})
       </button>
-      <button
-        onclick="filter = 'active'"
-        class="filter-btn {filter === 'active' ? 'active' : ''}"
-      >
+      <button onclick="filter = 'active'" class="filter-btn {filter === 'active' ? 'active' : ''}">
         Active ({activeTodos})
       </button>
-      <button
-        onclick="filter = 'completed'"
-        class="filter-btn {filter === 'completed' ? 'active' : ''}"
-      >
+      <button onclick="filter = 'completed'" class="filter-btn {filter === 'completed' ? 'active' : ''}">
         Done ({completedTodos})
       </button>
     </div>
 
-    <div $if="{filteredTodos.length === 0}" class="empty-state">
-      <span class="empty-icon">📝</span>
-      <p>No {filter === 'all' ? '' : filter} todos</p>
-    </div>
+    <if condition="filteredTodos.length === 0">
+      <div class="empty-state">
+        <span class="empty-icon">📝</span>
+        <p>No {filter === 'all' ? '' : filter} todos</p>
+      </div>
+    </if>
+    <else>
+      <ul class="todo-list">
+        <for each="todo in filteredTodos" key="todo.id">
+          <li class="todo-item {todo.completed ? 'completed' : ''}">
+            <label class="checkbox-label">
+              <input type="checkbox" onclick="toggleTodo({todo.id})" class="todo-checkbox" />
+              <span class="checkmark">{todo.completed ? '✓' : ''}</span>
+            </label>
+            <span class="todo-text">{todo.text}</span>
+            <button onclick="removeTodo({todo.id})" class="delete-btn">🗑️</button>
+          </li>
+        </for>
+      </ul>
+    </else>
 
-    <ul $else class="todo-list">
-      <li
-        $for="todo in filteredTodos"
-        class="todo-item {todo.completed ? 'completed' : ''}"
-        $key="todo.id"
-      >
-        <label class="checkbox-label">
-          <input
-            type="checkbox"
-            onclick="toggleTodo({todo.id})"
-            class="todo-checkbox"
-          />
-          <span class="checkmark">{todo.completed ? '✓' : ''}</span>
-        </label>
-        <span class="todo-text">{todo.text}</span>
-        <button onclick="removeTodo({todo.id})" class="delete-btn">🗑️</button>
-      </li>
-    </ul>
-
-    <div $if="{completedTodos > 0}" class="clear-completed">
-      <button onclick="clearCompleted()" class="clear-btn">
-        Clear completed ({completedTodos})
-      </button>
-    </div>
+    <if condition="completedTodos > 0">
+      <div class="clear-completed">
+        <button onclick="clearCompleted()" class="clear-btn">
+          Clear completed ({completedTodos})
+        </button>
+      </div>
+    </if>
   </div>
 
   <div class="code-hint">
@@ -134,7 +119,9 @@
 </script>
 
 <style>
-  :host { display: block; }
+  :host {
+    display: block;
+  }
 
   .demo-card {
     background: var(--bg-elevated, #fff);
@@ -142,16 +129,16 @@
     border-radius: 14px;
     padding: 1.5rem;
     color: var(--fg, #18181b);
-    box-shadow: var(--shadow-sm, 0 1px 2px rgba(0,0,0,0.04));
-    transition: transform 180ms cubic-bezier(.4,0,.2,1),
-      box-shadow 180ms cubic-bezier(.4,0,.2,1),
-      border-color 180ms cubic-bezier(.4,0,.2,1);
+    box-shadow: var(--shadow-sm, 0 1px 2px rgba(0, 0, 0, 0.04));
+    transition: transform 180ms cubic-bezier(.4, 0, .2, 1),
+      box-shadow 180ms cubic-bezier(.4, 0, .2, 1),
+      border-color 180ms cubic-bezier(.4, 0, .2, 1);
   }
 
   .demo-card:hover {
     transform: translateY(-1px);
     border-color: var(--border-strong, #d4d4d8);
-    box-shadow: var(--shadow-md, 0 4px 12px rgba(0,0,0,0.06));
+    box-shadow: var(--shadow-md, 0 4px 12px rgba(0, 0, 0, 0.06));
   }
 
   h3 {
@@ -211,8 +198,13 @@
     transition: opacity 150ms, transform 80ms;
   }
 
-  .add-btn:hover { opacity: 0.88; }
-  .add-btn:active { transform: scale(0.97); }
+  .add-btn:hover {
+    opacity: 0.88;
+  }
+
+  .add-btn:active {
+    transform: scale(0.97);
+  }
 
   .filter-bar {
     display: flex;
@@ -278,7 +270,9 @@
     background: var(--bg-elevated, #fff);
   }
 
-  .todo-item:last-child { border-bottom: none; }
+  .todo-item:last-child {
+    border-bottom: none;
+  }
 
   .todo-item.completed .todo-text {
     text-decoration: line-through;
@@ -303,7 +297,9 @@
     border-color: var(--accent, #18181b);
   }
 
-  .todo-checkbox { display: none; }
+  .todo-checkbox {
+    display: none;
+  }
 
   .checkmark {
     color: var(--accent-fg, #fff);
@@ -333,7 +329,9 @@
     background: var(--bg-subtle, #f4f4f6);
   }
 
-  .delete-btn:active { transform: scale(0.92); }
+  .delete-btn:active {
+    transform: scale(0.92);
+  }
 
   .clear-completed {
     margin-top: 1rem;

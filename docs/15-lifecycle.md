@@ -58,7 +58,7 @@ Understanding how LadrillosJS processes and initializes components helps you wri
 │     └── Execute script code                                                 │
 │                                                                             │
 │  10. Process directives                                                      │
-│      └── Scan for $for, $if, $show, $bind                                  │
+│      └── Scan for <for>, <if>, <show>, <lazy>, $bind                       │
 │      └── Initial render of loops & conditionals                             │
 │      └── Set up two-way bindings                                            │
 │                                                                             │
@@ -89,7 +89,7 @@ Understanding how LadrillosJS processes and initializes components helps you wri
 │     └── Update DOM nodes                                                    │
 │     └── Re-render loops if array changed                                    │
 │     └── Re-evaluate conditionals                                            │
-│     └── Update $show visibility                                             │
+│     └── Update <show> visibility                                            │
 │     └── Sync $bind inputs                                                   │
 └─────────────────────────────────────────────────────────────────────────────┘
                                     │

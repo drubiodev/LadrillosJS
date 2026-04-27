@@ -71,24 +71,26 @@ function getAttributeBindings(
   const bindings: BindingDescriptor[] = [];
 
   // Directive attributes that should NOT be treated as regular bindings
-  // These are handled by the directive processor, not the binding system
+  // These are handled by the directive processor, not the binding system.
+  // Built-in elements (<if>, <else-if>, <for>, <show>, <lazy>) are handled
+  // separately at the element level (see scanLoops/scanConditionals/etc.).
   const directiveAttributes = [
-    "$if",
-    "$else",
-    "$else-if",
-    "$for",
-    "$show",
     "$bind",
     "$ref",
     "$no:bind",
+    "condition", // <if condition="…">, <show condition="…">
+    "each", // <for each="…">
+    "key", // <for key="…">
+    "track-by", // <for track-by="…">
   ];
 
   // Get all elements in the host
   const elements = Array.from(host.querySelectorAll("*"));
 
   for (const element of elements) {
-    // Skip elements inside loops or $no:bind elements
-    if (element.hasAttribute("$for") || isInsideLoopElement(element)) {
+    // Skip elements inside <for> templates – the loop renderer handles their
+    // bindings per-iteration.
+    if (element.tagName === "FOR" || isInsideLoopElement(element)) {
       continue;
     }
 
@@ -133,9 +135,12 @@ function getAttributeBindings(
 }
 
 function isInsideLoopElement(node: Node): boolean {
-  let current = node.parentElement;
+  let current: Element | null =
+    node.nodeType === Node.ELEMENT_NODE
+      ? (node as Element).parentElement
+      : node.parentElement;
   while (current) {
-    if (current.hasAttribute && current.hasAttribute("$for")) {
+    if (current.tagName === "FOR") {
       return true;
     }
     current = current.parentElement;

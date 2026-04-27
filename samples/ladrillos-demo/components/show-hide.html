@@ -1,7 +1,7 @@
 <div class="demo-card">
   <h3>👁️ Show/Hide Toggle</h3>
   <p class="description">
-    Use <code>$show</code> for CSS-based visibility (keeps element in DOM)
+    Use <code>&lt;show&gt;</code> for CSS-based visibility (keeps element in DOM)
   </p>
 
   <div class="demo-content">
@@ -18,34 +18,40 @@
     </div>
 
     <div class="panels">
-      <div $show="{showPanel1}" class="panel panel-1">
-        <span class="icon">🎨</span>
-        <span>Panel 1 - Design</span>
-      </div>
+      <show condition="showPanel1">
+        <div class="panel panel-1">
+          <span class="icon">🎨</span>
+          <span>Panel 1 - Design</span>
+        </div>
+      </show>
 
-      <div $show="{showPanel2}" class="panel panel-2">
-        <span class="icon">⚙️</span>
-        <span>Panel 2 - Settings</span>
-      </div>
+      <show condition="showPanel2">
+        <div class="panel panel-2">
+          <span class="icon">⚙️</span>
+          <span>Panel 2 - Settings</span>
+        </div>
+      </show>
 
-      <div $show="{showPanel3}" class="panel panel-3">
-        <span class="icon">📊</span>
-        <span>Panel 3 - Analytics</span>
-      </div>
+      <show condition="showPanel3">
+        <div class="panel panel-3">
+          <span class="icon">📊</span>
+          <span>Panel 3 - Analytics</span>
+        </div>
+      </show>
     </div>
 
     <div class="difference">
-      <h4>$show vs $if</h4>
+      <h4>&lt;show&gt; vs &lt;if&gt;</h4>
       <p>
-        <strong>$show:</strong> Toggles <code>display: none</code> (element
+        <strong>&lt;show&gt;:</strong> Toggles <code>display: none</code> (element
         stays in DOM)
       </p>
-      <p><strong>$if:</strong> Adds/removes element from DOM entirely</p>
+      <p><strong>&lt;if&gt;:</strong> Adds/removes element from DOM entirely</p>
     </div>
   </div>
 
   <div class="code-hint">
-    <code $no:bind>&lt;div $show="{isVisible}"&gt;...&lt;/div&gt;</code>
+    <code $no:bind>&lt;show condition="isVisible"&gt;...&lt;/show&gt;</code>
   </div>
 </div>
 
@@ -56,7 +62,9 @@
 </script>
 
 <style>
-  :host { display: block; }
+  :host {
+    display: block;
+  }
 
   .demo-card {
     background: var(--bg-elevated, #fff);
@@ -64,16 +72,16 @@
     border-radius: 14px;
     padding: 1.5rem;
     color: var(--fg, #18181b);
-    box-shadow: var(--shadow-sm, 0 1px 2px rgba(0,0,0,0.04));
-    transition: transform 180ms cubic-bezier(.4,0,.2,1),
-      box-shadow 180ms cubic-bezier(.4,0,.2,1),
-      border-color 180ms cubic-bezier(.4,0,.2,1);
+    box-shadow: var(--shadow-sm, 0 1px 2px rgba(0, 0, 0, 0.04));
+    transition: transform 180ms cubic-bezier(.4, 0, .2, 1),
+      box-shadow 180ms cubic-bezier(.4, 0, .2, 1),
+      border-color 180ms cubic-bezier(.4, 0, .2, 1);
   }
 
   .demo-card:hover {
     transform: translateY(-1px);
     border-color: var(--border-strong, #d4d4d8);
-    box-shadow: var(--shadow-md, 0 4px 12px rgba(0,0,0,0.06));
+    box-shadow: var(--shadow-md, 0 4px 12px rgba(0, 0, 0, 0.06));
   }
 
   h3 {
@@ -140,7 +148,9 @@
     border-color: var(--border-strong, #d4d4d8);
   }
 
-  .toggle-btn:active { transform: scale(0.97); }
+  .toggle-btn:active {
+    transform: scale(0.97);
+  }
 
   .panels {
     display: flex;
@@ -180,8 +190,13 @@
     color: var(--fg-muted, #52525b);
   }
 
-  .difference p { margin: 0.25rem 0; }
-  .difference strong { color: var(--fg, #18181b); }
+  .difference p {
+    margin: 0.25rem 0;
+  }
+
+  .difference strong {
+    color: var(--fg, #18181b);
+  }
 
   .difference code {
     background: var(--bg-code, #f4f4f6);

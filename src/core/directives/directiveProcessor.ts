@@ -15,16 +15,22 @@ import {
   TwoWayBindingDescriptor,
 } from "../../types";
 import {
-  FOR_DIRECTIVE,
-  IF_DIRECTIVE,
-  ELSE_DIRECTIVE,
-  ELSE_IF_DIRECTIVE,
-  SHOW_DIRECTIVE,
   BIND_DIRECTIVE,
   REF_DIRECTIVE,
   DIRECTIVE_PATTERNS,
   escapeCssSelector,
 } from "../../utils/directives";
+import { scanLazyElements } from "../builtins/lazyElement";
+
+// ============================================================================
+// Built-in element tag names (uppercase = DOM tagName form)
+// ============================================================================
+
+const FOR_TAG = "FOR";
+const IF_TAG = "IF";
+const ELSE_IF_TAG = "ELSE-IF";
+const ELSE_TAG = "ELSE";
+const SHOW_TAG = "SHOW";
 import { EVENT_ATTRIBUTES } from "../../utils/jsevents";
 import {
   isEventDirective,
@@ -109,9 +115,15 @@ export function scanDirectives(
     showElements: [],
   };
 
-  // Process in order: refs first, then loops (so we can skip loop internals),
-  // then conditionals, then show, then bind
+  // Order matters:
+  //   1. refs   – needed first so scripts can read $refs
+  //   2. lazy   – removes its subtree from the DOM before anything else looks at it
+  //   3. for    – extracts loop templates so other scanners ignore them
+  //   4. if/else-if/else – reactive conditionals
+  //   5. show   – CSS visibility toggles
+  //   6. bind   – two-way bindings on form elements
   scanRefs(host, context);
+  scanLazyElements(host);
   scanLoops(host, context);
   scanConditionals(host, context);
   scanShow(host, context);
@@ -137,9 +149,8 @@ export function scanDirectivesWithRefs(
     showElements: [],
   };
 
-  // Process in order: refs first, then loops (so we can skip loop internals),
-  // then conditionals, then show, then bind
   scanRefs(host, context);
+  scanLazyElements(host);
   scanLoops(host, context);
   scanConditionals(host, context);
   scanShow(host, context);
@@ -199,55 +210,71 @@ function scanRefs(
 }
 
 // ============================================================================
-// $for Directive
+// <for> Built-in Element
 // ============================================================================
 
 /**
- * Scans for $for directives and creates loop descriptors.
+ * Scans for <for> elements and creates loop descriptors.
  *
  * Syntax:
- *   $for="item in items"
- *   $for="(item, index) in items"
- *   $for="(value, key, index) in object"
+ *   <for each="item in items">…</for>
+ *   <for each="(item, index) in items" key="item.id">…</for>
+ *   <for each="(value, key, index) in object" track-by="value.id">…</for>
+ *
+ * The element body is the per-iteration template. Multiple top-level
+ * children are supported; they are wrapped in a single <span style=
+ * "display:contents"> so the loop machinery can treat them as one root.
  */
 function scanLoops(
   host: HTMLElement | ShadowRoot,
   context: DirectiveContext,
 ): void {
-  const elements = Array.from(
-    host.querySelectorAll(`[${escapeCssSelector(FOR_DIRECTIVE)}]`),
-  );
+  // Outermost-first: snapshot live, but skip nested <for> inside another <for>
+  // (those are processed when the outer loop renders an iteration).
+  const elements = Array.from(host.querySelectorAll("for"));
 
   for (const element of elements) {
-    const expression = element.getAttribute(FOR_DIRECTIVE);
-    if (!expression) continue;
+    if (!element.isConnected) continue; // already extracted by an outer pass
+    if (hasForAncestor(element)) continue;
 
-    const parsed = parseForExpression(expression);
-    if (!parsed) {
-      warn(`Invalid $for expression: "${expression}"`);
+    const expression =
+      element.getAttribute("each") || element.getAttribute("of") || "";
+    if (!expression) {
+      warn(`<for> requires an "each" attribute, e.g. <for each="item in items">.`);
       continue;
     }
 
-    // Create a comment placeholder
-    const placeholder = document.createComment(` $for: ${expression} `);
+    let parsed = parseForExpression(expression);
+    if (!parsed) {
+      warn(`Invalid <for each="…"> expression: "${expression}"`);
+      continue;
+    }
+
+    // key="…" or track-by="…" override anything in the each expression.
+    const keyAttr =
+      element.getAttribute("key") ||
+      element.getAttribute("track-by") ||
+      parsed.key;
+
+    // Build the per-iteration template root.
+    const template = buildLoopTemplate(element);
+    if (!template) {
+      warn(`<for each="${expression}"> has no content to render.`);
+      continue;
+    }
+
+    const placeholder = document.createComment(` <for> ${expression} `);
     const parent = element.parentElement || host;
-
-    // Insert placeholder before the element
     parent.insertBefore(placeholder, element);
-
-    // Remove the element from DOM (will be cloned for each item)
     element.remove();
 
-    // Remove the $for attribute from the template
-    element.removeAttribute(FOR_DIRECTIVE);
-
     const descriptor: LoopDescriptor = {
-      template: element as Element,
+      template,
       expression,
       itemName: parsed.item,
       indexName: parsed.index,
       arrayName: parsed.array,
-      keyAttribute: parsed.key,
+      keyAttribute: keyAttr,
       placeholder,
       renderedElements: [],
       originalParent: parent as Element | ShadowRoot,
@@ -255,6 +282,46 @@ function scanLoops(
 
     context.loops.push(descriptor);
   }
+}
+
+/**
+ * Build the per-iteration template element from a <for>'s contents.
+ *   - Single element child  → that child (fastest, zero overhead).
+ *   - Otherwise              → wrap children in <span style="display:contents">.
+ */
+function buildLoopTemplate(forEl: Element): Element | null {
+  // Collect non-whitespace nodes.
+  const significant: Node[] = [];
+  for (const n of Array.from(forEl.childNodes)) {
+    if (n.nodeType === Node.TEXT_NODE && !n.textContent?.trim()) continue;
+    significant.push(n);
+  }
+  if (significant.length === 0) return null;
+
+  if (
+    significant.length === 1 &&
+    significant[0].nodeType === Node.ELEMENT_NODE
+  ) {
+    return significant[0] as Element;
+  }
+
+  // Multi-child or text+element: wrap in a transparent span.
+  const wrap = document.createElement("span");
+  wrap.style.display = "contents";
+  for (const n of Array.from(forEl.childNodes)) {
+    wrap.appendChild(n);
+  }
+  return wrap;
+}
+
+/** Walk up the tree checking for an ancestor <for>. */
+function hasForAncestor(el: Element): boolean {
+  let p: Element | null = el.parentElement;
+  while (p) {
+    if (p.tagName === FOR_TAG) return true;
+    p = p.parentElement;
+  }
+  return false;
 }
 
 /**
@@ -314,44 +381,40 @@ function parseForExpression(expression: string): {
 }
 
 // ============================================================================
-// $if / $else-if / $else Directives
+// <if> / <else-if> / <else> Built-in Elements
 // ============================================================================
 
 /**
- * Scans for conditional directives and groups them together.
+ * Scans for <if>/<else-if>/<else> chains.
  *
- * A conditional group is:
- *   <div $if="condition">...</div>
- *   <div $else-if="another">...</div>  (optional, multiple allowed)
- *   <div $else>...</div>               (optional, must be last)
+ * A chain is:
+ *   <if condition="…">…</if>
+ *   <else-if condition="…">…</else-if>   (zero or more, immediate siblings)
+ *   <else>…</else>                       (optional, must be last)
+ *
+ * The elements themselves are used as the conditional descriptor's `element`,
+ * with `display: contents` so they don't introduce a visual wrapper.
  */
 function scanConditionals(
   host: HTMLElement | ShadowRoot,
   context: DirectiveContext,
 ): void {
-  // Find all $if elements (these start conditional groups)
-  const ifElements = Array.from(
-    host.querySelectorAll(`[${escapeCssSelector(IF_DIRECTIVE)}]`),
-  );
+  const ifElements = Array.from(host.querySelectorAll("if"));
 
   for (const ifElement of ifElements) {
-    // Skip if inside a loop template (will be processed when loop renders)
-    if (isInsideUnprocessedLoop(ifElement, context)) continue;
+    if (!ifElement.isConnected) continue;
+    if (hasForAncestor(ifElement)) continue;
 
     const group: ConditionalDescriptor[] = [];
-    const rawCondition = ifElement.getAttribute(IF_DIRECTIVE)!;
-    // Strip curly braces if present (e.g., "{!isLoggedIn}" -> "!isLoggedIn")
+    const rawCondition = ifElement.getAttribute("condition") || "";
     const condition = stripBindingBraces(rawCondition);
 
-    // Create placeholder for the group
-    const placeholder = document.createComment(` $if: ${condition} `);
+    const placeholder = document.createComment(` <if> ${condition} `);
     const parent = ifElement.parentElement || host;
     const nextSibling = ifElement.nextSibling;
 
-    // Insert placeholder before the if element
     parent.insertBefore(placeholder, ifElement);
 
-    // Add $if to group
     group.push(
       createConditionalDescriptor(
         ifElement as Element,
@@ -363,12 +426,13 @@ function scanConditionals(
       ),
     );
 
-    // Look for following $else-if and $else elements
+    // Walk forward through immediate siblings collecting <else-if>/<else>.
     let current = ifElement.nextElementSibling;
     while (current) {
-      if (current.hasAttribute(ELSE_IF_DIRECTIVE)) {
-        const rawElseIfCondition = current.getAttribute(ELSE_IF_DIRECTIVE)!;
-        const elseIfCondition = stripBindingBraces(rawElseIfCondition);
+      const tag = current.tagName;
+      if (tag === ELSE_IF_TAG) {
+        const rawElseIf = current.getAttribute("condition") || "";
+        const elseIfCondition = stripBindingBraces(rawElseIf);
         const next = current.nextElementSibling;
         group.push(
           createConditionalDescriptor(
@@ -382,7 +446,7 @@ function scanConditionals(
         );
         current.remove();
         current = next;
-      } else if (current.hasAttribute(ELSE_DIRECTIVE)) {
+      } else if (tag === ELSE_TAG) {
         group.push(
           createConditionalDescriptor(
             current,
@@ -394,16 +458,14 @@ function scanConditionals(
           ),
         );
         current.remove();
-        break; // $else must be last
+        break;
       } else {
-        break; // Not part of this conditional group
+        break;
       }
     }
 
-    // Remove $if element from DOM
     ifElement.remove();
 
-    // Store group reference in each descriptor
     for (const desc of group) {
       desc.group = group;
     }
@@ -420,58 +482,57 @@ function createConditionalDescriptor(
   parent: Element | ShadowRoot,
   nextSibling: Node | null,
 ): ConditionalDescriptor {
-  // Remove directive attribute
-  element.removeAttribute(IF_DIRECTIVE);
-  element.removeAttribute(ELSE_IF_DIRECTIVE);
-  element.removeAttribute(ELSE_DIRECTIVE);
+  // Remove the condition attribute (no longer needed once captured) and apply
+  // display:contents so the element renders transparently without a wrapper box.
+  element.removeAttribute("condition");
+  (element as HTMLElement).style.display = "contents";
 
   return {
     element,
     condition,
     type,
     placeholder,
-    group: [], // Will be filled in after
+    group: [], // filled in by caller
     originalParent: parent,
     nextSibling,
   };
 }
 
 // ============================================================================
-// $show Directive
+// <show> Built-in Element
 // ============================================================================
 
 /**
- * Scans for $show directives.
- * Unlike $if, $show keeps the element in DOM and toggles CSS display.
+ * Scans for <show condition="…">…</show> elements.
+ * Unlike <if>, <show> keeps the element in the DOM and toggles CSS display.
+ * The element renders with `display: contents` when shown (no visual wrapper)
+ * and `display: none` when hidden.
  */
 function scanShow(
   host: HTMLElement | ShadowRoot,
   context: DirectiveContext,
 ): void {
-  const elements = Array.from(
-    host.querySelectorAll(`[${escapeCssSelector(SHOW_DIRECTIVE)}]`),
-  );
+  const elements = Array.from(host.querySelectorAll("show"));
 
   for (const element of elements) {
-    const rawExpression = element.getAttribute(SHOW_DIRECTIVE);
-    if (!rawExpression) continue;
+    if (!element.isConnected) continue;
+    if (hasForAncestor(element)) continue;
 
-    // Strip curly braces if present
+    const rawExpression = element.getAttribute("condition") || "";
     const expression = stripBindingBraces(rawExpression);
 
-    // Skip if inside a loop template
-    if (isInsideUnprocessedLoop(element, context)) continue;
-
     const htmlElement = element as HTMLElement;
+    htmlElement.style.display = "contents";
 
     context.showElements.push({
       element: htmlElement,
       expression,
-      originalDisplay: htmlElement.style.display || "",
+      // "contents" is the visible-state display; updateShowElements will
+      // restore this when condition becomes truthy.
+      originalDisplay: "contents",
     });
 
-    // Remove directive attribute
-    element.removeAttribute(SHOW_DIRECTIVE);
+    element.removeAttribute("condition");
   }
 }
 
@@ -523,20 +584,14 @@ function scanTwoWayBindings(
 // ============================================================================
 
 /**
- * Checks if an element is inside a loop that hasn't been processed yet.
+ * Checks if an element is inside an unprocessed <for> template.
+ * Used to skip $bind etc. that live inside loop bodies.
  */
 function isInsideUnprocessedLoop(
   element: Element,
-  context: DirectiveContext,
+  _context: DirectiveContext,
 ): boolean {
-  let current = element.parentElement;
-  while (current) {
-    if (current.hasAttribute(FOR_DIRECTIVE)) {
-      return true;
-    }
-    current = current.parentElement;
-  }
-  return false;
+  return hasForAncestor(element);
 }
 
 // ============================================================================
@@ -935,9 +990,9 @@ function createLoopEventHandler(
     // Get list of state variable names (excluding loop variables and functions)
     const stateVarNames = reactiveState
       ? Object.keys(reactiveState).filter(
-          (key) =>
-            !key.startsWith("__") && typeof reactiveState[key] !== "function",
-        )
+        (key) =>
+          !key.startsWith("__") && typeof reactiveState[key] !== "function",
+      )
       : [];
 
     // Get loop-specific variables (item, index, etc.) - these are in context but not in state

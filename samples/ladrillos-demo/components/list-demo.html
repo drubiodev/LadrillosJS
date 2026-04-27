@@ -1,39 +1,41 @@
 <div class="demo-card">
   <h3>📋 List Rendering</h3>
-  <p class="description">Render lists with <code>$for</code> directive</p>
+  <p class="description">Render lists with the <code>&lt;for&gt;</code> built-in</p>
 
   <div class="demo-content">
     <div class="section">
       <h4>Simple List</h4>
       <ul class="fruit-list">
-        <li $for="fruit in fruits" class="fruit-item">🍎 {fruit}</li>
+        <for each="fruit in fruits">
+          <li class="fruit-item">🍎 {fruit}</li>
+        </for>
       </ul>
     </div>
 
     <div class="section">
       <h4>With Index</h4>
       <div class="indexed-list">
-        <div
-          $for="(color, index) in colors"
-          class="color-item"
-          style="background: {color}"
-        >
-          <span class="index">#{index + 1}</span>
-          <span class="name">{color}</span>
-        </div>
+        <for each="(color, index) in colors">
+          <div class="color-item" style="background: {color}">
+            <span class="index">#{index + 1}</span>
+            <span class="name">{color}</span>
+          </div>
+        </for>
       </div>
     </div>
 
     <div class="section">
       <h4>Object Array</h4>
       <div class="user-grid">
-        <div $for="user in users" class="user-card" $key="user.id">
-          <div class="avatar">{user.avatar}</div>
-          <div class="info">
-            <div class="name">{user.name}</div>
-            <div class="role">{user.role}</div>
+        <for each="user in users" key="user.id">
+          <div class="user-card">
+            <div class="avatar">{user.avatar}</div>
+            <div class="info">
+              <div class="name">{user.name}</div>
+              <div class="role">{user.role}</div>
+            </div>
           </div>
-        </div>
+        </for>
       </div>
     </div>
 
@@ -44,19 +46,19 @@
         <button onclick="addItem()">Add</button>
       </div>
       <ul class="dynamic-list">
-        <li $for="(item, i) in dynamicItems">
-          {item}
-          <button onclick="removeItem(i)" class="remove-btn">x</button>
-        </li>
+        <for each="(item, i) in dynamicItems">
+          <li>
+            {item}
+            <button onclick="removeItem(i)" class="remove-btn">x</button>
+          </li>
+        </for>
       </ul>
     </div>
   </div>
 
   <div class="code-hint">
-    <code $no:bind>&lt;li $for="item in items"&gt;{item}&lt;/li&gt;</code><br />
-    <code $no:bind
-      >&lt;li $for="(item, i) in items"&gt;#{i}: {item}&lt;/li&gt;</code
-    >
+    <code $no:bind>&lt;for each="item in items"&gt;&lt;li&gt;{item}&lt;/li&gt;&lt;/for&gt;</code><br />
+    <code $no:bind>&lt;for each="(item, i) in items"&gt;...&lt;/for&gt;</code>
   </div>
 </div>
 
@@ -95,7 +97,9 @@
 </script>
 
 <style>
-  :host { display: block; }
+  :host {
+    display: block;
+  }
 
   .demo-card {
     background: var(--bg-elevated, #fff);
@@ -103,16 +107,16 @@
     border-radius: 14px;
     padding: 1.5rem;
     color: var(--fg, #18181b);
-    box-shadow: var(--shadow-sm, 0 1px 2px rgba(0,0,0,0.04));
-    transition: transform 180ms cubic-bezier(.4,0,.2,1),
-      box-shadow 180ms cubic-bezier(.4,0,.2,1),
-      border-color 180ms cubic-bezier(.4,0,.2,1);
+    box-shadow: var(--shadow-sm, 0 1px 2px rgba(0, 0, 0, 0.04));
+    transition: transform 180ms cubic-bezier(.4, 0, .2, 1),
+      box-shadow 180ms cubic-bezier(.4, 0, .2, 1),
+      border-color 180ms cubic-bezier(.4, 0, .2, 1);
   }
 
   .demo-card:hover {
     transform: translateY(-1px);
     border-color: var(--border-strong, #d4d4d8);
-    box-shadow: var(--shadow-md, 0 4px 12px rgba(0,0,0,0.06));
+    box-shadow: var(--shadow-md, 0 4px 12px rgba(0, 0, 0, 0.06));
   }
 
   h3 {
@@ -208,7 +212,9 @@
     font-weight: 500;
   }
 
-  .color-item .index { opacity: 0.85; }
+  .color-item .index {
+    opacity: 0.85;
+  }
 
   .user-grid {
     display: grid;
@@ -281,8 +287,13 @@
     transition: opacity 150ms, transform 80ms;
   }
 
-  .controls button:hover { opacity: 0.88; }
-  .controls button:active { transform: scale(0.97); }
+  .controls button:hover {
+    opacity: 0.88;
+  }
+
+  .controls button:active {
+    transform: scale(0.97);
+  }
 
   .dynamic-list {
     list-style: none;

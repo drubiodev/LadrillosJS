@@ -140,10 +140,12 @@
   </div>
 
   <div class="hero-stats">
-    <div class="stat" $for="stat in stats">
-      <div class="stat-value">{stat.value}</div>
-      <div class="stat-label">{stat.label}</div>
-    </div>
+    <for each="stat in stats">
+      <div class="stat">
+        <div class="stat-value">{stat.value}</div>
+        <div class="stat-label">{stat.label}</div>
+      </div>
+    </for>
   </div>
 </section>
 

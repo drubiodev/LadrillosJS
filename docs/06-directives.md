@@ -1,51 +1,71 @@
-# Directives Overview
+# Built-in Elements & Directives
 
-Directives are special attributes that control how elements are rendered. They start with `$` and provide powerful declarative capabilities.
+LadrillosJS provides two kinds of declarative authoring helpers:
 
-## Available Directives
+1. **Built-in elements** — real HTML tags exposed by the framework that
+   control structure (`<if>`, `<else-if>`, `<else>`, `<show>`, `<for>`,
+   `<lazy>`).
+2. **Directives** — special attributes (prefixed with `$`) that attach
+   behavior to existing elements (`$bind`, `$ref`, `$key`, `$no:bind`,
+   `$on:event.modifier`).
 
-| Directive                          | Purpose               | Example                                    |
-| ---------------------------------- | --------------------- | ------------------------------------------ |
-| [`$for`](./08-loops.md)            | Loop rendering        | `<li $for="item in items">`                |
-| [`$if`](./07-conditionals.md)      | Conditional rendering | `<div $if="{isVisible}">`                  |
-| [`$else-if`](./07-conditionals.md) | Chained condition     | `<div $else-if="{condition}">`             |
-| [`$else`](./07-conditionals.md)    | Fallback              | `<div $else>`                              |
-| [`$show`](./11-show.md)            | CSS visibility toggle | `<div $show="{isOpen}">`                   |
-| [`$bind`](./09-two-way-binding.md) | Two-way data binding  | `<input $bind="name">`                     |
-| [`$ref`](./10-refs.md)             | Element reference     | `<input $ref="inputEl">`                   |
-| `$key`                             | Loop optimization     | `<li $for="item in items" $key="item.id">` |
-| `$no:bind`                         | Escape binding syntax | `<code $no:bind>{literal}`                 |
+> **Heads up:** v2 replaces the old attribute-style structural directives
+> (`$if`, `$else`, `$else-if`, `$for`, `$show`) with first-class elements.
+> See [Migration v1 → v2](./17-migration-v1-to-v2.md) for the diff.
 
 ---
 
-## Quick Examples
+## Built-in Elements
 
-### Conditional Rendering (`$if`, `$else-if`, `$else`)
+| Element                                            | Purpose                              |
+| -------------------------------------------------- | ------------------------------------ |
+| [`<if>`](./07-conditionals.md)                     | Conditional rendering                |
+| [`<else-if>`](./07-conditionals.md)                | Chained condition                    |
+| [`<else>`](./07-conditionals.md)                   | Fallback branch                      |
+| [`<show>`](./11-show.md)                           | CSS visibility toggle                |
+| [`<for>`](./08-loops.md)                           | List rendering                       |
+| [`<lazy>`](./13-lazy-loading.md)                   | Defer content / component until trigger |
+
+All built-in elements render as `display: contents` (no visual wrapper) and
+support **multiple top-level children** in their body.
+
+### Quick examples
 
 ```html
-<div $if="{status === 'loading'}">Loading...</div>
-<div $else-if="{status === 'error'}">Error occurred!</div>
-<div $else>Content loaded!</div>
+<if condition="status === 'loading'">
+  <p>⏳ Loading…</p>
+</if>
+<else-if condition="status === 'error'">
+  <p>❌ {error}</p>
+</else-if>
+<else>
+  <p>✅ Ready</p>
+</else>
+
+<show condition="menuOpen">
+  <nav>…</nav>
+</show>
+
+<for each="(item, i) in items" key="item.id">
+  <li>#{i + 1}: {item.name}</li>
+</for>
+
+<lazy margin="100px">
+  <heavy-chart></heavy-chart>
+</lazy>
 ```
 
-[Full documentation →](./07-conditionals.md)
+---
 
-### List Rendering (`$for`)
+## Attribute Directives
 
-```html
-<!-- Simple loop -->
-<li $for="item in items">{item}</li>
-
-<!-- With index -->
-<li $for="(item, index) in items">#{index + 1}: {item}</li>
-
-<!-- Object array -->
-<div $for="user in users" $key="user.id">
-  <span>{user.name}</span>
-</div>
-```
-
-[Full documentation →](./08-loops.md)
+| Directive                          | Purpose               | Example                                 |
+| ---------------------------------- | --------------------- | --------------------------------------- |
+| [`$bind`](./09-two-way-binding.md) | Two-way data binding  | `<input $bind="name">`                  |
+| [`$ref`](./10-refs.md)             | Element reference     | `<input $ref="inputEl">`                |
+| `$key`                             | Loop optimization     | `<for each="x in xs" key="x.id">`       |
+| `$no:bind`                         | Escape binding syntax | `<code $no:bind>{literal}</code>`       |
+| `$on:event.modifier`               | Event with modifiers  | `<input $on:keyup.enter="submit()">`    |
 
 ### Two-Way Binding (`$bind`)
 
@@ -64,60 +84,39 @@ Directives are special attributes that control how elements are rendered. They s
 ### Element References (`$ref`)
 
 ```html
-<input type="text" $ref="inputEl" />
+<input $ref="inputEl" />
 <canvas $ref="canvas"></canvas>
 
-<button onclick="$refs.inputEl.focus()">Focus Input</button>
+<button onclick="$refs.inputEl.focus()">Focus</button>
 ```
 
 [Full documentation →](./10-refs.md)
 
-### Visibility Toggle (`$show`)
-
-```html
-<div $show="{isMenuOpen}">Menu contents...</div>
-```
-
-[Full documentation →](./11-show.md)
-
 ---
 
-## Directive Syntax
+## Expression Syntax
 
-### Expressions in Directives
-
-Directives that evaluate expressions use curly braces:
+Conditions and `<show>` accept any JavaScript expression. Curly braces are
+optional — both forms work:
 
 ```html
-<!-- Condition must be in braces -->
-<div $if="{user.isAdmin}">Admin Panel</div>
-<div $show="{count > 0}">Has items</div>
+<if condition="user.isAdmin">…</if>
+<if condition="{user.isAdmin}">…</if>
 ```
 
-### Loop Expressions
-
-The `$for` directive has a special syntax without braces:
+`<for>` uses the familiar `each="item in items"` syntax (no braces):
 
 ```html
-<!-- item in arrayName -->
-<li $for="item in items">{item}</li>
-
-<!-- (item, index) in arrayName -->
-<li $for="(item, index) in items">#{index}: {item}</li>
+<for each="item in items">…</for>
+<for each="(item, index) in items">…</for>
+<for each="(value, key, index) in object">…</for>
 ```
 
-### Binding Paths
-
-The `$bind` directive uses a variable path without braces:
+`$bind` uses a variable path without braces:
 
 ```html
-<!-- Simple variable -->
 <input $bind="username" />
-
-<!-- Object property -->
 <input $bind="user.email" />
-
-<!-- Nested property -->
 <input $bind="config.settings.theme" />
 ```
 
@@ -125,78 +124,77 @@ The `$bind` directive uses a variable path without braces:
 
 ## Processing Order
 
-When a component renders, directives are processed in this order:
+When a component mounts, the framework processes the template in this order:
 
-1. **`$ref`** - Element references collected first
-2. **`$for`** - Loops expanded
-3. **`$if`/`$else-if`/`$else`** - Conditionals evaluated
-4. **`$show`** - Visibility applied
-5. **`$bind`** - Two-way bindings connected
+1. **`$ref`** — element references collected so scripts can access them.
+2. **`<lazy>`** — deferred content is removed from the active scan tree.
+3. **`<for>`** — loop templates extracted (their inner bindings are handled
+   per-iteration).
+4. **`<if>`/`<else-if>`/`<else>`** — conditional groups built.
+5. **`<show>`** — visibility descriptors collected.
+6. **`$bind`** — two-way bindings wired to form elements.
 
-This order matters because:
-
-- Refs are available in script before other directives run
-- Loops expand elements before conditionals hide them
-- Bindings connect after structure is finalized
-
----
-
-## Combining Directives
-
-You can use multiple directives on the same element:
-
-```html
-<!-- Loop with key -->
-<div $for="user in users" $key="user.id">{user.name}</div>
-
-<!-- Conditional inside loop (on different elements) -->
-<div $for="item in items">
-  <span $if="{item.isSpecial}">⭐</span>
-  {item.name}
-</div>
-```
-
-### ⚠️ Restrictions
-
-Don't combine `$for` with `$if` on the same element:
-
-```html
-<!-- ❌ Don't do this -->
-<li $for="item in items" $if="{item.active}">{item.name}</li>
-
-<!-- ✅ Do this instead -->
-<li $for="item in items">
-  <span $if="{item.active}">{item.name}</span>
-</li>
-
-<!-- ✅ Or filter in script -->
-<li $for="item in activeItems">{item.name}</li>
-
-<script>
-  let items = [...];
-  let activeItems = items.filter(i => i.active);
-</script>
-```
+This ordering ensures refs are available before scripts run, loop bodies are
+not double-processed, and conditionals don't fight each other for placement.
 
 ---
 
-## Directive vs Binding
+## Combining Built-ins
 
-| Feature  | Directive              | Binding                 |
-| -------- | ---------------------- | ----------------------- |
-| Syntax   | `$name="..."`          | `{expression}`          |
-| Purpose  | Control structure      | Display values          |
-| Examples | `$if`, `$for`, `$bind` | `{name}`, `{count * 2}` |
-
-Directives control **what** renders. Bindings control **what values** are displayed.
+Built-ins compose freely:
 
 ```html
-<!-- Directive controls structure -->
-<div $if="{showDetails}">
-  <!-- Binding displays values -->
+<for each="user in users" key="user.id">
+  <li>
+    <span>{user.name}</span>
+    <if condition="user.isAdmin">
+      <span class="badge">admin</span>
+    </if>
+    <show condition="user.isOnline">
+      <span class="dot dot-online"></span>
+    </show>
+  </li>
+</for>
+```
+
+### Multiple top-level children
+
+`<for>`, `<if>`, `<else-if>`, `<else>`, `<show>`, and `<lazy>` may all contain
+multiple top-level children. The framework wraps them transparently with
+`display: contents` so layout is unaffected:
+
+```html
+<for each="row in rows">
+  <td>{row.name}</td>
+  <td>{row.email}</td>
+  <td>{row.role}</td>
+</for>
+```
+
+### Restrictions
+
+Don't put a sibling `<if>` after a `<for>` and expect it to be part of a
+chain — `<else-if>`/`<else>` only chain off an immediately preceding
+`<if>`/`<else-if>`. Use a nested structure instead.
+
+---
+
+## Built-in Elements vs Bindings
+
+| Feature  | Built-in Element       | Binding                |
+| -------- | ---------------------- | ---------------------- |
+| Syntax   | `<tag attr="…">…</tag>`| `{expression}`         |
+| Purpose  | Control structure      | Display values         |
+| Examples | `<if>`, `<for>`        | `{name}`, `{count*2}`  |
+
+Built-in elements decide **what** renders. Bindings decide **what values**
+appear inside.
+
+```html
+<if condition="showDetails">
   <p>Name: {user.name}</p>
   <p>Email: {user.email}</p>
-</div>
+</if>
 ```
 
 ---

@@ -384,7 +384,7 @@ const bindingRegistry: Map<string, Set<BindingDescriptor>> = new Map();
 
 ## List Diffing
 
-For `$for` loops, the diff algorithm (`listDiff.ts`) optimizes updates:
+For `<for>` loops, the diff algorithm (`listDiff.ts`) optimizes updates:
 
 ```typescript
 // Keyed diffing (when $key is provided)

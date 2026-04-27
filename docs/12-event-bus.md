@@ -58,10 +58,10 @@ Use `$listen` to receive events:
 
 ```html
 <!-- receiver.html -->
-<div $if="{notification}">
+<if condition="notification">
   <h3>{notification.title}</h3>
   <p>{notification.message}</p>
-</div>
+</if>
 
 <script>
   let notification = null;
@@ -104,11 +104,12 @@ unsubscribe();
   <button onclick="sendMessage()">📤 Send</button>
 
   <div class="colors">
-    <button
-      $for="color in colors"
-      onclick="sendTheme(color)"
-      style="background: {color}"
-    ></button>
+    <for each="color in colors">
+      <button
+        onclick="sendTheme(color)"
+        style="background: {color}"
+      ></button>
+    </for>
   </div>
 </div>
 
@@ -140,13 +141,15 @@ unsubscribe();
   <h3>Receiver</h3>
 
   <ul>
-    <li $for="msg in messages">
-      <span class="time">{msg.time}</span>
-      <span class="text">{msg.text}</span>
-    </li>
+    <for each="msg in messages">
+      <li>
+        <span class="time">{msg.time}</span>
+        <span class="text">{msg.text}</span>
+      </li>
+    </for>
   </ul>
 
-  <p $if="{messages.length === 0}">No messages yet</p>
+  <if condition="messages.length === 0"><p>No messages yet</p></if>
 </div>
 
 <script>
@@ -267,10 +270,12 @@ Common patterns:
 
 <!-- toast-container.html -->
 <div class="toasts">
-  <div $for="toast in toasts" class="toast {toast.type}">
-    {toast.message}
-    <button onclick="dismiss(toast.id)">×</button>
-  </div>
+  <for each="toast in toasts">
+    <div class="toast {toast.type}">
+      {toast.message}
+      <button onclick="dismiss(toast.id)">×</button>
+    </div>
+  </for>
 </div>
 
 <script>
@@ -304,12 +309,14 @@ Common patterns:
 </script>
 
 <!-- modal.html -->
-<div $show="{isOpen}" class="modal-backdrop">
-  <div class="modal">
-    <button onclick="close()" class="close-btn">×</button>
-    <slot></slot>
+<show condition="isOpen">
+  <div class="modal-backdrop">
+    <div class="modal">
+      <button onclick="close()" class="close-btn">×</button>
+      <slot></slot>
+    </div>
   </div>
-</div>
+</show>
 
 <script>
   let isOpen = false;

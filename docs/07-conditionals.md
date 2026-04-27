@@ -1,13 +1,14 @@
 # Conditional Rendering
 
-Control what content is displayed using `$if`, `$else-if`, and `$else` directives.
+Control what content renders using the `<if>`, `<else-if>`, and `<else>`
+built-in elements.
 
-## Basic `$if`
-
-Show or hide content based on a condition:
+## Basic `<if>`
 
 ```html
-<div $if="{isLoggedIn}">Welcome back, {username}!</div>
+<if condition="isLoggedIn">
+  <p>Welcome back, {username}!</p>
+</if>
 
 <script>
   let isLoggedIn = true;
@@ -19,108 +20,129 @@ Show or hide content based on a condition:
 
 When the condition is:
 
-- **Truthy**: Element is in the DOM
-- **Falsy**: Element is **removed** from the DOM (not just hidden)
+- **Truthy** — the element's children are inserted into the DOM.
+- **Falsy** — the children are **removed** from the DOM (not just hidden).
+
+The `<if>` element itself renders as `display: contents`, so it does not add
+any wrapper box to the layout.
 
 ---
 
-## `$if` with `$else`
+## `<if>` with `<else>`
 
-Provide a fallback when condition is false:
+Provide a fallback when the condition is false:
 
 ```html
-<div $if="{isLoggedIn}">Welcome back, {username}!</div>
-<div $else>Please log in to continue.</div>
+<if condition="isLoggedIn">
+  <p>Welcome back, {username}!</p>
+</if>
+<else>
+  <p>Please log in to continue.</p>
+</else>
 
 <script>
   let isLoggedIn = false;
-  let username = "";
 </script>
 ```
 
-**Important:** `$else` must be an immediate sibling of `$if`.
+**Important:** `<else>` must be an **immediate sibling** of `<if>`.
 
 ---
 
-## Full Chain: `$if`, `$else-if`, `$else`
-
-Handle multiple conditions:
+## Full Chain: `<if>` / `<else-if>` / `<else>`
 
 ```html
-<div $if="{status === 'loading'}">
-  <span>⏳ Loading...</span>
-</div>
-<div $else-if="{status === 'success'}">
+<if condition="status === 'loading'">
+  <span>⏳ Loading…</span>
+</if>
+<else-if condition="status === 'success'">
   <span>✅ Data loaded successfully!</span>
-</div>
-<div $else-if="{status === 'error'}">
+</else-if>
+<else-if condition="status === 'error'">
   <span>❌ An error occurred!</span>
-</div>
-<div $else>
+</else-if>
+<else>
   <span>📭 No data available</span>
-</div>
+</else>
 
 <script>
   let status = "loading";
-
-  // Simulate status changes
   setTimeout(() => (status = "success"), 2000);
 </script>
+```
+
+Only the first matching branch renders.
+
+---
+
+## Multiple Top-Level Children
+
+`<if>`, `<else-if>`, and `<else>` may contain any number of top-level children
+— they all render together when the branch is active:
+
+```html
+<if condition="user">
+  <h2>Hi, {user.name}</h2>
+  <p>Role: {user.role}</p>
+  <button onclick="logout()">Log out</button>
+</if>
+<else>
+  <h2>Welcome, guest</h2>
+  <button onclick="login()">Log in</button>
+</else>
 ```
 
 ---
 
 ## Expression Syntax
 
-Conditions use curly braces with any JavaScript expression:
+The `condition` attribute accepts any JavaScript expression. Curly braces are
+optional:
 
 ```html
-<!-- Boolean variable -->
-<div $if="{isVisible}">...</div>
+<!-- Boolean -->
+<if condition="isVisible">…</if>
+<if condition="{isVisible}">…</if>
 
 <!-- Comparison -->
-<div $if="{count > 0}">Has items</div>
-<div $if="{age >= 18}">Adult content</div>
+<if condition="count > 0">Has items</if>
+<if condition="age >= 18">Adult content</if>
 
 <!-- Equality -->
-<div $if="{status === 'active'}">Active</div>
-<div $if="{type !== 'hidden'}">Visible</div>
+<if condition="status === 'active'">Active</if>
+<if condition="type !== 'hidden'">Visible</if>
 
-<!-- Logical AND -->
-<div $if="{isLoggedIn && isAdmin}">Admin Panel</div>
-
-<!-- Logical OR -->
-<div $if="{hasPermission || isOwner}">Can Edit</div>
-
-<!-- Negation -->
-<div $if="{!isLoading}">Content ready</div>
+<!-- Logical -->
+<if condition="isLoggedIn && isAdmin">Admin Panel</if>
+<if condition="hasPermission || isOwner">Can Edit</if>
+<if condition="!isLoading">Content ready</if>
 
 <!-- Truthy check -->
-<div $if="{user}">User exists</div>
-<div $if="{items.length}">Has items</div>
+<if condition="user">User exists</if>
+<if condition="items.length">Has items</if>
 
-<!-- Complex expression -->
-<div $if="{user && user.role === 'admin' && !isMaintenance}">
-  Admin controls
-</div>
+<!-- Complex -->
+<if condition="user && user.role === 'admin' && !isMaintenance">
+  <admin-panel></admin-panel>
+</if>
 ```
 
 ---
 
 ## Common Patterns
 
-### Loading States
+### Loading / Error / Content States
 
 ```html
-<div $if="{isLoading}">
-  <div class="spinner">Loading...</div>
-</div>
-<div $else-if="{error}">
+<if condition="isLoading">
+  <div class="spinner">Loading…</div>
+</if>
+<else-if condition="error">
   <div class="error">Error: {error.message}</div>
-</div>
-<div $else>
+</else-if>
+<else>
   <div class="content">{data}</div>
-</div>
+</else>
 
 <script>
   let isLoading = true;
@@ -141,29 +163,35 @@ Conditions use curly braces with any JavaScript expression:
 </script>
 ```
 
-### User Roles
+### Role-based Navigation
 
 ```html
 <nav>
   <a href="/">Home</a>
   <a href="/profile">Profile</a>
-  <a $if="{user.role === 'admin'}" href="/admin">Admin</a>
-  <a $if="{user.role === 'moderator' || user.role === 'admin'}" href="/mod"
-    >Moderation</a
-  >
+  <if condition="user.role === 'admin'">
+    <a href="/admin">Admin</a>
+  </if>
+  <if condition="user.role === 'moderator' || user.role === 'admin'">
+    <a href="/mod">Moderation</a>
+  </if>
 </nav>
 ```
 
-### Empty States
+### Empty State
 
 ```html
-<div $if="{items.length === 0}">
+<if condition="items.length === 0">
   <p>No items yet.</p>
   <button onclick="addItem()">Add your first item</button>
-</div>
-<ul $else>
-  <li $for="item in items">{item.name}</li>
-</ul>
+</if>
+<else>
+  <ul>
+    <for each="item in items">
+      <li>{item.name}</li>
+    </for>
+  </ul>
+</else>
 ```
 
 ### Toggle Visibility
@@ -173,9 +201,9 @@ Conditions use curly braces with any JavaScript expression:
   {showDetails ? 'Hide' : 'Show'} Details
 </button>
 
-<div $if="{showDetails}">
-  <p>Here are the details...</p>
-</div>
+<if condition="showDetails">
+  <p>Here are the details…</p>
+</if>
 
 <script>
   let showDetails = false;
@@ -184,19 +212,19 @@ Conditions use curly braces with any JavaScript expression:
 
 ---
 
-## `$if` vs `$show`
+## `<if>` vs `<show>`
 
-Both control visibility, but work differently:
+Both control visibility but differently:
 
-| Feature        | `$if`                   | `$show`                     |
+| Feature        | `<if>`                  | `<show>`                    |
 | -------------- | ----------------------- | --------------------------- |
-| DOM            | Removes/adds element    | Always in DOM               |
-| CSS            | N/A                     | `display: none`             |
+| DOM            | Inserts/removes content | Always in DOM               |
+| CSS            | N/A                     | `display: none` toggled     |
 | Performance    | Better for rare changes | Better for frequent toggles |
 | Event handlers | Destroyed/recreated     | Preserved                   |
 | State          | Lost on hide            | Preserved                   |
 
-### When to Use `$if`
+### When to use `<if>`
 
 - Content is rarely toggled
 - Large content blocks
@@ -204,13 +232,12 @@ Both control visibility, but work differently:
 - You want to avoid unnecessary rendering
 
 ```html
-<!-- Good for $if: Rarely shown modal -->
-<div $if="{showModal}" class="modal">
+<if condition="showModal">
   <heavy-content></heavy-content>
-</div>
+</if>
 ```
 
-### When to Use `$show`
+### When to use `<show>`
 
 - Frequent toggling
 - Preserving form state
@@ -218,73 +245,73 @@ Both control visibility, but work differently:
 - Small content
 
 ```html
-<!-- Good for $show: Frequently toggled menu -->
-<nav $show="{isMenuOpen}" class="menu">
-  <a href="/">Home</a>
-  <a href="/about">About</a>
-</nav>
+<show condition="isMenuOpen">
+  <nav class="menu">
+    <a href="/">Home</a>
+    <a href="/about">About</a>
+  </nav>
+</show>
 ```
 
 ---
 
 ## Nesting Conditionals
 
-You can nest `$if` directives:
+You can nest `<if>` chains freely:
 
 ```html
-<div $if="{user}">
+<if condition="user">
   <h2>Welcome, {user.name}</h2>
 
-  <div $if="{user.isVerified}">
+  <if condition="user.isVerified">
     <span class="badge">✓ Verified</span>
 
-    <div $if="{user.isPremium}">
+    <if condition="user.isPremium">
       <span class="badge gold">★ Premium</span>
-    </div>
-  </div>
-  <div $else>
+    </if>
+  </if>
+  <else>
     <p>Please verify your email.</p>
-  </div>
-</div>
-<div $else>
+  </else>
+</if>
+<else>
   <p>Please log in.</p>
-</div>
+</else>
 ```
 
 ---
 
 ## Technical Details
 
-### Element Replacement
+### How rendering works
 
-When conditions change, LadrillosJS:
+When a `<if>` chain is processed:
 
-1. Stores a `<!-- placeholder -->` comment where the element was
-2. Removes the element from DOM when false
-3. Reinserts the element before the placeholder when true
+1. A `<!-- <if> condition -->` comment placeholder is inserted in its place.
+2. The active branch's element is mounted before the placeholder.
+3. On state change, the active branch is removed and the new one mounted.
+4. Each branch element renders with `display: contents`, so the chain adds
+   no wrapper box to layout.
 
-This preserves position even when elements are removed.
+### Sibling rules
 
-### Sibling Rules
-
-`$else-if` and `$else` must be immediate siblings:
+`<else-if>` and `<else>` must be **immediate** siblings of `<if>` (or another
+`<else-if>`). Any other element between them breaks the chain:
 
 ```html
 <!-- ✅ Correct -->
-<div $if="{a}">A</div>
-<div $else-if="{b}">B</div>
-<div $else>C</div>
+<if condition="a"><p>A</p></if>
+<else-if condition="b"><p>B</p></else-if>
+<else><p>C</p></else>
 
-<!-- ❌ Wrong: Other element breaks the chain -->
-<div $if="{a}">A</div>
+<!-- ❌ Wrong: paragraph breaks the chain -->
+<if condition="a"><p>A</p></if>
 <p>Some text</p>
-<!-- This breaks the chain! -->
-<div $else>C</div>
-<!-- Won't work as expected -->
+<else><p>C</p></else>
 ```
 
 ---
 
-← [Directives Overview](./06-directives.md) | [List Rendering](./08-loops.md) →
+← [Built-in Elements & Directives](./06-directives.md) | [List Rendering](./08-loops.md) →
 
 [Back to Index](./README.md)

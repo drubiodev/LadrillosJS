@@ -287,8 +287,8 @@ Bindings are expressions, not statements:
 <!-- ✅ Use ternary instead of if -->
 <p>{condition ? 'yes' : 'no'}</p>
 
-<!-- ✅ Use $for directive for loops -->
-<p $for="i in items">{i}</p>
+<!-- ✅ Use the <for> built-in for loops -->
+<for each="i in items"><p>{i}</p></for>
 ```
 
 ---
@@ -298,7 +298,7 @@ Bindings are expressions, not statements:
 | Feature | Binding `{expression}` | Directive `$directive` |
 | ------- | ---------------------- | ---------------------- |
 | Purpose | Display values         | Control rendering      |
-| Example | `{user.name}`          | `$if="{isVisible}"`    |
+| Example | `{user.name}`          | `<if condition="isVisible">` |
 | Output  | Text/attribute value   | DOM manipulation       |
 
 Use bindings for displaying data, directives for controlling structure.

@@ -229,16 +229,16 @@ Use `$bind` to sync form inputs with state:
 
 ---
 
-## 🧩 Directives
+## 🧩 Built-in Elements & Directives
 
 ### Conditional Rendering
 
-Use `$if`, `$else-if`, and `$else` to conditionally render elements:
+Use `<if>`, `<else-if>`, and `<else>` to conditionally render elements:
 
 ```html
-<div $if="{status === 'loading'}">Loading...</div>
-<div $else-if="{status === 'error'}">Something went wrong!</div>
-<div $else>Content loaded successfully!</div>
+<if condition="status === 'loading'">Loading...</if>
+<else-if condition="status === 'error'">Something went wrong!</else-if>
+<else>Content loaded successfully!</else>
 
 <script>
   let status = "loading";
@@ -247,10 +247,10 @@ Use `$if`, `$else-if`, and `$else` to conditionally render elements:
 
 ### Show/Hide (CSS Toggle)
 
-Use `$show` to toggle visibility without removing from DOM (uses `display: none`):
+Use `<show>` to toggle visibility without removing from DOM (uses `display: none`):
 
 ```html
-<div $show="{isVisible}">I can be shown or hidden</div>
+<show condition="isVisible">I can be shown or hidden</show>
 
 <button onclick="isVisible = !isVisible">Toggle</button>
 
@@ -259,27 +259,33 @@ Use `$show` to toggle visibility without removing from DOM (uses `display: none`
 </script>
 ```
 
-> **`$show` vs `$if`:** `$show` toggles CSS display (element stays in DOM), `$if` adds/removes from DOM entirely.
+> **`<show>` vs `<if>`:** `<show>` toggles CSS display (children stay in DOM), `<if>` adds/removes children entirely.
 
 ### List Rendering
 
-Use `$for` to render lists with optional index and key:
+Use `<for>` to render lists with optional index and key:
 
 ```html
 <!-- Simple list -->
 <ul>
-  <li $for="fruit in fruits">🍎 {fruit}</li>
+  <for each="fruit in fruits">
+    <li>🍎 {fruit}</li>
+  </for>
 </ul>
 
 <!-- With index -->
-<div $for="(item, index) in items">#{index + 1}: {item}</div>
+<for each="(item, index) in items">
+  <div>#{index + 1}: {item}</div>
+</for>
 
 <!-- Object array with key -->
-<div $for="user in users" $key="user.id">
-  <span>{user.avatar}</span>
-  <span>{user.name}</span>
-  <span>{user.role}</span>
-</div>
+<for each="user in users" key="user.id">
+  <div>
+    <span>{user.avatar}</span>
+    <span>{user.name}</span>
+    <span>{user.role}</span>
+  </div>
+</for>
 
 <script>
   let fruits = ["Apple", "Banana", "Cherry"];
@@ -291,19 +297,34 @@ Use `$for` to render lists with optional index and key:
 </script>
 ```
 
-### Directives Cheat Sheet
+### Lazy Loading
 
-| Directive        | Purpose               | Example                                          |
-| ---------------- | --------------------- | ------------------------------------------------ |
-| `$if`            | Conditional render    | `<div $if="{isLoggedIn}">Welcome!</div>`         |
-| `$else-if`       | Chained condition     | `<div $else-if="{isGuest}">Hello Guest</div>`    |
-| `$else`          | Fallback              | `<div $else>Please log in</div>`                 |
-| `$show`          | CSS visibility toggle | `<div $show="{isOpen}">Menu</div>`               |
-| `$for`           | Loop rendering        | `<li $for="item in items">{item}</li>`           |
-| `$for` (indexed) | Loop with index       | `<li $for="(item, i) in items">{i}: {item}</li>` |
-| `$bind`          | Two-way binding       | `<input $bind="email" />`                        |
-| `$key`           | List optimization     | `<div $for="user in users" $key="user.id">`      |
-| `$ref`           | Element reference     | `<input $ref="inputEl" />`                       |
+Use `<lazy>` to defer rendering until a trigger fires (viewport, idle, delay, interaction, media):
+
+```html
+<lazy margin="100px">
+  <heavy-chart></heavy-chart>
+</lazy>
+
+<lazy interaction="click,focus">
+  <support-chat></support-chat>
+</lazy>
+```
+
+### Cheat Sheet
+
+| Element / Directive | Purpose                  | Example                                                |
+| ------------------- | ------------------------ | ------------------------------------------------------ |
+| `<if>`              | Conditional render       | `<if condition="isLoggedIn">Welcome!</if>`             |
+| `<else-if>`         | Chained condition        | `<else-if condition="isGuest">Hello Guest</else-if>`   |
+| `<else>`            | Fallback                 | `<else>Please log in</else>`                           |
+| `<show>`            | CSS visibility toggle    | `<show condition="isOpen">Menu</show>`                 |
+| `<for>`             | Loop rendering           | `<for each="item in items"><li>{item}</li></for>`      |
+| `<for>` (indexed)   | Loop with index          | `<for each="(item, i) in items">…</for>`               |
+| `<for key="…">`     | List optimization        | `<for each="u in users" key="u.id">…</for>`            |
+| `<lazy>`            | Defer rendering          | `<lazy idle><analytics-pixel /></lazy>`                |
+| `$bind`             | Two-way binding          | `<input $bind="email" />`                              |
+| `$ref`              | Element reference        | `<input $ref="inputEl" />`                             |
 
 ---
 
@@ -568,14 +589,16 @@ A complete CRUD example combining all directives:
   </form>
 
   <ul>
-    <li $for="todo in todos" $key="todo.id">
-      <input type="checkbox" onclick="toggleTodo({todo.id})" />
-      <span class="{todo.completed ? 'done' : ''}">{todo.text}</span>
-      <button onclick="removeTodo({todo.id})">🗑️</button>
-    </li>
+    <for each="todo in todos" key="todo.id">
+      <li>
+        <input type="checkbox" onclick="toggleTodo({todo.id})" />
+        <span class="{todo.completed ? 'done' : ''}">{todo.text}</span>
+        <button onclick="removeTodo({todo.id})">🗑️</button>
+      </li>
+    </for>
   </ul>
 
-  <p $if="{todos.length === 0}">No todos yet!</p>
+  <if condition="todos.length === 0"><p>No todos yet!</p></if>
 </div>
 
 <script>

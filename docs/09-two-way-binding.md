@@ -239,7 +239,7 @@ Bind to nested properties:
     $on:blur="validateEmail()"
     class="{emailError ? 'error' : ''}"
   />
-  <span $if="{emailError}" class="error-message">{emailError}</span>
+  <if condition="emailError"><span class="error-message">{emailError}</span></if>
 </div>
 
 <script>
@@ -340,9 +340,9 @@ But `$bind` is:
 ```html
 <input type="password" $bind="password" placeholder="Password" />
 <input type="password" $bind="confirmPassword" placeholder="Confirm Password" />
-<p $if="{confirmPassword && password !== confirmPassword}" class="error">
-  Passwords don't match
-</p>
+<if condition="confirmPassword && password !== confirmPassword">
+  <p class="error">Passwords don't match</p>
+</if>
 
 <script>
   let password = "";

@@ -1,177 +1,153 @@
 # Lazy Loading
 
-Lazy loading defers component loading until needed, improving initial page load performance.
+Lazy loading defers content (or whole components) until they're needed,
+improving initial page load performance.
 
-## Overview
+LadrillosJS gives you **two ways** to lazy-load:
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                        Page Load                                │
-├─────────────────────────────────────────────────────────────────┤
-│  ✅ Critical components load immediately                        │
-│  ⏳ Non-critical components are registered but NOT fetched      │
-│                                                                 │
-│  Later, when triggered:                                         │
-│  📥 Lazy components fetch their HTML and initialize             │
-└─────────────────────────────────────────────────────────────────┘
-```
+1. **Declaratively** with the `<lazy>` built-in element — best for inline
+   content, skeletons, and per-instance triggers.
+2. **At registration time** with the `lazy:` option on `registerComponent` /
+   `registerComponents` — best for whole components used in many places.
 
-## Basic Lazy Loading
-
-Set `lazy: true` to use the default strategy (load when visible):
-
-```javascript
-import { registerComponent, registerComponents } from "ladrillosjs";
-
-// Single component
-registerComponent("heavy-chart", "./components/chart.html", true, true);
-//                                                         ↑shadow  ↑lazy
-
-// Multiple components
-await registerComponents([
-  { name: "app-header", path: "./header.html" }, // Eager (default)
-  { name: "app-footer", path: "./footer.html", lazy: true }, // Lazy
-  { name: "analytics", path: "./analytics.html", lazy: true },
-]);
-
-// Object syntax
-await registerComponents({
-  "app-header": "./header.html",
-  "app-footer": { path: "./footer.html", lazy: true },
-  analytics: { path: "./analytics.html", lazy: true },
-});
-```
+Both ultimately use the same five strategies (`visible`, `idle`, `delay`,
+`interaction`, `media`).
 
 ---
 
-## Lazy Loading Strategies
+## The `<lazy>` Element
 
-LadrillosJS provides 5 built-in strategies:
-
-### 1. `lazyOnVisible` (Default)
-
-Loads when the element enters the viewport:
-
-```javascript
-import { registerComponent, lazyOnVisible } from "ladrillosjs";
-
-// Default: 100px root margin (loads slightly before visible)
-registerComponent("my-component", "./component.html", true, true);
-
-// Custom options (IntersectionObserver options)
-registerComponent(
-  "my-component",
-  "./component.html",
-  true,
-  lazyOnVisible({ rootMargin: "200px", threshold: 0.1 })
-);
-```
-
-Best for: Below-the-fold content, images, cards
-
-### 2. `lazyOnIdle`
-
-Loads when the browser is idle:
-
-```javascript
-import { registerComponent, lazyOnIdle } from "ladrillosjs";
-
-// Default: 10 second timeout
-registerComponent("analytics", "./analytics.html", true, lazyOnIdle());
-
-// Custom timeout (ms)
-registerComponent("analytics", "./analytics.html", true, lazyOnIdle(5000));
-```
-
-Best for: Analytics, telemetry, non-visual components
-
-### 3. `lazyOnDelay`
-
-Loads after a specified time delay:
-
-```javascript
-import { registerComponent, lazyOnDelay } from "ladrillosjs";
-
-// Load after 3 seconds
-registerComponent("chat-widget", "./chat.html", true, lazyOnDelay(3000));
-
-// Load immediately after registration (next tick)
-registerComponent("soon", "./soon.html", true, lazyOnDelay(0));
-```
-
-Best for: Non-critical features, chat widgets, support buttons
-
-### 4. `lazyOnInteraction`
-
-Loads when user interacts with the element:
-
-```javascript
-import { registerComponent, lazyOnInteraction } from "ladrillosjs";
-
-// Default: click and focusin
-registerComponent("modal", "./modal.html", true, lazyOnInteraction());
-
-// Custom events
-registerComponent("search", "./search.html", true, lazyOnInteraction("focus"));
-registerComponent(
-  "dropdown",
-  "./dropdown.html",
-  true,
-  lazyOnInteraction(["mouseenter", "focus"])
-);
-```
-
-Best for: Modals, dropdowns, expandable sections, search boxes
-
-### 5. `lazyOnMedia`
-
-Loads when a media query matches:
-
-```javascript
-import { registerComponent, lazyOnMedia } from "ladrillosjs";
-
-// Mobile-only component
-registerComponent(
-  "mobile-nav",
-  "./mobile-nav.html",
-  true,
-  lazyOnMedia("(max-width: 768px)")
-);
-
-// Desktop-only component
-registerComponent(
-  "sidebar",
-  "./sidebar.html",
-  true,
-  lazyOnMedia("(min-width: 1024px)")
-);
-
-// Print-only
-registerComponent(
-  "print-header",
-  "./print-header.html",
-  true,
-  lazyOnMedia("print")
-);
-```
-
-Best for: Responsive components, print styles, device-specific features
-
----
-
-## Placeholder Content
-
-While a lazy component loads, you can show placeholder content:
+Wrap any markup in `<lazy>` and supply a strategy via attributes. The content
+is detached at scan time and re-inserted when the strategy fires.
 
 ```html
-<heavy-chart>
-  <!-- This content shows while loading -->
-  <div class="skeleton">
-    <div class="skeleton-bar"></div>
-    <div class="skeleton-bar"></div>
-    <div class="skeleton-bar"></div>
-  </div>
-</heavy-chart>
+<lazy margin="100px">
+  <heavy-chart></heavy-chart>
+  <p>Renders when 100px from the viewport.</p>
+</lazy>
+```
+
+### Strategy attributes
+
+A `<lazy>` element picks its strategy based on which attributes are present.
+Resolution priority (highest first):
+
+| Priority | Attribute(s)                   | Strategy             |
+| -------- | ------------------------------ | -------------------- |
+| 1        | `eager`                        | Load immediately     |
+| 2        | `interaction="click,focus"`    | `lazyOnInteraction`  |
+| 3        | `media="(max-width: 768px)"`   | `lazyOnMedia`        |
+| 4        | `delay="3000"` (ms)            | `lazyOnDelay`        |
+| 5        | `idle` / `idle-timeout="5000"` | `lazyOnIdle`         |
+| 6        | `margin="100px"` / `threshold="0.5"` / nothing | `lazyOnVisible` (default) |
+
+### Inline content examples
+
+```html
+<!-- Default: viewport-triggered -->
+<lazy>
+  <p>Loads when scrolled into view.</p>
+</lazy>
+
+<!-- Viewport with custom margin/threshold -->
+<lazy margin="200px" threshold="0.25">
+  <expensive-widget></expensive-widget>
+</lazy>
+
+<!-- Idle (with optional max-wait timeout) -->
+<lazy idle idle-timeout="5000">
+  <analytics-pixel></analytics-pixel>
+</lazy>
+
+<!-- Time delay -->
+<lazy delay="3000">
+  <chat-widget></chat-widget>
+</lazy>
+
+<!-- User interaction -->
+<lazy interaction="click,focus">
+  <support-chat></support-chat>
+</lazy>
+
+<!-- Media query -->
+<lazy media="(max-width: 768px)">
+  <mobile-nav></mobile-nav>
+</lazy>
+
+<!-- Force eager (skip lazy) -->
+<lazy eager>
+  <p>Renders immediately.</p>
+</lazy>
+```
+
+### `margin` and `threshold` explained
+
+These two attributes tune the default viewport-based strategy. They map
+directly to [`IntersectionObserver`](https://developer.mozilla.org/en-US/docs/Web/API/IntersectionObserver)'s
+`rootMargin` and `threshold` options.
+
+#### `margin` — how early to trigger
+
+Expands (or shrinks) the viewport's "trigger box" so loading starts *before*
+the element actually scrolls into view. Same syntax as CSS margins (px or %).
+
+| Value           | Behavior                                                    |
+| --------------- | ----------------------------------------------------------- |
+| `"100px"`       | Default. Fires when within 100px of the viewport.           |
+| `"500px"`       | Aggressive preload — fires roughly half a screen early.     |
+| `"0px"`         | Fires only when the element actually intersects.            |
+| `"-50px"`       | Waits until the element is 50px **inside** the viewport.    |
+| `"200px 0px"`   | Different per side (top/bottom 200px, left/right 0px).      |
+
+#### `threshold` — how much must be visible
+
+A number from `0` to `1` representing the fraction of the element that must
+be inside the (margin-expanded) viewport before triggering.
+
+| Value     | Behavior                                       |
+| --------- | ---------------------------------------------- |
+| `"0"`     | Default. Fires as soon as any pixel intersects. |
+| `"0.5"`   | Fires when 50% of the element is visible.      |
+| `"1"`     | Fires only when the entire element is visible. |
+
+#### Combined example
+
+```html
+<lazy margin="200px" threshold="0.25">
+  <expensive-widget></expensive-widget>
+</lazy>
+```
+
+> Start loading when the widget is within 200px of the viewport **and** at
+> least 25% of it would be visible at that point.
+
+#### Practical guidance
+
+- **Below-the-fold images / charts:** `margin="200px"` so it loads slightly
+  before the user scrolls in.
+- **Analytics / impression tracking:** `threshold="0.5"` so it only counts
+  as "seen" when at least half visible.
+- **Heavy components on slow connections:** larger `margin` (e.g. `"500px"`)
+  to mask load time.
+
+---
+
+### Placeholder content
+
+Use a nested `<template slot="placeholder">` to show something while the real
+content is waiting:
+
+```html
+<lazy idle idle-timeout="5000">
+  <template slot="placeholder">
+    <div class="skeleton">
+      <div class="skeleton-bar"></div>
+      <div class="skeleton-bar"></div>
+    </div>
+  </template>
+
+  <expensive-chart></expensive-chart>
+</lazy>
 
 <style>
   .skeleton-bar {
@@ -179,28 +155,92 @@ While a lazy component loads, you can show placeholder content:
     background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
     background-size: 200% 100%;
     animation: shimmer 1.5s infinite;
-    margin: 10px 0;
     border-radius: 4px;
   }
-
   @keyframes shimmer {
-    0% {
-      background-position: -200% 0;
-    }
-    100% {
-      background-position: 200% 0;
-    }
+    0%   { background-position: -200% 0; }
+    100% { background-position:  200% 0; }
   }
 </style>
 ```
 
-The placeholder is replaced once the component loads.
+The placeholder is removed in a single DOM operation when the real content
+swaps in.
+
+### Lazy-load a component file declaratively
+
+`<lazy>` can also lazy-register an external component file. Use the `src`
+attribute (and optionally `component` to override the auto-derived tag name):
+
+```html
+<!-- Auto-derives tag name from filename: heavy-chart -->
+<lazy src="./components/heavy-chart.html" idle></lazy>
+
+<!-- Explicit tag name override -->
+<lazy src="./components/Chart.html" component="my-chart" margin="100px"></lazy>
+
+<!-- With placeholder -->
+<lazy src="./components/heavy-chart.html" idle>
+  <template slot="placeholder">
+    <div class="skeleton">Loading chart…</div>
+  </template>
+</lazy>
+```
+
+Other attributes on `<lazy>` (besides the strategy props, `src`, and
+`component`) are forwarded to the loaded element. So `<lazy src="…"
+title="Hello">` becomes `<my-thing title="Hello">` after upgrade.
 
 ---
 
-## Force Loading
+## Registration-Time Lazy Loading
 
-Manually trigger a lazy component to load:
+If a component is reused in many places, register it once with a strategy and
+let every instance be lazy:
+
+```javascript
+import {
+  registerComponent,
+  registerComponents,
+  lazyOnVisible,
+  lazyOnIdle,
+  lazyOnInteraction,
+  lazyOnMedia,
+  lazyOnDelay,
+} from "ladrillosjs";
+
+// Single component, default strategy (lazyOnVisible with 100px margin)
+registerComponent("heavy-chart", "./components/chart.html", true, true);
+
+// Multiple components, mixed strategies
+await registerComponents([
+  { name: "app-header", path: "./header.html" },                                       // eager
+  { name: "app-footer", path: "./footer.html",   lazy: lazyOnVisible({ rootMargin: "200px" }) },
+  { name: "analytics",  path: "./analytics.html", lazy: lazyOnIdle(5000) },
+  { name: "modal",      path: "./modal.html",     lazy: lazyOnInteraction() },
+  { name: "mobile-nav", path: "./mobile-nav.html", lazy: lazyOnMedia("(max-width: 768px)") },
+  { name: "chat",       path: "./chat.html",      lazy: lazyOnDelay(3000) },
+]);
+```
+
+| Strategy            | Best For                                     |
+| ------------------- | -------------------------------------------- |
+| `lazyOnVisible`     | Below-the-fold content, footers, galleries   |
+| `lazyOnIdle`        | Analytics, telemetry, non-visual components  |
+| `lazyOnDelay`       | Chat widgets, support buttons                |
+| `lazyOnInteraction` | Modals, dropdowns, search overlays           |
+| `lazyOnMedia`       | Mobile/desktop/print-only components         |
+
+### Eager override per instance
+
+Force a lazily-registered component to load immediately by adding the `eager`
+attribute on the element:
+
+```html
+<lazy-footer eager></lazy-footer>
+```
+
+### Force loading from JavaScript
 
 ```javascript
 import { loadLazyComponent } from "ladrillosjs";
@@ -209,14 +249,13 @@ import { loadLazyComponent } from "ladrillosjs";
 loadLazyComponent("heavy-chart");
 ```
 
-Use case: Preload on hover before click
+Use case: preload on hover before click.
 
 ```html
 <button onmouseenter="preloadModal()" onclick="openModal()">Open Modal</button>
 
 <script type="module">
   import { loadLazyComponent } from "ladrillosjs";
-
   function preloadModal() {
     loadLazyComponent("settings-modal");
   }
@@ -227,12 +266,19 @@ Use case: Preload on hover before click
 
 ## Custom Strategies
 
-Create your own loading strategy:
+A strategy is just a function:
+
+```ts
+type LazyStrategy = (
+  load: () => void,
+  element: Element,
+) => (() => void) | void;
+```
+
+Implement your own and pass it to `lazy:` (or use it inside a `<lazy>` via
+the registration API):
 
 ```javascript
-import { registerComponent } from "ladrillosjs";
-
-// Strategy signature: (load: () => void, element: Element) => (() => void) | void
 const lazyOnScroll = (scrollAmount) => (load, element) => {
   const handler = () => {
     if (window.scrollY > scrollAmount) {
@@ -240,110 +286,44 @@ const lazyOnScroll = (scrollAmount) => (load, element) => {
       load();
     }
   };
-
   window.addEventListener("scroll", handler, { passive: true });
-
-  // Return cleanup function
   return () => window.removeEventListener("scroll", handler);
 };
 
-// Use it
 registerComponent("scroll-reveal", "./reveal.html", true, lazyOnScroll(500));
 ```
 
 ---
 
-## Performance Comparison
+## Performance Notes
 
-| Strategy            | Network        | Best For                     |
-| ------------------- | -------------- | ---------------------------- |
-| Eager (default)     | Immediate      | Critical, above-fold content |
-| `lazyOnVisible`     | On scroll      | Below-fold content           |
-| `lazyOnIdle`        | When idle      | Background/analytics         |
-| `lazyOnDelay`       | After timeout  | Progressive enhancement      |
-| `lazyOnInteraction` | On user action | Modals, menus                |
-| `lazyOnMedia`       | On breakpoint  | Responsive components        |
-
----
-
-## Complete Example
-
-```javascript
-import {
-  registerComponents,
-  lazyOnVisible,
-  lazyOnIdle,
-  lazyOnInteraction,
-  lazyOnMedia,
-  lazyOnDelay,
-} from "ladrillosjs";
-
-await registerComponents([
-  // Critical - loads immediately
-  { name: "app-header", path: "./header.html" },
-  { name: "hero-section", path: "./hero.html" },
-
-  // Below fold - load when scrolled to
-  { name: "feature-grid", path: "./features.html", lazy: lazyOnVisible() },
-  {
-    name: "testimonials",
-    path: "./testimonials.html",
-    lazy: lazyOnVisible({ rootMargin: "200px" }),
-  },
-
-  // Not visible - load when idle
-  { name: "analytics", path: "./analytics.html", lazy: lazyOnIdle(5000) },
-
-  // On demand
-  {
-    name: "settings-modal",
-    path: "./settings.html",
-    lazy: lazyOnInteraction(),
-  },
-  {
-    name: "search-overlay",
-    path: "./search.html",
-    lazy: lazyOnInteraction("focus"),
-  },
-
-  // Responsive
-  {
-    name: "mobile-menu",
-    path: "./mobile-menu.html",
-    lazy: lazyOnMedia("(max-width: 768px)"),
-  },
-  {
-    name: "sidebar",
-    path: "./sidebar.html",
-    lazy: lazyOnMedia("(min-width: 1024px)"),
-  },
-
-  // Delayed
-  { name: "chat-widget", path: "./chat.html", lazy: lazyOnDelay(3000) },
-
-  // Footer - almost never seen immediately
-  { name: "app-footer", path: "./footer.html", lazy: true }, // Uses default (lazyOnVisible)
-]);
-```
+- `<lazy>` detaches its children into a single `DocumentFragment` and
+  re-inserts them in one DOM operation when the strategy fires.
+- A zero-size sentinel (`<span style="display: contents">`) is used as the
+  observer target for `IntersectionObserver` and event listeners — it has no
+  layout cost.
+- Strategy listeners are torn down automatically once the lazy content has
+  been revealed.
+- `<lazy src>` deduplicates concurrent loads of the same component file.
 
 ---
 
 ## Lazy Loading Flow
 
 ```
-1. Register component with lazy strategy
-   └── Creates placeholder custom element
-   └── Sets up strategy observer/listener
+1. Scan template
+   └── <lazy> element found, content moved to DocumentFragment
+   └── Comment placeholder + (optional) <template slot="placeholder"> rendered
+   └── Strategy listener attached to a display:contents sentinel
 
-2. Strategy triggers (visibility, idle, click, etc.)
-   └── Fetches component HTML
-   └── Parses template, scripts, styles
-   └── Replaces placeholder content
+2. Strategy fires (visible, idle, click, etc.)
+   └── Listener torn down, sentinel removed
+   └── Placeholder content removed
+   └── Real content (or upgraded <component>) inserted in one DOM op
 
-3. Component initializes
-   └── Runs scripts
-   └── Sets up reactivity
-   └── Fires ladrillos:ready event
+3. (Optional) Component initializes
+   └── Scripts run, reactivity wired
+   └── ladrillos:ready event dispatched
 ```
 
 ---

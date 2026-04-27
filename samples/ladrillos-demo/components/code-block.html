@@ -220,30 +220,40 @@
 
 <div class="code-container">
   <div class="code-window">
-    <div class="code-header" $if="filename">
-      <div class="code-dots"><span></span><span></span><span></span></div>
-      <span class="code-title">{filename}</span>
-      <div class="copied-indicator" id="copiedIndicator" $if="copied">
-        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-        </svg>
-        Copied
+    <if condition="filename">
+      <div class="code-header">
+        <div class="code-dots"><span></span><span></span><span></span></div>
+        <span class="code-title">{filename}</span>
+        <if condition="copied">
+          <div class="copied-indicator" id="copiedIndicator">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+            </svg>
+            Copied
+          </div>
+        </if>
+        <button class="copy-button" onclick="await copyCode()">Copy</button>
       </div>
-      <button class="copy-button" onclick="await copyCode()">Copy</button>
-    </div>
+    </if>
     <div class="code-body">
       <pre class="code-content"><code $ref="codeEl" class="language-html"></code></pre>
-      <div class="code-actions" $if="!filename">
-        <div class="copied-indicator" id="copiedIndicator" $if="copied">
-          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-          </svg>
-          Copied
+      <if condition="!filename">
+        <div class="code-actions">
+          <if condition="copied">
+            <div class="copied-indicator" id="copiedIndicator">
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+              </svg>
+              Copied
+            </div>
+          </if>
+          <if condition="!copied">
+            <button class="copy-button" onclick="await copyCode()">
+              Copy
+            </button>
+          </if>
         </div>
-        <button class="copy-button" onclick="await copyCode()" $if="!copied">
-          Copy
-        </button>
-      </div>
+      </if>
     </div>
   </div>
 </div>

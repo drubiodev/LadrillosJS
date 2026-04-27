@@ -1,8 +1,8 @@
 <div class="demo-card">
   <h3>🔀 Conditional Rendering</h3>
   <p class="description">
-    Control visibility with <code>$if</code>, <code>$else-if</code>,
-    <code>$else</code>
+    Control visibility with <code>&lt;if&gt;</code>, <code>&lt;else-if&gt;</code>,
+    <code>&lt;else&gt;</code>
   </p>
 
   <div class="demo-content">
@@ -17,25 +17,33 @@
     </div>
 
     <div class="result-display">
-      <div $if="{status === 'loading'}" class="status-box loading">
-        <span class="icon">⏳</span>
-        <span>Loading data...</span>
-      </div>
+      <if condition="status === 'loading'">
+        <div class="status-box loading">
+          <span class="icon">⏳</span>
+          <span>Loading data...</span>
+        </div>
+      </if>
 
-      <div $else-if="{status === 'success'}" class="status-box success">
-        <span class="icon">✅</span>
-        <span>Data loaded successfully!</span>
-      </div>
+      <else-if condition="status === 'success'">
+        <div class="status-box success">
+          <span class="icon">✅</span>
+          <span>Data loaded successfully!</span>
+        </div>
+      </else-if>
 
-      <div $else-if="{status === 'error'}" class="status-box error">
-        <span class="icon">❌</span>
-        <span>An error occurred!</span>
-      </div>
+      <else-if condition="status === 'error'">
+        <div class="status-box error">
+          <span class="icon">❌</span>
+          <span>An error occurred!</span>
+        </div>
+      </else-if>
 
-      <div $else class="status-box empty">
-        <span class="icon">📭</span>
-        <span>No data available</span>
-      </div>
+      <else>
+        <div class="status-box empty">
+          <span class="icon">📭</span>
+          <span>No data available</span>
+        </div>
+      </else>
     </div>
 
     <div class="toggle-section">
@@ -44,18 +52,19 @@
         Show advanced options
       </label>
 
-      <div $if="{isAdvanced}" class="advanced-panel">
-        <p>🔧 Advanced settings are now visible!</p>
-        <p>This panel only appears when the checkbox is checked.</p>
-      </div>
+      <if condition="isAdvanced">
+        <div class="advanced-panel">
+          <p>🔧 Advanced settings are now visible!</p>
+          <p>This panel only appears when the checkbox is checked.</p>
+        </div>
+      </if>
     </div>
   </div>
 
   <div class="code-hint">
-    <code>&lt;div $if="{status === 'loading'}"&gt;...&lt;/div&gt;</code><br />
-    <code>&lt;div $else-if="{status === 'error'}"&gt;...&lt;/div&gt;</code
-    ><br />
-    <code>&lt;div $else&gt;...&lt;/div&gt;</code>
+    <code>&lt;if condition="status === 'loading'"&gt;...&lt;/if&gt;</code><br />
+    <code>&lt;else-if condition="status === 'error'"&gt;...&lt;/else-if&gt;</code><br />
+    <code>&lt;else&gt;...&lt;/else&gt;</code>
   </div>
 </div>
 
@@ -65,7 +74,9 @@
 </script>
 
 <style>
-  :host { display: block; }
+  :host {
+    display: block;
+  }
 
   .demo-card {
     background: var(--bg-elevated, #fff);
@@ -73,16 +84,16 @@
     border-radius: 14px;
     padding: 1.5rem;
     color: var(--fg, #18181b);
-    box-shadow: var(--shadow-sm, 0 1px 2px rgba(0,0,0,0.04));
-    transition: transform 180ms cubic-bezier(.4,0,.2,1),
-      box-shadow 180ms cubic-bezier(.4,0,.2,1),
-      border-color 180ms cubic-bezier(.4,0,.2,1);
+    box-shadow: var(--shadow-sm, 0 1px 2px rgba(0, 0, 0, 0.04));
+    transition: transform 180ms cubic-bezier(.4, 0, .2, 1),
+      box-shadow 180ms cubic-bezier(.4, 0, .2, 1),
+      border-color 180ms cubic-bezier(.4, 0, .2, 1);
   }
 
   .demo-card:hover {
     transform: translateY(-1px);
     border-color: var(--border-strong, #d4d4d8);
-    box-shadow: var(--shadow-md, 0 4px 12px rgba(0,0,0,0.06));
+    box-shadow: var(--shadow-md, 0 4px 12px rgba(0, 0, 0, 0.06));
   }
 
   h3 {
@@ -164,8 +175,15 @@
   }
 
   @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(-2px); }
-    to { opacity: 1; transform: translateY(0); }
+    from {
+      opacity: 0;
+      transform: translateY(-2px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
 
   .status-box .icon {

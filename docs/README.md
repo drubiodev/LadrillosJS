@@ -15,14 +15,14 @@ Welcome to the LadrillosJS documentation! This guide will help you understand ho
 - [**Reactivity**](./04-reactivity.md) - How the reactive system works
 - [**Template Bindings**](./05-template-bindings.md) - Data binding with `{expressions}`
 
-### Directives
+### Built-in Elements & Directives
 
-- [**Directives Overview**](./06-directives.md) - All built-in directives
-- [**Conditional Rendering**](./07-conditionals.md) - `$if`, `$else-if`, `$else`
-- [**List Rendering**](./08-loops.md) - `$for` loops
+- [**Built-in Elements & Directives**](./06-directives.md) - Overview of all built-ins
+- [**Conditional Rendering**](./07-conditionals.md) - `<if>`, `<else-if>`, `<else>`
+- [**List Rendering**](./08-loops.md) - `<for>` loops
 - [**Two-Way Binding**](./09-two-way-binding.md) - `$bind` for forms
 - [**Element References**](./10-refs.md) - `$ref` for DOM access
-- [**Visibility Toggle**](./11-show.md) - `$show` for CSS visibility
+- [**Visibility Toggle**](./11-show.md) - `<show>` for CSS visibility
 
 ### Advanced Features
 
@@ -120,7 +120,7 @@ That's it! The counter is fully reactive - clicking the buttons updates the disp
 │  1. Fetch component HTML                                          │
 │  2. Parse template, scripts, styles                               │
 │  3. Create reactive state (Proxy)                                 │
-│  4. Scan for directives ($for, $if, $bind, etc.)                 │
+│  4. Scan for built-ins (<for>, <if>, <show>, <lazy>) and directives ($bind) │
 │  5. Register as Custom Element                                    │
 └──────────────────────────────────────────────────────────────────┘
                                 │
@@ -143,6 +143,6 @@ That's it! The counter is fully reactive - clicking the buttons updates the disp
 1. Start with the [Quick Start Guide](./01-quick-start.md)
 2. Learn about [Components](./03-components.md)
 3. Understand the [Reactivity System](./04-reactivity.md)
-4. Explore [Directives](./06-directives.md)
+4. Explore [Built-in Elements & Directives](./06-directives.md)
 
 Happy building! 🧱

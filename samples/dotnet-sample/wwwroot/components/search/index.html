@@ -93,23 +93,12 @@
 
   <div class="search-container">
     <div class="input-wrapper">
-      <input
-        type="search"
-        placeholder="Search emails..."
-        $ref="searchInput"
-        $on:keyup.enter="searchData()"
-      />
+      <input type="search" placeholder="Search emails..." $ref="searchInput" $on:keyup.enter="searchData()" />
     </div>
 
     <button onclick="searchData()">
-      <svg
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-      >
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+        stroke-linejoin="round">
         <circle cx="11" cy="11" r="8" />
         <path d="M21 21l-4.35-4.35" />
       </svg>
@@ -129,8 +118,12 @@
 </div>
 
 <div>
-  <div $if="loading">LOADING....</div>
-  <search-card $for="item in data" email="{item}"></search-card>
+  <if condition="loading">
+    <div>LOADING....</div>
+  </if>
+  <for each="item in data">
+    <search-card email="{item}"></search-card>
+  </for>
 </div>
 
 <script type="module">

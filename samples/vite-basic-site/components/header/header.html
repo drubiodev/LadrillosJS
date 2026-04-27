@@ -58,11 +58,17 @@
 <header>
   <h1>LadrillosJS</h1>
   <nav>
-    <a $for="link in navLinks" href="{link.href}">{link.text}</a>
+    <for each="link in navLinks">
+      <a href="{link.href}">{link.text}</a>
+    </for>
   </nav>
 
-  <a $if="{!isLoggedIn}" onclick="login()" class="login-btn">Log in</a>
-  <a $else onclick="login()" class="login-btn">Log Out</a>
+  <if condition="!isLoggedIn">
+    <a onclick="login()" class="login-btn">Log in</a>
+  </if>
+  <else>
+    <a onclick="login()" class="login-btn">Log Out</a>
+  </else>
 </header>
 
 <script type="module">

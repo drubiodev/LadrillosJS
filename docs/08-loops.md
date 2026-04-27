@@ -1,12 +1,14 @@
 # List Rendering
 
-Render lists of items using the `$for` directive.
+Render lists using the `<for>` built-in element.
 
 ## Basic Loop
 
 ```html
 <ul>
-  <li $for="fruit in fruits">{fruit}</li>
+  <for each="fruit in fruits">
+    <li>{fruit}</li>
+  </for>
 </ul>
 
 <script>
@@ -24,15 +26,18 @@ Render lists of items using the `$for` directive.
 </ul>
 ```
 
+The `<for>` tag itself is replaced by a comment placeholder; only the
+per-iteration template is cloned into the DOM. Layout is unaffected.
+
 ---
 
 ## Loop with Index
 
-Access the current index using destructuring:
-
 ```html
 <ul>
-  <li $for="(item, index) in items">#{index + 1}: {item}</li>
+  <for each="(item, index) in items">
+    <li>#{index + 1}: {item}</li>
+  </for>
 </ul>
 
 <script>
@@ -54,51 +59,63 @@ Access the current index using destructuring:
 
 ## Object Arrays
 
-Loop over arrays of objects:
-
 ```html
 <div class="user-list">
-  <div $for="user in users" class="user-card">
-    <img src="{user.avatar}" alt="{user.name}" />
-    <h3>{user.name}</h3>
-    <p>{user.email}</p>
-  </div>
+  <for each="user in users">
+    <div class="user-card">
+      <img src="{user.avatar}" alt="{user.name}" />
+      <h3>{user.name}</h3>
+      <p>{user.email}</p>
+    </div>
+  </for>
 </div>
 
 <script>
   let users = [
-    {
-      id: 1,
-      name: "Alice",
-      email: "alice@example.com",
-      avatar: "/avatars/alice.jpg",
-    },
-    {
-      id: 2,
-      name: "Bob",
-      email: "bob@example.com",
-      avatar: "/avatars/bob.jpg",
-    },
-    {
-      id: 3,
-      name: "Carol",
-      email: "carol@example.com",
-      avatar: "/avatars/carol.jpg",
-    },
+    { id: 1, name: "Alice", email: "alice@example.com", avatar: "/avatars/alice.jpg" },
+    { id: 2, name: "Bob",   email: "bob@example.com",   avatar: "/avatars/bob.jpg" },
+    { id: 3, name: "Carol", email: "carol@example.com", avatar: "/avatars/carol.jpg" },
   ];
 </script>
 ```
 
 ---
 
-## The `$key` Attribute
+## Multiple Top-Level Children
 
-Use `$key` for efficient updates when items can be reordered, added, or removed:
+`<for>` may contain any number of top-level children. They are rendered
+together per iteration without an extra wrapper box (the framework wraps them
+in a `display: contents` span):
 
 ```html
-<div $for="user in users" $key="user.id" class="user-card">
-  <h3>{user.name}</h3>
-</div>
+<table>
+  <tbody>
+    <for each="row in rows" key="row.id">
+      <td>{row.name}</td>
+      <td>{row.email}</td>
+      <td>{row.role}</td>
+    </for>
+  </tbody>
+</table>
+```
+
+> Tip: when you have a single element child, the framework uses it directly
+> with **zero** wrapping overhead. Multi-child bodies pay one wrapper span
+> per iteration.
+
+---
+
+## The `key` Attribute
+
+Use `key` for efficient updates when items can be reordered, added, or
+removed:
+
+```html
+<for each="user in users" key="user.id">
+  <div class="user-card">
+    <h3>{user.name}</h3>
+  </div>
+</for>
 
 <script>
   let users = [
@@ -109,45 +126,52 @@ Use `$key` for efficient updates when items can be reordered, added, or removed:
 </script>
 ```
 
-### Why Use Keys?
+You may also use `track-by="user.id"` as a synonym (familiar from other
+frameworks).
 
-Without keys, LadrillosJS updates elements by index. With keys, it tracks elements by identity.
+### Why use keys?
+
+Without keys, LadrillosJS updates elements by position. With keys, it tracks
+each element by identity, so reorders, inserts, and removes preserve element
+state (form inputs, focus, scroll position):
 
 ```html
-<!-- Without $key: Reorder might cause issues with form state -->
-<div $for="item in items">
+<!-- Without key: input state may bleed between rows on reorder -->
+<for each="item in items">
   <input value="{item.text}" />
-</div>
+</for>
 
-<!-- With $key: Input state preserved during reorder -->
-<div $for="item in items" $key="item.id">
+<!-- With key: input state stays attached to the right item -->
+<for each="item in items" key="item.id">
   <input value="{item.text}" />
-</div>
+</for>
 ```
 
 **Best practices:**
 
-- Use unique, stable identifiers (IDs, not indices)
-- Always use `$key` when items can be reordered
-- Always use `$key` when items contain form inputs or state
+- Use unique, stable identifiers (IDs, not array indices).
+- Always use `key` when items can be reordered.
+- Always use `key` when items contain form inputs or component state.
 
 ---
 
 ## Dynamic Lists
 
-### Adding Items
+### Adding items
 
 ```html
 <div>
-  <input $bind="newItem" placeholder="Enter item..." />
+  <input $bind="newItem" placeholder="Enter item…" />
   <button onclick="addItem()">Add</button>
 </div>
 
 <ul>
-  <li $for="(item, i) in items">
-    {item}
-    <button onclick="removeItem(i)">×</button>
-  </li>
+  <for each="(item, i) in items">
+    <li>
+      {item}
+      <button onclick="removeItem(i)">×</button>
+    </li>
+  </for>
 </ul>
 
 <script>
@@ -156,13 +180,13 @@ Without keys, LadrillosJS updates elements by index. With keys, it tracks elemen
 
   function addItem() {
     if (newItem.trim()) {
-      items.push(newItem);
+      items = [...items, newItem];
       newItem = "";
     }
   }
 
   function removeItem(index) {
-    items.splice(index, 1);
+    items = items.filter((_, i) => i !== index);
   }
 </script>
 ```
@@ -171,11 +195,17 @@ Without keys, LadrillosJS updates elements by index. With keys, it tracks elemen
 
 ```html
 <ul>
-  <li $for="(item, i) in items" $key="item.id">
-    {item.name}
-    <button onclick="moveUp(i)" $if="{i > 0}">↑</button>
-    <button onclick="moveDown(i)" $if="{i < items.length - 1}">↓</button>
-  </li>
+  <for each="(item, i) in items" key="item.id">
+    <li>
+      {item.name}
+      <if condition="i > 0">
+        <button onclick="moveUp(i)">↑</button>
+      </if>
+      <if condition="i < items.length - 1">
+        <button onclick="moveDown(i)">↓</button>
+      </if>
+    </li>
+  </for>
 </ul>
 
 <script>
@@ -187,15 +217,17 @@ Without keys, LadrillosJS updates elements by index. With keys, it tracks elemen
 
   function moveUp(index) {
     if (index > 0) {
-      [items[index - 1], items[index]] = [items[index], items[index - 1]];
-      items = [...items]; // Trigger reactivity
+      const next = [...items];
+      [next[index - 1], next[index]] = [next[index], next[index - 1]];
+      items = next;
     }
   }
 
   function moveDown(index) {
     if (index < items.length - 1) {
-      [items[index], items[index + 1]] = [items[index + 1], items[index]];
-      items = [...items];
+      const next = [...items];
+      [next[index], next[index + 1]] = [next[index + 1], next[index]];
+      items = next;
     }
   }
 </script>
@@ -205,21 +237,23 @@ Without keys, LadrillosJS updates elements by index. With keys, it tracks elemen
 
 ## Nested Loops
 
-Loop inside a loop:
-
 ```html
-<div $for="category in categories" class="category">
-  <h2>{category.name}</h2>
-  <ul>
-    <li $for="item in category.items">{item}</li>
-  </ul>
-</div>
+<for each="category in categories">
+  <div class="category">
+    <h2>{category.name}</h2>
+    <ul>
+      <for each="item in category.items">
+        <li>{item}</li>
+      </for>
+    </ul>
+  </div>
+</for>
 
 <script>
   let categories = [
-    { name: "Fruits", items: ["Apple", "Banana", "Cherry"] },
+    { name: "Fruits",     items: ["Apple", "Banana", "Cherry"] },
     { name: "Vegetables", items: ["Carrot", "Broccoli", "Spinach"] },
-    { name: "Dairy", items: ["Milk", "Cheese", "Yogurt"] },
+    { name: "Dairy",      items: ["Milk", "Cheese", "Yogurt"] },
   ];
 </script>
 ```
@@ -228,59 +262,57 @@ Loop inside a loop:
 
 ## Loop with Conditionals
 
-Use `$if` inside loop elements (on child elements):
+Use `<if>` inside a loop body:
 
 ```html
 <ul>
-  <li $for="task in tasks">
-    <span $if="{task.completed}">✅</span>
-    <span $else>⬜</span>
-    {task.title}
-  </li>
+  <for each="task in tasks">
+    <li>
+      <if condition="task.completed">✅</if>
+      <else>⬜</else>
+      {task.title}
+    </li>
+  </for>
 </ul>
 
 <script>
   let tasks = [
     { title: "Buy groceries", completed: true },
-    { title: "Clean room", completed: false },
-    { title: "Do laundry", completed: false },
+    { title: "Clean room",    completed: false },
+    { title: "Do laundry",    completed: false },
   ];
 </script>
 ```
 
-### Filter in Template vs Script
+### Filter in script (preferred)
 
 ```html
-<!-- Option 1: Filter in script (recommended) -->
-<li $for="task in activeTasks">{task.title}</li>
+<for each="task in activeTasks">
+  <li>{task.title}</li>
+</for>
 
 <script>
-  let tasks = [...];
-
-  // Compute filtered list
-  $: activeTasks = tasks.filter(t => !t.completed);
+  let tasks = [/* … */];
+  let activeTasks = tasks.filter((t) => !t.completed);
 </script>
-
-<!-- Option 2: Conditional inside loop -->
-<template $for="task in tasks">
-  <li $if="{!task.completed}">{task.title}</li>
-</template>
 ```
 
 ---
 
 ## Event Handlers in Loops
 
-Pass loop data to event handlers:
+Pass loop data to handlers:
 
 ```html
 <ul>
-  <li $for="(item, index) in items">
-    {item.name}
-    <button onclick="editItem(item)">Edit</button>
-    <button onclick="deleteItem(index)">Delete</button>
-    <button onclick="handleClick(item, index, event)">Details</button>
-  </li>
+  <for each="(item, index) in items">
+    <li>
+      {item.name}
+      <button onclick="editItem(item)">Edit</button>
+      <button onclick="deleteItem(index)">Delete</button>
+      <button onclick="handleClick(item, index, event)">Details</button>
+    </li>
+  </for>
 </ul>
 
 <script>
@@ -289,14 +321,8 @@ Pass loop data to event handlers:
     { id: 2, name: "Item 2" },
   ];
 
-  function editItem(item) {
-    console.log("Edit:", item);
-  }
-
-  function deleteItem(index) {
-    items.splice(index, 1);
-  }
-
+  function editItem(item) { console.log("Edit:", item); }
+  function deleteItem(index) { items = items.filter((_, i) => i !== index); }
   function handleClick(item, index, event) {
     console.log("Item:", item, "Index:", index, "Event:", event);
   }
@@ -307,15 +333,14 @@ Pass loop data to event handlers:
 
 ## Number Ranges
 
-Create a range of numbers for iteration:
-
 ```html
 <div class="pagination">
-  <button $for="page in pages" onclick="goToPage(page)">{page}</button>
+  <for each="page in pages">
+    <button onclick="goToPage(page)">{page}</button>
+  </for>
 </div>
 
 <script>
-  // Create array of page numbers
   let totalPages = 5;
   let pages = Array.from({ length: totalPages }, (_, i) => i + 1);
   // pages = [1, 2, 3, 4, 5]
@@ -326,51 +351,51 @@ Create a range of numbers for iteration:
 
 ## Common Patterns
 
-### Table Rows
+### Table rows
 
 ```html
 <table>
   <thead>
-    <tr>
-      <th>Name</th>
-      <th>Email</th>
-      <th>Actions</th>
-    </tr>
+    <tr><th>Name</th><th>Email</th><th>Actions</th></tr>
   </thead>
   <tbody>
-    <tr $for="user in users" $key="user.id">
-      <td>{user.name}</td>
-      <td>{user.email}</td>
-      <td>
-        <button onclick="editUser(user)">Edit</button>
-        <button onclick="deleteUser(user.id)">Delete</button>
-      </td>
-    </tr>
+    <for each="user in users" key="user.id">
+      <tr>
+        <td>{user.name}</td>
+        <td>{user.email}</td>
+        <td>
+          <button onclick="editUser(user)">Edit</button>
+          <button onclick="deleteUser(user.id)">Delete</button>
+        </td>
+      </tr>
+    </for>
   </tbody>
 </table>
 ```
 
-### Grid of Cards
+### Grid of cards
 
 ```html
 <div class="grid">
-  <article $for="post in posts" $key="post.id" class="card">
-    <img src="{post.thumbnail}" alt="{post.title}" />
-    <h3>{post.title}</h3>
-    <p>{post.excerpt}</p>
-    <a href="/posts/{post.id}">Read more</a>
-  </article>
+  <for each="post in posts" key="post.id">
+    <article class="card">
+      <img src="{post.thumbnail}" alt="{post.title}" />
+      <h3>{post.title}</h3>
+      <p>{post.excerpt}</p>
+      <a href="/posts/{post.id}">Read more</a>
+    </article>
+  </for>
 </div>
 ```
 
-### Select Options
+### Select options
 
 ```html
 <select $bind="selectedCountry">
-  <option value="">Select a country...</option>
-  <option $for="country in countries" value="{country.code}">
-    {country.name}
-  </option>
+  <option value="">Select a country…</option>
+  <for each="country in countries">
+    <option value="{country.code}">{country.name}</option>
+  </for>
 </select>
 
 <script>
@@ -387,10 +412,14 @@ Create a range of numbers for iteration:
 
 ## Performance Tips
 
-1. **Always use `$key`** for lists that change
-2. **Filter in script**, not in template
-3. **Avoid deeply nested loops** when possible
-4. **Use virtual scrolling** for very long lists (not built-in)
+1. **Always use `key`** for lists that change order, get inserts, or get
+   removes.
+2. **Filter in script**, not in template — recompute the filtered array once
+   instead of evaluating a `<if>` for every iteration.
+3. **Prefer a single root child** in `<for>` bodies when possible — the
+   framework skips the wrapper allocation in that case.
+4. **Avoid deeply nested loops** when the inputs are large. Consider grouping
+   data in script or using virtual scrolling for very long lists.
 
 ---
 

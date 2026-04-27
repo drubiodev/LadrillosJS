@@ -6,22 +6,12 @@
 
   <div class="demo-content">
     <div class="input-section">
-      <input
-        type="text"
-        $ref="inputEl"
-        placeholder="Click the button to focus me"
-        class="ref-input"
-      />
+      <input type="text" $ref="inputEl" placeholder="Click the button to focus me" class="ref-input" />
       <button onclick="focusInput()" class="action-btn">🎯 Focus Input</button>
     </div>
 
     <div class="canvas-section">
-      <canvas
-        $ref="canvas"
-        width="200"
-        height="100"
-        class="drawing-canvas"
-      ></canvas>
+      <canvas $ref="canvas" width="200" height="100" class="drawing-canvas"></canvas>
       <div class="canvas-controls">
         <button onclick="drawRandom()" class="action-btn">
           🎨 Draw Random
@@ -34,7 +24,9 @@
 
     <div class="scroll-section">
       <div $ref="scrollBox" class="scroll-box">
-        <p $for="i in lineNumbers">Line {i} - Scroll to see more content</p>
+        <for each="i in lineNumbers">
+          <p>Line {i} - Scroll to see more content</p>
+        </for>
       </div>
       <div class="scroll-controls">
         <button onclick="scrollToTop()" class="action-btn">⬆️ Top</button>
@@ -105,7 +97,9 @@
 </script>
 
 <style>
-  :host { display: block; }
+  :host {
+    display: block;
+  }
 
   .demo-card {
     background: var(--bg-elevated, #fff);
@@ -113,16 +107,16 @@
     border-radius: 14px;
     padding: 1.5rem;
     color: var(--fg, #18181b);
-    box-shadow: var(--shadow-sm, 0 1px 2px rgba(0,0,0,0.04));
-    transition: transform 180ms cubic-bezier(.4,0,.2,1),
-      box-shadow 180ms cubic-bezier(.4,0,.2,1),
-      border-color 180ms cubic-bezier(.4,0,.2,1);
+    box-shadow: var(--shadow-sm, 0 1px 2px rgba(0, 0, 0, 0.04));
+    transition: transform 180ms cubic-bezier(.4, 0, .2, 1),
+      box-shadow 180ms cubic-bezier(.4, 0, .2, 1),
+      border-color 180ms cubic-bezier(.4, 0, .2, 1);
   }
 
   .demo-card:hover {
     transform: translateY(-1px);
     border-color: var(--border-strong, #d4d4d8);
-    box-shadow: var(--shadow-md, 0 4px 12px rgba(0,0,0,0.06));
+    box-shadow: var(--shadow-md, 0 4px 12px rgba(0, 0, 0, 0.06));
   }
 
   h3 {
@@ -194,8 +188,13 @@
     transition: opacity 150ms, transform 80ms;
   }
 
-  .action-btn:hover { opacity: 0.88; }
-  .action-btn:active { transform: scale(0.97); }
+  .action-btn:hover {
+    opacity: 0.88;
+  }
+
+  .action-btn:active {
+    transform: scale(0.97);
+  }
 
   .action-btn.secondary {
     background: var(--bg-elevated, #fff);

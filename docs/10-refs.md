@@ -63,7 +63,7 @@ The `$ref` directive gives you direct access to DOM elements. Use `$refs.element
 
 ```html
 <div $ref="scrollContainer" class="scroll-box">
-  <p $for="i in items">Item {i}</p>
+  <for each="i in items"><p>Item {i}</p></for>
 </div>
 
 <button onclick="scrollToTop()">↑ Top</button>
@@ -282,17 +282,17 @@ For operations that need the component to be fully rendered:
 
 ## Refs in Loops
 
-⚠️ **Note:** `$ref` inside `$for` loops will only capture the **last** element:
+⚠️ **Note:** `$ref` inside `<for>` loops will only capture the **last** element:
 
 ```html
 <!-- ⚠️ Only the last item will be in $refs.item -->
-<div $for="item in items" $ref="item">{item}</div>
+<for each="item in items"><div $ref="item">{item}</div></for>
 
 <!-- ✅ Better: Use unique ref names -->
-<div $for="(item, i) in items" $ref="item{i}">{item}</div>
+<for each="(item, i) in items"><div $ref="item{i}">{item}</div></for>
 
 <!-- ✅ Or use a different approach -->
-<div $for="item in items" class="item" data-id="{item.id}">{item.name}</div>
+<for each="item in items"><div class="item" data-id="{item.id}">{item.name}</div></for>
 
 <script>
   // Query elements directly

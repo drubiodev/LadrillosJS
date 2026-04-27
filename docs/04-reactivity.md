@@ -104,7 +104,7 @@ Arrays are wrapped with special handling for mutation methods:
 ```html
 <div>
   <ul>
-    <li $for="item in items">{item}</li>
+    <for each="item in items"><li>{item}</li></for>
   </ul>
   <button onclick="items.push('New Item')">Add</button>
   <button onclick="items.pop()">Remove Last</button>
@@ -331,7 +331,7 @@ let user = {
 │  1. Find bindings that depend on 'count'                   │
 │  2. Re-evaluate each binding expression                     │
 │  3. Update DOM nodes with new values                        │
-│  4. Update directives ($for, $if, $show, $bind)            │
+│  4. Update built-ins (<for>, <if>, <show>) and $bind        │
 └─────────────────────────────────────────────────────────────┘
                            │
                            ▼

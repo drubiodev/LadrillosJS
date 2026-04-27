@@ -4,20 +4,19 @@ import { REGEX_PATTERNS } from "../../utils/regex";
 const parser = new DOMParser();
 
 /**
- * Extracts loop variable names from $for directives.
+ * Extracts loop variable names from <for each="..."> built-in elements.
  * These are locally scoped variables that should NOT be treated as state variables.
  *
  * Examples:
- *   $for="item in items" → ["item"]
- *   $for="(item, index) in items" → ["item", "index"]
- *   $for="(user, i) in users" → ["user", "i"]
+ *   <for each="item in items">           → ["item"]
+ *   <for each="(item, index) in items">  → ["item", "index"]
+ *   <for each="(user, i) in users">      → ["user", "i"]
  */
 function extractLoopVariables(template: string): Set<string> {
   const loopVars = new Set<string>();
 
-  // Match $for="..." attribute values
-  // Pattern: $for="item in array" or $for="(item, index) in array"
-  const forRegex = /\$for\s*=\s*["']([^"']+)["']/g;
+  // Match the `each="..."` attribute on <for> elements.
+  const forRegex = /<for\b[^>]*?\beach\s*=\s*["']([^"']+)["'][^>]*>/gi;
 
   let match;
   while ((match = forRegex.exec(template)) !== null) {

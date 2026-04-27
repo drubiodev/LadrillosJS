@@ -1,13 +1,17 @@
-# Visibility Toggle ($show)
+# Visibility Toggle (`<show>`)
 
-The `$show` directive toggles element visibility using CSS `display: none`.
+The `<show>` built-in element toggles visibility using CSS `display`. Unlike
+`<if>`, the children stay in the DOM — only their `display` flips between
+`contents` (visible) and `none` (hidden).
 
 ## Basic Usage
 
 ```html
 <button onclick="isVisible = !isVisible">Toggle</button>
 
-<div $show="{isVisible}">This content can be hidden!</div>
+<show condition="isVisible">
+  <p>This content can be hidden!</p>
+</show>
 
 <script>
   let isVisible = true;
@@ -18,43 +22,64 @@ The `$show` directive toggles element visibility using CSS `display: none`.
 
 ## How It Works
 
-When the expression is:
+When `condition` is:
 
-- **Truthy**: Element is visible (normal display)
-- **Falsy**: Element has `display: none` applied
-
-Unlike `$if`, the element **stays in the DOM**. Only its CSS changes.
+- **Truthy** — the `<show>` element gets `display: contents` (children render
+  in place, no wrapper box).
+- **Falsy** — the `<show>` element gets `display: none` (children stay in the
+  DOM but are not rendered).
 
 ```html
-<!-- When isVisible is false, this becomes: -->
-<div $show="{isVisible}" style="display: none;">Hidden content</div>
+<!-- When isVisible is false: -->
+<show condition="isVisible" style="display: none;">
+  <p>Hidden content</p>
+</show>
 ```
+
+Because the children stay attached, all DOM state (input values, focus,
+scroll position, event listeners, child component state) is **preserved**
+across toggles.
 
 ---
 
-## `$show` vs `$if`
+## `<show>` vs `<if>`
 
-| Feature            | `$show`                     | `$if`                   |
+| Feature            | `<show>`                    | `<if>`                  |
 | ------------------ | --------------------------- | ----------------------- |
-| How it hides       | CSS `display: none`         | Removes from DOM        |
-| Element in DOM     | Always                      | Only when true          |
+| How it hides       | CSS `display: none`         | Removes children        |
+| Children in DOM    | Always                      | Only when true          |
 | State preservation | ✅ Preserved                | ❌ Lost when hidden     |
-| Event listeners    | ✅ Preserved                | ❌ Recreated            |
+| Event listeners    | ✅ Preserved                | ❌ Recreated on remount |
 | Performance        | Better for frequent toggles | Better for rare changes |
 
-### Use `$show` When:
+### Use `<show>` when:
 
-- Toggling frequently (menus, tooltips)
-- Need to preserve input values
-- Need to preserve scroll position
-- Animation/transition on hide/show
+- Toggling frequently (menus, tooltips, dropdowns)
+- You need to preserve input values
+- You need to preserve scroll position
+- You want CSS transitions on hide/show
 
-### Use `$if` When:
+### Use `<if>` when:
 
 - Content is rarely shown
-- Large DOM subtrees
-- Content has expensive initialization
-- Security-sensitive content that shouldn't be in DOM
+- Subtree is large or expensive to mount
+- Content has expensive initialization (fetching, charts)
+- Content is security-sensitive and shouldn't be in DOM at all
+
+---
+
+## Multiple Top-Level Children
+
+`<show>` may contain any number of top-level children — they all toggle
+together:
+
+```html
+<show condition="isOpen">
+  <h3>Account settings</h3>
+  <p>Manage your preferences below.</p>
+  <form>…</form>
+</show>
+```
 
 ---
 
@@ -66,11 +91,13 @@ Unlike `$if`, the element **stays in the DOM**. Only its CSS changes.
 <div class="dropdown">
   <button onclick="isOpen = !isOpen">Menu {isOpen ? '▲' : '▼'}</button>
 
-  <nav $show="{isOpen}" class="dropdown-menu">
-    <a href="/">Home</a>
-    <a href="/about">About</a>
-    <a href="/contact">Contact</a>
-  </nav>
+  <show condition="isOpen">
+    <nav class="dropdown-menu">
+      <a href="/">Home</a>
+      <a href="/about">About</a>
+      <a href="/contact">Contact</a>
+    </nav>
+  </show>
 </div>
 
 <script>
@@ -82,29 +109,20 @@ Unlike `$if`, the element **stays in the DOM**. Only its CSS changes.
 
 ```html
 <div class="tabs">
-  <button
-    onclick="activeTab = 'one'"
-    class="{activeTab === 'one' ? 'active' : ''}"
-  >
-    Tab 1
-  </button>
-  <button
-    onclick="activeTab = 'two'"
-    class="{activeTab === 'two' ? 'active' : ''}"
-  >
-    Tab 2
-  </button>
-  <button
-    onclick="activeTab = 'three'"
-    class="{activeTab === 'three' ? 'active' : ''}"
-  >
-    Tab 3
-  </button>
+  <button onclick="activeTab = 'one'"   class="{activeTab === 'one' ? 'active' : ''}">Tab 1</button>
+  <button onclick="activeTab = 'two'"   class="{activeTab === 'two' ? 'active' : ''}">Tab 2</button>
+  <button onclick="activeTab = 'three'" class="{activeTab === 'three' ? 'active' : ''}">Tab 3</button>
 </div>
 
-<div $show="{activeTab === 'one'}" class="tab-panel">Content for Tab 1</div>
-<div $show="{activeTab === 'two'}" class="tab-panel">Content for Tab 2</div>
-<div $show="{activeTab === 'three'}" class="tab-panel">Content for Tab 3</div>
+<show condition="activeTab === 'one'">
+  <div class="tab-panel">Content for Tab 1</div>
+</show>
+<show condition="activeTab === 'two'">
+  <div class="tab-panel">Content for Tab 2</div>
+</show>
+<show condition="activeTab === 'three'">
+  <div class="tab-panel">Content for Tab 3</div>
+</show>
 
 <script>
   let activeTab = "one";
@@ -120,16 +138,18 @@ Unlike `$if`, the element **stays in the DOM**. Only its CSS changes.
     Show advanced options
   </label>
 
-  <div $show="{showAdvanced}" class="advanced-options">
-    <label>
-      Cache TTL:
-      <input type="number" $bind="cacheTTL" />
-    </label>
-    <label>
-      Max Connections:
-      <input type="number" $bind="maxConnections" />
-    </label>
-  </div>
+  <show condition="showAdvanced">
+    <div class="advanced-options">
+      <label>
+        Cache TTL:
+        <input type="number" $bind="cacheTTL" />
+      </label>
+      <label>
+        Max Connections:
+        <input type="number" $bind="maxConnections" />
+      </label>
+    </div>
+  </show>
 </form>
 
 <script>
@@ -143,12 +163,14 @@ Unlike `$if`, the element **stays in the DOM**. Only its CSS changes.
 
 ```html
 <div class="container">
-  <div class="content">Main content here...</div>
+  <div class="content">Main content here…</div>
 
-  <div $show="{isLoading}" class="loading-overlay">
-    <div class="spinner"></div>
-    <p>Loading...</p>
-  </div>
+  <show condition="isLoading">
+    <div class="loading-overlay">
+      <div class="spinner"></div>
+      <p>Loading…</p>
+    </div>
+  </show>
 </div>
 
 <script>
@@ -167,10 +189,7 @@ Unlike `$if`, the element **stays in the DOM**. Only its CSS changes.
 <style>
   .loading-overlay {
     position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
+    inset: 0;
     background: rgba(255, 255, 255, 0.8);
     display: flex;
     flex-direction: column;
@@ -184,76 +203,28 @@ Unlike `$if`, the element **stays in the DOM**. Only its CSS changes.
 
 ## Expressions
 
-Use any JavaScript expression:
+`condition` accepts any JavaScript expression. Curly braces are optional:
 
 ```html
-<!-- Boolean -->
-<div $show="{isVisible}">...</div>
+<show condition="isVisible">…</show>
+<show condition="{isVisible}">…</show>
 
-<!-- Comparison -->
-<div $show="{count > 0}">Has items</div>
-
-<!-- Equality -->
-<div $show="{status === 'active'}">Active</div>
-
-<!-- Logical -->
-<div $show="{isLoggedIn && hasPermission}">...</div>
-
-<!-- Negation -->
-<div $show="{!isHidden}">...</div>
-
-<!-- Truthy check -->
-<div $show="{items.length}">Has {items.length} items</div>
+<show condition="count > 0">Has items</show>
+<show condition="status === 'active'">Active</show>
+<show condition="isLoggedIn && hasPermission">…</show>
+<show condition="!isHidden">…</show>
+<show condition="items.length">Has {items.length} items</show>
 ```
 
 ---
 
-## Preserving Original Display
+## Animations
 
-`$show` remembers the original `display` value:
-
-```html
-<span $show="{isVisible}" style="display: inline-block;">
-  Inline block element
-</span>
-
-<script>
-  let isVisible = true;
-
-  // When hidden: display: none
-  // When shown: display: inline-block (restored)
-</script>
-```
-
----
-
-## Animations with $show
-
-Since `$show` uses CSS, you can add transitions:
+`<show>` toggles between `display: contents` and `display: none`, which is
+not animatable on its own. For enter/leave animations, switch a CSS class
+instead:
 
 ```html
-<div $show="{isVisible}" class="fade-box">Animated content</div>
-
-<style>
-  .fade-box {
-    transition: opacity 0.3s ease;
-    opacity: 1;
-  }
-
-  /* Note: This doesn't work directly because display:none
-     happens immediately. For animations, consider CSS classes
-     or the $if approach with animation libraries */
-</style>
-```
-
-For true enter/leave animations, you may need to:
-
-1. Use CSS classes with `$if` and animation delay
-2. Use a JavaScript animation library
-3. Control visibility manually with CSS classes
-
-```html
-<!-- Manual animation approach -->
 <div class="modal {isOpen ? 'visible' : 'hidden'}">Modal content</div>
 
 <style>

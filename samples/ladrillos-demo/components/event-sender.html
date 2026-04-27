@@ -13,14 +13,11 @@
     <div class="color-section">
       <label>Pick a theme:</label>
       <div class="color-buttons">
-        <button
-          $for="c in colors"
-          onclick="sendTheme(c.value)"
-          class="color-btn"
-          style="background: {c.value}"
-        >
-          {c.name}
-        </button>
+        <for each="c in colors">
+          <button onclick="sendTheme(c.value)" class="color-btn" style="background: {c.value}">
+            {c.name}
+          </button>
+        </for>
       </div>
     </div>
 
@@ -79,7 +76,9 @@
 </script>
 
 <style>
-  :host { display: block; }
+  :host {
+    display: block;
+  }
 
   .demo-card {
     background: var(--bg-elevated, #fff);
@@ -87,16 +86,16 @@
     border-radius: 14px;
     padding: 1.5rem;
     color: var(--fg, #18181b);
-    box-shadow: var(--shadow-sm, 0 1px 2px rgba(0,0,0,0.04));
-    transition: transform 180ms cubic-bezier(.4,0,.2,1),
-      box-shadow 180ms cubic-bezier(.4,0,.2,1),
-      border-color 180ms cubic-bezier(.4,0,.2,1);
+    box-shadow: var(--shadow-sm, 0 1px 2px rgba(0, 0, 0, 0.04));
+    transition: transform 180ms cubic-bezier(.4, 0, .2, 1),
+      box-shadow 180ms cubic-bezier(.4, 0, .2, 1),
+      border-color 180ms cubic-bezier(.4, 0, .2, 1);
   }
 
   .demo-card:hover {
     transform: translateY(-1px);
     border-color: var(--border-strong, #d4d4d8);
-    box-shadow: var(--shadow-md, 0 4px 12px rgba(0,0,0,0.06));
+    box-shadow: var(--shadow-md, 0 4px 12px rgba(0, 0, 0, 0.06));
   }
 
   h3 {
@@ -131,7 +130,9 @@
   }
 
   .input-section,
-  .color-section { margin-bottom: 1rem; }
+  .color-section {
+    margin-bottom: 1rem;
+  }
 
   .input-section label,
   .color-section label {
@@ -181,7 +182,9 @@
     border-color: var(--accent, #18181b);
   }
 
-  .color-btn:active { transform: scale(0.95); }
+  .color-btn:active {
+    transform: scale(0.95);
+  }
 
   .action-buttons {
     display: flex;
@@ -209,7 +212,9 @@
     border-color: var(--accent, #18181b);
   }
 
-  .send-btn:hover { opacity: 0.88; }
+  .send-btn:hover {
+    opacity: 0.88;
+  }
 
   .notify-btn:hover {
     background: var(--bg-subtle, #f4f4f6);
@@ -217,7 +222,9 @@
   }
 
   .send-btn:active,
-  .notify-btn:active { transform: scale(0.97); }
+  .notify-btn:active {
+    transform: scale(0.97);
+  }
 
   .sent-log {
     background: var(--bg-elevated, #fff);
@@ -228,7 +235,9 @@
     color: var(--fg-muted, #52525b);
   }
 
-  .sent-log p { margin: 0; }
+  .sent-log p {
+    margin: 0;
+  }
 
   .code-hint {
     background: var(--bg-code, #f4f4f6);

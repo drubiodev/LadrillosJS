@@ -126,7 +126,7 @@ Attributes on your component become available as variables in the script:
 <div class="card">
   <h2>Hello, {name}!</h2>
   <p>Age: {age}</p>
-  <p $if="{active}">This user is active</p>
+  <if condition="active"><p>This user is active</p></if>
 </div>
 
 <script>
