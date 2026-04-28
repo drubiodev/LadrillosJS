@@ -267,19 +267,24 @@ function processEventDirectives(
 }
 
 /**
- * Checks if an element is inside a $for loop template.
- * Elements inside loops need special handling for their event handlers.
+ * Checks if an element is inside a loop template.
+ * Elements inside loops need special handling for their event handlers
+ * (the loop renderer attaches them with the per-iteration scope).
+ *
+ * Recognizes both:
+ *   - the legacy `$for` attribute directive
+ *   - the `<for>` built-in element
  */
 function isInsideForLoop(element: Element): boolean {
-  // Check if the element itself has $for
-  if (element.hasAttribute("$for")) {
+  // Check the element itself
+  if (element.hasAttribute("$for") || element.tagName === "FOR") {
     return true;
   }
 
   // Check ancestors
   let current: Element | null = element.parentElement;
   while (current) {
-    if (current.hasAttribute("$for")) {
+    if (current.hasAttribute("$for") || current.tagName === "FOR") {
       return true;
     }
     current = current.parentElement;

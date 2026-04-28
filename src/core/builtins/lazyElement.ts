@@ -228,11 +228,14 @@ export function processLazyElement(lazyEl: Element): void {
         }
 
         // Use anchor (a Comment) as the observable target — but observers need an
-        // Element. Insert a zero-size sentinel <span style="display:contents">
-        // for IntersectionObserver / interaction listeners to attach to.
+        // Element. Insert a zero-size sentinel for IntersectionObserver /
+        // interaction listeners to attach to. Note: we cannot use
+        // `display:contents` here because such elements have no layout box and
+        // IntersectionObserver will never report them as intersecting.
         const sentinel = document.createElement("span");
         sentinel.setAttribute("data-lazy-sentinel", "");
-        sentinel.style.display = "contents";
+        sentinel.style.cssText =
+            "display:inline-block;width:0;height:0;padding:0;margin:0;border:0;";
         anchor.parentNode?.insertBefore(sentinel, anchor.nextSibling);
 
         let teardown: (() => void) | void;
@@ -279,9 +282,12 @@ export function processLazyElement(lazyEl: Element): void {
         return;
     }
 
+    // Note: cannot use `display:contents` — such elements have no layout box
+    // and IntersectionObserver will never report them as intersecting.
     const sentinel = document.createElement("span");
     sentinel.setAttribute("data-lazy-sentinel", "");
-    sentinel.style.display = "contents";
+    sentinel.style.cssText =
+        "display:inline-block;width:0;height:0;padding:0;margin:0;border:0;";
     anchor.parentNode?.insertBefore(sentinel, anchor.nextSibling);
 
     let teardown: (() => void) | void;
