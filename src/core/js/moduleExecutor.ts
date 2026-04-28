@@ -388,14 +388,48 @@ function transformImportsForReactivity(code: string): string {
  * @param componentUrl - Component URL for path resolution
  * @returns JavaScript code string to prepend
  */
+const INJECTABLE_HELPER_NAMES = [
+  "$emit",
+  "$listen",
+  "$refs",
+  "registerComponent",
+  "registerComponents",
+  "$use",
+] as const;
+
+/**
+ * Scans module code for top-level declarations or imports whose names would
+ * collide with framework helpers we plan to inject. Returns the set of
+ * colliding names so the caller can skip those injected declarations.
+ */
+function detectHelperCollisions(code: string): Set<string> {
+  const found = new Set<string>();
+  for (const name of INJECTABLE_HELPER_NAMES) {
+    // Match: import { name } / import { name as x } / import name from
+    //        let/const/var name / function name(
+    const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const pattern = new RegExp(
+      `(?:^|[\\s,{])${escaped}(?:\\s+as\\b|[\\s,}=;(])|` +
+      `\\b(?:let|const|var|function)\\s+${escaped}\\b`,
+      "m",
+    );
+    if (pattern.test(code)) found.add(name);
+  }
+  return found;
+}
+
 function generateHelperInjectionCode(
   componentId?: string,
   componentUrl?: string,
+  exclude: ReadonlySet<string> = new Set(),
 ): string {
   const id = componentId || "anonymous";
   const url = componentUrl || "unknown";
 
-  // We need to inline the event bus logic since external modules can't access our closures.
+  // Helper to conditionally include a `const NAME = ...;` declaration only
+  // when the surrounding module hasn't already declared/imported NAME.
+  const decl = (name: string, source: string) =>
+    exclude.has(name) ? "" : source;  // We need to inline the event bus logic since external modules can't access our closures.
   // This creates standalone $emit and $listen functions that use a global event bus.
   // Also includes reactive array wrapping for imported arrays.
   return `
@@ -456,7 +490,7 @@ const __wrapReactiveArray = (arr, componentId) => {
   });
 };
 
-const $emit = (eventName, data) => {
+const __ladrillos_emit = (eventName, data) => {
   const listeners = globalThis.__ladrillosEventBus.listeners.get(eventName);
   if (!listeners || listeners.size === 0) return;
   for (const registration of listeners) {
@@ -467,8 +501,9 @@ const $emit = (eventName, data) => {
     }
   }
 };
+${decl("$emit", "const $emit = __ladrillos_emit;")}
 
-const $listen = (eventName, callback) => {
+const __ladrillos_listen = (eventName, callback) => {
   const bus = globalThis.__ladrillosEventBus;
   let listeners = bus.listeners.get(eventName);
   if (!listeners) {
@@ -502,6 +537,7 @@ const $listen = (eventName, callback) => {
     }
   };
 };
+${decl("$listen", "const $listen = __ladrillos_listen;")}
 
 // Global refs registry (shared across all components)
 // Each component gets its own Map, keyed by component ID
@@ -534,7 +570,8 @@ if (!globalThis.__ladrillosRefs.has(__ladrillos_componentId)) {
 }
 
 // $refs for this component - supports both $refs.inputEl and $refs.get("inputEl")
-const $refs = globalThis.__ladrillosRefs.get(__ladrillos_componentId);
+const __ladrillos_refs = globalThis.__ladrillosRefs.get(__ladrillos_componentId);
+${decl("$refs", "const $refs = __ladrillos_refs;")}
 
 // Helper to resolve relative paths against component URL
 const __resolvePath = (path) => {
@@ -551,25 +588,28 @@ const __filenameToTagName = (path) => {
 };
 
 // registerComponent - Register a child component
-const registerComponent = async (name, path, useShadowDOM = true) => {
+const __ladrillos_registerComponent = async (name, path, useShadowDOM = true) => {
   const resolvedPath = __resolvePath(path);
   return globalThis.ladrillosjs.registerComponent({ name, path: resolvedPath, useShadowDOM });
 };
+${decl("registerComponent", "const registerComponent = __ladrillos_registerComponent;")}
 
 // registerComponents - Register multiple components at once
-const registerComponents = async (configs) => {
+const __ladrillos_registerComponents = async (configs) => {
   const resolvedConfigs = configs.map(config => ({
     ...config,
     path: __resolvePath(config.path)
   }));
   return globalThis.ladrillosjs.registerComponents(resolvedConfigs);
 };
+${decl("registerComponents", "const registerComponents = __ladrillos_registerComponents;")}
 
 // $use - Shorthand for registerComponent with auto-derived tag name
-const $use = async (path, useShadowDOM = true) => {
+const __ladrillos_use = async (path, useShadowDOM = true) => {
   const tagName = __filenameToTagName(path);
-  return registerComponent(tagName, path, useShadowDOM);
+  return __ladrillos_registerComponent(tagName, path, useShadowDOM);
 };
+${decl("$use", "const $use = __ladrillos_use;")}
 
 // === End Framework Helpers ===
 
@@ -651,10 +691,15 @@ export async function executeExternalScript(
     // Auto-export all top-level declarations
     const exportedCode = autoExportAllDeclarations(reactiveCode);
 
-    // Inject framework helpers at the top of the module
+    // Inject framework helpers at the top of the module.
+    // If the fetched module already declares (e.g. via import) any of the
+    // helper names we plan to inject, skip injecting those names to avoid
+    // "Identifier 'X' has already been declared" SyntaxErrors.
+    const collisions = detectHelperCollisions(rewrittenCode);
     const helpersCode = generateHelperInjectionCode(
       componentId,
       componentUrl || script.src,
+      collisions,
     );
     const finalCode = helpersCode + exportedCode;
 
@@ -1313,9 +1358,26 @@ export async function executeModuleScriptWithReactivity(
     // framework-injected name (e.g. `import { registerComponent } from "ladrillosjs"`),
     // the user's import wins and we skip the injected version to avoid
     // "Duplicate parameter name" errors when building the Function.
+    //
+    // BUT: For framework helpers specifically, the imported value resolves
+    // relative paths against window.location, not the component URL. So we
+    // override the user's imported value with the context-aware version,
+    // making `import { registerComponent } from "ladrillosjs"` behave the
+    // same as the auto-injected `registerComponent`.
+    const helperOverrides: Record<string, unknown> = {
+      registerComponent: helpers.registerComponent,
+      registerComponents: helpers.registerComponents,
+      $use: helpers.$use,
+      $emit: eventBusHelpers.$emit,
+      $listen: eventBusHelpers.$listen,
+      ladrillosjs: contextAwareLadrillosjs,
+    };
+
     const importNameSet = new Set(importNames);
     const allParamNames: string[] = [...importNames];
-    const allParamValues: unknown[] = [...importValues];
+    const allParamValues: unknown[] = importNames.map((name, i) =>
+      name in helperOverrides ? helperOverrides[name] : importValues[i],
+    );
 
     const appendUnique = (names: readonly string[], values: readonly unknown[]) => {
       for (let i = 0; i < names.length; i++) {

@@ -119,15 +119,17 @@ export function scanDirectives(
   //   1. refs   – needed first so scripts can read $refs
   //   2. lazy   – removes its subtree from the DOM before anything else looks at it
   //   3. for    – extracts loop templates so other scanners ignore them
-  //   4. if/else-if/else – reactive conditionals
-  //   5. show   – CSS visibility toggles
-  //   6. bind   – two-way bindings on form elements
+  //   4. show   – CSS visibility toggles
+  //   5. bind   – two-way bindings on form elements
+  //   6. if/else-if/else – reactive conditionals (LAST: detaches subtrees,
+  //                       so other scanners must run while bodies are live
+  //                       in the host tree)
   scanRefs(host, context);
   scanLazyElements(host);
   scanLoops(host, context);
-  scanConditionals(host, context);
   scanShow(host, context);
   scanTwoWayBindings(host, context);
+  scanConditionals(host, context);
 
   return context;
 }
@@ -152,9 +154,9 @@ export function scanDirectivesWithRefs(
   scanRefs(host, context);
   scanLazyElements(host);
   scanLoops(host, context);
-  scanConditionals(host, context);
   scanShow(host, context);
   scanTwoWayBindings(host, context);
+  scanConditionals(host, context);
 
   return context;
 }
@@ -402,7 +404,13 @@ function scanConditionals(
   const ifElements = Array.from(host.querySelectorAll("if"));
 
   for (const ifElement of ifElements) {
-    if (!ifElement.isConnected) continue;
+    // NOTE: Do NOT skip on `!isConnected`. When an outer <if> is processed
+    // first in this same loop, it gets detached from the host tree along
+    // with its nested <if>/<else-if>/<else> children. Those nested elements
+    // are still valid (their parentElement is the detached outer <if>) and
+    // must be processed so their conditions are wired up. Skipping them
+    // here leaves them as raw <if> custom elements that always render their
+    // children regardless of the condition.
     if (hasForAncestor(ifElement)) continue;
 
     const group: ConditionalDescriptor[] = [];
