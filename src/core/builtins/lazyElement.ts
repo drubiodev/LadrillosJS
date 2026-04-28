@@ -303,8 +303,17 @@ export function processLazyElement(lazyEl: Element): void {
  * Find and process all top-level <lazy> elements in `host`. <lazy> elements
  * inside <for> templates are skipped; they get processed when the loop
  * renders each iteration via processLazyElement on the cloned content.
+ *
+ * Accepts a connected host OR a detached DocumentFragment — the latter is
+ * used by `loadTemplate` to preprocess <lazy> before any custom-element
+ * children get a chance to fire connectedCallback (and drain their light
+ * DOM into __originalChildren). Without this preprocessing, lazy's
+ * detach-then-reattach cycle would re-run children's connectedCallback with
+ * an empty innerHTML, breaking components that read $host.__originalHTML.
  */
-export function scanLazyElements(host: HTMLElement | ShadowRoot): void {
+export function scanLazyElements(
+    host: HTMLElement | ShadowRoot | DocumentFragment,
+): void {
     // Snapshot once — processing mutates the DOM.
     const lazyEls = Array.from(host.querySelectorAll("lazy"));
     for (const el of lazyEls) {

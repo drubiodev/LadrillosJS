@@ -1,6 +1,7 @@
 import { BindingDescriptor } from "../../types";
 import { REGEX_PATTERNS } from "../../utils/regex";
 import { analyzeBinding } from "../component/bindingParser";
+import { scanLazyElements } from "../builtins/lazyElement";
 
 type TemplateLoadResult = {
   bindings: BindingDescriptor[];
@@ -12,12 +13,28 @@ type TemplateLoadResult = {
  *
  * Directive scanning ($for / $if / $show / $bind) is performed separately
  * by `scanDirectivesWithRefs` in the web component lifecycle.
+ *
+ * <lazy> elements are preprocessed here in a detached <template> fragment so
+ * their children never get connected (and thus never fire connectedCallback /
+ * drain their light DOM) before lazy detaches them. Without this, components
+ * inside <lazy> that read `$host.__originalHTML` would see an empty string on
+ * the second connect after lazy reveals them.
  */
 export const loadTemplate = (
   host: HTMLElement | ShadowRoot,
   template: string,
 ): TemplateLoadResult => {
-  host.innerHTML = template;
+  // Parse into a detached <template> first. Its .content is a DocumentFragment
+  // that is NOT connected to the document, so custom-element connectedCallback
+  // will not fire for any children inside.
+  const tpl = document.createElement("template");
+  tpl.innerHTML = template;
+  // Process <lazy> while children are still detached.
+  scanLazyElements(tpl.content);
+  // Clear host and move processed nodes in. This connects all remaining
+  // custom elements exactly once.
+  host.innerHTML = "";
+  host.appendChild(tpl.content);
   const bindings = getBindings(host);
   return { bindings };
 };

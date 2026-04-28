@@ -163,7 +163,12 @@ export function createWebComponentClass(
       (this as any).__originalChildren = originalChildren;
 
       // Create shadow DOM or use light DOM
-      this._root = useShadowDOM ? this.attachShadow({ mode: "open" }) : this;
+      // If the element was previously connected (e.g. moved through a
+      // DocumentFragment by <lazy>), it may already have a shadow root.
+      // attachShadow can only be called once per host, so reuse it.
+      this._root = useShadowDOM
+        ? (this.shadowRoot ?? this.attachShadow({ mode: "open" }))
+        : this;
 
       // Parse template and find bindings
       const { bindings } = loadTemplate(this._root, template);
