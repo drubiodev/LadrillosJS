@@ -1,6 +1,10 @@
 import { BindingDescriptor } from "../../types";
 import { REGEX_PATTERNS } from "../../utils/regex";
 import { analyzeBinding } from "../component/bindingParser";
+import {
+  scanLazyElements,
+  getPendingLazyContent,
+} from "../builtins/lazyElement";
 
 type TemplateLoadResult = {
   bindings: BindingDescriptor[];
@@ -27,21 +31,29 @@ export const loadTemplate = (
   // that is NOT connected to the document, so custom-element connectedCallback
   // will not fire for any children inside.
   //
-  // NOTE: <lazy> is intentionally NOT processed here. It is processed at the
-  // very end of directive scanning so bindings, event handlers, refs, and
-  // other directives can be wired to lazy's children while they're still in
-  // the live tree. Lazy then detaches the (already-wired) subtree; listeners
-  // and binding descriptors hold direct node references and survive the
-  // detach → reinsert cycle, so reveal works exactly like inline content.
+  // <lazy> is processed here while children are still detached: it moves its
+  // children into a closure-held DocumentFragment (also detached) so inner
+  // custom elements never fire connectedCallback prematurely. The fragment is
+  // stashed on a sentinel inside `tpl.content` so subsequent scanners can
+  // still find and wire its contents (bindings, listeners, directives).
   const tpl = document.createElement("template");
   tpl.innerHTML = template;
+  scanLazyElements(tpl.content);
   host.innerHTML = "";
   host.appendChild(tpl.content);
+
+  // Scan bindings on host AND on each pending <lazy> content fragment.
+  // Lazy-content fragments are detached, but binding descriptors hold direct
+  // node references that survive the later DOM move into the host tree, so
+  // {} text and attribute bindings inside <lazy> work the same as inline.
   const bindings = getBindings(host);
+  for (const frag of getPendingLazyContent(host)) {
+    bindings.push(...getBindings(frag));
+  }
   return { bindings };
 };
 
-function getBindings(host: HTMLElement | ShadowRoot) {
+function getBindings(host: HTMLElement | ShadowRoot | DocumentFragment) {
   const bindings: BindingDescriptor[] = [];
 
   // 1. Find text nodes with {} bindings
@@ -85,7 +97,7 @@ function getBindings(host: HTMLElement | ShadowRoot) {
  * Scan all elements for attributes containing {} bindings
  */
 function getAttributeBindings(
-  host: HTMLElement | ShadowRoot,
+  host: HTMLElement | ShadowRoot | DocumentFragment,
 ): BindingDescriptor[] {
   const bindings: BindingDescriptor[] = [];
 

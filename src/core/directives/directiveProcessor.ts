@@ -20,7 +20,7 @@ import {
   DIRECTIVE_PATTERNS,
   escapeCssSelector,
 } from "../../utils/directives";
-import { scanLazyElements } from "../builtins/lazyElement";
+import { scanLazyElements, getPendingLazyContent } from "../builtins/lazyElement";
 
 // ============================================================================
 // Built-in element tag names (uppercase = DOM tagName form)
@@ -115,22 +115,35 @@ export function scanDirectives(
     showElements: [],
   };
 
-  // Order matters:
+  // <lazy> is preprocessed in `loadTemplate` so its children sit in a detached
+  // DocumentFragment (no premature connectedCallback for inner custom
+  // elements). Each pending fragment is reachable via the sentinel left
+  // behind in `host`. We run every directive scanner on `host` AND on each
+  // pending lazy fragment so refs, $for, $if, $show, $bind, etc. work
+  // exactly the same inside `<lazy>` as outside. Wiring is preserved when
+  // reveal moves the fragment's nodes into the host tree.
+  //
+  // Order matters per root:
   //   1. refs   – needed first so scripts can read $refs
   //   2. for    – extracts loop templates so other scanners ignore them
   //   3. show   – CSS visibility toggles
   //   4. bind   – two-way bindings on form elements
-  //   5. if/else-if/else – reactive conditionals (detaches subtrees, so
-  //                       other scanners must run while bodies are live)
-  //   6. lazy   – LAST. Detaches its subtree only after all bindings, event
-  //               handlers, and directives are wired to the live nodes.
-  //               Listeners and binding descriptors hold direct node
-  //               references and survive lazy's detach → reinsert cycle.
-  scanRefs(host, context);
-  scanLoops(host, context);
-  scanShow(host, context);
-  scanTwoWayBindings(host, context);
-  scanConditionals(host, context);
+  //   5. if/else-if/else – reactive conditionals (LAST: detaches subtrees,
+  //                       so other scanners must run while bodies are live)
+  const roots: Array<HTMLElement | ShadowRoot | DocumentFragment> = [
+    host,
+    ...getPendingLazyContent(host),
+  ];
+  for (const root of roots) {
+    scanRefs(root, context);
+    scanLoops(root, context);
+    scanShow(root, context);
+    scanTwoWayBindings(root, context);
+    scanConditionals(root, context);
+  }
+  // Process any remaining <lazy> elements (e.g. nested ones revealed during
+  // scanning). In practice this is a no-op for the common case because
+  // loadTemplate already preprocessed top-level <lazy>.
   scanLazyElements(host);
 
   return context;
@@ -153,11 +166,17 @@ export function scanDirectivesWithRefs(
     showElements: [],
   };
 
-  scanRefs(host, context);
-  scanLoops(host, context);
-  scanShow(host, context);
-  scanTwoWayBindings(host, context);
-  scanConditionals(host, context);
+  const roots: Array<HTMLElement | ShadowRoot | DocumentFragment> = [
+    host,
+    ...getPendingLazyContent(host),
+  ];
+  for (const root of roots) {
+    scanRefs(root, context);
+    scanLoops(root, context);
+    scanShow(root, context);
+    scanTwoWayBindings(root, context);
+    scanConditionals(root, context);
+  }
   scanLazyElements(host);
 
   return context;
@@ -168,7 +187,7 @@ export function scanDirectivesWithRefs(
  * This can be called early (before scripts run) to make refs available.
  */
 export function scanRefsOnly(
-  host: HTMLElement | ShadowRoot,
+  host: HTMLElement | ShadowRoot | DocumentFragment,
   refs: RefMap,
 ): void {
   const elements = Array.from(
@@ -196,7 +215,7 @@ export function scanRefsOnly(
  * Access: $refs.inputElement (preferred) or $refs.get('inputElement')
  */
 function scanRefs(
-  host: HTMLElement | ShadowRoot,
+  host: HTMLElement | ShadowRoot | DocumentFragment,
   context: DirectiveContext,
 ): void {
   const elements = Array.from(
@@ -230,7 +249,7 @@ function scanRefs(
  * "display:contents"> so the loop machinery can treat them as one root.
  */
 function scanLoops(
-  host: HTMLElement | ShadowRoot,
+  host: HTMLElement | ShadowRoot | DocumentFragment,
   context: DirectiveContext,
 ): void {
   // Outermost-first: snapshot live, but skip nested <for> inside another <for>
@@ -238,7 +257,7 @@ function scanLoops(
   const elements = Array.from(host.querySelectorAll("for"));
 
   for (const element of elements) {
-    if (!element.isConnected) continue; // already extracted by an outer pass
+    if (!element.parentNode) continue; // already extracted by an outer pass
     if (hasForAncestor(element)) continue;
 
     const expression =
@@ -400,7 +419,7 @@ function parseForExpression(expression: string): {
  * with `display: contents` so they don't introduce a visual wrapper.
  */
 function scanConditionals(
-  host: HTMLElement | ShadowRoot,
+  host: HTMLElement | ShadowRoot | DocumentFragment,
   context: DirectiveContext,
 ): void {
   const ifElements = Array.from(host.querySelectorAll("if"));
@@ -519,13 +538,13 @@ function createConditionalDescriptor(
  * and `display: none` when hidden.
  */
 function scanShow(
-  host: HTMLElement | ShadowRoot,
+  host: HTMLElement | ShadowRoot | DocumentFragment,
   context: DirectiveContext,
 ): void {
   const elements = Array.from(host.querySelectorAll("show"));
 
   for (const element of elements) {
-    if (!element.isConnected) continue;
+    if (!element.parentNode) continue;
     if (hasForAncestor(element)) continue;
 
     const rawExpression = element.getAttribute("condition") || "";
@@ -555,7 +574,7 @@ function scanShow(
  * Creates two-way bindings between input values and reactive state.
  */
 function scanTwoWayBindings(
-  host: HTMLElement | ShadowRoot,
+  host: HTMLElement | ShadowRoot | DocumentFragment,
   context: DirectiveContext,
 ): void {
   const elements = Array.from(

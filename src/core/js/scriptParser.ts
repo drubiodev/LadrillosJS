@@ -24,6 +24,7 @@ import {
   createFrameworkHelpers,
 } from "../helpers/frameworkHelpers";
 import { eventBusHelperNames, createEventBusHelpers } from "../events/eventBus";
+import { getPendingLazyContent } from "../builtins/lazyElement";
 
 /**
  * Gets the actual HTMLElement from either a direct element or a ShadowRoot.
@@ -179,41 +180,51 @@ function transformInlineEventHandlers(
   scriptContent: string,
   componentHost: HTMLElement,
 ): void {
-  const elements = Array.from(host.querySelectorAll("*"));
+  // Wire up handlers in `host` AND inside any pending <lazy> content
+  // fragments. Lazy children are detached so a host-only walk would miss
+  // them; addEventListener on detached nodes works fine and survives the
+  // later DOM move when the lazy strategy fires.
+  const roots: Array<HTMLElement | ShadowRoot | DocumentFragment> = [
+    host,
+    ...getPendingLazyContent(host),
+  ];
+  for (const root of roots) {
+    const elements = Array.from(root.querySelectorAll("*"));
 
-  for (const element of elements) {
-    // Skip elements that are inside a $for template or have $for themselves
-    // These will be processed by the loop renderer with proper loop context
-    if (isInsideForLoop(element)) {
-      continue;
-    }
+    for (const element of elements) {
+      // Skip elements that are inside a $for template or have $for themselves
+      // These will be processed by the loop renderer with proper loop context
+      if (isInsideForLoop(element)) {
+        continue;
+      }
 
-    // Process standard inline event handlers (onclick, oninput, etc.)
-    for (const attrName of EVENT_ATTRIBUTES) {
-      const handlerCode = element.getAttribute(attrName);
+      // Process standard inline event handlers (onclick, oninput, etc.)
+      for (const attrName of EVENT_ATTRIBUTES) {
+        const handlerCode = element.getAttribute(attrName);
 
-      if (handlerCode) {
-        // Remove attribute so the browser doesn't try to eval it globally
-        element.removeAttribute(attrName);
+        if (handlerCode) {
+          // Remove attribute so the browser doesn't try to eval it globally
+          element.removeAttribute(attrName);
 
-        // onclick → click
-        const eventName = attrName.slice(2);
+          // onclick → click
+          const eventName = attrName.slice(2);
 
-        // Create a real event listener with component context
-        const handler = createVanillaEventHandler(
-          handlerCode,
-          state,
-          scriptContent,
-          componentHost,
-        );
-        if (handler) {
-          element.addEventListener(eventName, handler);
+          // Create a real event listener with component context
+          const handler = createVanillaEventHandler(
+            handlerCode,
+            state,
+            scriptContent,
+            componentHost,
+          );
+          if (handler) {
+            element.addEventListener(eventName, handler);
+          }
         }
       }
-    }
 
-    // Process $on: event directives with modifiers
-    processEventDirectives(element, state, scriptContent, componentHost);
+      // Process $on: event directives with modifiers
+      processEventDirectives(element, state, scriptContent, componentHost);
+    }
   }
 }
 

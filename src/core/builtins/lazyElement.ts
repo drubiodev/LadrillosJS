@@ -290,6 +290,14 @@ export function processLazyElement(lazyEl: Element): void {
         "display:inline-block;width:0;height:0;padding:0;margin:0;border:0;";
     anchor.parentNode?.insertBefore(sentinel, anchor.nextSibling);
 
+    // Stash the detached content fragment on the sentinel so other scanners
+    // (binding scanner, inline-event-handler transformer, directive scanner)
+    // can recurse into it via `getPendingLazyContent(host)`. Wiring inside the
+    // detached fragment is preserved when reveal moves the same nodes into
+    // the host tree, so `<lazy>`-wrapped content behaves exactly like inline
+    // content for bindings, listeners, refs, $for, $if, etc.
+    (sentinel as any).__lazyContent = content;
+
     let teardown: (() => void) | void;
     const fire = () => {
         teardown?.();
@@ -329,4 +337,25 @@ function isInsideForElement(el: Element): boolean {
         p = p.parentElement;
     }
     return false;
+}
+
+/**
+ * Returns all detached DocumentFragments held by pending `<lazy>` placeholders
+ * inside `host`. Used by binding/event-handler/directive scanners to wire up
+ * the children of `<lazy>` elements while they are still detached from the
+ * document. Wiring done on these fragments survives the later move into the
+ * host tree when the lazy strategy fires.
+ *
+ * Returns an empty array for hosts that contain no pending lazy fragments.
+ */
+export function getPendingLazyContent(
+    host: HTMLElement | ShadowRoot | DocumentFragment,
+): DocumentFragment[] {
+    const out: DocumentFragment[] = [];
+    const sentinels = host.querySelectorAll("[data-lazy-sentinel]");
+    for (const s of Array.from(sentinels)) {
+        const frag = (s as any).__lazyContent as DocumentFragment | undefined;
+        if (frag) out.push(frag);
+    }
+    return out;
 }
