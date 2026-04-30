@@ -1,7 +1,6 @@
 import { BindingDescriptor } from "../../types";
 import { REGEX_PATTERNS } from "../../utils/regex";
 import { analyzeBinding } from "../component/bindingParser";
-import { scanLazyElements } from "../builtins/lazyElement";
 
 type TemplateLoadResult = {
   bindings: BindingDescriptor[];
@@ -27,12 +26,15 @@ export const loadTemplate = (
   // Parse into a detached <template> first. Its .content is a DocumentFragment
   // that is NOT connected to the document, so custom-element connectedCallback
   // will not fire for any children inside.
+  //
+  // NOTE: <lazy> is intentionally NOT processed here. It is processed at the
+  // very end of directive scanning so bindings, event handlers, refs, and
+  // other directives can be wired to lazy's children while they're still in
+  // the live tree. Lazy then detaches the (already-wired) subtree; listeners
+  // and binding descriptors hold direct node references and survive the
+  // detach → reinsert cycle, so reveal works exactly like inline content.
   const tpl = document.createElement("template");
   tpl.innerHTML = template;
-  // Process <lazy> while children are still detached.
-  scanLazyElements(tpl.content);
-  // Clear host and move processed nodes in. This connects all remaining
-  // custom elements exactly once.
   host.innerHTML = "";
   host.appendChild(tpl.content);
   const bindings = getBindings(host);

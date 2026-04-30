@@ -117,19 +117,21 @@ export function scanDirectives(
 
   // Order matters:
   //   1. refs   – needed first so scripts can read $refs
-  //   2. lazy   – removes its subtree from the DOM before anything else looks at it
-  //   3. for    – extracts loop templates so other scanners ignore them
-  //   4. show   – CSS visibility toggles
-  //   5. bind   – two-way bindings on form elements
-  //   6. if/else-if/else – reactive conditionals (LAST: detaches subtrees,
-  //                       so other scanners must run while bodies are live
-  //                       in the host tree)
+  //   2. for    – extracts loop templates so other scanners ignore them
+  //   3. show   – CSS visibility toggles
+  //   4. bind   – two-way bindings on form elements
+  //   5. if/else-if/else – reactive conditionals (detaches subtrees, so
+  //                       other scanners must run while bodies are live)
+  //   6. lazy   – LAST. Detaches its subtree only after all bindings, event
+  //               handlers, and directives are wired to the live nodes.
+  //               Listeners and binding descriptors hold direct node
+  //               references and survive lazy's detach → reinsert cycle.
   scanRefs(host, context);
-  scanLazyElements(host);
   scanLoops(host, context);
   scanShow(host, context);
   scanTwoWayBindings(host, context);
   scanConditionals(host, context);
+  scanLazyElements(host);
 
   return context;
 }
@@ -152,11 +154,11 @@ export function scanDirectivesWithRefs(
   };
 
   scanRefs(host, context);
-  scanLazyElements(host);
   scanLoops(host, context);
   scanShow(host, context);
   scanTwoWayBindings(host, context);
   scanConditionals(host, context);
+  scanLazyElements(host);
 
   return context;
 }
