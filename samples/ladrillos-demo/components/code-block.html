@@ -180,6 +180,7 @@
     width: 100%;
     max-width: 100%;
     box-sizing: border-box;
+    padding: 1rem 3rem;
   }
 
   @media (max-width: 768px) {
@@ -220,10 +221,12 @@
 
 <div class="code-container">
   <div class="code-window">
+
     <if condition="filename">
       <div class="code-header">
         <div class="code-dots"><span></span><span></span><span></span></div>
         <span class="code-title">{filename}</span>
+
         <if condition="copied">
           <div class="copied-indicator" id="copiedIndicator">
             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -232,11 +235,13 @@
             Copied
           </div>
         </if>
+
         <button class="copy-button" onclick="await copyCode()">Copy</button>
       </div>
     </if>
+
     <div class="code-body">
-      <pre class="code-content"><code $ref="codeEl" class="language-html"></code></pre>
+      <pre class="code-content"><code $ref="codeEl"></code></pre>
       <if condition="!filename">
         <div class="code-actions">
           <if condition="copied">
@@ -262,17 +267,76 @@
 
 <script>
   let filename = null;
+  let language = null;
   let copied = false;
+
+  const extToLang = {
+    js: "javascript", mjs: "javascript", cjs: "javascript",
+    ts: "typescript", jsx: "javascript", tsx: "typescript",
+    html: "html", htm: "html", xml: "xml", svg: "xml",
+    css: "css", scss: "scss", json: "json", md: "markdown",
+    sh: "bash", bash: "bash", zsh: "bash",
+    py: "python", rb: "ruby", go: "go", rs: "rust",
+    yml: "yaml", yaml: "yaml",
+  };
+
   const innerRe = /(?<=<template\b[^>]*>)[\s\S]*?(?=<\/template>)/gi;
   const source = $host.__originalHTML ?? $host.innerHTML;
-  const html = source.match(innerRe);
+  const matches = source.match(innerRe);
+  const raw = matches ? matches.join("") : "";
+
+  // Dedent: strip the common leading whitespace from every non-empty line
+  // so the rendered code doesn't inherit indentation from its host file.
+  const trimmed = raw.replace(/^[\r\n]+/, "").replace(/\s+$/, "");
+  const lines = trimmed.split("\n");
+  let minIndent = Infinity;
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    const m = line.match(/^[ \t]*/);
+    if (m && m[0].length < minIndent) minIndent = m[0].length;
+  }
+  if (!isFinite(minIndent)) minIndent = 0;
+  const html = lines.map((l) => l.slice(minIndent)).join("\n");
+
+  // Resolve language: explicit prop wins, else infer from filename extension, else auto-detect.
+  let resolvedLang = language;
+  if (!resolvedLang && filename) {
+    const ext = filename.split(".").pop()?.toLowerCase();
+    resolvedLang = extToLang[ext];
+  }
+
   $refs.codeEl.textContent = html;
-  hljs.highlightElement($refs.codeEl);
+  if (resolvedLang) {
+    $refs.codeEl.classList.add(`language-${resolvedLang}`);
+  }
+
+  // Highlight now if hljs is ready; otherwise poll briefly until the CDN
+  // script finishes loading. Inlined (no helper) because Ladrillos may
+  // execute statements in separate scopes — closures over locals from
+  // a setInterval callback can otherwise lose access to them.
+  if (typeof hljs !== "undefined") {
+    $refs.codeEl.removeAttribute("data-highlighted");
+    hljs.highlightElement($refs.codeEl);
+  } else {
+    const codeEl = $refs.codeEl;
+    const start = Date.now();
+    const iv = setInterval(() => {
+      if (typeof hljs !== "undefined") {
+        clearInterval(iv);
+        if (codeEl) {
+          codeEl.removeAttribute("data-highlighted");
+          hljs.highlightElement(codeEl);
+        }
+      } else if (Date.now() - start > 5000) {
+        clearInterval(iv);
+      }
+    }, 50);
+  }
 
   if ($refs.slotEl) $refs.slotEl.remove();
 
   const copyCode = async () => {
-    const text = Array.isArray(html) ? html.join("") : html;
+    const text = html;
 
     if (navigator.clipboard && navigator.clipboard.writeText) {
       await navigator.clipboard.writeText(text);
