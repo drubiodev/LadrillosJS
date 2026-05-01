@@ -681,6 +681,9 @@ function renderLoop(
   const createElement = (item: unknown, index: number): Element => {
     const clone = loop.template.cloneNode(true) as Element;
     const loopContext = createLoopContext(state, loop, item, index);
+    // Resolve any <if>/<else-if>/<else> chains nested inside the loop
+    // template before processing bindings so dead branches are pruned.
+    resolveLoopConditionals(clone, loopContext, evaluateExpression);
     processElementBindings(clone, loopContext, evaluateExpression);
     return clone;
   };
@@ -811,6 +814,12 @@ function updateElementBindings(
     context: Record<string, unknown>,
   ) => unknown,
 ): void {
+  // Re-evaluate any <if>/<else-if>/<else> chains nested inside the element
+  // (loop iteration) so the rendered branch matches the current per-item
+  // context. Bindings inside an unchanged branch are updated by the normal
+  // recursion below; a changed branch is fully (re-)processed in place.
+  updateLoopConditionals(element, context, evaluateExpression);
+
   // Update text bindings
   const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
   let node: Text | null;
@@ -848,6 +857,227 @@ function updateElementBindings(
   // Recursively update children
   for (const child of Array.from(element.children)) {
     updateElementBindings(child, context, evaluateExpression);
+  }
+}
+
+// ============================================================================
+// <if>/<else-if>/<else> support inside <for> loop iterations
+// ============================================================================
+//
+// The top-level `scanConditionals` pass cannot wire up conditionals inside a
+// `<for>` template because `scanLoops` extracts loop bodies from the live host
+// tree before `scanConditionals` runs. To support conditionals nested in
+// loops, we resolve them per-iteration on the cloned template:
+//
+//   - On create: prune dead branches and render the chosen branch.
+//   - On update (keyed/non-keyed reuse): re-evaluate the chain against the
+//     current item context and swap the rendered branch if it changed.
+//
+// The branch chain (deep clones of the original `<if>`/`<else-if>`/`<else>`
+// elements) is stashed on a comment placeholder so subsequent updates can
+// re-render any branch.
+
+const LOOP_COND_META = "__ladrillosLoopCond" as const;
+
+type LoopConditionalBranch = {
+  type: "if" | "else-if" | "else";
+  condition: string; // empty string for else
+  /**
+   * A `<template>` whose `.content` holds a deep-clone of the branch's
+   * original children. We use a `<template>` (rather than the original
+   * `<if>`/`<else>` element) so the branch tag never re-appears in the
+   * live DOM — otherwise `resolveLoopConditionals`' tag-based scan would
+   * re-discover the rendered branch on its next iteration.
+   */
+  template: HTMLTemplateElement;
+};
+
+type LoopConditionalMeta = {
+  branches: LoopConditionalBranch[];
+  currentIndex: number; // -1 when no branch is rendered
+  currentEl: Element | null;
+};
+
+function chooseLoopConditionalBranch(
+  branches: LoopConditionalBranch[],
+  context: Record<string, unknown>,
+  evaluateExpression: (
+    expr: string,
+    context: Record<string, unknown>,
+  ) => unknown,
+): number {
+  for (let i = 0; i < branches.length; i++) {
+    const b = branches[i];
+    if (b.type === "else") return i;
+    try {
+      if (evaluateExpression(b.condition, context)) return i;
+    } catch {
+      // Treat evaluation errors as false so subsequent branches can match.
+    }
+  }
+  return -1;
+}
+
+function renderLoopConditionalBranch(
+  branch: LoopConditionalBranch,
+): Element {
+  // Wrap in a transparent `<span style="display:contents">` so the rendered
+  // branch contributes no layout box and doesn't visually nest its content.
+  const wrap = document.createElement("span");
+  wrap.style.display = "contents";
+  wrap.appendChild(branch.template.content.cloneNode(true));
+  return wrap;
+}
+
+/**
+ * Build a LoopConditionalBranch from an `<if>`/`<else-if>`/`<else>` element.
+ * The element's children are moved into a `<template>` so the branch
+ * tag itself never participates in further scans/renders.
+ */
+function buildLoopConditionalBranch(
+  el: Element,
+  type: "if" | "else-if" | "else",
+): LoopConditionalBranch {
+  const tpl = document.createElement("template");
+  // Use cloneNode on each child so the original element remains intact
+  // until the caller removes it. This avoids any ambiguity with live
+  // collections during the surrounding scan loop.
+  for (const child of Array.from(el.childNodes)) {
+    tpl.content.appendChild(child.cloneNode(true));
+  }
+  const condition =
+    type === "else"
+      ? ""
+      : stripBindingBraces(el.getAttribute("condition") || "");
+  return { type, condition, template: tpl };
+}
+
+/**
+ * Walk the cloned loop iteration root, finding `<if>` chains (skipping any
+ * `<if>` that lives inside a nested `<for>`) and replacing each chain with
+ * a comment placeholder + the chosen branch (or nothing). Stores the chain
+ * on the placeholder so future updates can swap branches.
+ */
+function resolveLoopConditionals(
+  root: Element,
+  context: Record<string, unknown>,
+  evaluateExpression: (
+    expr: string,
+    context: Record<string, unknown>,
+  ) => unknown,
+): void {
+  // Loop because resolving an outer chain inserts a new branch subtree that
+  // may itself contain further `<if>` chains we still need to process.
+  // querySelectorAll returns a static snapshot; re-querying each iteration
+  // picks up any newly-attached `<if>` nodes.
+  // Guard against pathological infinite loops just in case.
+  let safety = 10000;
+  while (safety-- > 0) {
+    let target: Element | null = null;
+    const candidates = root.querySelectorAll(IF_TAG);
+    for (let i = 0; i < candidates.length; i++) {
+      const candidate = candidates[i];
+      if (!candidate.parentNode) continue;
+      if (hasForAncestor(candidate)) continue;
+      target = candidate;
+      break;
+    }
+    if (!target) return;
+
+    const branches: LoopConditionalBranch[] = [];
+    branches.push(buildLoopConditionalBranch(target, "if"));
+
+    const toRemove: Element[] = [];
+    let cur = target.nextElementSibling;
+    while (cur) {
+      if (cur.tagName === ELSE_IF_TAG) {
+        branches.push(buildLoopConditionalBranch(cur, "else-if"));
+        toRemove.push(cur);
+        cur = cur.nextElementSibling;
+      } else if (cur.tagName === ELSE_TAG) {
+        branches.push(buildLoopConditionalBranch(cur, "else"));
+        toRemove.push(cur);
+        break;
+      } else {
+        break;
+      }
+    }
+
+    const placeholder = document.createComment(" <if> (loop) ");
+    const meta: LoopConditionalMeta = {
+      branches,
+      currentIndex: -1,
+      currentEl: null,
+    };
+    (placeholder as any)[LOOP_COND_META] = meta;
+
+    target.parentNode!.insertBefore(placeholder, target);
+    target.remove();
+    for (const r of toRemove) r.remove();
+
+    const chosenIdx = chooseLoopConditionalBranch(
+      branches,
+      context,
+      evaluateExpression,
+    );
+    if (chosenIdx >= 0) {
+      const rendered = renderLoopConditionalBranch(branches[chosenIdx]);
+      placeholder.parentNode!.insertBefore(rendered, placeholder.nextSibling);
+      meta.currentIndex = chosenIdx;
+      meta.currentEl = rendered;
+    }
+    // Continue the while loop; the chosen branch may contain inner <if>
+    // chains that will now be discovered on the next iteration. Their
+    // bindings will be processed by the caller's processElementBindings
+    // pass after resolveLoopConditionals returns.
+  }
+}
+
+/**
+ * On reuse, find any loop-conditional placeholders in the subtree and
+ * re-evaluate them. If the chosen branch is unchanged, do nothing — the
+ * normal updateElementBindings recursion will refresh bindings inside the
+ * rendered branch. If it changed, swap in a fresh branch and process it.
+ */
+function updateLoopConditionals(
+  root: Element,
+  context: Record<string, unknown>,
+  evaluateExpression: (
+    expr: string,
+    context: Record<string, unknown>,
+  ) => unknown,
+): void {
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_COMMENT);
+  const placeholders: Comment[] = [];
+  let n: Comment | null;
+  while ((n = walker.nextNode() as Comment | null)) {
+    if ((n as any)[LOOP_COND_META]) placeholders.push(n);
+  }
+  for (const placeholder of placeholders) {
+    const meta = (placeholder as any)[LOOP_COND_META] as LoopConditionalMeta;
+    const newIdx = chooseLoopConditionalBranch(
+      meta.branches,
+      context,
+      evaluateExpression,
+    );
+    if (newIdx === meta.currentIndex) continue;
+
+    if (meta.currentEl && meta.currentEl.parentNode) {
+      meta.currentEl.remove();
+    }
+    meta.currentEl = null;
+    meta.currentIndex = -1;
+
+    if (newIdx >= 0) {
+      const el = renderLoopConditionalBranch(meta.branches[newIdx]);
+      placeholder.parentNode!.insertBefore(el, placeholder.nextSibling);
+      meta.currentIndex = newIdx;
+      meta.currentEl = el;
+      // Resolve any nested <if> chains and process bindings on the freshly
+      // rendered subtree using the current per-item context.
+      resolveLoopConditionals(el, context, evaluateExpression);
+      processElementBindings(el, context, evaluateExpression);
+    }
   }
 }
 
