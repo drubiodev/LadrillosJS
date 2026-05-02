@@ -1,7 +1,7 @@
 import { suggestions } from "./data.js";
 
 const suggestionItems = suggestions;
-const messages = __wrapReactiveArray([], __ladrillos_componentId);
+const messages = [];
 
 function scrollToBottom() {
   requestAnimationFrame(() => {
