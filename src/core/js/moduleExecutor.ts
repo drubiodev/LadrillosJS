@@ -1265,6 +1265,29 @@ export async function executeModuleScriptWithReactivity(
     onStateChange,
   );
 
+  // Merge imports into reactive state so they're accessible from template
+  // bindings (e.g. {getName()} when getName is an imported function).
+  // Don't overwrite values that are already on state (attribute overrides win),
+  // and skip framework helper names so they don't collide with the helpers
+  // injected as function parameters when building event handlers.
+  if (reactiveState) {
+    const reservedNames = new Set<string>([
+      ...frameworkHelperNames,
+      ...eventBusHelperNames,
+      "ladrillosjs",
+      "$host",
+      "$refs",
+      "event",
+      "state",
+    ]);
+    for (const [key, value] of Object.entries(importedValues)) {
+      if (reservedNames.has(key)) continue;
+      if (!(key in reactiveState)) {
+        reactiveState[key] = value;
+      }
+    }
+  }
+
   // 2. Strip import statements from the code
   const executableCode = stripImports(code);
 
@@ -1431,18 +1454,142 @@ export async function executeModuleScriptWithReactivity(
 function transformToStateAccess(code: string, variables: string[]): string {
   if (variables.length === 0) return code;
 
-  // Step 1: Protect string literals by replacing them with placeholders
+  // Step 1: Protect string literals by replacing them with placeholders.
+  // For "..." and '...' the entire literal is protected.
+  // For template literals (`...`), only the TEXT segments are protected;
+  // expressions inside ${...} are left as code so identifier references
+  // (e.g. `${count}`) get transformed in Step 3.
   const strings: string[] = [];
-  let protected_code = code.replace(
-    /(["'`])(?:(?!\1)[^\\]|\\.)*\1/g,
-    (match) => {
-      strings.push(match);
-      return `__STRING_PLACEHOLDER_${strings.length - 1}__`;
-    },
-  );
+  const protect = (literal: string): string => {
+    strings.push(literal);
+    return `__STRING_PLACEHOLDER_${strings.length - 1}__`;
+  };
+
+  let protected_code = "";
+  let i = 0;
+  while (i < code.length) {
+    const ch = code[i];
+
+    // Single-line comment
+    if (ch === "/" && code[i + 1] === "/") {
+      const nl = code.indexOf("\n", i);
+      const end = nl === -1 ? code.length : nl;
+      protected_code += code.slice(i, end);
+      i = end;
+      continue;
+    }
+    // Block comment
+    if (ch === "/" && code[i + 1] === "*") {
+      const close = code.indexOf("*/", i + 2);
+      const end = close === -1 ? code.length : close + 2;
+      protected_code += code.slice(i, end);
+      i = end;
+      continue;
+    }
+
+    // Single/double quote: protect whole literal
+    if (ch === '"' || ch === "'") {
+      let j = i + 1;
+      while (j < code.length && code[j] !== ch) {
+        if (code[j] === "\\") j += 2;
+        else j++;
+      }
+      protected_code += protect(code.slice(i, j + 1));
+      i = j + 1;
+      continue;
+    }
+
+    // Template literal: protect text segments, recurse into ${...}
+    if (ch === "`") {
+      protected_code += "`";
+      i++;
+      let textStart = i;
+      while (i < code.length && code[i] !== "`") {
+        if (code[i] === "\\") {
+          i += 2;
+          continue;
+        }
+        if (code[i] === "$" && code[i + 1] === "{") {
+          if (i > textStart) {
+            protected_code += protect(code.slice(textStart, i));
+          }
+          // Copy ${...} with brace nesting; nested strings/templates handled
+          // by recursing through this same loop via a substring transform.
+          protected_code += "${";
+          i += 2;
+          const exprStart = i;
+          let depth = 1;
+          while (i < code.length && depth > 0) {
+            const c = code[i];
+            if (c === '"' || c === "'") {
+              i++;
+              while (i < code.length && code[i] !== c) {
+                if (code[i] === "\\") i += 2;
+                else i++;
+              }
+              i++;
+              continue;
+            }
+            if (c === "`") {
+              // skip nested template literal
+              i++;
+              let nestedDepth = 0;
+              while (i < code.length) {
+                if (code[i] === "\\") {
+                  i += 2;
+                  continue;
+                }
+                if (code[i] === "`" && nestedDepth === 0) {
+                  i++;
+                  break;
+                }
+                if (code[i] === "$" && code[i + 1] === "{") {
+                  nestedDepth++;
+                  i += 2;
+                  continue;
+                }
+                if (code[i] === "}" && nestedDepth > 0) {
+                  nestedDepth--;
+                }
+                i++;
+              }
+              continue;
+            }
+            if (c === "{") depth++;
+            else if (c === "}") {
+              depth--;
+              if (depth === 0) break;
+            }
+            i++;
+          }
+          // Recursively transform the inner expression so strings inside it
+          // are protected and identifiers get rewritten.
+          const innerExpr = code.slice(exprStart, i);
+          protected_code += transformToStateAccess(innerExpr, variables);
+          // Skip closing brace
+          if (code[i] === "}") i++;
+          protected_code += "}";
+          textStart = i;
+          continue;
+        }
+        i++;
+      }
+      if (i > textStart) {
+        protected_code += protect(code.slice(textStart, i));
+      }
+      protected_code += "`";
+      i++; // skip closing backtick
+      continue;
+    }
+
+    protected_code += ch;
+    i++;
+  }
 
   // Step 2: Transform top-level variable declarations
-  // `let x = value;` → `__state__.x = value;`
+  // `let x = value;` → `__state__.x ??= value;`
+  // Use ??= so attribute overrides (already in __state__) win over script defaults.
+  // This matches the behavior of regular (non-module) scripts.
   for (const varName of variables) {
     const declRegex = new RegExp(
       `\\b(let|const|var)\\s+(${escapeRegex(varName)})\\s*=`,
@@ -1450,7 +1597,7 @@ function transformToStateAccess(code: string, variables: string[]): string {
     );
     protected_code = protected_code.replace(
       declRegex,
-      `__state__.${varName} =`,
+      `__state__.${varName} ??=`,
     );
   }
 

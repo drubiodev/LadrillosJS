@@ -1,5 +1,6 @@
 import { LadrillosComponent } from "../../types";
 import { REGEX_PATTERNS } from "../../utils/regex";
+import { rewriteImports } from "../js/moduleExecutor";
 
 const parser = new DOMParser();
 
@@ -170,7 +171,7 @@ export async function parseComponent(
   ];
 
   // Filter out Vite-injected scripts and proxy scripts for external scripts list
-  const externalScripts = scriptEls
+  const allExternalScripts = scriptEls
     .filter((s) => {
       if (!s.src) return false;
       const src = s.getAttribute("src") || "";
@@ -202,6 +203,44 @@ export async function parseComponent(
       return { src, type, external };
     })
     .filter((s) => s.src.length > 0);
+
+  // Plain external scripts (without the `external` attribute) are fetched
+  // and inlined so their declarations participate in the component's reactive
+  // state — same as if the user had pasted the code into a <script> tag.
+  // This applies to both regular scripts AND `type="module"` scripts; the
+  // only practical reason to keep an external file is when you need import
+  // statements (which require type="module"). Both kinds end up reactive.
+  // Scripts marked with the `external` attribute are left alone and loaded
+  // as raw third-party scripts.
+  const inlineableExternals = allExternalScripts.filter((s) => !s.external);
+  const externalScripts = allExternalScripts.filter((s) => s.external);
+
+  const fetchedInlineExternals = await Promise.all(
+    inlineableExternals.map(async (s) => {
+      try {
+        const response = await fetch(s.src);
+        if (response.ok) {
+          let content = (await response.text()).trim();
+          if (content.length > 0) {
+            // For module scripts, rewrite relative imports against the
+            // ORIGINAL script URL so they still resolve correctly after
+            // the content is inlined into the component.
+            if (s.type === "module") {
+              content = rewriteImports(content, s.src);
+            }
+            return { content, type: s.type };
+          }
+        }
+      } catch {
+        // Silently fail - script will be skipped
+      }
+      return null;
+    })
+  );
+
+  for (const s of fetchedInlineExternals) {
+    if (s) scripts.push(s);
+  }
 
   scriptEls.forEach((s) => s.remove());
 
