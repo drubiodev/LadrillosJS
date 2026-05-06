@@ -806,15 +806,252 @@ function executeScriptWithReactiveState(
 }
 
 /**
+ * Masks all function/arrow-function bodies in the source code with whitespace
+ * (preserving newlines so line numbers stay aligned). This allows regex-based
+ * extraction passes to reliably target only top-level declarations and
+ * references, ignoring variables declared inside callbacks like
+ * `$listen(..., (e) => { const x = ... })`.
+ *
+ * Limitations:
+ *   - Method shorthand on object literals (`obj = { foo() {} }`) is not
+ *     detected as a function body. Such usage is uncommon at top level in
+ *     component scripts, and any declarations inside will be (harmlessly)
+ *     treated as top-level.
+ */
+function maskFunctionBodies(code: string): string {
+  const chars = code.split("");
+  const len = code.length;
+  let i = 0;
+  let braceDepth = 0;
+  let pendingFnBody = false;
+  const fnStartDepths: number[] = [];
+  const inFn = () => fnStartDepths.length > 0;
+
+  const maskRange = (from: number, to: number) => {
+    for (let k = from; k < to; k++) {
+      const ch = chars[k];
+      if (ch !== "\n" && ch !== "\r") chars[k] = " ";
+    }
+  };
+
+  const skipLineComment = (start: number): number => {
+    let j = start;
+    while (j < len && code[j] !== "\n") j++;
+    return j;
+  };
+  const skipBlockComment = (start: number): number => {
+    let j = start + 2;
+    while (j < len - 1 && !(code[j] === "*" && code[j + 1] === "/")) j++;
+    return Math.min(len, j + 2);
+  };
+  const skipString = (start: number, quote: string): number => {
+    let j = start + 1;
+    while (j < len) {
+      if (code[j] === "\\") {
+        j += 2;
+        continue;
+      }
+      if (code[j] === quote) return j + 1;
+      if (code[j] === "\n") return j; // unterminated; bail
+      j++;
+    }
+    return j;
+  };
+  const skipTemplate = (start: number): number => {
+    let j = start + 1;
+    while (j < len) {
+      if (code[j] === "\\") {
+        j += 2;
+        continue;
+      }
+      if (code[j] === "`") return j + 1;
+      if (code[j] === "$" && code[j + 1] === "{") {
+        j += 2;
+        let depth = 1;
+        while (j < len && depth > 0) {
+          const c = code[j];
+          if (c === "`") {
+            j = skipTemplate(j);
+            continue;
+          }
+          if (c === '"' || c === "'") {
+            j = skipString(j, c);
+            continue;
+          }
+          if (c === "/" && code[j + 1] === "/") {
+            j = skipLineComment(j);
+            continue;
+          }
+          if (c === "/" && code[j + 1] === "*") {
+            j = skipBlockComment(j);
+            continue;
+          }
+          if (c === "{") depth++;
+          else if (c === "}") depth--;
+          j++;
+        }
+        continue;
+      }
+      j++;
+    }
+    return j;
+  };
+  const isRegexContext = (idx: number): boolean => {
+    let j = idx - 1;
+    while (j >= 0 && /\s/.test(code[j])) j--;
+    if (j < 0) return true;
+    const c = code[j];
+    if ("([{,;:!&|?=+-*%^~<>".includes(c)) return true;
+    return /\b(return|typeof|delete|void|in|of|new|instanceof|throw)$/.test(
+      code.slice(0, j + 1),
+    );
+  };
+  const skipRegex = (start: number): number => {
+    let j = start + 1;
+    let inClass = false;
+    while (j < len) {
+      const c = code[j];
+      if (c === "\\") {
+        j += 2;
+        continue;
+      }
+      if (c === "[") inClass = true;
+      else if (c === "]") inClass = false;
+      else if (c === "/" && !inClass) {
+        j++;
+        break;
+      } else if (c === "\n") break;
+      j++;
+    }
+    while (j < len && /[a-zA-Z]/.test(code[j])) j++;
+    return j;
+  };
+
+  while (i < len) {
+    const c = code[i];
+
+    if (c === "/" && code[i + 1] === "/") {
+      const end = skipLineComment(i);
+      if (inFn()) maskRange(i, end);
+      i = end;
+      continue;
+    }
+    if (c === "/" && code[i + 1] === "*") {
+      const end = skipBlockComment(i);
+      if (inFn()) maskRange(i, end);
+      i = end;
+      continue;
+    }
+    if (c === '"' || c === "'") {
+      const end = skipString(i, c);
+      if (inFn()) maskRange(i, end);
+      i = end;
+      continue;
+    }
+    if (c === "`") {
+      const end = skipTemplate(i);
+      if (inFn()) maskRange(i, end);
+      i = end;
+      continue;
+    }
+    if (c === "/" && isRegexContext(i)) {
+      const end = skipRegex(i);
+      if (inFn()) maskRange(i, end);
+      i = end;
+      continue;
+    }
+
+    if (c === "{") {
+      braceDepth++;
+      if (pendingFnBody) {
+        fnStartDepths.push(braceDepth);
+        pendingFnBody = false;
+      } else if (inFn()) {
+        chars[i] = " ";
+      }
+      i++;
+      continue;
+    }
+    if (c === "}") {
+      const closingFnBody =
+        inFn() && fnStartDepths[fnStartDepths.length - 1] === braceDepth;
+      if (closingFnBody) {
+        fnStartDepths.pop();
+        // Keep `}` un-masked so brace counting outside still works
+      } else if (inFn()) {
+        chars[i] = " ";
+      }
+      braceDepth--;
+      i++;
+      continue;
+    }
+
+    if (c === "=" && code[i + 1] === ">") {
+      if (inFn()) {
+        chars[i] = " ";
+        chars[i + 1] = " ";
+      } else {
+        // Look ahead skipping whitespace/comments for `{` (concise body has
+        // no declarations to worry about, so we only track block bodies).
+        let j = i + 2;
+        while (j < len) {
+          const cc = code[j];
+          if (/\s/.test(cc)) {
+            j++;
+            continue;
+          }
+          if (cc === "/" && code[j + 1] === "/") {
+            j = skipLineComment(j);
+            continue;
+          }
+          if (cc === "/" && code[j + 1] === "*") {
+            j = skipBlockComment(j);
+            continue;
+          }
+          break;
+        }
+        if (code[j] === "{") pendingFnBody = true;
+      }
+      i += 2;
+      continue;
+    }
+
+    if (/[a-zA-Z_$]/.test(c)) {
+      const start = i;
+      while (i < len && /[a-zA-Z0-9_$]/.test(code[i])) i++;
+      const word = code.slice(start, i);
+      if (inFn()) {
+        maskRange(start, i);
+      } else if (word === "function") {
+        pendingFnBody = true;
+      }
+      continue;
+    }
+
+    if (inFn() && c !== "\n" && c !== "\r") {
+      chars[i] = " ";
+    }
+    i++;
+  }
+
+  return chars.join("");
+}
+
+/**
  * Finds variable declarations: let x = ..., const y = ..., var z = ...
+ * Only returns TOP-LEVEL declarations — declarations inside callbacks,
+ * arrow function bodies, and other nested scopes are intentionally skipped
+ * so they remain real local variables after script transformation.
+ *
  * Exported so webcomponent.ts can use it for observedAttributes.
  */
 export function extractVariableNames(content: string): string[] {
+  const masked = maskFunctionBodies(content);
   const names: string[] = [];
   const regex = /(?:let|const|var)\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*=/g;
   let match;
 
-  while ((match = regex.exec(content)) !== null) {
+  while ((match = regex.exec(masked)) !== null) {
     names.push(match[1]);
   }
 
@@ -823,13 +1060,15 @@ export function extractVariableNames(content: string): string[] {
 
 /**
  * Finds function declarations: function foo() {}, async function bar() {}
+ * Only returns top-level declarations (consistent with extractVariableNames).
  */
 function extractFunctionNames(content: string): string[] {
+  const masked = maskFunctionBodies(content);
   const names: string[] = [];
   const regex = /(?:async\s+)?function\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*\(/g;
   let match;
 
-  while ((match = regex.exec(content)) !== null) {
+  while ((match = regex.exec(masked)) !== null) {
     names.push(match[1]);
   }
 

@@ -420,7 +420,7 @@ export function expressionError(
 
   if (!IS_DEV) {
     // Production: minimal output with docs link
-    console.error(`${PREFIX} Expression error. See: ${getErrorDocsUrl(code)}`);
+    console.warn(`${PREFIX} Expression warning. See: ${getErrorDocsUrl(code)}`);
     return;
   }
 
@@ -500,7 +500,7 @@ export function expressionError(
     lines.push(`  Error: ${originalError.message}`);
     lines.push(`  Docs: ${getErrorDocsUrl(code)}`);
 
-    console.error(lines.join("\n"));
+    console.warn(lines.join("\n"));
   }
 }
 
