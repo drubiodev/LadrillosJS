@@ -1,35 +1,39 @@
 import { LadrillosComponent } from "../../types";
 import { loadStyles } from "../css/cssParser/cssParser";
 import { loadTemplate } from "../html/htmlparser";
-import {
-  loadScripts,
-  extractVariableNames,
-  createExpressionEvaluator,
-  applyBindingsDeferred,
-} from "../js/scriptParser";
-import {
-  executeModuleScriptsWithReactivity,
-  cleanupModuleScripts,
-  loadPlainExternalScripts,
-  loadExternalStyles,
-} from "../js/moduleExecutor";
+import
+  {
+    loadScripts,
+    extractVariableNames,
+    createExpressionEvaluator,
+    applyBindingsDeferred,
+  } from "../js/scriptParser";
+import
+  {
+    executeModuleScriptsWithReactivity,
+    cleanupModuleScripts,
+    loadPlainExternalScripts,
+    loadExternalStyles,
+  } from "../js/moduleExecutor";
 import { cleanupComponentListeners } from "../events/eventBus";
-import {
-  scanDirectives,
-  scanRefsOnly,
-  scanDirectivesWithRefs,
-  renderLoops,
-  updateConditionals,
-  updateShowElements,
-  setupTwoWayBindings,
-  DirectiveContext,
-} from "../directives/directiveProcessor";
+import
+  {
+    scanDirectives,
+    scanRefsOnly,
+    scanDirectivesWithRefs,
+    renderLoops,
+    updateConditionals,
+    updateShowElements,
+    setupTwoWayBindings,
+    DirectiveContext,
+  } from "../directives/directiveProcessor";
 import { createRefsProxy } from "../helpers/frameworkHelpers";
 import { setComponentContext, warn } from "../../utils/devWarnings";
-import {
-  scheduleComponentUpdate,
-  unregisterComponent,
-} from "../scheduler/batchScheduler";
+import
+  {
+    scheduleComponentUpdate,
+    unregisterComponent,
+  } from "../scheduler/batchScheduler";
 
 /**
  * Creates a Web Component class from a Ladrillos component definition.
@@ -53,7 +57,8 @@ import {
 export function createWebComponentClass(
   component: LadrillosComponent,
   useShadowDOM: boolean,
-): typeof HTMLElement {
+): typeof HTMLElement
+{
   const {
     tagName,
     template,
@@ -76,7 +81,8 @@ export function createWebComponentClass(
     ...new Set([...declaredVariables, ...templateBindings]),
   ];
 
-  class LadrillosWebComponent extends HTMLElement {
+  class LadrillosWebComponent extends HTMLElement
+  {
     // =========================================================================
     // Static Properties (Web Component Spec)
     // =========================================================================
@@ -86,7 +92,8 @@ export function createWebComponentClass(
      * Derived from both script variable declarations AND template bindings.
      * When these attributes change, attributeChangedCallback is called.
      */
-    static get observedAttributes(): string[] {
+    static get observedAttributes(): string[]
+    {
       return allObservedAttributes;
     }
 
@@ -119,11 +126,24 @@ export function createWebComponentClass(
     /** Two-way binding updater function - syncs state changes to input elements */
     private _updateBoundInputs: ((changedKey?: string) => void) | null = null;
 
+    /**
+     * Holds prop values assigned as DOM properties (e.g. `el.items = [...]`)
+     * before the component finished initializing its reactive state. Drained
+     * into state once `_propsReady` is true. This is what lets complex props
+     * (arrays/objects/functions) keep their type instead of being stringified
+     * through an HTML attribute.
+     */
+    private _pendingProps: Map<string, unknown> = new Map();
+
+    /** True once reactive state exists and property writes can flow into it. */
+    private _propsReady: boolean = false;
+
     // =========================================================================
     // Lifecycle Callbacks (Web Component Spec)
     // =========================================================================
 
-    constructor() {
+    constructor()
+    {
       super();
       // Don't do DOM work here - wait for connectedCallback
       // This follows the custom elements spec best practice
@@ -133,7 +153,8 @@ export function createWebComponentClass(
      * Called when the element is added to the DOM.
      * This is where we do our main initialization.
      */
-    async connectedCallback(): Promise<void> {
+    async connectedCallback(): Promise<void>
+    {
       // Prevent double initialization (can happen with some frameworks)
       if (this._initialized) return;
       this._initialized = true;
@@ -156,7 +177,8 @@ export function createWebComponentClass(
       // component authors don't have to branch on rendering mode.
       const originalHTML = this.innerHTML;
       const originalChildren = document.createDocumentFragment();
-      while (this.firstChild) {
+      while (this.firstChild)
+      {
         originalChildren.appendChild(this.firstChild);
       }
       (this as any).__originalHTML = originalHTML;
@@ -180,6 +202,27 @@ export function createWebComponentClass(
       // ATTRIBUTES WIN over script variable defaults
       const attributeOverrides = this._getAttributeOverrides();
 
+      // "Upgrade" any props that were assigned as DOM properties before the
+      // element was upgraded/initialized (e.g. `el.items = [...]` set on a raw
+      // element before its definition loaded). Such assignments create an own
+      // property that shadows the prototype accessor; move them into the
+      // pending map so they're treated like any other typed prop.
+      for (const propName of allObservedAttributes)
+      {
+        if (Object.prototype.hasOwnProperty.call(this, propName))
+        {
+          this._pendingProps.set(propName, (this as any)[propName]);
+          delete (this as any)[propName];
+        }
+      }
+
+      // Typed props passed via the DOM-property channel win over the stringy
+      // attribute values (they carry the real array/object/function).
+      for (const [propName, value] of this._pendingProps)
+      {
+        attributeOverrides[propName] = value;
+      }
+
       // Filter out module scripts - they are handled separately
       const regularScripts = scripts.filter((s) => s.type !== "module");
       const hasModuleScripts = scripts.some((s) => s.type === "module");
@@ -197,14 +240,16 @@ export function createWebComponentClass(
       // to be available for proper styling.
       // For Shadow DOM: injects CSS directly into shadow root (styles don't cross shadow boundary)
       // For light DOM: adds <link> to document head
-      if (externalStyles && externalStyles.length > 0) {
+      if (externalStyles && externalStyles.length > 0)
+      {
         await loadExternalStyles(externalStyles, this._root, useShadowDOM);
       }
 
       // Load external scripts marked with 'external' attribute NEXT
       // These are third-party libraries (like highlight.js) that the inline
       // scripts may depend on. They need to load before inline scripts run.
-      if (externalScripts.length > 0) {
+      if (externalScripts.length > 0)
+      {
         await loadPlainExternalScripts(externalScripts);
       }
 
@@ -229,11 +274,27 @@ export function createWebComponentClass(
         templateBindings, // auto-props from template bindings
       );
 
+      // Reactive state now exists: property writes can flow straight into it.
+      // Drain any props that arrived (via the DOM-property channel) while we
+      // were awaiting script setup, then mark the channel live so future
+      // `el.prop = value` assignments update state reactively.
+      this._propsReady = true;
+      if (this._pendingProps.size > 0)
+      {
+        for (const [propName, value] of this._pendingProps)
+        {
+          this.state[propName] = value;
+        }
+        this._pendingProps.clear();
+      }
+
       // Register the onStateChange callback globally so external module scripts
       // can trigger UI updates when imported arrays are mutated.
       // This is used by the __wrapReactiveArray helper injected into external scripts.
-      if (typeof globalThis !== "undefined") {
-        if (!(globalThis as any).__ladrillosStateCallbacks) {
+      if (typeof globalThis !== "undefined")
+      {
+        if (!(globalThis as any).__ladrillosStateCallbacks)
+        {
           (globalThis as any).__ladrillosStateCallbacks = new Map();
         }
         (globalThis as any).__ladrillosStateCallbacks.set(
@@ -250,13 +311,15 @@ export function createWebComponentClass(
       // IMPORTANT: We pass this.state so module script functions write
       // directly to the reactive state. This makes `let x = 0; x++` work.
       // We also pass the onStateChange callback so imported arrays become reactive.
-      if (sourcePath) {
+      if (sourcePath)
+      {
         // Suspend per-key reactive binding updates while module scripts run.
         // Module scripts assign __state__.x one-by-one, but some bindings may
         // reference variables declared later in the same script. We apply all
         // bindings together once module execution finishes.
         (this.state as any).__suspendReactivity = true;
-        try {
+        try
+        {
           const moduleState = await executeModuleScriptsWithReactivity(
             scripts,
             externalScripts,
@@ -272,26 +335,31 @@ export function createWebComponentClass(
           // This affects how event handlers treat functions:
           // - Module scripts have reactive functions that should NOT be recreated
           // - Regular scripts need fresh function bindings each time
-          if (hasModuleScripts || externalScripts.length > 0) {
+          if (hasModuleScripts || externalScripts.length > 0)
+          {
             (this.state as any).__hasModuleScripts = true;
           }
 
           // Merge module script functions into reactive state
           // Variables are already in this.state (written directly by transformed code)
           // We just need to add the functions
-          for (const [key, value] of Object.entries(moduleState)) {
-            if (typeof value === "function") {
+          for (const [key, value] of Object.entries(moduleState))
+          {
+            if (typeof value === "function")
+            {
               this.state[key] = value;
             }
           }
-        } finally {
+        } finally
+        {
           (this.state as any).__suspendReactivity = false;
         }
       }
 
       // Now that ALL state is ready (regular + module scripts),
       // apply bindings and set up event handlers
-      if (hasModuleScripts) {
+      if (hasModuleScripts)
+      {
         applyBindingsDeferred(this._root, bindings, this.state);
       }
 
@@ -305,15 +373,18 @@ export function createWebComponentClass(
 
       // Also populate the global refs registry for external module scripts
       // This allows external .js files to access refs via the global registry
-      if (typeof globalThis !== "undefined") {
-        if (!(globalThis as any).__ladrillosRefs) {
+      if (typeof globalThis !== "undefined")
+      {
+        if (!(globalThis as any).__ladrillosRefs)
+        {
           (globalThis as any).__ladrillosRefs = new Map();
         }
         // Get or create the refs Map for this component in the global registry
         let globalRefs = (globalThis as any).__ladrillosRefs.get(
           this._componentId,
         );
-        if (!globalRefs) {
+        if (!globalRefs)
+        {
           globalRefs = new Map();
           (globalThis as any).__ladrillosRefs.set(
             this._componentId,
@@ -321,7 +392,8 @@ export function createWebComponentClass(
           );
         }
         // Copy all refs into the global registry
-        for (const [key, value] of this._directives.refs) {
+        for (const [key, value] of this._directives.refs)
+        {
           globalRefs.set(key, value);
         }
       }
@@ -336,7 +408,8 @@ export function createWebComponentClass(
 
       // Set up two-way bindings ($bind)
       // Returns an updater function for state→input sync
-      if (this._directives.twoWayBindings.length > 0) {
+      if (this._directives.twoWayBindings.length > 0)
+      {
         this._updateBoundInputs = setupTwoWayBindings(
           this._directives.twoWayBindings,
           this.state,
@@ -358,7 +431,8 @@ export function createWebComponentClass(
      * Called when the element is removed from the DOM.
      * Clean up event listeners, observers, etc.
      */
-    disconnectedCallback(): void {
+    disconnectedCallback(): void
+    {
       // Clean up module script blob URLs to prevent memory leaks
       cleanupModuleScripts(this._componentId);
 
@@ -369,13 +443,15 @@ export function createWebComponentClass(
       unregisterComponent(this._componentId);
 
       // Clean up global state change callback
-      if (typeof globalThis !== "undefined") {
+      if (typeof globalThis !== "undefined")
+      {
         (globalThis as any).__ladrillosStateCallbacks?.delete(
           this._componentId,
         );
       }
 
       this._initialized = false;
+      this._propsReady = false;
     }
 
     /**
@@ -389,7 +465,8 @@ export function createWebComponentClass(
       name: string,
       oldValue: string | null,
       newValue: string | null,
-    ): void {
+    ): void
+    {
       // Only process if value actually changed and component is initialized
       if (oldValue === newValue) return;
 
@@ -406,7 +483,8 @@ export function createWebComponentClass(
      * Called when the element is moved to a new document.
      * Rare, but required for full spec compliance.
      */
-    adoptedCallback(): void {
+    adoptedCallback(): void
+    {
       // Re-initialize if needed when moved to a new document
     }
 
@@ -419,11 +497,13 @@ export function createWebComponentClass(
      * Called by the reactive system on every state mutation.
      * Uses batch scheduling to coalesce multiple updates into one.
      */
-    private _updateDirectives(): void {
+    private _updateDirectives(): void
+    {
       if (!this._directives || !this._evaluator) return;
 
       // Schedule the update to batch multiple state changes
-      scheduleComponentUpdate(this._componentId, () => {
+      scheduleComponentUpdate(this._componentId, () =>
+      {
         this._performDirectiveUpdates();
       });
     }
@@ -432,16 +512,19 @@ export function createWebComponentClass(
      * Actually performs the directive updates.
      * Called by the scheduler after batching.
      */
-    private _performDirectiveUpdates(): void {
+    private _performDirectiveUpdates(): void
+    {
       if (!this._directives || !this._evaluator) return;
 
       // Update loops
-      if (this._directives.loops.length > 0) {
+      if (this._directives.loops.length > 0)
+      {
         renderLoops(this._directives.loops, this.state, this._evaluator);
       }
 
       // Update conditionals
-      if (this._directives.conditionals.length > 0) {
+      if (this._directives.conditionals.length > 0)
+      {
         updateConditionals(
           this._directives.conditionals,
           this.state,
@@ -450,7 +533,8 @@ export function createWebComponentClass(
       }
 
       // Update $show elements
-      if (this._directives.showElements.length > 0) {
+      if (this._directives.showElements.length > 0)
+      {
         updateShowElements(
           this._directives.showElements,
           this.state,
@@ -459,7 +543,8 @@ export function createWebComponentClass(
       }
 
       // Update two-way bound inputs (state→input sync)
-      if (this._updateBoundInputs) {
+      if (this._updateBoundInputs)
+      {
         this._updateBoundInputs();
       }
     }
@@ -469,18 +554,22 @@ export function createWebComponentClass(
      * Collects ALL attributes (not just those matching declared variables).
      * This allows: <my-component count="5"> without needing `let count` in script.
      */
-    private _getAttributeOverrides(): Record<string, unknown> {
+    private _getAttributeOverrides(): Record<string, unknown>
+    {
       const overrides: Record<string, unknown> = {};
       const skippedReserved: string[] = [];
 
       // Collect all attributes on the element
-      for (const attr of Array.from(this.attributes)) {
+      for (const attr of Array.from(this.attributes))
+      {
         // Skip standard HTML attributes UNLESS they're explicitly used in template bindings
         // This allows {title} in template to work with title="value" attribute
-        if (this._isReservedAttribute(attr.name)) {
+        if (this._isReservedAttribute(attr.name))
+        {
           // Track reserved attributes that look like they might be intended as state
           // (have a non-empty value that's not a standard HTML usage)
-          if (attr.value && attr.value.trim() !== "") {
+          if (attr.value && attr.value.trim() !== "")
+          {
             skippedReserved.push(attr.name);
           }
           continue;
@@ -494,8 +583,10 @@ export function createWebComponentClass(
       const actuallySkipped = skippedReserved.filter(
         (name) => !templateBindings.includes(name),
       );
-      if (actuallySkipped.length > 0) {
-        const suggestions = actuallySkipped.map((name) => {
+      if (actuallySkipped.length > 0)
+      {
+        const suggestions = actuallySkipped.map((name) =>
+        {
           const alternatives: Record<string, string> = {
             title: "heading",
             class: "className",
@@ -529,9 +620,11 @@ export function createWebComponentClass(
      * Exception: If the attribute is explicitly used in template bindings,
      * it's allowed (e.g., {title} in template makes title attribute valid).
      */
-    private _isReservedAttribute(name: string): boolean {
+    private _isReservedAttribute(name: string): boolean
+    {
       // If explicitly used in template bindings, allow it
-      if (templateBindings.includes(name)) {
+      if (templateBindings.includes(name))
+      {
         return false;
       }
 
@@ -567,7 +660,8 @@ export function createWebComponentClass(
      * Note: HTML entities are automatically decoded by the browser when
      * reading attribute values, so '&quot;' becomes '"' before we see it.
      */
-    private _parseAttributeValue(value: string | null): unknown {
+    private _parseAttributeValue(value: string | null): unknown
+    {
       if (value === null) return null;
       if (value === "") return true; // Boolean attribute: <my-el disabled>
       if (value === "true") return true;
@@ -579,13 +673,16 @@ export function createWebComponentClass(
 
       // Try JSON parse for objects/arrays
       // The browser already decodes HTML entities (&quot; -> ") when we read the attribute
-      try {
+      try
+      {
         const trimmed = value.trim();
         // Only try JSON parse if it looks like JSON (starts with [ or {)
-        if (trimmed.startsWith("[") || trimmed.startsWith("{")) {
+        if (trimmed.startsWith("[") || trimmed.startsWith("{"))
+        {
           return JSON.parse(trimmed);
         }
-      } catch {
+      } catch
+      {
         // Not valid JSON, return as string
       }
 
@@ -595,9 +692,58 @@ export function createWebComponentClass(
     /**
      * Gets the component's root (shadow root or element itself).
      */
-    get root(): HTMLElement | ShadowRoot | null {
+    get root(): HTMLElement | ShadowRoot | null
+    {
       return this._root;
     }
+  }
+
+  // ===========================================================================
+  // Reactive Property Accessors (typed prop channel)
+  // ===========================================================================
+  // Define getter/setter pairs on the prototype for every observed prop so a
+  // parent can pass a complex value as a DOM property (e.g. `childEl.items =
+  // [...]`) and have it land in the child's reactive state with its type
+  // intact. Primitive props still flow through HTML attributes as before.
+  //
+  // Built-in DOM properties (id, title, hidden, className, ...) are skipped so
+  // we never shadow native element behavior.
+  for (const propName of allObservedAttributes)
+  {
+    if (propName in HTMLElement.prototype) continue;
+    if (
+      Object.prototype.hasOwnProperty.call(
+        LadrillosWebComponent.prototype,
+        propName,
+      )
+    )
+    {
+      continue;
+    }
+
+    Object.defineProperty(LadrillosWebComponent.prototype, propName, {
+      configurable: true,
+      enumerable: false,
+      get(this: any): unknown
+      {
+        return this._propsReady
+          ? this.state[propName]
+          : this._pendingProps.get(propName);
+      },
+      set(this: any, value: unknown): void
+      {
+        if (this._propsReady)
+        {
+          // Live update — writes through the reactive state proxy and
+          // re-renders the component.
+          this.state[propName] = value;
+        } else
+        {
+          // Assigned before init — stash and apply once state is ready.
+          this._pendingProps.set(propName, value);
+        }
+      },
+    });
   }
 
   return LadrillosWebComponent;
@@ -613,11 +759,13 @@ export function createWebComponentClass(
 export function createWebComponent(
   component: LadrillosComponent,
   useShadowDOM: boolean,
-): void {
+): void
+{
   const { tagName } = component;
 
   // Only define if not already defined (prevents errors on hot reload)
-  if (!customElements.get(tagName)) {
+  if (!customElements.get(tagName))
+  {
     const ComponentClass = createWebComponentClass(component, useShadowDOM);
     customElements.define(tagName, ComponentClass);
     console.log(`🧩 Web component "${tagName}" registered.`);

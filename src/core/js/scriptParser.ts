@@ -1,28 +1,32 @@
 import { BindingDescriptor, ScriptElement } from "../../types";
 import { EVENT_ATTRIBUTES } from "../../utils/jsevents";
-import {
-  ALLOWED_GLOBALS,
-  BLOCKED_GLOBALS,
-  RESERVED_WORDS,
-} from "../../utils/sandbox";
-import {
-  isEventDirective,
-  parseEventDirective,
-  createModifiedHandler,
-  getListenerOptions,
-} from "../../utils/keyModifiers";
-import {
-  expressionError,
-  scriptError,
-  warn,
-  getComponentContext,
-  ErrorCode,
-} from "../../utils/devWarnings";
+import
+  {
+    ALLOWED_GLOBALS,
+    BLOCKED_GLOBALS,
+    RESERVED_WORDS,
+  } from "../../utils/sandbox";
+import
+  {
+    isEventDirective,
+    parseEventDirective,
+    createModifiedHandler,
+    getListenerOptions,
+  } from "../../utils/keyModifiers";
+import
+  {
+    expressionError,
+    scriptError,
+    warn,
+    getComponentContext,
+    ErrorCode,
+  } from "../../utils/devWarnings";
 import { createReactiveState } from "./reactivity";
-import {
-  frameworkHelperNames,
-  createFrameworkHelpers,
-} from "../helpers/frameworkHelpers";
+import
+  {
+    frameworkHelperNames,
+    createFrameworkHelpers,
+  } from "../helpers/frameworkHelpers";
 import { eventBusHelperNames, createEventBusHelpers } from "../events/eventBus";
 import { getPendingLazyContent } from "../builtins/lazyElement";
 
@@ -65,7 +69,8 @@ export async function loadScripts(
   componentId?: string,
   refs?: Map<string, HTMLElement>,
   templateBindings: string[] = [],
-): Promise<Record<string, unknown>> {
+): Promise<Record<string, unknown>>
+{
   const componentHost = getHostElement(host);
   const initialState: Record<string, unknown> = {};
 
@@ -75,7 +80,8 @@ export async function loadScripts(
   // Apply attribute overrides FIRST - these are the prop values from usage
   // This allows: <my-component title="Data"> to make title="Data" available
   // before any script code runs
-  for (const [key, value] of Object.entries(attributeOverrides)) {
+  for (const [key, value] of Object.entries(attributeOverrides))
+  {
     initialState[key] = value;
   }
 
@@ -99,7 +105,8 @@ export async function loadScripts(
   // `let title = "Default"` becomes `__state__.title ??= "Default"`
   // Since title is already "Data" from attributes, ??= won't overwrite it
   // Derived values like `const test = ${title}...` will use the attribute value
-  for (const script of scripts) {
+  for (const script of scripts)
+  {
     executeScriptWithReactiveState(
       script.content,
       reactiveState,
@@ -123,7 +130,8 @@ export async function loadScripts(
   // Make onclick="handleClick()" work by binding to reactive state
   // Pass script content so functions can be re-created with current state
   // NOTE: We defer this until after module scripts are loaded
-  if (!deferBindings) {
+  if (!deferBindings)
+  {
     transformInlineEventHandlers(
       host,
       reactiveState,
@@ -146,7 +154,8 @@ export function applyBindingsDeferred(
   host: HTMLElement | ShadowRoot,
   bindings: BindingDescriptor[],
   state: Record<string, unknown>,
-): void {
+): void
+{
   const componentHost = getHostElement(host);
   const allScriptContent = (componentHost as any).__scriptContent || "";
 
@@ -179,7 +188,8 @@ function transformInlineEventHandlers(
   state: Record<string, unknown>,
   scriptContent: string,
   componentHost: HTMLElement,
-): void {
+): void
+{
   // Wire up handlers in `host` AND inside any pending <lazy> content
   // fragments. Lazy children are detached so a host-only walk would miss
   // them; addEventListener on detached nodes works fine and survives the
@@ -188,21 +198,26 @@ function transformInlineEventHandlers(
     host,
     ...getPendingLazyContent(host),
   ];
-  for (const root of roots) {
+  for (const root of roots)
+  {
     const elements = Array.from(root.querySelectorAll("*"));
 
-    for (const element of elements) {
+    for (const element of elements)
+    {
       // Skip elements that are inside a $for template or have $for themselves
       // These will be processed by the loop renderer with proper loop context
-      if (isInsideForLoop(element)) {
+      if (isInsideForLoop(element))
+      {
         continue;
       }
 
       // Process standard inline event handlers (onclick, oninput, etc.)
-      for (const attrName of EVENT_ATTRIBUTES) {
+      for (const attrName of EVENT_ATTRIBUTES)
+      {
         const handlerCode = element.getAttribute(attrName);
 
-        if (handlerCode) {
+        if (handlerCode)
+        {
           // Remove attribute so the browser doesn't try to eval it globally
           element.removeAttribute(attrName);
 
@@ -216,7 +231,8 @@ function transformInlineEventHandlers(
             scriptContent,
             componentHost,
           );
-          if (handler) {
+          if (handler)
+          {
             element.addEventListener(eventName, handler);
           }
         }
@@ -244,12 +260,14 @@ function processEventDirectives(
   state: Record<string, unknown>,
   scriptContent: string,
   componentHost: HTMLElement,
-): void {
+): void
+{
   // Get all attributes that start with $on:
   const attrs = Array.from(element.attributes);
   const eventAttrs = attrs.filter((attr) => isEventDirective(attr.name));
 
-  for (const attr of eventAttrs) {
+  for (const attr of eventAttrs)
+  {
     const parsed = parseEventDirective(attr.name);
     if (!parsed) continue;
 
@@ -286,16 +304,20 @@ function processEventDirectives(
  *   - the legacy `$for` attribute directive
  *   - the `<for>` built-in element
  */
-function isInsideForLoop(element: Element): boolean {
+function isInsideForLoop(element: Element): boolean
+{
   // Check the element itself
-  if (element.hasAttribute("$for") || element.tagName === "FOR") {
+  if (element.hasAttribute("$for") || element.tagName === "FOR")
+  {
     return true;
   }
 
   // Check ancestors
   let current: Element | null = element.parentElement;
-  while (current) {
-    if (current.hasAttribute("$for") || current.tagName === "FOR") {
+  while (current)
+  {
+    if (current.hasAttribute("$for") || current.tagName === "FOR")
+    {
       return true;
     }
     current = current.parentElement;
@@ -320,8 +342,10 @@ function createVanillaEventHandler(
   state: Record<string, unknown>,
   scriptContent: string,
   componentHost?: HTMLElement,
-): ((event: Event) => void) | null {
-  try {
+): ((event: Event) => void) | null
+{
+  try
+  {
     // Get component URL from host for framework helpers path resolution
     const componentUrl = (componentHost as any)?.__componentUrl;
     const componentId = (componentHost as any)?.__componentId;
@@ -427,8 +451,10 @@ function createVanillaEventHandler(
       ? new AsyncFunction(...allKeys, fnBody)
       : new Function(...allKeys, fnBody);
 
-    return (event: Event) => {
-      try {
+    return (event: Event) =>
+    {
+      try
+      {
         // Get $refs from component host dynamically (they're set after script load)
         // Already wrapped in Proxy by webcomponent.ts for dot notation access
         const $refs = componentHost
@@ -447,8 +473,10 @@ function createVanillaEventHandler(
         const result = fn(...allValues);
 
         // If the handler returns a promise, catch any async errors
-        if (result && typeof result.catch === "function") {
-          result.catch((e: Error) => {
+        if (result && typeof result.catch === "function")
+        {
+          result.catch((e: Error) =>
+          {
             const ctx = {
               tagName: componentHost?.tagName?.toLowerCase(),
               sourcePath: (state as any).__componentUrl,
@@ -460,7 +488,8 @@ function createVanillaEventHandler(
             });
           });
         }
-      } catch (e) {
+      } catch (e)
+      {
         // Build context from state metadata (more reliable than global context
         // since multiple components can initialize in parallel)
         const ctx = {
@@ -474,7 +503,8 @@ function createVanillaEventHandler(
         });
       }
     };
-  } catch (e) {
+  } catch (e)
+  {
     // Build context from component host for accurate error attribution
     // Use component host's tagName directly (more reliable than global context
     // which can be overwritten by parallel component initialization)
@@ -504,7 +534,8 @@ function createVanillaEventHandler(
 export function extractFunctionDefinitions(
   content: string,
   skipFunctions: string[] = [],
-): string {
+): string
+{
   const functions: string[] = [];
 
   // Match regular and async function declarations: function foo() {...}
@@ -512,17 +543,20 @@ export function extractFunctionDefinitions(
     /(?:async\s+)?function\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*\([^)]*\)\s*\{/g;
   let match;
 
-  while ((match = funcRegex.exec(content)) !== null) {
+  while ((match = funcRegex.exec(content)) !== null)
+  {
     const funcName = match[1];
 
     // Skip functions that already exist in state (reactive module script functions)
-    if (skipFunctions.includes(funcName)) {
+    if (skipFunctions.includes(funcName))
+    {
       continue;
     }
 
     // Find the matching closing brace
     const funcDef = extractBracedBlock(content, match.index);
-    if (funcDef) {
+    if (funcDef)
+    {
       functions.push(funcDef);
     }
   }
@@ -531,11 +565,13 @@ export function extractFunctionDefinitions(
   const arrowRegex =
     /(?:const|let)\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*=\s*(?:async\s*)?\([^)]*\)\s*=>\s*\{/g;
 
-  while ((match = arrowRegex.exec(content)) !== null) {
+  while ((match = arrowRegex.exec(content)) !== null)
+  {
     const funcName = match[1];
 
     // Skip functions that already exist in state (reactive module script functions)
-    if (skipFunctions.includes(funcName)) {
+    if (skipFunctions.includes(funcName))
+    {
       continue;
     }
 
@@ -543,7 +579,8 @@ export function extractFunctionDefinitions(
     const startIndex = match.index;
     const bodyStart = content.indexOf("{", startIndex + match[0].length - 1);
     const funcDef = extractBracedBlock(content, startIndex, bodyStart);
-    if (funcDef) {
+    if (funcDef)
+    {
       functions.push(funcDef);
     }
   }
@@ -564,7 +601,8 @@ function extractBracedBlock(
   content: string,
   startIndex: number,
   braceStart?: number,
-): string | null {
+): string | null
+{
   let braceCount = 0;
   let endIndex = startIndex;
   let inString = false;
@@ -573,28 +611,35 @@ function extractBracedBlock(
 
   const searchStart = braceStart ?? startIndex;
 
-  for (let i = searchStart; i < content.length; i++) {
+  for (let i = searchStart; i < content.length; i++)
+  {
     const char = content[i];
     const prevChar = i > 0 ? content[i - 1] : "";
 
     // Handle string detection (skip braces inside strings)
-    if ((char === '"' || char === "'" || char === "`") && prevChar !== "\\") {
-      if (!inString) {
+    if ((char === '"' || char === "'" || char === "`") && prevChar !== "\\")
+    {
+      if (!inString)
+      {
         inString = true;
         stringChar = char;
-      } else if (char === stringChar) {
+      } else if (char === stringChar)
+      {
         inString = false;
       }
     }
 
-    if (!inString) {
-      if (char === "{") {
+    if (!inString)
+    {
+      if (char === "{")
+      {
         braceCount++;
         foundFirstBrace = true;
       }
       if (char === "}") braceCount--;
 
-      if (foundFirstBrace && braceCount === 0 && char === "}") {
+      if (foundFirstBrace && braceCount === 0 && char === "}")
+      {
         endIndex = i + 1;
         break;
       }
@@ -627,10 +672,12 @@ function extractScriptMembers(
   content: string,
   componentUrl?: string,
   componentId?: string,
-): Map<string, unknown> {
+): Map<string, unknown>
+{
   const members = new Map<string, unknown>();
 
-  try {
+  try
+  {
     const variableNames = extractVariableNames(content);
     const functionNames = extractFunctionNames(content);
     const allNames = [...variableNames, ...functionNames];
@@ -659,10 +706,12 @@ function extractScriptMembers(
     const fn = new Function(...allKeys, wrappedScript);
     const result = fn(...allValues);
 
-    for (const [key, value] of Object.entries(result)) {
+    for (const [key, value] of Object.entries(result))
+    {
       members.set(key, value);
     }
-  } catch (e) {
+  } catch (e)
+  {
     scriptError("Error extracting script members", e as Error);
   }
 
@@ -680,15 +729,18 @@ function extractScriptMembers(
  *
  * @param content - The script content to parse
  */
-function extractScriptMembersValuesOnly(content: string): Map<string, unknown> {
+function extractScriptMembersValuesOnly(content: string): Map<string, unknown>
+{
   const members = new Map<string, unknown>();
 
-  try {
+  try
+  {
     const variableNames = extractVariableNames(content);
     const functionNames = extractFunctionNames(content);
     const allNames = [...variableNames, ...functionNames];
 
-    if (allNames.length === 0) {
+    if (allNames.length === 0)
+    {
       return members;
     }
 
@@ -724,10 +776,12 @@ function extractScriptMembersValuesOnly(content: string): Map<string, unknown> {
     const fn = new Function(...allKeys, wrappedScript);
     const result = fn(...allValues);
 
-    for (const [key, value] of Object.entries(result)) {
+    for (const [key, value] of Object.entries(result))
+    {
       members.set(key, value);
     }
-  } catch (e) {
+  } catch (e)
+  {
     // Silently handle errors - Phase 2 will re-execute with proper error handling
   }
 
@@ -760,8 +814,10 @@ function executeScriptWithReactiveState(
   hostElement?: HTMLElement,
   refs?: Map<string, HTMLElement>,
   templateBindings: string[] = [],
-): void {
-  try {
+): void
+{
+  try
+  {
     const variableNames = extractVariableNames(content);
 
     // Combine script variables with template bindings for transformation
@@ -800,7 +856,8 @@ function executeScriptWithReactiveState(
 
     const fn = new Function(...allKeys, wrappedScript);
     fn(...allValues);
-  } catch (e) {
+  } catch (e)
+  {
     scriptError("Error executing script with reactive state", e as Error);
   }
 }
@@ -818,7 +875,8 @@ function executeScriptWithReactiveState(
  *     component scripts, and any declarations inside will be (harmlessly)
  *     treated as top-level.
  */
-function maskFunctionBodies(code: string): string {
+function maskFunctionBodies(code: string): string
+{
   const chars = code.split("");
   const len = code.length;
   let i = 0;
@@ -827,27 +885,34 @@ function maskFunctionBodies(code: string): string {
   const fnStartDepths: number[] = [];
   const inFn = () => fnStartDepths.length > 0;
 
-  const maskRange = (from: number, to: number) => {
-    for (let k = from; k < to; k++) {
+  const maskRange = (from: number, to: number) =>
+  {
+    for (let k = from; k < to; k++)
+    {
       const ch = chars[k];
       if (ch !== "\n" && ch !== "\r") chars[k] = " ";
     }
   };
 
-  const skipLineComment = (start: number): number => {
+  const skipLineComment = (start: number): number =>
+  {
     let j = start;
     while (j < len && code[j] !== "\n") j++;
     return j;
   };
-  const skipBlockComment = (start: number): number => {
+  const skipBlockComment = (start: number): number =>
+  {
     let j = start + 2;
     while (j < len - 1 && !(code[j] === "*" && code[j + 1] === "/")) j++;
     return Math.min(len, j + 2);
   };
-  const skipString = (start: number, quote: string): number => {
+  const skipString = (start: number, quote: string): number =>
+  {
     let j = start + 1;
-    while (j < len) {
-      if (code[j] === "\\") {
+    while (j < len)
+    {
+      if (code[j] === "\\")
+      {
         j += 2;
         continue;
       }
@@ -857,32 +922,41 @@ function maskFunctionBodies(code: string): string {
     }
     return j;
   };
-  const skipTemplate = (start: number): number => {
+  const skipTemplate = (start: number): number =>
+  {
     let j = start + 1;
-    while (j < len) {
-      if (code[j] === "\\") {
+    while (j < len)
+    {
+      if (code[j] === "\\")
+      {
         j += 2;
         continue;
       }
       if (code[j] === "`") return j + 1;
-      if (code[j] === "$" && code[j + 1] === "{") {
+      if (code[j] === "$" && code[j + 1] === "{")
+      {
         j += 2;
         let depth = 1;
-        while (j < len && depth > 0) {
+        while (j < len && depth > 0)
+        {
           const c = code[j];
-          if (c === "`") {
+          if (c === "`")
+          {
             j = skipTemplate(j);
             continue;
           }
-          if (c === '"' || c === "'") {
+          if (c === '"' || c === "'")
+          {
             j = skipString(j, c);
             continue;
           }
-          if (c === "/" && code[j + 1] === "/") {
+          if (c === "/" && code[j + 1] === "/")
+          {
             j = skipLineComment(j);
             continue;
           }
-          if (c === "/" && code[j + 1] === "*") {
+          if (c === "/" && code[j + 1] === "*")
+          {
             j = skipBlockComment(j);
             continue;
           }
@@ -896,7 +970,8 @@ function maskFunctionBodies(code: string): string {
     }
     return j;
   };
-  const isRegexContext = (idx: number): boolean => {
+  const isRegexContext = (idx: number): boolean =>
+  {
     let j = idx - 1;
     while (j >= 0 && /\s/.test(code[j])) j--;
     if (j < 0) return true;
@@ -906,18 +981,22 @@ function maskFunctionBodies(code: string): string {
       code.slice(0, j + 1),
     );
   };
-  const skipRegex = (start: number): number => {
+  const skipRegex = (start: number): number =>
+  {
     let j = start + 1;
     let inClass = false;
-    while (j < len) {
+    while (j < len)
+    {
       const c = code[j];
-      if (c === "\\") {
+      if (c === "\\")
+      {
         j += 2;
         continue;
       }
       if (c === "[") inClass = true;
       else if (c === "]") inClass = false;
-      else if (c === "/" && !inClass) {
+      else if (c === "/" && !inClass)
+      {
         j++;
         break;
       } else if (c === "\n") break;
@@ -927,58 +1006,70 @@ function maskFunctionBodies(code: string): string {
     return j;
   };
 
-  while (i < len) {
+  while (i < len)
+  {
     const c = code[i];
 
-    if (c === "/" && code[i + 1] === "/") {
+    if (c === "/" && code[i + 1] === "/")
+    {
       const end = skipLineComment(i);
       if (inFn()) maskRange(i, end);
       i = end;
       continue;
     }
-    if (c === "/" && code[i + 1] === "*") {
+    if (c === "/" && code[i + 1] === "*")
+    {
       const end = skipBlockComment(i);
       if (inFn()) maskRange(i, end);
       i = end;
       continue;
     }
-    if (c === '"' || c === "'") {
+    if (c === '"' || c === "'")
+    {
       const end = skipString(i, c);
       if (inFn()) maskRange(i, end);
       i = end;
       continue;
     }
-    if (c === "`") {
+    if (c === "`")
+    {
       const end = skipTemplate(i);
       if (inFn()) maskRange(i, end);
       i = end;
       continue;
     }
-    if (c === "/" && isRegexContext(i)) {
+    if (c === "/" && isRegexContext(i))
+    {
       const end = skipRegex(i);
       if (inFn()) maskRange(i, end);
       i = end;
       continue;
     }
 
-    if (c === "{") {
+    if (c === "{")
+    {
       braceDepth++;
-      if (pendingFnBody) {
+      if (pendingFnBody)
+      {
         fnStartDepths.push(braceDepth);
         pendingFnBody = false;
-      } else if (inFn()) {
+      } else if (inFn())
+      {
         chars[i] = " ";
       }
       i++;
       continue;
     }
-    if (c === "}") {
+    if (c === "}")
+    {
       const closingFnBody =
         inFn() && fnStartDepths[fnStartDepths.length - 1] === braceDepth;
-      if (closingFnBody) {
+      if (closingFnBody)
+      {
         fnStartDepths.pop();
         // Keep `}` un-masked so brace counting outside still works
-      } else if (inFn()) {
+      } else if (inFn())
+      {
         chars[i] = " ";
       }
       braceDepth--;
@@ -986,25 +1077,32 @@ function maskFunctionBodies(code: string): string {
       continue;
     }
 
-    if (c === "=" && code[i + 1] === ">") {
-      if (inFn()) {
+    if (c === "=" && code[i + 1] === ">")
+    {
+      if (inFn())
+      {
         chars[i] = " ";
         chars[i + 1] = " ";
-      } else {
+      } else
+      {
         // Look ahead skipping whitespace/comments for `{` (concise body has
         // no declarations to worry about, so we only track block bodies).
         let j = i + 2;
-        while (j < len) {
+        while (j < len)
+        {
           const cc = code[j];
-          if (/\s/.test(cc)) {
+          if (/\s/.test(cc))
+          {
             j++;
             continue;
           }
-          if (cc === "/" && code[j + 1] === "/") {
+          if (cc === "/" && code[j + 1] === "/")
+          {
             j = skipLineComment(j);
             continue;
           }
-          if (cc === "/" && code[j + 1] === "*") {
+          if (cc === "/" && code[j + 1] === "*")
+          {
             j = skipBlockComment(j);
             continue;
           }
@@ -1016,19 +1114,23 @@ function maskFunctionBodies(code: string): string {
       continue;
     }
 
-    if (/[a-zA-Z_$]/.test(c)) {
+    if (/[a-zA-Z_$]/.test(c))
+    {
       const start = i;
       while (i < len && /[a-zA-Z0-9_$]/.test(code[i])) i++;
       const word = code.slice(start, i);
-      if (inFn()) {
+      if (inFn())
+      {
         maskRange(start, i);
-      } else if (word === "function") {
+      } else if (word === "function")
+      {
         pendingFnBody = true;
       }
       continue;
     }
 
-    if (inFn() && c !== "\n" && c !== "\r") {
+    if (inFn() && c !== "\n" && c !== "\r")
+    {
       chars[i] = " ";
     }
     i++;
@@ -1045,13 +1147,15 @@ function maskFunctionBodies(code: string): string {
  *
  * Exported so webcomponent.ts can use it for observedAttributes.
  */
-export function extractVariableNames(content: string): string[] {
+export function extractVariableNames(content: string): string[]
+{
   const masked = maskFunctionBodies(content);
   const names: string[] = [];
   const regex = /(?:let|const|var)\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*=/g;
   let match;
 
-  while ((match = regex.exec(masked)) !== null) {
+  while ((match = regex.exec(masked)) !== null)
+  {
     names.push(match[1]);
   }
 
@@ -1062,13 +1166,15 @@ export function extractVariableNames(content: string): string[] {
  * Finds function declarations: function foo() {}, async function bar() {}
  * Only returns top-level declarations (consistent with extractVariableNames).
  */
-function extractFunctionNames(content: string): string[] {
+function extractFunctionNames(content: string): string[]
+{
   const masked = maskFunctionBodies(content);
   const names: string[] = [];
   const regex = /(?:async\s+)?function\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*\(/g;
   let match;
 
-  while ((match = regex.exec(masked)) !== null) {
+  while ((match = regex.exec(masked)) !== null)
+  {
     names.push(match[1]);
   }
 
@@ -1082,7 +1188,8 @@ function extractFunctionNames(content: string): string[] {
 /**
  * Escapes special regex characters in a string
  */
-function escapeRegex(str: string): string {
+function escapeRegex(str: string): string
+{
   return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
@@ -1102,7 +1209,8 @@ function escapeRegex(str: string): string {
  *
  * This is similar to what Svelte's compiler does, but at runtime.
  */
-function transformToStateAccess(code: string, variables: string[]): string {
+function transformToStateAccess(code: string, variables: string[]): string
+{
   if (variables.length === 0) return code;
 
   // Step 1: Protect regular string literals (single and double quotes) with placeholders
@@ -1110,7 +1218,8 @@ function transformToStateAccess(code: string, variables: string[]): string {
   const strings: string[] = [];
   let protected_code = code.replace(
     /(["'])(?:(?!\1)[^\\]|\\.)*\1/g,
-    (match) => {
+    (match) =>
+    {
       strings.push(match);
       return `__STRING_PLACEHOLDER_${strings.length - 1}__`;
     },
@@ -1120,12 +1229,15 @@ function transformToStateAccess(code: string, variables: string[]): string {
   // Match template literals and process their interpolations
   protected_code = protected_code.replace(
     /`(?:[^`\\$]|\\.|\$(?!\{)|\$\{[^}]*\})*`/g,
-    (templateLiteral) => {
+    (templateLiteral) =>
+    {
       // Transform expressions inside ${...}
-      return templateLiteral.replace(/\$\{([^}]+)\}/g, (match, expr) => {
+      return templateLiteral.replace(/\$\{([^}]+)\}/g, (match, expr) =>
+      {
         // Transform variable references in the expression
         let transformedExpr = expr;
-        for (const varName of variables) {
+        for (const varName of variables)
+        {
           const pattern = new RegExp(
             `(?<![^.]\\.)(?<!__state__\\.)\\b${escapeRegex(
               varName,
@@ -1145,7 +1257,8 @@ function transformToStateAccess(code: string, variables: string[]): string {
   // Step 3: Transform top-level variable declarations
   // `let x = value;` → `__state__.x ??= value;`
   // Use ??= to preserve attribute overrides (attributes win over script defaults)
-  for (const varName of variables) {
+  for (const varName of variables)
+  {
     const declRegex = new RegExp(
       `\\b(let|const|var)\\s+(${escapeRegex(varName)})\\s*=`,
       "g",
@@ -1158,7 +1271,8 @@ function transformToStateAccess(code: string, variables: string[]): string {
 
   // Step 4: Replace all standalone variable references with __state__.varName
   // Do this iteratively to handle all occurrences
-  for (const varName of variables) {
+  for (const varName of variables)
+  {
     // This regex matches the variable name that is:
     // - NOT preceded by a single dot (property access like foo.bar)
     //   but IS allowed after spread operator (...)
@@ -1178,7 +1292,8 @@ function transformToStateAccess(code: string, variables: string[]): string {
 
   // Step 5: Restore regular string literals
   let transformed = protected_code;
-  for (let i = 0; i < strings.length; i++) {
+  for (let i = 0; i < strings.length; i++)
+  {
     transformed = transformed.replace(
       `__STRING_PLACEHOLDER_${i}__`,
       strings[i],
@@ -1204,14 +1319,16 @@ function transformToStateAccess(code: string, variables: string[]): string {
 function transformFunctionDefsToStateAccess(
   funcDefs: string,
   variables: string[],
-): string {
+): string
+{
   if (!funcDefs || variables.length === 0) return funcDefs;
 
   // Step 1: Protect string literals from transformation
   const strings: string[] = [];
   let protected_code = funcDefs.replace(
     /"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'/g,
-    (match) => {
+    (match) =>
+    {
       strings.push(match);
       return `__STRING_PLACEHOLDER_${strings.length - 1}__`;
     },
@@ -1220,10 +1337,13 @@ function transformFunctionDefsToStateAccess(
   // Step 2: Handle template literals - transform expressions inside ${}
   protected_code = protected_code.replace(
     /`(?:[^`\\$]|\\.|\$(?!\{)|\$\{[^}]*\})*`/g,
-    (templateLiteral) => {
-      return templateLiteral.replace(/\$\{([^}]+)\}/g, (match, expr) => {
+    (templateLiteral) =>
+    {
+      return templateLiteral.replace(/\$\{([^}]+)\}/g, (match, expr) =>
+      {
         let transformedExpr = expr;
-        for (const varName of variables) {
+        for (const varName of variables)
+        {
           const pattern = new RegExp(
             `(?<![^.]\\.)(?<!state\\.)\\b${escapeRegex(
               varName,
@@ -1242,7 +1362,8 @@ function transformFunctionDefsToStateAccess(
 
   // Step 3: Replace variable references with state.varName
   // Skip function parameter names by not transforming inside parameter lists
-  for (const varName of variables) {
+  for (const varName of variables)
+  {
     // Match variable that is:
     // - NOT preceded by a dot (property access)
     // - NOT preceded by state. (already transformed)
@@ -1257,7 +1378,8 @@ function transformFunctionDefsToStateAccess(
 
   // Step 4: Restore string literals
   let transformed = protected_code;
-  for (let i = 0; i < strings.length; i++) {
+  for (let i = 0; i < strings.length; i++)
+  {
     transformed = transformed.replace(
       `__STRING_PLACEHOLDER_${i}__`,
       strings[i],
@@ -1275,7 +1397,8 @@ function transformFunctionDefsToStateAccess(
  * Returns blocked globals, excluding JS reserved words that can't be
  * used as function parameter names (like 'with', 'class', etc.)
  */
-function getSafeBlockedGlobals(): readonly string[] {
+function getSafeBlockedGlobals(): readonly string[]
+{
   return BLOCKED_GLOBALS.filter((name) => !RESERVED_WORDS.has(name));
 }
 
@@ -1290,16 +1413,20 @@ function getSafeBlockedGlobals(): readonly string[] {
 function getAllowedGlobalsWithValues(
   componentUrl?: string,
   componentId?: string,
-): {
-  keys: string[];
-  values: unknown[];
-} {
+):
+    {
+      keys: string[];
+      values: unknown[];
+    }
+{
   const keys: string[] = [];
   const values: unknown[] = [];
 
   // Add standard allowed globals (console, Math, JSON, etc.)
-  for (const name of ALLOWED_GLOBALS) {
-    if (name in globalThis) {
+  for (const name of ALLOWED_GLOBALS)
+  {
+    if (name in globalThis)
+    {
       keys.push(name);
       values.push((globalThis as any)[name]);
     }
@@ -1333,8 +1460,10 @@ function getAllowedGlobalsWithValues(
 function evaluateExpression(
   expression: string,
   state: Record<string, unknown>,
-): unknown {
-  try {
+): unknown
+{
+  try
+  {
     const keys = Object.keys(state);
     const values = Object.values(state);
 
@@ -1344,12 +1473,37 @@ function evaluateExpression(
 
     const fn = new Function(...allKeys, `"use strict"; return ${expression};`);
     return fn(...allValues);
-  } catch (e) {
+  } catch (e)
+  {
     expressionError(expression, e as Error, {
       context: getComponentContext(),
     });
     return `{${expression}}`; // Return original on error
   }
+}
+
+/**
+ * Returns true for values that cannot survive a trip through a DOM attribute
+ * (which can only hold strings): arrays, objects and functions.
+ */
+function isNonPrimitive(value: unknown): boolean
+{
+  return value !== null && (typeof value === "object" || typeof value === "function");
+}
+
+/**
+ * Detects a "pure" attribute binding where the entire attribute value is a
+ * single {expression} with no surrounding literal text (e.g. items={items},
+ * but NOT alt="{name} logo"). These are the only bindings eligible to be
+ * passed as a typed DOM property instead of a stringified attribute.
+ */
+function isPureAttributeBinding(descriptor: BindingDescriptor): boolean
+{
+  if (!descriptor.isAttribute || !descriptor.attributeName) return false;
+  if (descriptor.bindings.length !== 1) return false;
+  const trimmed = descriptor.original.trim();
+  if (!/^\{[\s\S]*\}$/.test(trimmed)) return false;
+  return trimmed.slice(1, -1).trim() === descriptor.bindings[0].raw.trim();
 }
 
 /**
@@ -1359,24 +1513,64 @@ function evaluateExpression(
 function updateSingleBinding(
   descriptor: BindingDescriptor,
   state: Record<string, unknown>,
-): void {
+): void
+{
+  // Pure attribute bindings (the whole value is a single {expr}) can preserve
+  // the evaluated value's data type. When the value is a non-primitive
+  // (array/object/function), assign it as a DOM PROPERTY on the target element
+  // instead of stringifying it into an attribute. This mirrors how Lit/Vue
+  // pass complex props to custom elements and lets children receive a real
+  // array/object instead of "item1,item2,item3".
+  if (isPureAttributeBinding(descriptor))
+  {
+    const element =
+      (descriptor as any).element ?? descriptor.node.parentElement;
+    const evaluated = evaluateExpression(descriptor.bindings[0].raw, state);
+
+    if (element)
+    {
+      if (isNonPrimitive(evaluated))
+      {
+        // Remove the stringy attribute first so a null attributeChangedCallback
+        // can't clobber the typed value we set on the next line.
+        if (element.hasAttribute?.(descriptor.attributeName!))
+        {
+          element.removeAttribute(descriptor.attributeName!);
+        }
+        (element as any)[descriptor.attributeName!] = evaluated;
+      } else
+      {
+        // Primitive: keep the normal stringified attribute behavior.
+        element.setAttribute(
+          descriptor.attributeName!,
+          String(evaluated ?? ""),
+        );
+      }
+    }
+    return;
+  }
+
   let result = descriptor.original;
 
   // Evaluate and replace each {expression} in the text
-  for (const binding of descriptor.bindings) {
+  for (const binding of descriptor.bindings)
+  {
     const evaluated = evaluateExpression(binding.raw, state);
     const stringValue = String(evaluated ?? "");
     result = result.replace(`{${binding.raw}}`, stringValue);
   }
 
-  if (descriptor.isAttribute && descriptor.attributeName) {
+  if (descriptor.isAttribute && descriptor.attributeName)
+  {
     // Update element attribute
     const element =
       (descriptor as any).element ?? descriptor.node.parentElement;
-    if (element) {
+    if (element)
+    {
       element.setAttribute(descriptor.attributeName, result);
     }
-  } else {
+  } else
+  {
     // Update text node content
     descriptor.node.textContent = result;
   }
@@ -1392,8 +1586,10 @@ function updateSingleBinding(
 function applyBindings(
   bindings: BindingDescriptor[],
   state: Record<string, unknown>,
-): void {
-  for (const descriptor of bindings) {
+): void
+{
+  for (const descriptor of bindings)
+  {
     updateSingleBinding(descriptor, state);
   }
 }
@@ -1410,6 +1606,7 @@ function applyBindings(
 export function createExpressionEvaluator(): (
   expr: string,
   context: Record<string, unknown>,
-) => unknown {
+) => unknown
+{
   return evaluateExpression;
 }
