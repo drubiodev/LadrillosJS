@@ -2,38 +2,38 @@ import { LadrillosComponent } from "../../types";
 import { loadStyles } from "../css/cssParser/cssParser";
 import { loadTemplate } from "../html/htmlparser";
 import
-  {
-    loadScripts,
-    extractVariableNames,
-    createExpressionEvaluator,
-    applyBindingsDeferred,
-  } from "../js/scriptParser";
+{
+  loadScripts,
+  extractVariableNames,
+  createExpressionEvaluator,
+  applyBindingsDeferred,
+} from "../js/scriptParser";
 import
-  {
-    executeModuleScriptsWithReactivity,
-    cleanupModuleScripts,
-    loadPlainExternalScripts,
-    loadExternalStyles,
-  } from "../js/moduleExecutor";
+{
+  executeModuleScriptsWithReactivity,
+  cleanupModuleScripts,
+  loadPlainExternalScripts,
+  loadExternalStyles,
+} from "../js/moduleExecutor";
 import { cleanupComponentListeners } from "../events/eventBus";
 import
-  {
-    scanDirectives,
-    scanRefsOnly,
-    scanDirectivesWithRefs,
-    renderLoops,
-    updateConditionals,
-    updateShowElements,
-    setupTwoWayBindings,
-    DirectiveContext,
-  } from "../directives/directiveProcessor";
+{
+  scanDirectives,
+  scanRefsOnly,
+  scanDirectivesWithRefs,
+  renderLoops,
+  updateConditionals,
+  updateShowElements,
+  setupTwoWayBindings,
+  DirectiveContext,
+} from "../directives/directiveProcessor";
 import { createRefsProxy } from "../helpers/frameworkHelpers";
 import { setComponentContext, warn } from "../../utils/devWarnings";
 import
-  {
-    scheduleComponentUpdate,
-    unregisterComponent,
-  } from "../scheduler/batchScheduler";
+{
+  scheduleComponentUpdate,
+  unregisterComponent,
+} from "../scheduler/batchScheduler";
 
 /**
  * Creates a Web Component class from a Ladrillos component definition.
@@ -213,6 +213,20 @@ export function createWebComponentClass(
         {
           this._pendingProps.set(propName, (this as any)[propName]);
           delete (this as any)[propName];
+        }
+
+        // HTML lowercases attribute names, so a parent passing a typed prop via
+        // a camelCase attribute (e.g. postList={...}) actually sets
+        // `el.postlist`. Capture that lowercase own property and route it to
+        // the canonical (camelCase) prop name so it lands in state correctly.
+        const lowerName = propName.toLowerCase();
+        if (
+          lowerName !== propName &&
+          Object.prototype.hasOwnProperty.call(this, lowerName)
+        )
+        {
+          this._pendingProps.set(propName, (this as any)[lowerName]);
+          delete (this as any)[lowerName];
         }
       }
 
@@ -744,6 +758,42 @@ export function createWebComponentClass(
         }
       },
     });
+
+    // HTML lowercases attribute names, so a parent passing a typed prop through
+    // a camelCase attribute (postList={...}) sets `el.postlist`. Expose a
+    // lowercase alias accessor that reads/writes the SAME canonical prop name,
+    // so the value still lands in `state.postList`.
+    const lowerProp = propName.toLowerCase();
+    if (
+      lowerProp !== propName &&
+      !(lowerProp in HTMLElement.prototype) &&
+      !Object.prototype.hasOwnProperty.call(
+        LadrillosWebComponent.prototype,
+        lowerProp,
+      )
+    )
+    {
+      Object.defineProperty(LadrillosWebComponent.prototype, lowerProp, {
+        configurable: true,
+        enumerable: false,
+        get(this: any): unknown
+        {
+          return this._propsReady
+            ? this.state[propName]
+            : this._pendingProps.get(propName);
+        },
+        set(this: any, value: unknown): void
+        {
+          if (this._propsReady)
+          {
+            this.state[propName] = value;
+          } else
+          {
+            this._pendingProps.set(propName, value);
+          }
+        },
+      });
+    }
   }
 
   return LadrillosWebComponent;

@@ -26,6 +26,15 @@ type UpdateBindingFn = (
 const REACTIVE_ARRAY = Symbol("reactive-array");
 
 /**
+ * Symbol exposing the set of mutation subscribers on a reactive array.
+ * When the same array is shared across owners (e.g. a parent passes it to a
+ * child component as a prop), each owner registers its own onMutate callback
+ * here so a single mutation (push/splice/index assignment) re-renders every
+ * component that depends on the array — not just the one that created it.
+ */
+const REACTIVE_ARRAY_SUBSCRIBERS = Symbol("reactive-array-subscribers");
+
+/**
  * Array methods that mutate the array and should trigger reactivity updates.
  */
 const ARRAY_MUTATION_METHODS = [
@@ -58,17 +67,51 @@ const ARRAY_MUTATION_METHODS = [
  * @param onMutate - Callback to trigger when the array is mutated
  * @returns A reactive proxy of the array
  */
-export function createReactiveArray<T>(arr: T[], onMutate: () => void): T[] {
-  // Don't double-wrap arrays that are already reactive
-  if ((arr as any)[REACTIVE_ARRAY]) {
+export function createReactiveArray<T>(arr: T[], onMutate: () => void): T[]
+{
+  // Already reactive: register this additional subscriber instead of
+  // re-wrapping. This lets multiple owners (parent + child sharing the array
+  // as a prop) all be notified when the SAME array reference mutates.
+  if ((arr as any)[REACTIVE_ARRAY])
+  {
+    const subscribers = (arr as any)[REACTIVE_ARRAY_SUBSCRIBERS] as
+      | Set<() => void>
+      | undefined;
+    if (subscribers && onMutate)
+    {
+      subscribers.add(onMutate);
+    }
     return arr;
   }
 
+  // Each reactive array owns a set of mutation callbacks. `notify` fans a
+  // single mutation out to every registered subscriber.
+  const subscribers = new Set<() => void>();
+  if (onMutate)
+  {
+    subscribers.add(onMutate);
+  }
+  const notify = () =>
+  {
+    for (const subscriber of subscribers)
+    {
+      subscriber();
+    }
+  };
+
   const reactiveArray = new Proxy(arr, {
-    get(target, key: string | symbol) {
+    get(target, key: string | symbol)
+    {
       // Mark this array as reactive
-      if (key === REACTIVE_ARRAY) {
+      if (key === REACTIVE_ARRAY)
+      {
         return true;
+      }
+
+      // Expose the subscriber set so additional owners can register.
+      if (key === REACTIVE_ARRAY_SUBSCRIBERS)
+      {
+        return subscribers;
       }
 
       const value = target[key as keyof typeof target];
@@ -78,44 +121,49 @@ export function createReactiveArray<T>(arr: T[], onMutate: () => void): T[] {
         typeof key === "string" &&
         ARRAY_MUTATION_METHODS.includes(key as any) &&
         typeof value === "function"
-      ) {
-        return (...args: unknown[]) => {
+      )
+      {
+        return (...args: unknown[]) =>
+        {
           // Wrap any array arguments (e.g., for splice adding new items)
           const wrappedArgs = args.map((arg) =>
-            Array.isArray(arg) ? createReactiveArray(arg, onMutate) : arg
+            Array.isArray(arg) ? createReactiveArray(arg, notify) : arg
           );
 
           // Call the original method
           const result = (value as Function).apply(target, wrappedArgs);
 
-          // Trigger reactivity update
-          onMutate();
+          // Trigger reactivity update for every subscriber
+          notify();
 
           return result;
         };
       }
 
       // Recursively wrap nested arrays
-      if (Array.isArray(value)) {
-        return createReactiveArray(value, onMutate);
+      if (Array.isArray(value))
+      {
+        return createReactiveArray(value, notify);
       }
 
       return value;
     },
 
-    set(target, key: string | symbol, value) {
+    set(target, key: string | symbol, value)
+    {
       const index = typeof key === "string" ? parseInt(key, 10) : NaN;
       const isIndexAssignment = !isNaN(index);
       const isLengthChange = key === "length";
 
       // Wrap array values being assigned
       const wrappedValue = Array.isArray(value)
-        ? createReactiveArray(value, onMutate)
+        ? createReactiveArray(value, notify)
         : value;
 
       // Check if value actually changed
       const oldValue = target[key as keyof typeof target];
-      if (oldValue === wrappedValue) {
+      if (oldValue === wrappedValue)
+      {
         return true;
       }
 
@@ -123,17 +171,20 @@ export function createReactiveArray<T>(arr: T[], onMutate: () => void): T[] {
       (target as any)[key] = wrappedValue;
 
       // Trigger reactivity for index assignments or length changes
-      if (isIndexAssignment || isLengthChange) {
-        onMutate();
+      if (isIndexAssignment || isLengthChange)
+      {
+        notify();
       }
 
       return true;
     },
 
-    deleteProperty(target, key: string | symbol) {
+    deleteProperty(target, key: string | symbol)
+    {
       const result = delete (target as any)[key];
-      if (result) {
-        onMutate();
+      if (result)
+      {
+        notify();
       }
       return result;
     },
@@ -153,12 +204,16 @@ export function createReactiveArray<T>(arr: T[], onMutate: () => void): T[] {
 function wrapArraysInObject(
   obj: Record<string, unknown>,
   onMutate: () => void
-): Record<string, unknown> {
-  for (const key of Object.keys(obj)) {
+): Record<string, unknown>
+{
+  for (const key of Object.keys(obj))
+  {
     const value = obj[key];
-    if (Array.isArray(value)) {
+    if (Array.isArray(value))
+    {
       obj[key] = createReactiveArray(value, onMutate);
-    } else if (value && typeof value === "object" && !Array.isArray(value)) {
+    } else if (value && typeof value === "object" && !Array.isArray(value))
+    {
       // Recursively wrap arrays in nested objects
       wrapArraysInObject(value as Record<string, unknown>, onMutate);
     }
@@ -197,38 +252,47 @@ export function createReactiveState(
   bindings: BindingDescriptor[],
   updateBinding: UpdateBindingFn,
   onStateChange?: () => void
-): Record<string, unknown> {
+): Record<string, unknown>
+{
   // Build dependency map: which bindings depend on which state keys
   const registry = buildBindingRegistry(bindings, Object.keys(initialState));
 
   // Helper to trigger all updates for a key
-  const triggerUpdate = (key: string, target: Record<string, unknown>) => {
+  const triggerUpdate = (key: string, target: Record<string, unknown>) =>
+  {
     const dependentBindings = registry.get(key);
-    if (dependentBindings) {
-      for (const binding of dependentBindings) {
+    if (dependentBindings)
+    {
+      for (const binding of dependentBindings)
+      {
         updateBinding(binding, target);
       }
     }
-    if (onStateChange) {
+    if (onStateChange)
+    {
       onStateChange();
     }
   };
 
   // Wrap any arrays in initialState with reactive proxies
   // This enables array.push(), array.splice(), etc. to trigger updates
-  wrapArraysInObject(initialState, () => {
-    if (onStateChange) {
+  wrapArraysInObject(initialState, () =>
+  {
+    if (onStateChange)
+    {
       onStateChange();
     }
   });
 
   // Create a Proxy that intercepts property changes
   const reactiveState = new Proxy(initialState, {
-    get(target, key: string) {
+    get(target, key: string)
+    {
       return target[key];
     },
 
-    set(target, key: string, value) {
+    set(target, key: string, value)
+    {
       // Check if this is a NEW key being added
       const isNewKey = !(key in target);
 
@@ -237,8 +301,10 @@ export function createReactiveState(
 
       // Wrap arrays with reactive proxies before storing
       const wrappedValue = Array.isArray(value)
-        ? createReactiveArray(value, () => {
-          if (onStateChange) {
+        ? createReactiveArray(value, () =>
+        {
+          if (onStateChange)
+          {
             onStateChange();
           }
         })
@@ -248,7 +314,8 @@ export function createReactiveState(
       target[key] = wrappedValue;
 
       // If new key, register bindings that depend on it
-      if (isNewKey) {
+      if (isNewKey)
+      {
         registerNewKey(key, bindings, registry);
       }
 
@@ -256,7 +323,8 @@ export function createReactiveState(
       // module-script bootstrap). Callers re-apply bindings once all state
       // is populated, avoiding spurious ReferenceErrors for variables that
       // are declared later in the same script.
-      if ((target as any).__suspendReactivity) {
+      if ((target as any).__suspendReactivity)
+      {
         return true;
       }
 
@@ -287,20 +355,26 @@ export function createReactiveState(
 function buildBindingRegistry(
   bindings: BindingDescriptor[],
   stateKeys: string[]
-): BindingRegistry {
+): BindingRegistry
+{
   const registry: BindingRegistry = new Map();
 
   // Initialize empty sets for each state key
-  for (const key of stateKeys) {
+  for (const key of stateKeys)
+  {
     registry.set(key, new Set());
   }
 
   // For each binding, figure out which state keys it references
-  for (const descriptor of bindings) {
-    for (const binding of descriptor.bindings) {
+  for (const descriptor of bindings)
+  {
+    for (const binding of descriptor.bindings)
+    {
       // Check if any state key appears in the expression
-      for (const key of stateKeys) {
-        if (expressionDependsOn(binding.raw, key)) {
+      for (const key of stateKeys)
+      {
+        if (expressionDependsOn(binding.raw, key))
+        {
           registry.get(key)!.add(descriptor);
         }
       }
@@ -319,14 +393,18 @@ function registerNewKey(
   key: string,
   bindings: BindingDescriptor[],
   registry: BindingRegistry
-): void {
+): void
+{
   // Create a new set for this key
   registry.set(key, new Set());
 
   // Find all bindings that depend on this key
-  for (const descriptor of bindings) {
-    for (const binding of descriptor.bindings) {
-      if (expressionDependsOn(binding.raw, key)) {
+  for (const descriptor of bindings)
+  {
+    for (const binding of descriptor.bindings)
+    {
+      if (expressionDependsOn(binding.raw, key))
+      {
         registry.get(key)!.add(descriptor);
       }
     }
@@ -347,7 +425,8 @@ function registerNewKey(
 function expressionDependsOn(
   expression: string,
   variableName: string
-): boolean {
+): boolean
+{
   // Use cached regex for performance (avoids creating new RegExp each call)
   const regex = getCachedVariableRegex(variableName);
   return regex.test(expression);
@@ -369,25 +448,31 @@ export function createBindingUpdater(
     expr: string,
     context: Record<string, unknown>
   ) => unknown
-): UpdateBindingFn {
-  return (descriptor: BindingDescriptor, state: Record<string, unknown>) => {
+): UpdateBindingFn
+{
+  return (descriptor: BindingDescriptor, state: Record<string, unknown>) =>
+  {
     let result = descriptor.original;
 
     // Re-evaluate each {expression} in the binding
-    for (const binding of descriptor.bindings) {
+    for (const binding of descriptor.bindings)
+    {
       const evaluated = evaluateExpression(binding.raw, state);
       const stringValue = String(evaluated ?? "");
       result = result.replace(`{${binding.raw}}`, stringValue);
     }
 
     // Update the DOM
-    if (descriptor.isAttribute && descriptor.attributeName) {
+    if (descriptor.isAttribute && descriptor.attributeName)
+    {
       const element =
         (descriptor as any).element ?? descriptor.node.parentElement;
-      if (element) {
+      if (element)
+      {
         element.setAttribute(descriptor.attributeName, result);
       }
-    } else {
+    } else
+    {
       descriptor.node.textContent = result;
     }
   };
