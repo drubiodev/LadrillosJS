@@ -19,7 +19,8 @@
 // Types
 // ============================================================================
 
-export interface DiffOperation {
+export interface DiffOperation
+{
   type: "insert" | "remove" | "move" | "update";
   /** Index in the old array (for remove/move/update) */
   oldIndex?: number;
@@ -31,7 +32,8 @@ export interface DiffOperation {
   key?: unknown;
 }
 
-interface KeyedItem {
+interface KeyedItem
+{
   key: unknown;
   item: unknown;
   index: number;
@@ -66,18 +68,21 @@ export function diffKeyed<T>(
   oldItems: T[],
   newItems: T[],
   getKey: (item: T, index: number) => unknown
-): DiffOperation[] {
+): DiffOperation[]
+{
   const operations: DiffOperation[] = [];
 
   // Build key -> index maps
   const oldKeyToIndex = new Map<unknown, number>();
   const newKeyToIndex = new Map<unknown, number>();
 
-  for (let i = 0; i < oldItems.length; i++) {
+  for (let i = 0; i < oldItems.length; i++)
+  {
     oldKeyToIndex.set(getKey(oldItems[i], i), i);
   }
 
-  for (let i = 0; i < newItems.length; i++) {
+  for (let i = 0; i < newItems.length; i++)
+  {
     newKeyToIndex.set(getKey(newItems[i], i), i);
   }
 
@@ -86,9 +91,11 @@ export function diffKeyed<T>(
   const matchedNew = new Set<number>();
 
   // Phase 1: Find items to remove (in old but not in new)
-  for (let i = 0; i < oldItems.length; i++) {
+  for (let i = 0; i < oldItems.length; i++)
+  {
     const key = getKey(oldItems[i], i);
-    if (!newKeyToIndex.has(key)) {
+    if (!newKeyToIndex.has(key))
+    {
       operations.push({
         type: "remove",
         oldIndex: i,
@@ -99,9 +106,11 @@ export function diffKeyed<T>(
   }
 
   // Phase 2: Find items to insert (in new but not in old)
-  for (let i = 0; i < newItems.length; i++) {
+  for (let i = 0; i < newItems.length; i++)
+  {
     const key = getKey(newItems[i], i);
-    if (!oldKeyToIndex.has(key)) {
+    if (!oldKeyToIndex.has(key))
+    {
       operations.push({
         type: "insert",
         newIndex: i,
@@ -117,10 +126,12 @@ export function diffKeyed<T>(
   const newPositions: number[] = [];
   const oldToNew: number[] = [];
 
-  for (let i = 0; i < oldItems.length; i++) {
+  for (let i = 0; i < oldItems.length; i++)
+  {
     const key = getKey(oldItems[i], i);
     const newIdx = newKeyToIndex.get(key);
-    if (newIdx !== undefined) {
+    if (newIdx !== undefined)
+    {
       newPositions.push(newIdx);
       oldToNew[i] = newIdx;
     }
@@ -132,20 +143,24 @@ export function diffKeyed<T>(
 
   // Items not in LIS need to be moved
   let oldIdx = 0;
-  for (const newPos of newPositions) {
+  for (const newPos of newPositions)
+  {
     while (
       oldIdx < oldItems.length &&
       !newKeyToIndex.has(getKey(oldItems[oldIdx], oldIdx))
-    ) {
+    )
+    {
       oldIdx++;
     }
 
-    if (oldIdx < oldItems.length) {
+    if (oldIdx < oldItems.length)
+    {
       const key = getKey(oldItems[oldIdx], oldIdx);
       const oldIndex = oldIdx;
       const newIndex = newKeyToIndex.get(key)!;
 
-      if (!lisSet.has(newIndex)) {
+      if (!lisSet.has(newIndex))
+      {
         operations.push({
           type: "move",
           oldIndex,
@@ -159,14 +174,17 @@ export function diffKeyed<T>(
   }
 
   // Phase 4: Find updates (same key but different content)
-  for (let i = 0; i < newItems.length; i++) {
+  for (let i = 0; i < newItems.length; i++)
+  {
     const key = getKey(newItems[i], i);
     const oldIdx = oldKeyToIndex.get(key);
-    if (oldIdx !== undefined) {
+    if (oldIdx !== undefined)
+    {
       const oldItem = oldItems[oldIdx];
       const newItem = newItems[i];
       // Only mark as update if content actually changed
-      if (!shallowEqual(oldItem, newItem)) {
+      if (!shallowEqual(oldItem, newItem))
+      {
         operations.push({
           type: "update",
           oldIndex: oldIdx,
@@ -194,21 +212,25 @@ export function diffUnkeyed<T>(
   oldLength: number,
   newLength: number,
   newItems: T[]
-): DiffOperation[] {
+): DiffOperation[]
+{
   const operations: DiffOperation[] = [];
 
   // Items to remove
-  for (let i = newLength; i < oldLength; i++) {
+  for (let i = newLength; i < oldLength; i++)
+  {
     operations.push({ type: "remove", oldIndex: i });
   }
 
   // Items to insert
-  for (let i = oldLength; i < newLength; i++) {
+  for (let i = oldLength; i < newLength; i++)
+  {
     operations.push({ type: "insert", newIndex: i, item: newItems[i] });
   }
 
   // All remaining items need update
-  for (let i = 0; i < Math.min(oldLength, newLength); i++) {
+  for (let i = 0; i < Math.min(oldLength, newLength); i++)
+  {
     operations.push({
       type: "update",
       oldIndex: i,
@@ -231,7 +253,8 @@ export function diffUnkeyed<T>(
  * @param arr - Array of numbers
  * @returns Indices of the LIS in the original array
  */
-function longestIncreasingSubsequence(arr: number[]): number[] {
+function longestIncreasingSubsequence(arr: number[]): number[]
+{
   if (arr.length === 0) return [];
 
   const n = arr.length;
@@ -240,14 +263,18 @@ function longestIncreasingSubsequence(arr: number[]): number[] {
   let maxLength = 1;
   let maxIndex = 0;
 
-  for (let i = 1; i < n; i++) {
-    for (let j = 0; j < i; j++) {
-      if (arr[j] < arr[i] && dp[j] + 1 > dp[i]) {
+  for (let i = 1; i < n; i++)
+  {
+    for (let j = 0; j < i; j++)
+    {
+      if (arr[j] < arr[i] && dp[j] + 1 > dp[i])
+      {
         dp[i] = dp[j] + 1;
         parent[i] = j;
       }
     }
-    if (dp[i] > maxLength) {
+    if (dp[i] > maxLength)
+    {
       maxLength = dp[i];
       maxIndex = i;
     }
@@ -256,9 +283,66 @@ function longestIncreasingSubsequence(arr: number[]): number[] {
   // Reconstruct the LIS
   const result: number[] = [];
   let current = maxIndex;
-  while (current !== -1) {
+  while (current !== -1)
+  {
     result.unshift(current);
     current = parent[current];
+  }
+
+  return result;
+}
+
+/**
+ * Computes the set of positions that form the longest increasing subsequence
+ * of `source`, ignoring entries whose value is < 0 (used to mark brand-new
+ * items that must always be (re)inserted).
+ *
+ * The loop renderer uses this to decide which reused elements are already in
+ * correct relative DOM order and can therefore stay put — only the remaining
+ * elements need to be moved. This turns an in-order content update into zero
+ * DOM moves and minimizes moves for partial reorders.
+ *
+ * Runs in O(n log n) using patience sorting with predecessor links.
+ *
+ * @param source - For each new position, the element's previous index, or -1 if new
+ * @returns Set of new-position indices that should NOT be moved
+ */
+export function getStableIndices(source: number[]): Set<number>
+{
+  const n = source.length;
+  const result = new Set<number>();
+  if (n === 0) return result;
+
+  // piles[k] holds the position with the smallest tail value for an increasing
+  // run of length k + 1. prev links each position to its predecessor in the run.
+  const piles: number[] = [];
+  const prev: number[] = new Array(n).fill(-1);
+
+  for (let i = 0; i < n; i++)
+  {
+    const value = source[i];
+    if (value < 0) continue; // new element — never part of the stable run
+
+    // Binary search for the first pile whose tail value is >= value.
+    let lo = 0;
+    let hi = piles.length;
+    while (lo < hi)
+    {
+      const mid = (lo + hi) >> 1;
+      if (source[piles[mid]] < value) lo = mid + 1;
+      else hi = mid;
+    }
+
+    if (lo > 0) prev[i] = piles[lo - 1];
+    piles[lo] = i;
+  }
+
+  // Walk the predecessor chain back from the last pile to collect the LIS.
+  let cur = piles.length > 0 ? piles[piles.length - 1] : -1;
+  while (cur !== -1)
+  {
+    result.add(cur);
+    cur = prev[cur];
   }
 
   return result;
@@ -271,7 +355,8 @@ function longestIncreasingSubsequence(arr: number[]): number[] {
 /**
  * Shallow equality check for detecting content changes.
  */
-function shallowEqual(a: unknown, b: unknown): boolean {
+function shallowEqual(a: unknown, b: unknown): boolean
+{
   if (a === b) return true;
   if (typeof a !== typeof b) return false;
   if (a === null || b === null) return a === b;
@@ -285,7 +370,8 @@ function shallowEqual(a: unknown, b: unknown): boolean {
 
   if (aKeys.length !== bKeys.length) return false;
 
-  for (const key of aKeys) {
+  for (const key of aKeys)
+  {
     if (aObj[key] !== bObj[key]) return false;
   }
 
@@ -306,8 +392,10 @@ function shallowEqual(a: unknown, b: unknown): boolean {
 export function createKeyGetter<T>(
   keyExpr: string | undefined,
   itemName: string
-): (item: T, index: number) => unknown {
-  if (!keyExpr) {
+): (item: T, index: number) => unknown
+{
+  if (!keyExpr)
+  {
     // No key expression - use index as key (not ideal but functional)
     return (_item, index) => index;
   }
@@ -318,9 +406,11 @@ export function createKeyGetter<T>(
     ? keyExpr.slice(itemName.length + 1).split(".")
     : keyExpr.split(".");
 
-  return (item: T) => {
+  return (item: T) =>
+  {
     let value: unknown = item;
-    for (const key of path) {
+    for (const key of path)
+    {
       if (value === null || value === undefined) return undefined;
       value = (value as Record<string, unknown>)[key];
     }
@@ -345,7 +435,8 @@ export function applyDiffOperations<T>(
   operations: DiffOperation[],
   createFn: (item: T, index: number) => Element,
   updateFn: (element: Element, item: T, index: number) => void
-): Element[] {
+): Element[]
+{
   const newElements = [...elements];
 
   // Sort operations to ensure correct order:
@@ -362,10 +453,13 @@ export function applyDiffOperations<T>(
   );
 
   // Apply removes
-  for (const op of removes) {
-    if (op.oldIndex !== undefined) {
+  for (const op of removes)
+  {
+    if (op.oldIndex !== undefined)
+    {
       const element = newElements[op.oldIndex];
-      if (element) {
+      if (element)
+      {
         element.remove();
       }
       newElements.splice(op.oldIndex, 1);
@@ -373,23 +467,30 @@ export function applyDiffOperations<T>(
   }
 
   // Apply updates
-  for (const op of updates) {
-    if (op.newIndex !== undefined && op.item !== undefined) {
+  for (const op of updates)
+  {
+    if (op.newIndex !== undefined && op.item !== undefined)
+    {
       const element = newElements[op.oldIndex!];
-      if (element) {
+      if (element)
+      {
         updateFn(element, op.item as T, op.newIndex);
       }
     }
   }
 
   // Apply inserts
-  for (const op of inserts) {
-    if (op.newIndex !== undefined && op.item !== undefined) {
+  for (const op of inserts)
+  {
+    if (op.newIndex !== undefined && op.item !== undefined)
+    {
       const element = createFn(op.item as T, op.newIndex);
       const referenceElement = newElements[op.newIndex];
-      if (referenceElement) {
+      if (referenceElement)
+      {
         container.insertBefore(element, referenceElement);
-      } else {
+      } else
+      {
         container.appendChild(element);
       }
       newElements.splice(op.newIndex, 0, element);

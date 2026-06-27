@@ -1,32 +1,32 @@
 import { BindingDescriptor, ScriptElement } from "../../types";
 import { EVENT_ATTRIBUTES } from "../../utils/jsevents";
 import
-  {
-    ALLOWED_GLOBALS,
-    BLOCKED_GLOBALS,
-    RESERVED_WORDS,
-  } from "../../utils/sandbox";
+{
+  ALLOWED_GLOBALS,
+  BLOCKED_GLOBALS,
+  RESERVED_WORDS,
+} from "../../utils/sandbox";
 import
-  {
-    isEventDirective,
-    parseEventDirective,
-    createModifiedHandler,
-    getListenerOptions,
-  } from "../../utils/keyModifiers";
+{
+  isEventDirective,
+  parseEventDirective,
+  createModifiedHandler,
+  getListenerOptions,
+} from "../../utils/keyModifiers";
 import
-  {
-    expressionError,
-    scriptError,
-    warn,
-    getComponentContext,
-    ErrorCode,
-  } from "../../utils/devWarnings";
+{
+  expressionError,
+  scriptError,
+  warn,
+  getComponentContext,
+  ErrorCode,
+} from "../../utils/devWarnings";
 import { createReactiveState } from "./reactivity";
 import
-  {
-    frameworkHelperNames,
-    createFrameworkHelpers,
-  } from "../helpers/frameworkHelpers";
+{
+  frameworkHelperNames,
+  createFrameworkHelpers,
+} from "../helpers/frameworkHelpers";
 import { eventBusHelperNames, createEventBusHelpers } from "../events/eventBus";
 import { getPendingLazyContent } from "../builtins/lazyElement";
 
@@ -1414,10 +1414,10 @@ function getAllowedGlobalsWithValues(
   componentUrl?: string,
   componentId?: string,
 ):
-    {
-      keys: string[];
-      values: unknown[];
-    }
+  {
+    keys: string[];
+    values: unknown[];
+  }
 {
   const keys: string[] = [];
   const values: unknown[] = [];
@@ -1457,6 +1457,28 @@ function getAllowedGlobalsWithValues(
  * Evaluates a binding expression like {name} or {name.toUpperCase()}
  * in the component's context.
  */
+/**
+ * Cache of compiled expression evaluators.
+ *
+ * Compiling an expression with `new Function()` is expensive (parse + JIT) and
+ * was previously done on EVERY evaluation. In the directive update path this
+ * meant recompiling the same expression once per item per render — e.g. an
+ * `$for` over 1000 rows recompiled its bindings 1000+ times on each update.
+ * Caching the compiled function turns repeat evaluations into a plain call.
+ *
+ * The cache key combines the positional parameter names (the current state
+ * keys) with the expression source, since the compiled function's parameters
+ * are positional. The blocked globals are constant for the page lifetime, so
+ * they don't need to participate in the key.
+ */
+const evaluatorCache = new Map<string, Function>();
+const MAX_EVALUATOR_CACHE = 5000;
+
+// Blocked globals never change at runtime, so compute the param list and the
+// matching `undefined` argument array once and reuse them.
+let cachedBlockedGlobals: readonly string[] | null = null;
+let cachedBlockedUndefined: undefined[] | null = null;
+
 function evaluateExpression(
   expression: string,
   state: Record<string, unknown>,
@@ -1465,14 +1487,36 @@ function evaluateExpression(
   try
   {
     const keys = Object.keys(state);
-    const values = Object.values(state);
 
-    const safeBlocked = getSafeBlockedGlobals();
-    const allKeys = [...safeBlocked, ...keys];
-    const allValues = [...safeBlocked.map(() => undefined), ...values];
+    if (cachedBlockedGlobals === null)
+    {
+      cachedBlockedGlobals = getSafeBlockedGlobals();
+      cachedBlockedUndefined = cachedBlockedGlobals.map(() => undefined);
+    }
+    const safeBlocked = cachedBlockedGlobals;
 
-    const fn = new Function(...allKeys, `"use strict"; return ${expression};`);
-    return fn(...allValues);
+    // Positional params are [blocked globals..., state keys...]. Only the state
+    // keys + expression distinguish one compiled evaluator from another.
+    const cacheKey = keys.join(",") + "\u0000" + expression;
+    let fn = evaluatorCache.get(cacheKey);
+    if (!fn)
+    {
+      // Bound the cache so long-lived apps with many distinct expressions
+      // don't grow it without limit (FIFO eviction of the oldest entry).
+      if (evaluatorCache.size >= MAX_EVALUATOR_CACHE)
+      {
+        const oldest = evaluatorCache.keys().next().value;
+        if (oldest !== undefined) evaluatorCache.delete(oldest);
+      }
+      fn = new Function(
+        ...safeBlocked,
+        ...keys,
+        `"use strict"; return ${expression};`,
+      );
+      evaluatorCache.set(cacheKey, fn);
+    }
+
+    return fn(...cachedBlockedUndefined!, ...Object.values(state));
   } catch (e)
   {
     expressionError(expression, e as Error, {

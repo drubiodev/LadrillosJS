@@ -9,12 +9,14 @@
  * - $ref: Element references
  */
 
-import {
+import
+{
   ConditionalDescriptor,
   LoopDescriptor,
   TwoWayBindingDescriptor,
 } from "../../types";
-import {
+import
+{
   BIND_DIRECTIVE,
   REF_DIRECTIVE,
   DIRECTIVE_PATTERNS,
@@ -32,18 +34,25 @@ const ELSE_IF_TAG = "ELSE-IF";
 const ELSE_TAG = "ELSE";
 const SHOW_TAG = "SHOW";
 import { EVENT_ATTRIBUTES } from "../../utils/jsevents";
-import {
+import
+{
   isEventDirective,
   parseEventDirective,
   createModifiedHandler,
   getListenerOptions,
 } from "../../utils/keyModifiers";
-import {
+import
+{
   extractFunctionDefinitions,
   extractVariableNames,
 } from "../js/scriptParser";
 import { createEventBusHelpers } from "../events/eventBus";
-import { diffKeyed, diffUnkeyed, createKeyGetter } from "../diff/listDiff";
+import
+{
+  diffKeyed,
+  createKeyGetter,
+  getStableIndices,
+} from "../diff/listDiff";
 import { warn, error } from "../../utils/devWarnings";
 
 // ============================================================================
@@ -88,9 +97,11 @@ export type ShowDescriptor = {
  * e.g., "{!isLoggedIn}" -> "!isLoggedIn"
  *       "isLoggedIn" -> "isLoggedIn" (no change if no braces)
  */
-function stripBindingBraces(expression: string): string {
+function stripBindingBraces(expression: string): string
+{
   const trimmed = expression.trim();
-  if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
+  if (trimmed.startsWith("{") && trimmed.endsWith("}"))
+  {
     return trimmed.slice(1, -1).trim();
   }
   return trimmed;
@@ -106,7 +117,8 @@ function stripBindingBraces(expression: string): string {
  */
 export function scanDirectives(
   host: HTMLElement | ShadowRoot,
-): DirectiveContext {
+): DirectiveContext
+{
   const context: DirectiveContext = {
     loops: [],
     conditionals: [],
@@ -134,7 +146,8 @@ export function scanDirectives(
     host,
     ...getPendingLazyContent(host),
   ];
-  for (const root of roots) {
+  for (const root of roots)
+  {
     scanRefs(root, context);
     scanLoops(root, context);
     scanShow(root, context);
@@ -157,7 +170,8 @@ export function scanDirectives(
 export function scanDirectivesWithRefs(
   host: HTMLElement | ShadowRoot,
   existingRefs: RefMap,
-): DirectiveContext {
+): DirectiveContext
+{
   const context: DirectiveContext = {
     loops: [],
     conditionals: [],
@@ -170,7 +184,8 @@ export function scanDirectivesWithRefs(
     host,
     ...getPendingLazyContent(host),
   ];
-  for (const root of roots) {
+  for (const root of roots)
+  {
     scanRefs(root, context);
     scanLoops(root, context);
     scanShow(root, context);
@@ -189,14 +204,17 @@ export function scanDirectivesWithRefs(
 export function scanRefsOnly(
   host: HTMLElement | ShadowRoot | DocumentFragment,
   refs: RefMap,
-): void {
+): void
+{
   const elements = Array.from(
     host.querySelectorAll(`[${escapeCssSelector(REF_DIRECTIVE)}]`),
   );
 
-  for (const element of elements) {
+  for (const element of elements)
+  {
     const refName = element.getAttribute(REF_DIRECTIVE);
-    if (refName) {
+    if (refName)
+    {
       refs.set(refName, element as HTMLElement);
       // Note: Don't remove the attribute here - let scanDirectives do it later
       // so that we don't break the directive scanning flow
@@ -217,14 +235,17 @@ export function scanRefsOnly(
 function scanRefs(
   host: HTMLElement | ShadowRoot | DocumentFragment,
   context: DirectiveContext,
-): void {
+): void
+{
   const elements = Array.from(
     host.querySelectorAll(`[${escapeCssSelector(REF_DIRECTIVE)}]`),
   );
 
-  for (const element of elements) {
+  for (const element of elements)
+  {
     const refName = element.getAttribute(REF_DIRECTIVE);
-    if (refName) {
+    if (refName)
+    {
       context.refs.set(refName, element as HTMLElement);
       // Remove the directive attribute from DOM
       element.removeAttribute(REF_DIRECTIVE);
@@ -251,24 +272,28 @@ function scanRefs(
 function scanLoops(
   host: HTMLElement | ShadowRoot | DocumentFragment,
   context: DirectiveContext,
-): void {
+): void
+{
   // Outermost-first: snapshot live, but skip nested <for> inside another <for>
   // (those are processed when the outer loop renders an iteration).
   const elements = Array.from(host.querySelectorAll("for"));
 
-  for (const element of elements) {
+  for (const element of elements)
+  {
     if (!element.parentNode) continue; // already extracted by an outer pass
     if (hasForAncestor(element)) continue;
 
     const expression =
       element.getAttribute("each") || element.getAttribute("of") || "";
-    if (!expression) {
+    if (!expression)
+    {
       warn(`<for> requires an "each" attribute, e.g. <for each="item in items">.`);
       continue;
     }
 
     let parsed = parseForExpression(expression);
-    if (!parsed) {
+    if (!parsed)
+    {
       warn(`Invalid <for each="…"> expression: "${expression}"`);
       continue;
     }
@@ -281,7 +306,8 @@ function scanLoops(
 
     // Build the per-iteration template root.
     const template = buildLoopTemplate(element);
-    if (!template) {
+    if (!template)
+    {
       warn(`<for each="${expression}"> has no content to render.`);
       continue;
     }
@@ -312,10 +338,12 @@ function scanLoops(
  *   - Single element child  → that child (fastest, zero overhead).
  *   - Otherwise              → wrap children in <span style="display:contents">.
  */
-function buildLoopTemplate(forEl: Element): Element | null {
+function buildLoopTemplate(forEl: Element): Element | null
+{
   // Collect non-whitespace nodes.
   const significant: Node[] = [];
-  for (const n of Array.from(forEl.childNodes)) {
+  for (const n of Array.from(forEl.childNodes))
+  {
     if (n.nodeType === Node.TEXT_NODE && !n.textContent?.trim()) continue;
     significant.push(n);
   }
@@ -324,23 +352,27 @@ function buildLoopTemplate(forEl: Element): Element | null {
   if (
     significant.length === 1 &&
     significant[0].nodeType === Node.ELEMENT_NODE
-  ) {
+  )
+  {
     return significant[0] as Element;
   }
 
   // Multi-child or text+element: wrap in a transparent span.
   const wrap = document.createElement("span");
   wrap.style.display = "contents";
-  for (const n of Array.from(forEl.childNodes)) {
+  for (const n of Array.from(forEl.childNodes))
+  {
     wrap.appendChild(n);
   }
   return wrap;
 }
 
 /** Walk up the tree checking for an ancestor <for>. */
-function hasForAncestor(el: Element): boolean {
+function hasForAncestor(el: Element): boolean
+{
   let p: Element | null = el.parentElement;
-  while (p) {
+  while (p)
+  {
     if (p.tagName === FOR_TAG) return true;
     p = p.parentElement;
   }
@@ -355,12 +387,14 @@ function hasForAncestor(el: Element): boolean {
  *   "(item, index) in items" → { item: "item", index: "index", array: "items" }
  *   "{ id, name } in users" → { item: "{ id, name }", array: "users" }
  */
-function parseForExpression(expression: string): {
-  item: string;
-  index?: string;
-  key?: string;
-  array: string;
-} | null {
+function parseForExpression(expression: string):
+  {
+    item: string;
+    index?: string;
+    key?: string;
+    array: string;
+  } | null
+{
   const match = expression.match(DIRECTIVE_PATTERNS.forAlias);
   if (!match) return null;
 
@@ -371,7 +405,8 @@ function parseForExpression(expression: string): {
   // Extract key if present: "item in items track by item.id"
   let key: string | undefined;
   const trackMatch = rhs.match(/\s+track\s+by\s+(.+)$/i);
-  if (trackMatch) {
+  if (trackMatch)
+  {
     key = trackMatch[1].trim();
     rhs = rhs.slice(0, trackMatch.index).trim();
   }
@@ -386,12 +421,14 @@ function parseForExpression(expression: string): {
   let index: string | undefined;
   let thirdParam: string | undefined;
 
-  if (iteratorMatch) {
+  if (iteratorMatch)
+  {
     // Has comma-separated values
     item = stripped.replace(DIRECTIVE_PATTERNS.forIterator, "").trim();
     index = iteratorMatch[1]?.trim();
     thirdParam = iteratorMatch[2]?.trim();
-  } else {
+  } else
+  {
     item = stripped;
   }
 
@@ -421,10 +458,12 @@ function parseForExpression(expression: string): {
 function scanConditionals(
   host: HTMLElement | ShadowRoot | DocumentFragment,
   context: DirectiveContext,
-): void {
+): void
+{
   const ifElements = Array.from(host.querySelectorAll("if"));
 
-  for (const ifElement of ifElements) {
+  for (const ifElement of ifElements)
+  {
     // NOTE: Do NOT skip on `!isConnected`. When an outer <if> is processed
     // first in this same loop, it gets detached from the host tree along
     // with its nested <if>/<else-if>/<else> children. Those nested elements
@@ -457,9 +496,11 @@ function scanConditionals(
 
     // Walk forward through immediate siblings collecting <else-if>/<else>.
     let current = ifElement.nextElementSibling;
-    while (current) {
+    while (current)
+    {
       const tag = current.tagName;
-      if (tag === ELSE_IF_TAG) {
+      if (tag === ELSE_IF_TAG)
+      {
         const rawElseIf = current.getAttribute("condition") || "";
         const elseIfCondition = stripBindingBraces(rawElseIf);
         const next = current.nextElementSibling;
@@ -475,7 +516,8 @@ function scanConditionals(
         );
         current.remove();
         current = next;
-      } else if (tag === ELSE_TAG) {
+      } else if (tag === ELSE_TAG)
+      {
         group.push(
           createConditionalDescriptor(
             current,
@@ -488,14 +530,16 @@ function scanConditionals(
         );
         current.remove();
         break;
-      } else {
+      } else
+      {
         break;
       }
     }
 
     ifElement.remove();
 
-    for (const desc of group) {
+    for (const desc of group)
+    {
       desc.group = group;
     }
 
@@ -510,7 +554,8 @@ function createConditionalDescriptor(
   placeholder: Comment,
   parent: Element | ShadowRoot,
   nextSibling: Node | null,
-): ConditionalDescriptor {
+): ConditionalDescriptor
+{
   // Remove the condition attribute (no longer needed once captured) and apply
   // display:contents so the element renders transparently without a wrapper box.
   element.removeAttribute("condition");
@@ -540,10 +585,12 @@ function createConditionalDescriptor(
 function scanShow(
   host: HTMLElement | ShadowRoot | DocumentFragment,
   context: DirectiveContext,
-): void {
+): void
+{
   const elements = Array.from(host.querySelectorAll("show"));
 
-  for (const element of elements) {
+  for (const element of elements)
+  {
     if (!element.parentNode) continue;
     if (hasForAncestor(element)) continue;
 
@@ -576,12 +623,14 @@ function scanShow(
 function scanTwoWayBindings(
   host: HTMLElement | ShadowRoot | DocumentFragment,
   context: DirectiveContext,
-): void {
+): void
+{
   const elements = Array.from(
     host.querySelectorAll(`[${escapeCssSelector(BIND_DIRECTIVE)}]`),
   );
 
-  for (const element of elements) {
+  for (const element of elements)
+  {
     const expression = element.getAttribute(BIND_DIRECTIVE);
     if (!expression) continue;
 
@@ -619,7 +668,8 @@ function scanTwoWayBindings(
 function isInsideUnprocessedLoop(
   element: Element,
   _context: DirectiveContext,
-): boolean {
+): boolean
+{
   return hasForAncestor(element);
 }
 
@@ -637,8 +687,10 @@ export function renderLoops(
     expr: string,
     context: Record<string, unknown>,
   ) => unknown,
-): void {
-  for (const loop of loops) {
+): void
+{
+  for (const loop of loops)
+  {
     renderLoop(loop, state, evaluateExpression);
   }
 }
@@ -654,13 +706,16 @@ function renderLoop(
     expr: string,
     context: Record<string, unknown>,
   ) => unknown,
-): void {
+): void
+{
   // Get the array to iterate over
   const arrayValue = evaluateExpression(loop.arrayName, state);
 
-  if (!arrayValue || !isIterable(arrayValue)) {
+  if (!arrayValue || !isIterable(arrayValue))
+  {
     // Clear all if array is empty/invalid
-    for (const el of loop.renderedElements) {
+    for (const el of loop.renderedElements)
+    {
       el.remove();
     }
     loop.renderedElements = [];
@@ -673,12 +728,14 @@ function renderLoop(
   const oldElements = loop.renderedElements;
 
   // Initialize key getter if not already done (cached for performance)
-  if (!loop.keyGetter) {
+  if (!loop.keyGetter)
+  {
     loop.keyGetter = createKeyGetter(loop.keyAttribute, loop.itemName);
   }
 
   // Helper to create a new element for an item
-  const createElement = (item: unknown, index: number): Element => {
+  const createElement = (item: unknown, index: number): Element =>
+  {
     const clone = loop.template.cloneNode(true) as Element;
     const loopContext = createLoopContext(state, loop, item, index);
     // Resolve any <if>/<else-if>/<else> chains nested inside the loop
@@ -688,96 +745,148 @@ function renderLoop(
     return clone;
   };
 
-  // Use keyed diffing if key attribute is specified, otherwise use simple diff
-  if (loop.keyAttribute) {
-    // Keyed diffing - optimal for reordering, additions, removals
+  // Build the reconciled element list. `source[i]` is the previous index of
+  // the element now at position i, or -1 for a freshly created one — this
+  // drives the shared LIS-based move minimization below.
+  const newElements: Element[] = new Array(newItems.length);
+  const source: number[] = new Array(newItems.length);
+
+  // One reusable context for all in-place updates this pass. The update path
+  // never captures the context (no event handlers are created there), so
+  // mutating item/index per element is safe and avoids copying the whole
+  // component state once per item. New elements still get a fresh context
+  // because their event handlers close over it.
+  const updateContext = createBaseLoopContext(state);
+
+  if (loop.keyAttribute)
+  {
+    // Keyed reconciliation - match elements by key for optimal reuse.
     const operations = diffKeyed(oldItems, newItems, loop.keyGetter);
 
-    // Build key-to-element map for reuse
     const keyToElement = new Map<unknown, Element>();
-    for (let i = 0; i < oldItems.length; i++) {
+    const keyToOldIndex = new Map<unknown, number>();
+    for (let i = 0; i < oldItems.length; i++)
+    {
       const key = loop.keyGetter(oldItems[i], i);
-      if (oldElements[i]) {
-        keyToElement.set(key, oldElements[i]);
-      }
+      keyToOldIndex.set(key, i);
+      if (oldElements[i]) keyToElement.set(key, oldElements[i]);
     }
 
-    // Process operations
-    const newElements: Element[] = new Array(newItems.length);
-
-    // Handle removes first
-    for (const op of operations) {
-      if (op.type === "remove" && op.key !== undefined) {
+    // Remove elements whose key disappeared.
+    for (const op of operations)
+    {
+      if (op.type === "remove" && op.key !== undefined)
+      {
         const el = keyToElement.get(op.key);
-        if (el) {
+        if (el)
+        {
           el.remove();
           keyToElement.delete(op.key);
         }
       }
     }
 
-    // Build new element array and handle inserts/updates
-    for (let i = 0; i < newItems.length; i++) {
+    for (let i = 0; i < newItems.length; i++)
+    {
       const item = newItems[i];
       const key = loop.keyGetter(item, i);
       const existingEl = keyToElement.get(key);
-
-      if (existingEl) {
-        // Reuse existing element - just update bindings if content changed
-        const loopContext = createLoopContext(state, loop, item, i);
-        updateElementBindings(existingEl, loopContext, evaluateExpression);
+      if (existingEl)
+      {
+        // Reuse existing element - update bindings against the shared context.
+        updateContext[loop.itemName] = item;
+        if (loop.indexName) updateContext[loop.indexName] = i;
+        updateElementBindings(existingEl, updateContext, evaluateExpression);
         newElements[i] = existingEl;
-      } else {
-        // Create new element
+        source[i] = keyToOldIndex.get(key) ?? -1;
+      } else
+      {
         newElements[i] = createElement(item, i);
+        source[i] = -1;
       }
     }
-
-    // Reorder/insert elements into correct positions
-    const fragment = document.createDocumentFragment();
-    for (const el of newElements) {
-      fragment.appendChild(el);
+  } else
+  {
+    // Non-keyed reconciliation - reuse elements by position (index identity).
+    const reuseCount = Math.min(oldItems.length, newItems.length);
+    for (let i = 0; i < newItems.length; i++)
+    {
+      if (i < reuseCount)
+      {
+        updateContext[loop.itemName] = newItems[i];
+        if (loop.indexName) updateContext[loop.indexName] = i;
+        updateElementBindings(
+          oldElements[i],
+          updateContext,
+          evaluateExpression,
+        );
+        newElements[i] = oldElements[i];
+        source[i] = i;
+      } else
+      {
+        newElements[i] = createElement(newItems[i], i);
+        source[i] = -1;
+      }
     }
-    loop.placeholder.parentNode?.insertBefore(
-      fragment,
-      loop.placeholder.nextSibling,
-    );
-
-    loop.renderedElements = newElements;
-  } else {
-    // Non-keyed: simple length-based diff
-    const minLen = Math.min(oldItems.length, newItems.length);
-
-    // Update existing elements in place
-    for (let i = 0; i < minLen; i++) {
-      const loopContext = createLoopContext(state, loop, newItems[i], i);
-      updateElementBindings(oldElements[i], loopContext, evaluateExpression);
-    }
-
-    // Remove excess elements
-    for (let i = newItems.length; i < oldItems.length; i++) {
+    // Remove trailing elements that no longer have a matching item.
+    for (let i = reuseCount; i < oldElements.length; i++)
+    {
       oldElements[i]?.remove();
     }
-
-    // Add new elements
-    const fragment = document.createDocumentFragment();
-    for (let i = oldItems.length; i < newItems.length; i++) {
-      const el = createElement(newItems[i], i);
-      fragment.appendChild(el);
-      oldElements[i] = el;
-    }
-    if (fragment.childNodes.length > 0) {
-      // Insert after last existing element or after placeholder
-      const insertPoint =
-        oldElements[minLen - 1]?.nextSibling || loop.placeholder.nextSibling;
-      loop.placeholder.parentNode?.insertBefore(fragment, insertPoint);
-    }
-
-    loop.renderedElements = oldElements.slice(0, newItems.length);
   }
+
+  // Place elements in target order, moving only those that are not part of the
+  // longest stable (increasing) run of reused elements. Elements already in
+  // correct relative order stay put, so an in-order content update or a plain
+  // append performs the minimum number of DOM moves.
+  const stable = getStableIndices(source);
+  const parent = loop.placeholder.parentNode;
+  if (parent)
+  {
+    let prev: Node = loop.placeholder;
+    for (let i = 0; i < newElements.length; i++)
+    {
+      const el = newElements[i];
+      if (stable.has(i))
+      {
+        // Reused element already in correct relative position — leave it.
+        prev = el;
+      } else
+      {
+        // New or out-of-order element: move it directly after its predecessor.
+        if (prev.nextSibling !== el)
+        {
+          parent.insertBefore(el, prev.nextSibling);
+        }
+        prev = el;
+      }
+    }
+  }
+
+  loop.renderedElements = newElements;
 
   // Store current items for next diff
   loop.previousItems = [...newItems];
+}
+
+/**
+ * Builds the base per-loop context (everything except the item/index entries).
+ *
+ * Spreading the component state is the expensive part, so callers that update
+ * many elements in one pass build this once and then set the item/index keys
+ * per element instead of recreating the whole object each time.
+ */
+function createBaseLoopContext(
+  state: Record<string, unknown>,
+): Record<string, unknown>
+{
+  const scriptContentFromState = (state as any).__scriptContent;
+  return {
+    ...state,
+    __reactiveState__: state,
+    __scriptContent__: scriptContentFromState || "",
+    __componentUrl__: (state as any).__componentUrl || "",
+  };
 }
 
 /**
@@ -788,16 +897,12 @@ function createLoopContext(
   loop: LoopDescriptor,
   item: unknown,
   index: number,
-): Record<string, unknown> {
-  const scriptContentFromState = (state as any).__scriptContent;
-  const loopContext: Record<string, unknown> = {
-    ...state,
-    [loop.itemName]: item,
-    __reactiveState__: state,
-    __scriptContent__: scriptContentFromState || "",
-    __componentUrl__: (state as any).__componentUrl || "",
-  };
-  if (loop.indexName) {
+): Record<string, unknown>
+{
+  const loopContext = createBaseLoopContext(state);
+  loopContext[loop.itemName] = item;
+  if (loop.indexName)
+  {
     loopContext[loop.indexName] = index;
   }
   return loopContext;
@@ -813,7 +918,8 @@ function updateElementBindings(
     expr: string,
     context: Record<string, unknown>,
   ) => unknown,
-): void {
+): void
+{
   // Re-evaluate any <if>/<else-if>/<else> chains nested inside the element
   // (loop iteration) so the rendered branch matches the current per-item
   // context. Bindings inside an unchanged branch are updated by the normal
@@ -824,12 +930,15 @@ function updateElementBindings(
   const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
   let node: Text | null;
 
-  while ((node = walker.nextNode() as Text | null)) {
+  while ((node = walker.nextNode() as Text | null))
+  {
     const originalTemplate = (node as any).__originalTemplate;
-    if (originalTemplate) {
+    if (originalTemplate)
+    {
       node.textContent = originalTemplate.replace(
         /\{([^}]+)\}/g,
-        (_: string, expr: string) => {
+        (_: string, expr: string) =>
+        {
           const result = evaluateExpression(expr.trim(), context);
           return String(result ?? "");
         },
@@ -838,14 +947,18 @@ function updateElementBindings(
   }
 
   // Update attribute bindings
-  for (const attr of Array.from(element.attributes)) {
+  for (const attr of Array.from(element.attributes))
+  {
     const originalTemplate = (attr as any).__originalTemplate;
-    if (originalTemplate) {
+    if (originalTemplate)
+    {
       attr.value = originalTemplate.replace(
         /\{([^}]+)\}/g,
-        (_: string, expr: string) => {
+        (_: string, expr: string) =>
+        {
           const result = evaluateExpression(expr.trim(), context);
-          if (result !== null && typeof result === "object") {
+          if (result !== null && typeof result === "object")
+          {
             return JSON.stringify(result);
           }
           return String(result ?? "");
@@ -855,7 +968,8 @@ function updateElementBindings(
   }
 
   // Recursively update children
-  for (const child of Array.from(element.children)) {
+  for (const child of Array.from(element.children))
+  {
     updateElementBindings(child, context, evaluateExpression);
   }
 }
@@ -905,13 +1019,17 @@ function chooseLoopConditionalBranch(
     expr: string,
     context: Record<string, unknown>,
   ) => unknown,
-): number {
-  for (let i = 0; i < branches.length; i++) {
+): number
+{
+  for (let i = 0; i < branches.length; i++)
+  {
     const b = branches[i];
     if (b.type === "else") return i;
-    try {
+    try
+    {
       if (evaluateExpression(b.condition, context)) return i;
-    } catch {
+    } catch
+    {
       // Treat evaluation errors as false so subsequent branches can match.
     }
   }
@@ -920,7 +1038,8 @@ function chooseLoopConditionalBranch(
 
 function renderLoopConditionalBranch(
   branch: LoopConditionalBranch,
-): Element {
+): Element
+{
   // Wrap in a transparent `<span style="display:contents">` so the rendered
   // branch contributes no layout box and doesn't visually nest its content.
   const wrap = document.createElement("span");
@@ -937,12 +1056,14 @@ function renderLoopConditionalBranch(
 function buildLoopConditionalBranch(
   el: Element,
   type: "if" | "else-if" | "else",
-): LoopConditionalBranch {
+): LoopConditionalBranch
+{
   const tpl = document.createElement("template");
   // Use cloneNode on each child so the original element remains intact
   // until the caller removes it. This avoids any ambiguity with live
   // collections during the surrounding scan loop.
-  for (const child of Array.from(el.childNodes)) {
+  for (const child of Array.from(el.childNodes))
+  {
     tpl.content.appendChild(child.cloneNode(true));
   }
   const condition =
@@ -965,17 +1086,20 @@ function resolveLoopConditionals(
     expr: string,
     context: Record<string, unknown>,
   ) => unknown,
-): void {
+): void
+{
   // Loop because resolving an outer chain inserts a new branch subtree that
   // may itself contain further `<if>` chains we still need to process.
   // querySelectorAll returns a static snapshot; re-querying each iteration
   // picks up any newly-attached `<if>` nodes.
   // Guard against pathological infinite loops just in case.
   let safety = 10000;
-  while (safety-- > 0) {
+  while (safety-- > 0)
+  {
     let target: Element | null = null;
     const candidates = root.querySelectorAll(IF_TAG);
-    for (let i = 0; i < candidates.length; i++) {
+    for (let i = 0; i < candidates.length; i++)
+    {
       const candidate = candidates[i];
       if (!candidate.parentNode) continue;
       if (hasForAncestor(candidate)) continue;
@@ -989,16 +1113,20 @@ function resolveLoopConditionals(
 
     const toRemove: Element[] = [];
     let cur = target.nextElementSibling;
-    while (cur) {
-      if (cur.tagName === ELSE_IF_TAG) {
+    while (cur)
+    {
+      if (cur.tagName === ELSE_IF_TAG)
+      {
         branches.push(buildLoopConditionalBranch(cur, "else-if"));
         toRemove.push(cur);
         cur = cur.nextElementSibling;
-      } else if (cur.tagName === ELSE_TAG) {
+      } else if (cur.tagName === ELSE_TAG)
+      {
         branches.push(buildLoopConditionalBranch(cur, "else"));
         toRemove.push(cur);
         break;
-      } else {
+      } else
+      {
         break;
       }
     }
@@ -1020,7 +1148,8 @@ function resolveLoopConditionals(
       context,
       evaluateExpression,
     );
-    if (chosenIdx >= 0) {
+    if (chosenIdx >= 0)
+    {
       const rendered = renderLoopConditionalBranch(branches[chosenIdx]);
       placeholder.parentNode!.insertBefore(rendered, placeholder.nextSibling);
       meta.currentIndex = chosenIdx;
@@ -1046,14 +1175,17 @@ function updateLoopConditionals(
     expr: string,
     context: Record<string, unknown>,
   ) => unknown,
-): void {
+): void
+{
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_COMMENT);
   const placeholders: Comment[] = [];
   let n: Comment | null;
-  while ((n = walker.nextNode() as Comment | null)) {
+  while ((n = walker.nextNode() as Comment | null))
+  {
     if ((n as any)[LOOP_COND_META]) placeholders.push(n);
   }
-  for (const placeholder of placeholders) {
+  for (const placeholder of placeholders)
+  {
     const meta = (placeholder as any)[LOOP_COND_META] as LoopConditionalMeta;
     const newIdx = chooseLoopConditionalBranch(
       meta.branches,
@@ -1062,13 +1194,15 @@ function updateLoopConditionals(
     );
     if (newIdx === meta.currentIndex) continue;
 
-    if (meta.currentEl && meta.currentEl.parentNode) {
+    if (meta.currentEl && meta.currentEl.parentNode)
+    {
       meta.currentEl.remove();
     }
     meta.currentEl = null;
     meta.currentIndex = -1;
 
-    if (newIdx >= 0) {
+    if (newIdx >= 0)
+    {
       const el = renderLoopConditionalBranch(meta.branches[newIdx]);
       placeholder.parentNode!.insertBefore(el, placeholder.nextSibling);
       meta.currentIndex = newIdx;
@@ -1093,17 +1227,22 @@ function processElementBindings(
     expr: string,
     context: Record<string, unknown>,
   ) => unknown,
-): void {
+): void
+{
   // Process attributes - first replace bindings, then transform event handlers
-  for (const attr of Array.from(element.attributes)) {
-    if (attr.value.includes("{")) {
+  for (const attr of Array.from(element.attributes))
+  {
+    if (attr.value.includes("{"))
+    {
       // Store original template for keyed diffing reuse
       (attr as any).__originalTemplate = attr.value;
-      const newValue = attr.value.replace(/\{([^}]+)\}/g, (_, expr) => {
+      const newValue = attr.value.replace(/\{([^}]+)\}/g, (_, expr) =>
+      {
         const result = evaluateExpression(expr.trim(), context);
         // Serialize objects/arrays to JSON so child components can parse them
         // This allows email="{item}" to pass the actual object, not "[object Object]"
-        if (result !== null && typeof result === "object") {
+        if (result !== null && typeof result === "object")
+        {
           return JSON.stringify(result);
         }
         return String(result ?? "");
@@ -1121,18 +1260,22 @@ function processElementBindings(
   const textNodes: Text[] = [];
   let node: Text | null;
 
-  while ((node = walker.nextNode() as Text | null)) {
-    if (node.textContent?.includes("{")) {
+  while ((node = walker.nextNode() as Text | null))
+  {
+    if (node.textContent?.includes("{"))
+    {
       textNodes.push(node);
     }
   }
 
-  for (const textNode of textNodes) {
+  for (const textNode of textNodes)
+  {
     // Store original template for keyed diffing reuse
     (textNode as any).__originalTemplate = textNode.textContent;
     textNode.textContent = textNode.textContent!.replace(
       /\{([^}]+)\}/g,
-      (_, expr) => {
+      (_, expr) =>
+      {
         const result = evaluateExpression(expr.trim(), context);
         return String(result ?? "");
       },
@@ -1140,7 +1283,8 @@ function processElementBindings(
   }
 
   // Recursively process child elements
-  for (const child of Array.from(element.children)) {
+  for (const child of Array.from(element.children))
+  {
     processElementBindings(child, context, evaluateExpression);
   }
 }
@@ -1160,12 +1304,15 @@ function processElementBindings(
 function transformLoopEventHandlers(
   element: Element,
   context: Record<string, unknown>,
-): void {
+): void
+{
   // Process standard inline event handlers (onclick, oninput, etc.)
-  for (const attrName of EVENT_ATTRIBUTES) {
+  for (const attrName of EVENT_ATTRIBUTES)
+  {
     const handlerCode = element.getAttribute(attrName);
 
-    if (handlerCode) {
+    if (handlerCode)
+    {
       // Remove the attribute so browser doesn't try to eval it globally
       element.removeAttribute(attrName);
 
@@ -1174,7 +1321,8 @@ function transformLoopEventHandlers(
 
       // Create event listener with component context
       const handler = createLoopEventHandler(handlerCode, context);
-      if (handler) {
+      if (handler)
+      {
         element.addEventListener(eventName, handler);
       }
     }
@@ -1196,12 +1344,14 @@ function transformLoopEventHandlers(
 function processLoopEventDirectives(
   element: Element,
   context: Record<string, unknown>,
-): void {
+): void
+{
   // Get all attributes that start with $on:
   const attrs = Array.from(element.attributes);
   const eventAttrs = attrs.filter((attr) => isEventDirective(attr.name));
 
-  for (const attr of eventAttrs) {
+  for (const attr of eventAttrs)
+  {
     const parsed = parseEventDirective(attr.name);
     if (!parsed) continue;
 
@@ -1233,8 +1383,10 @@ function processLoopEventDirectives(
 function createLoopEventHandler(
   code: string,
   context: Record<string, unknown>,
-): ((event: Event) => void) | null {
-  try {
+): ((event: Event) => void) | null
+{
+  try
+  {
     // Get reactive state and script content from context (set by renderLoop)
     const reactiveState = context.__reactiveState__ as
       | Record<string, unknown>
@@ -1277,17 +1429,20 @@ function createLoopEventHandler(
     let funcDefs = "";
     let destructureFuncs = "";
 
-    if (hasModuleScripts) {
+    if (hasModuleScripts)
+    {
       // Module script functions are reactive - just destructure them
       destructureFuncs =
         funcNames.length > 0
           ? `const { ${funcNames.join(", ")} } = context;`
           : "";
-    } else if (hasScriptContent) {
+    } else if (hasScriptContent)
+    {
       // Regular scripts: re-create functions from script content so they
       // work with the local variables that will be synced back to state
       funcDefs = extractFunctionDefinitions(scriptContent, []);
-    } else {
+    } else
+    {
       // Fallback: destructure functions from context
       destructureFuncs =
         funcNames.length > 0
@@ -1344,8 +1499,10 @@ function createLoopEventHandler(
       fnBody,
     );
 
-    return (event: Event) => {
-      try {
+    return (event: Event) =>
+    {
+      try
+      {
         fn(
           event,
           context,
@@ -1353,11 +1510,13 @@ function createLoopEventHandler(
           eventBusHelpers.$emit,
           eventBusHelpers.$listen,
         );
-      } catch (e) {
+      } catch (e)
+      {
         error(`Error in loop event handler: ${code}`, null, e);
       }
     };
-  } catch (e) {
+  } catch (e)
+  {
     warn(
       `Failed to create loop event handler: ${code} — ${(e as Error).message}`,
     );
@@ -1375,8 +1534,10 @@ export function updateConditionals(
     expr: string,
     context: Record<string, unknown>,
   ) => unknown,
-): void {
-  for (const group of conditionals) {
+): void
+{
+  for (const group of conditionals)
+  {
     updateConditionalGroup(group, state, evaluateExpression);
   }
 }
@@ -1391,26 +1552,33 @@ function updateConditionalGroup(
     expr: string,
     context: Record<string, unknown>,
   ) => unknown,
-): void {
+): void
+{
   // Remove all currently visible elements
-  for (const desc of group) {
-    if (desc.element.parentNode) {
+  for (const desc of group)
+  {
+    if (desc.element.parentNode)
+    {
       desc.element.remove();
     }
   }
 
   // Find the first matching condition
-  for (const desc of group) {
+  for (const desc of group)
+  {
     let shouldShow = false;
 
-    if (desc.type === "else") {
+    if (desc.type === "else")
+    {
       shouldShow = true; // $else always shows if we reach it
-    } else {
+    } else
+    {
       const result = evaluateExpression(desc.condition, state);
       shouldShow = Boolean(result);
     }
 
-    if (shouldShow) {
+    if (shouldShow)
+    {
       // Insert this element after the placeholder
       desc.placeholder.parentNode?.insertBefore(
         desc.element,
@@ -1431,8 +1599,10 @@ export function updateShowElements(
     expr: string,
     context: Record<string, unknown>,
   ) => unknown,
-): void {
-  for (const desc of showElements) {
+): void
+{
+  for (const desc of showElements)
+  {
     const result = evaluateExpression(desc.expression, state);
     const shouldShow = Boolean(result);
 
@@ -1453,16 +1623,19 @@ export function setupTwoWayBindings(
     expr: string,
     context: Record<string, unknown>,
   ) => unknown,
-): (changedKey?: string) => void {
+): (changedKey?: string) => void
+{
   // Registry mapping state keys to bound elements
   const registry: TwoWayBindingRegistry = new Map();
 
-  for (const binding of bindings) {
+  for (const binding of bindings)
+  {
     setupTwoWayBinding(binding, state, evaluateExpression, registry);
   }
 
   // Return a function that updates all bound inputs when state changes
-  return (changedKey?: string) => {
+  return (changedKey?: string) =>
+  {
     updateBoundInputs(registry, state, evaluateExpression, changedKey);
   };
 }
@@ -1478,7 +1651,8 @@ function setupTwoWayBinding(
     context: Record<string, unknown>,
   ) => unknown,
   registry: TwoWayBindingRegistry,
-): void {
+): void
+{
   const element = binding.element;
   const { raw, path, isContentEditable } = binding;
 
@@ -1489,7 +1663,8 @@ function setupTwoWayBinding(
   // Register this binding for state→input sync
   // The key is the first part of the path (top-level state key)
   const stateKey = path[0];
-  if (!registry.has(stateKey)) {
+  if (!registry.has(stateKey))
+  {
     registry.set(stateKey, []);
   }
   registry.get(stateKey)!.push({
@@ -1499,10 +1674,12 @@ function setupTwoWayBinding(
   });
 
   // Also register for the full raw expression (handles nested paths)
-  if (raw !== stateKey && !registry.has(raw)) {
+  if (raw !== stateKey && !registry.has(raw))
+  {
     registry.set(raw, []);
   }
-  if (raw !== stateKey) {
+  if (raw !== stateKey)
+  {
     registry.get(raw)!.push({
       element: element as HTMLElement,
       path,
@@ -1518,12 +1695,14 @@ function setupTwoWayBinding(
 
   // Store the flag on the element so updateBoundInputs can set it
   (element as any).__isUpdatingFromState = () => isUpdatingFromState;
-  (element as any).__setUpdatingFromState = (val: boolean) => {
+  (element as any).__setUpdatingFromState = (val: boolean) =>
+  {
     isUpdatingFromState = val;
   };
 
   // Listen for changes and update state
-  element.addEventListener(eventType, () => {
+  element.addEventListener(eventType, () =>
+  {
     // Skip if this change was triggered by state→input sync
     if (isUpdatingFromState) return;
 
@@ -1549,15 +1728,18 @@ function updateBoundInputs(
     context: Record<string, unknown>,
   ) => unknown,
   changedKey?: string,
-): void {
+): void
+{
   // If a specific key changed, only update elements bound to that key
   const keysToUpdate = changedKey ? [changedKey] : Array.from(registry.keys());
 
-  for (const key of keysToUpdate) {
+  for (const key of keysToUpdate)
+  {
     const bindings = registry.get(key);
     if (!bindings) continue;
 
-    for (const binding of bindings) {
+    for (const binding of bindings)
+    {
       const { element, path, isContentEditable } = binding;
 
       // Get the current value from state
@@ -1572,7 +1754,8 @@ function updateBoundInputs(
       setElementValue(element, currentValue, isContentEditable);
 
       // Clear the flag after a microtask to ensure the event handler sees it
-      if (setFlag) {
+      if (setFlag)
+      {
         queueMicrotask(() => setFlag(false));
       }
     }
@@ -1582,13 +1765,17 @@ function updateBoundInputs(
 /**
  * Gets the appropriate event type for an input element.
  */
-function getInputEventType(element: HTMLElement): string {
-  if (element instanceof HTMLSelectElement) {
+function getInputEventType(element: HTMLElement): string
+{
+  if (element instanceof HTMLSelectElement)
+  {
     return "change";
   }
-  if (element instanceof HTMLInputElement) {
+  if (element instanceof HTMLInputElement)
+  {
     const type = element.type.toLowerCase();
-    if (type === "checkbox" || type === "radio") {
+    if (type === "checkbox" || type === "radio")
+    {
       return "change";
     }
   }
@@ -1601,30 +1788,38 @@ function getInputEventType(element: HTMLElement): string {
 function getElementValue(
   element: HTMLElement,
   isContentEditable?: boolean,
-): unknown {
-  if (isContentEditable) {
+): unknown
+{
+  if (isContentEditable)
+  {
     return element.textContent || "";
   }
 
-  if (element instanceof HTMLInputElement) {
+  if (element instanceof HTMLInputElement)
+  {
     const type = element.type.toLowerCase();
-    if (type === "checkbox") {
+    if (type === "checkbox")
+    {
       return element.checked;
     }
-    if (type === "number" || type === "range") {
+    if (type === "number" || type === "range")
+    {
       return element.valueAsNumber;
     }
     return element.value;
   }
 
-  if (element instanceof HTMLSelectElement) {
-    if (element.multiple) {
+  if (element instanceof HTMLSelectElement)
+  {
+    if (element.multiple)
+    {
       return Array.from(element.selectedOptions).map((o) => o.value);
     }
     return element.value;
   }
 
-  if (element instanceof HTMLTextAreaElement) {
+  if (element instanceof HTMLTextAreaElement)
+  {
     return element.value;
   }
 
@@ -1638,28 +1833,35 @@ function setElementValue(
   element: HTMLElement,
   value: unknown,
   isContentEditable?: boolean,
-): void {
-  if (isContentEditable) {
+): void
+{
+  if (isContentEditable)
+  {
     element.textContent = String(value ?? "");
     return;
   }
 
-  if (element instanceof HTMLInputElement) {
+  if (element instanceof HTMLInputElement)
+  {
     const type = element.type.toLowerCase();
-    if (type === "checkbox") {
+    if (type === "checkbox")
+    {
       element.checked = Boolean(value);
-    } else {
+    } else
+    {
       element.value = String(value ?? "");
     }
     return;
   }
 
-  if (element instanceof HTMLSelectElement) {
+  if (element instanceof HTMLSelectElement)
+  {
     element.value = String(value ?? "");
     return;
   }
 
-  if (element instanceof HTMLTextAreaElement) {
+  if (element instanceof HTMLTextAreaElement)
+  {
     element.value = String(value ?? "");
     return;
   }
@@ -1674,12 +1876,15 @@ function setNestedValue(
   obj: Record<string, unknown>,
   path: string[],
   value: unknown,
-): void {
+): void
+{
   let current: any = obj;
 
-  for (let i = 0; i < path.length - 1; i++) {
+  for (let i = 0; i < path.length - 1; i++)
+  {
     const key = path[i];
-    if (!(key in current) || typeof current[key] !== "object") {
+    if (!(key in current) || typeof current[key] !== "object")
+    {
       current[key] = {};
     }
     current = current[key];
@@ -1691,7 +1896,8 @@ function setNestedValue(
 /**
  * Checks if a value is iterable.
  */
-function isIterable(value: unknown): boolean {
+function isIterable(value: unknown): boolean
+{
   return (
     value !== null &&
     value !== undefined &&
