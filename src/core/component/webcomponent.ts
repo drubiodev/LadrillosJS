@@ -177,9 +177,24 @@ export function createWebComponentClass(
       // component authors don't have to branch on rendering mode.
       const originalHTML = this.innerHTML;
       const originalChildren = document.createDocumentFragment();
-      while (this.firstChild)
+      if (useShadowDOM)
       {
-        originalChildren.appendChild(this.firstChild);
+        // Shadow DOM: the template renders into the shadow root, so the host's
+        // light-DOM children MUST stay in place for native <slot> projection to
+        // work. Clone them into the fragment so the same API is still exposed.
+        for (const child of Array.from(this.childNodes))
+        {
+          originalChildren.appendChild(child.cloneNode(true));
+        }
+      }
+      else
+      {
+        // Light DOM: loadTemplate overwrites the host's innerHTML, so move the
+        // original children out so scripts can re-project them manually.
+        while (this.firstChild)
+        {
+          originalChildren.appendChild(this.firstChild);
+        }
       }
       (this as any).__originalHTML = originalHTML;
       (this as any).__originalChildren = originalChildren;
