@@ -605,6 +605,21 @@ export function createWebComponentClass(
         }
 
         overrides[attr.name] = this._parseAttributeValue(attr.value);
+
+        // HTML lowercases all attribute names, so a camelCase prop like
+        // `isDisabled` can never be matched by an attribute. Mirror Vue's
+        // convention: map kebab-case attributes to a camelCase alias so
+        // <my-button is-disabled> resolves the script's `isDisabled` prop.
+        if (attr.name.includes("-"))
+        {
+          const camel = attr.name.replace(/-([a-z0-9])/g, (_, c) =>
+            c.toUpperCase(),
+          );
+          if (camel !== attr.name && !(camel in overrides))
+          {
+            overrides[camel] = overrides[attr.name];
+          }
+        }
       }
 
       // Warn developers about reserved attributes that were skipped

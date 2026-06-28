@@ -105,17 +105,32 @@ export async function loadScripts(
   // `let title = "Default"` becomes `__state__.title ??= "Default"`
   // Since title is already "Data" from attributes, ??= won't overwrite it
   // Derived values like `const test = ${title}...` will use the attribute value
-  for (const script of scripts)
+  //
+  // Suspend per-key reactive binding updates while the scripts run. Scripts
+  // assign __state__.x one declaration at a time, but a single binding can
+  // reference several variables (e.g. class="btn--{variant} btn--{size}").
+  // Updating that binding the moment the first variable is assigned would try
+  // to evaluate a variable declared later in the same script, throwing a
+  // spurious ReferenceError. We apply every binding together once execution
+  // finishes (see applyBindings below / applyBindingsDeferred for modules).
+  (reactiveState as any).__suspendReactivity = true;
+  try
   {
-    executeScriptWithReactiveState(
-      script.content,
-      reactiveState,
-      componentUrl,
-      componentId,
-      componentHost, // Pass host element for $host access
-      refs, // Pass refs for $refs access
-      templateBindings, // Pass template bindings so auto-props are accessible
-    );
+    for (const script of scripts)
+    {
+      executeScriptWithReactiveState(
+        script.content,
+        reactiveState,
+        componentUrl,
+        componentId,
+        componentHost, // Pass host element for $host access
+        refs, // Pass refs for $refs access
+        templateBindings, // Pass template bindings so auto-props are accessible
+      );
+    }
+  } finally
+  {
+    (reactiveState as any).__suspendReactivity = false;
   }
 
   // Store reactive state on host element (for debugging and event handlers)
@@ -1474,6 +1489,9 @@ function getAllowedGlobalsWithValues(
 const evaluatorCache = new Map<string, Function>();
 const MAX_EVALUATOR_CACHE = 5000;
 
+/** Matches strings usable as a JS function parameter name (no hyphens, etc.). */
+const IDENTIFIER_RE = /^[A-Za-z_$][\w$]*$/;
+
 // Blocked globals never change at runtime, so compute the param list and the
 // matching `undefined` argument array once and reuse them.
 let cachedBlockedGlobals: readonly string[] | null = null;
@@ -1486,7 +1504,23 @@ function evaluateExpression(
 {
   try
   {
-    const keys = Object.keys(state);
+    // Only valid JS identifiers can be `new Function` parameter names. Some
+    // state keys come from DOM attributes, which may be hyphenated (e.g.
+    // "data-id", "is-open"); passing those as params would throw a SyntaxError
+    // and break EVERY binding on the component. They can't be referenced in
+    // expressions anyway, so drop them (and their values) here.
+    const allKeys = Object.keys(state);
+    const keys: string[] = [];
+    const stateValues: unknown[] = [];
+    for (let i = 0; i < allKeys.length; i++)
+    {
+      const k = allKeys[i];
+      if (IDENTIFIER_RE.test(k))
+      {
+        keys.push(k);
+        stateValues.push(state[k]);
+      }
+    }
 
     if (cachedBlockedGlobals === null)
     {
@@ -1516,7 +1550,7 @@ function evaluateExpression(
       evaluatorCache.set(cacheKey, fn);
     }
 
-    return fn(...cachedBlockedUndefined!, ...Object.values(state));
+    return fn(...cachedBlockedUndefined!, ...stateValues);
   } catch (e)
   {
     expressionError(expression, e as Error, {
@@ -1548,6 +1582,69 @@ function isPureAttributeBinding(descriptor: BindingDescriptor): boolean
   const trimmed = descriptor.original.trim();
   if (!/^\{[\s\S]*\}$/.test(trimmed)) return false;
   return trimmed.slice(1, -1).trim() === descriptor.bindings[0].raw.trim();
+}
+
+/**
+ * HTML boolean attributes: their presence (not their value) is what matters.
+ * `<button disabled>` and `<button disabled="false">` are BOTH disabled, so a
+ * binding like disabled="{isDisabled}" must ADD or REMOVE the attribute rather
+ * than stringify the boolean. Mirrors how Vue/Lit treat boolean attributes.
+ */
+const BOOLEAN_ATTRIBUTES = new Set([
+  "disabled",
+  "checked",
+  "readonly",
+  "required",
+  "selected",
+  "hidden",
+  "multiple",
+  "autofocus",
+  "open",
+  "novalidate",
+  "formnovalidate",
+  "inert",
+  "reversed",
+  "loop",
+  "muted",
+  "controls",
+  "autoplay",
+  "playsinline",
+  "default",
+  "ismap",
+  "allowfullscreen",
+]);
+
+/**
+ * Sets a primitive (string/number/boolean) value onto a single-binding
+ * attribute, applying two web-standard conventions:
+ *
+ *   1. Boolean attributes (disabled, checked, …) toggle presence: truthy adds
+ *      the attribute, falsy removes it.
+ *   2. `null`/`undefined` removes the attribute entirely, so optional props
+ *      (tooltip="{tooltip}", name="{name}") default to absent instead of "".
+ *
+ * Other primitives are stringified as before, preserving existing behavior.
+ */
+function setPrimitiveAttribute(
+  element: Element,
+  name: string,
+  value: unknown,
+): void
+{
+  if (BOOLEAN_ATTRIBUTES.has(name))
+  {
+    if (value) element.setAttribute(name, "");
+    else element.removeAttribute(name);
+    return;
+  }
+
+  if (value === null || value === undefined)
+  {
+    element.removeAttribute(name);
+    return;
+  }
+
+  element.setAttribute(name, String(value));
 }
 
 /**
@@ -1584,10 +1681,10 @@ function updateSingleBinding(
         (element as any)[descriptor.attributeName!] = evaluated;
       } else
       {
-        // Primitive: keep the normal stringified attribute behavior.
-        element.setAttribute(
+        setPrimitiveAttribute(
+          element,
           descriptor.attributeName!,
-          String(evaluated ?? ""),
+          evaluated,
         );
       }
     }
