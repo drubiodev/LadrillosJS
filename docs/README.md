@@ -35,6 +35,10 @@ Welcome to the LadrillosJS documentation! This guide will help you understand ho
 - [**Component Lifecycle**](./15-lifecycle.md) - How components are processed
 - [**Internal Architecture**](./16-architecture.md) - Deep dive into the codebase
 
+### Guides
+
+- [**Creating a Design System**](./19-design-system.md) - Build themeable, token-driven components from start to finish
+
 ---
 
 ## What is LadrillosJS?
@@ -144,5 +148,6 @@ That's it! The counter is fully reactive - clicking the buttons updates the disp
 2. Learn about [Components](./03-components.md)
 3. Understand the [Reactivity System](./04-reactivity.md)
 4. Explore [Built-in Elements & Directives](./06-directives.md)
+5. Build a [Design System](./19-design-system.md)
 
 Happy building! 🧱
