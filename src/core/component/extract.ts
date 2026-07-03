@@ -5,6 +5,83 @@ import { rewriteImports } from "../js/moduleExecutor";
 const parser = new DOMParser();
 
 /**
+ * Signatures of scripts injected by dev servers / live-reload tooling.
+ *
+ * When a component's `.html` partial is fetched through a dev server (VS Code
+ * Live Preview, Live Server, BrowserSync, webpack-dev-server, …), that server
+ * injects its own live-reload / HMR client script into the served HTML. Those
+ * scripts are NOT part of the authored component, so they must never be treated
+ * as component script content — otherwise the framework tries to inline them and
+ * re-execute their code inside the reactive-state sandbox and event-handler
+ * builder, which corrupts state extraction and silently breaks every inline /
+ * `$on:` handler in the component.
+ *
+ * `@vite/client` and Vite `html-proxy` scripts are handled separately (Vite
+ * proxy scripts are intentionally fetched), so they are not listed here.
+ */
+const INJECTED_SCRIPT_SRC_MARKERS = [
+  "___vscode_livepreview_injected_script", // VS Code Live Preview
+  "/livereload.js", // LiveReload / VS Code Live Server
+  "browser-sync-client", // BrowserSync
+  "browser-sync/dist", // BrowserSync
+  "webpack-dev-server", // webpack-dev-server client
+  "sockjs-node", // webpack-dev-server / sockjs transport
+  "__webpack_hmr", // webpack hot middleware
+];
+
+const INJECTED_SCRIPT_CONTENT_MARKERS = [
+  "aka.ms/live-preview", // VS Code Live Preview banner
+  "Live Preview Extension", // VS Code Live Preview banner
+  "___vscode_livepreview", // VS Code Live Preview globals
+  "__bs_script__", // BrowserSync
+  "browser-sync", // BrowserSync client
+  "Browsersync", // BrowserSync client banner
+  "browserSync", // BrowserSync client
+  "LiveReload", // LiveReload client
+  "webpackHotUpdate", // webpack HMR runtime
+  "__webpack_hmr", // webpack hot middleware
+];
+
+/**
+ * `id` attribute values used by dev-server injected scripts.
+ */
+const INJECTED_SCRIPT_ID_MARKERS = [
+  "__bs_script__", // BrowserSync
+];
+
+/**
+ * Returns true when a `<script>` element was injected by a dev server /
+ * live-reload tool rather than authored as part of the component.
+ * Checks the external `src` URL, the `id` attribute, and inline content
+ * against known markers.
+ */
+function isDevServerInjectedScript(el: Element): boolean
+{
+  const src = el.getAttribute("src") || "";
+  if (src && INJECTED_SCRIPT_SRC_MARKERS.some((m) => src.includes(m)))
+  {
+    return true;
+  }
+
+  const id = el.getAttribute("id") || "";
+  if (id && INJECTED_SCRIPT_ID_MARKERS.includes(id))
+  {
+    return true;
+  }
+
+  const content = el.textContent || "";
+  if (
+    content &&
+    INJECTED_SCRIPT_CONTENT_MARKERS.some((m) => content.includes(m))
+  )
+  {
+    return true;
+  }
+
+  return false;
+}
+
+/**
  * Extracts loop variable names from <for each="..."> built-in elements.
  * These are locally scoped variables that should NOT be treated as state variables.
  *
@@ -181,8 +258,17 @@ export async function parseComponent(
   // get scripts
   const scriptEls = Array.from(doc.querySelectorAll("script"));
 
+  // Drop scripts injected by dev servers / live-reload tooling (VS Code Live
+  // Preview, Live Server, BrowserSync, webpack-dev-server, …). These are added
+  // to the served HTML by the dev server and are not part of the authored
+  // component; ingesting them corrupts reactive-state extraction and silently
+  // breaks every inline / $on: event handler in the component.
+  const authoredScriptEls = scriptEls.filter(
+    (s) => !isDevServerInjectedScript(s)
+  );
+
   // Collect inline scripts (with content)
-  const inlineScripts = scriptEls
+  const inlineScripts = authoredScriptEls
     .filter((s) => !s.src)
     .map((s) =>
     {
@@ -194,7 +280,7 @@ export async function parseComponent(
 
   // Detect Vite-transformed module scripts (html-proxy)
   // These are inline scripts that Vite extracted to external files
-  const viteProxyScripts = scriptEls.filter((s) =>
+  const viteProxyScripts = authoredScriptEls.filter((s) =>
   {
     const src = s.getAttribute("src") || "";
     return src.includes("html-proxy") && s.getAttribute("type") === "module";
@@ -231,7 +317,7 @@ export async function parseComponent(
   ];
 
   // Filter out Vite-injected scripts and proxy scripts for external scripts list
-  const allExternalScripts = scriptEls
+  const allExternalScripts = authoredScriptEls
     .filter((s) =>
     {
       if (!s.src) return false;
