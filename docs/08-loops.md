@@ -329,6 +329,24 @@ Pass loop data to handlers:
 </script>
 ```
 
+> **Event handlers are plain JavaScript, not `{}` bindings.** Inside a handler,
+> the loop's item/index variables and your component state are already in scope,
+> so reference them directly:
+>
+> ```html
+> <!-- ✅ Do this — the value is passed as an argument -->
+> <button onclick="removeTodo(todo.id)">Delete</button>
+>
+> <!-- ❌ Don't wrap handler expressions in braces -->
+> <button onclick="removeTodo({todo.id})">Delete</button>
+> ```
+>
+> Curly braces are for **text and attribute** interpolation (`{todo.text}`,
+> `class="{todo.done ? 'done' : ''}"`). In a handler they're unnecessary — and
+> passing values as real arguments (rather than splicing them into the handler
+> source) keeps list data that came from an API or user input from being
+> executed as code.
+
 ---
 
 ## Number Ranges

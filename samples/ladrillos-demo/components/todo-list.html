@@ -33,11 +33,11 @@
         <for each="todo in filteredTodos" key="todo.id">
           <li class="todo-item {todo.completed ? 'completed' : ''}">
             <label class="checkbox-label">
-              <input type="checkbox" onclick="toggleTodo({todo.id})" class="todo-checkbox" />
+              <input type="checkbox" onclick="toggleTodo(todo.id)" class="todo-checkbox" />
               <span class="checkmark">{todo.completed ? '✓' : ''}</span>
             </label>
             <span class="todo-text">{todo.text}</span>
-            <button onclick="removeTodo({todo.id})" class="delete-btn">🗑️</button>
+            <button onclick="removeTodo(todo.id)" class="delete-btn">🗑️</button>
           </li>
         </for>
       </ul>

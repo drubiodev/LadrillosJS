@@ -1259,6 +1259,16 @@ function processElementBindings(
   // Process attributes - first replace bindings, then transform event handlers
   for (const attr of Array.from(element.attributes))
   {
+    // Event-handler attributes (onclick, $on:…) are compiled as JavaScript by
+    // transformLoopEventHandlers. We must NOT string-interpolate per-item data
+    // into their source here: splicing an untrusted item value straight into
+    // handler code is a code-injection vector. Their {expr} bindings are turned
+    // into live, scoped sub-expressions by the handler compiler instead.
+    if (EVENT_ATTRIBUTES.includes(attr.name) || isEventDirective(attr.name))
+    {
+      continue;
+    }
+
     if (attr.value.includes("{"))
     {
       // Store original template for keyed diffing reuse
@@ -1278,8 +1288,7 @@ function processElementBindings(
     }
   }
 
-  // Transform inline event handlers (onclick, etc.) into proper event listeners
-  // This makes onclick="sendMessage('{suggestion}')" work in loops
+  // Transform inline event handlers (onclick, etc.) into proper event listeners.
   transformLoopEventHandlers(element, context);
 
   // Process text nodes
@@ -1317,6 +1326,24 @@ function processElementBindings(
 }
 
 /**
+ * Rewrites `{expr}` occurrences inside a loop event-handler into live JS
+ * sub-expressions evaluated in the handler's scope:
+ *
+ *   onclick="removeTodo({todo.id})"  ->  removeTodo((todo.id))
+ *
+ * The loop variables (item/index) and component state are already in scope when
+ * the handler runs, so `todo.id` is READ as a value rather than having the
+ * item's data string-spliced into the handler source. That closes the
+ * code-injection path that string interpolation opened when list data was
+ * untrusted. Handlers written with plain expressions — `removeTodo(todo.id)`,
+ * the form used throughout the docs — need no braces and are unaffected.
+ */
+function bindHandlerExpressions(code: string): string
+{
+  return code.replace(/\{([^}]+)\}/g, (_, expr) => `(${expr.trim()})`);
+}
+
+/**
  * Transforms inline event handlers (onclick, oninput, etc.) on an element
  * into proper event listeners with access to component scope.
  *
@@ -1324,9 +1351,10 @@ function processElementBindings(
  *   $on:keyup.enter="submit()"
  *   $on:click.prevent="handleClick()"
  *
- * This is called during loop rendering to make syntax like:
- *   onclick="sendMessage('{suggestion}')"
- * work correctly - the binding is already replaced with the actual value.
+ * Handler bodies are plain JavaScript with the loop's item/index variables and
+ * component state in scope: onclick="removeTodo(todo.id)". Any `{expr}` inside a
+ * handler is turned into a scoped sub-expression (see bindHandlerExpressions),
+ * never string-interpolated into the source.
  */
 function transformLoopEventHandlers(
   element: Element,
@@ -1347,7 +1375,10 @@ function transformLoopEventHandlers(
       const eventName = attrName.slice(2);
 
       // Create event listener with component context
-      const handler = createLoopEventHandler(handlerCode, context);
+      const handler = createLoopEventHandler(
+        bindHandlerExpressions(handlerCode),
+        context,
+      );
       if (handler)
       {
         element.addEventListener(eventName, handler);
@@ -1382,7 +1413,7 @@ function processLoopEventDirectives(
     const parsed = parseEventDirective(attr.name);
     if (!parsed) continue;
 
-    const handlerCode = attr.value;
+    const handlerCode = bindHandlerExpressions(attr.value);
     element.removeAttribute(attr.name);
 
     // Create the base event handler with loop context

@@ -591,9 +591,9 @@ A complete CRUD example combining all directives:
   <ul>
     <for each="todo in todos" key="todo.id">
       <li>
-        <input type="checkbox" onclick="toggleTodo({todo.id})" />
+        <input type="checkbox" onclick="toggleTodo(todo.id)" />
         <span class="{todo.completed ? 'done' : ''}">{todo.text}</span>
-        <button onclick="removeTodo({todo.id})">🗑️</button>
+        <button onclick="removeTodo(todo.id)">🗑️</button>
       </li>
     </for>
   </ul>
