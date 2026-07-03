@@ -1,4 +1,16 @@
 /**
+ * NOT A SECURITY SANDBOX.
+ *
+ * Despite the filename, this module does not sandbox untrusted code. Component
+ * scripts run with full access to the page (window, document, fetch, …) — see
+ * the "Security & Trust Model" section of the README. Component HTML is trusted
+ * code, exactly like a `.js` file you import. The lists below are a *scoping
+ * convenience* (which names are injected as parameters so component code reads
+ * like plain JS), not a trust boundary. Do not rely on them to run untrusted
+ * component files.
+ */
+
+/**
  * Globals that are explicitly injected into the scope.
  * These are passed as function parameters with their actual values.
  *

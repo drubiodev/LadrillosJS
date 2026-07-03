@@ -34,6 +34,7 @@
 - [Using with Vite](#-using-with-vite)
 - [Browser Support](#-browser-support)
 - [Examples](#-examples)
+- [Security & Trust Model](#-security--trust-model)
 - [Contributing](#-contributing)
 - [License](#-license)
 
@@ -633,6 +634,36 @@ A complete CRUD example combining all directives:
 
 ---
 
+## 🔒 Security & Trust Model
+
+**Component HTML is trusted code. Treat a `.html` component the same way you'd
+treat a `.js` file you `import`.**
+
+LadrillosJS runs the `<script>` in each component, evaluates your `{expression}`
+bindings, and compiles your inline event handlers as JavaScript with full access
+to the page (`window`, `document`, `fetch`, `localStorage`, …). This is by design
+— it's what lets components feel like plain HTML + JS with no build step, exactly
+like the template in a Vue single-file component or a Svelte `.svelte` file. It
+also means the framework is **not** a sandbox: you should only register and run
+component files that you wrote or otherwise trust.
+
+Practical guidance:
+
+- ✅ **Do** author your own components and load them from your own origin.
+- ❌ **Don't** fetch and register component HTML from untrusted third parties, or
+  build component files by concatenating user input into a template — that's
+  equivalent to running arbitrary code from that source.
+- ✅ **Dynamic *data* is fine.** Rendering untrusted **data** — API responses,
+  user comments, list items — through bindings and `<for>` loops is safe: values
+  are set via `textContent`/`setAttribute` and passed to event handlers as
+  arguments, never executed as code. (Interpolating into `innerHTML` yourself, or
+  into a `<script>`/handler you assemble by hand, is not — same rule as above.)
+
+In short: untrusted **data** through LadrillosJS's bindings is safe; untrusted
+**templates/scripts** are not, because those *are* your application code.
+
+---
+
 ## 🤝 Contributing
 
 Contributions are welcome! Here's how you can help:
@@ -651,6 +682,7 @@ cd LadrillosJS
 npm install
 npm run dev        # Watch mode for development
 npm run build      # Build for production
+npm test           # Unit tests (Vitest)
 ```
 
 ---

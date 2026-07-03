@@ -304,6 +304,54 @@ let user = {
 
 ---
 
+## What Becomes Reactive (Script Transform Limits)
+
+Reactivity is wired up by scanning your component `<script>` for **top-level
+variable declarations** and rewriting reads/writes to go through the reactive
+state. This runs at load time (no build step), so it recognizes the common
+declaration forms but not every possible one. Knowing the boundary avoids
+surprises:
+
+**✅ Recognized as reactive state**
+
+```javascript
+let count = 0; // ✅ simple top-level let/const/var
+const items = []; // ✅
+let user = { name: "Ada" }; // ✅ (whole object is reactive)
+function greet() {} // ✅ functions are available to templates/handlers
+```
+
+**⚠️ Not automatically reactive**
+
+```javascript
+// Destructured declarations — the individual names are NOT tracked
+const { a, b } = props; // ⚠️ a and b won't drive updates
+const [first] = list; // ⚠️
+
+// Declarations created inside functions/blocks are local (by design)
+function load() {
+  let temp = 1; // local variable, not component state — intended
+}
+
+// Computed member writes to a NEW key
+state["dynamic" + id] = 1; // ⚠️ prefer a declared object/array
+```
+
+**How to make them reactive:** declare the variable at the top level with a
+plain name, then assign to it.
+
+```javascript
+// Instead of: const { a, b } = props;
+let a = props.a; // ✅
+let b = props.b; // ✅
+```
+
+> This is a documented limitation of the runtime (no-build) transform, not a
+> bug. If you find a declaration form that should be tracked but isn't, prefer
+> the plain top-level form above, or open an issue.
+
+---
+
 ## The Reactive Flow
 
 ```
