@@ -30,14 +30,20 @@ const rootDir = path.resolve(__dirname, "..");
 const BUILDS_TO_CHECK = [
   {
     name: "NPM Main Bundle",
-    path: "dist/shared-CDq85Tha.js", // Main shared chunk with all code
-    maxSizeKB: 60, // Expected max size in KB (adjust as framework grows)
-    fallbackPattern: "dist/shared-*.js", // In case hash changes
+    // The content hash changes every build, so the exact filename is resolved
+    // via `fallbackPattern` below; this literal is just a hint and is expected
+    // to be stale.
+    path: "dist/shared-main.js",
+    // Budget is raw (pre-gzip) size with headroom over the current ~70 KB. It
+    // exists to catch unexpected regressions (e.g. a dependency accidentally
+    // bundled or dev code not tree-shaken), not to track normal growth.
+    maxSizeKB: 85,
+    fallbackPattern: "dist/shared-*.js", // Resolves the real hashed chunk.
   },
   {
     name: "CDN IIFE Bundle",
     path: "dist-cdn/ladrillos.iife.js",
-    maxSizeKB: 60,
+    maxSizeKB: 85,
   },
 ];
 

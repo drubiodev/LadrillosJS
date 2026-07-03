@@ -910,6 +910,13 @@ function createLoopContext(
 
 /**
  * Updates bindings on an existing element (for keyed diffing reuse).
+ *
+ * This walks the whole subtree in a flat pass rather than recursing per child.
+ * A `TreeWalker` rooted at `element` already visits every descendant text node
+ * and every loop-conditional placeholder in one traversal, so the previous
+ * per-child recursion re-walked the same nodes at every depth — O(depth)
+ * redundant work for every reused row on every update. Text/attribute updates
+ * are idempotent for a fixed context, so flattening produces identical output.
  */
 function updateElementBindings(
   element: Element,
@@ -922,15 +929,14 @@ function updateElementBindings(
 {
   // Re-evaluate any <if>/<else-if>/<else> chains nested inside the element
   // (loop iteration) so the rendered branch matches the current per-item
-  // context. Bindings inside an unchanged branch are updated by the normal
-  // recursion below; a changed branch is fully (re-)processed in place.
+  // context. This is a single whole-subtree pass: nested placeholders at any
+  // depth are found here, and a changed branch is fully (re-)processed in place.
   updateLoopConditionals(element, context, evaluateExpression);
 
-  // Update text bindings
-  const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+  // Update every {..} text-node binding in the subtree in one traversal.
+  const textWalker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
   let node: Text | null;
-
-  while ((node = walker.nextNode() as Text | null))
+  while ((node = textWalker.nextNode() as Text | null))
   {
     const originalTemplate = (node as any).__originalTemplate;
     if (originalTemplate)
@@ -946,7 +952,34 @@ function updateElementBindings(
     }
   }
 
-  // Update attribute bindings
+  // Update every {..} attribute binding on the root element and each descendant
+  // in one element traversal (a TreeWalker's nextNode does not include the root,
+  // so the root is handled explicitly first).
+  updateAttributeBindings(element, context, evaluateExpression);
+  const elementWalker = document.createTreeWalker(
+    element,
+    NodeFilter.SHOW_ELEMENT,
+  );
+  let el: Element | null;
+  while ((el = elementWalker.nextNode() as Element | null))
+  {
+    updateAttributeBindings(el, context, evaluateExpression);
+  }
+}
+
+/**
+ * Re-evaluates {..} attribute bindings on a single element using the stored
+ * `__originalTemplate` captured when the element was first rendered.
+ */
+function updateAttributeBindings(
+  element: Element,
+  context: Record<string, unknown>,
+  evaluateExpression: (
+    expr: string,
+    context: Record<string, unknown>,
+  ) => unknown,
+): void
+{
   for (const attr of Array.from(element.attributes))
   {
     const originalTemplate = (attr as any).__originalTemplate;
@@ -965,12 +998,6 @@ function updateElementBindings(
         },
       );
     }
-  }
-
-  // Recursively update children
-  for (const child of Array.from(element.children))
-  {
-    updateElementBindings(child, context, evaluateExpression);
   }
 }
 

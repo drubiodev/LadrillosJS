@@ -540,13 +540,49 @@ function createVanillaEventHandler(
 }
 
 /**
+ * Cache of extracted function-definition strings.
+ *
+ * `extractFunctionDefinitions` scans the ENTIRE component script with several
+ * regex passes and brace-matching. In the loop path it is called once per
+ * rendered row (via `createLoopEventHandler`), so a `<for>` over N items with
+ * inline handlers re-parsed the full script N times on the initial render. The
+ * result depends only on (content, skipFunctions), so we memoize it. The cache
+ * is bounded with FIFO eviction so long-lived apps with many distinct
+ * components don't grow it without limit.
+ */
+const funcDefsCache = new Map<string, string>();
+const MAX_FUNC_DEFS_CACHE = 500;
+
+/**
  * Extracts function definitions from script content.
  * These will be re-created in the event handler context with current state values.
+ *
+ * Memoized: the output is a pure function of (content, skipFunctions).
  *
  * @param content - The script content to extract functions from
  * @param skipFunctions - Function names to skip (already in state as reactive functions)
  */
 export function extractFunctionDefinitions(
+  content: string,
+  skipFunctions: string[] = [],
+): string
+{
+  const cacheKey = skipFunctions.join(",") + "\u0000" + content;
+  const cached = funcDefsCache.get(cacheKey);
+  if (cached !== undefined) return cached;
+
+  const result = computeFunctionDefinitions(content, skipFunctions);
+
+  if (funcDefsCache.size >= MAX_FUNC_DEFS_CACHE)
+  {
+    const oldest = funcDefsCache.keys().next().value;
+    if (oldest !== undefined) funcDefsCache.delete(oldest);
+  }
+  funcDefsCache.set(cacheKey, result);
+  return result;
+}
+
+function computeFunctionDefinitions(
   content: string,
   skipFunctions: string[] = [],
 ): string

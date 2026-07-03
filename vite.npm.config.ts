@@ -69,6 +69,14 @@ export default defineConfig({
     },
     sourcemap: true,
     rollupOptions: {
+      // `../ladrillos` is imported dynamically in builtins/lazyElement.ts purely
+      // to break a module-init cycle; it is also imported statically elsewhere,
+      // so Rollup can't (and shouldn't) split it into its own chunk. Silence the
+      // resulting INEFFECTIVE_DYNAMIC_IMPORT notice; forward all other warnings.
+      onwarn(warning, defaultHandler) {
+        if (warning.code === "INEFFECTIVE_DYNAMIC_IMPORT") return;
+        defaultHandler(warning);
+      },
       output: {
         preserveModules: false,
         minifyInternalExports: true,
@@ -79,7 +87,6 @@ export default defineConfig({
       treeshake: {
         moduleSideEffects: false,
         propertyReadSideEffects: false,
-        preset: "smallest",
       },
     },
     emptyOutDir: true,
