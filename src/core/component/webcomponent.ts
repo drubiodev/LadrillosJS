@@ -36,6 +36,31 @@ import
 } from "../scheduler/batchScheduler";
 
 /**
+ * Instance member names that live on the component itself (as class fields),
+ * NOT on the prototype. The prop-accessor machinery below guards against
+ * shadowing native DOM properties and existing prototype members, but it can't
+ * see these instance fields via `hasOwnProperty(prototype, name)`.
+ *
+ * If a component declares a state variable / template binding with one of these
+ * names (most commonly `state`), we must NOT generate a prop getter/setter or
+ * treat it as a typed prop. Doing so shadows the field — e.g. a `state`
+ * accessor whose getter reads `this.state[name]` calls itself and blows the
+ * stack (RangeError: Maximum call stack size exceeded). The variable still
+ * works as ordinary reactive state (accessed as `this.state.<name>`).
+ */
+const RESERVED_INSTANCE_PROPS = new Set<string>([
+  "state",
+  "_root",
+  "_initialized",
+  "_componentId",
+  "_directives",
+  "_evaluator",
+  "_updateBoundInputs",
+  "_pendingProps",
+  "_propsReady",
+]);
+
+/**
  * Creates a Web Component class from a Ladrillos component definition.
  *
  * This function creates the class but does NOT register it with customElements.
@@ -224,6 +249,11 @@ export function createWebComponentClass(
       // pending map so they're treated like any other typed prop.
       for (const propName of allObservedAttributes)
       {
+        // Never treat an internal component member (e.g. `state`) as a typed
+        // prop — capturing/deleting it here would clobber the component's own
+        // field once state initializes.
+        if (RESERVED_INSTANCE_PROPS.has(propName)) continue;
+
         if (Object.prototype.hasOwnProperty.call(this, propName))
         {
           this._pendingProps.set(propName, (this as any)[propName]);
@@ -754,6 +784,9 @@ export function createWebComponentClass(
   // we never shadow native element behavior.
   for (const propName of allObservedAttributes)
   {
+    // Skip internal component members (e.g. `state`): defining a prop accessor
+    // with one of these names shadows the instance field and recurses.
+    if (RESERVED_INSTANCE_PROPS.has(propName)) continue;
     if (propName in HTMLElement.prototype) continue;
     if (
       Object.prototype.hasOwnProperty.call(

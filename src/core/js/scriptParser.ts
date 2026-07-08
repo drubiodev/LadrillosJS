@@ -372,9 +372,12 @@ function createVanillaEventHandler(
     const safeBlocked = getSafeBlockedGlobals();
 
     // Build the function parameters: event + blocked + allowed + "state" reference + "$refs"
+    // The reactive-state param is named `__state__` (not `state`) so a user
+    // variable named `state` doesn't collide with it (which would produce
+    // `let { state } = state;` — a "already declared" SyntaxError).
     const allKeys = [
       "event",
-      "state",
+      "__state__",
       "$refs",
       ...safeBlocked,
       ...allowed.keys,
@@ -400,13 +403,13 @@ function createVanillaEventHandler(
     // can mutate them. Any mutations are synced back to reactive state below
     // when the inline code references the variable.
     const destructureVars =
-      varNames.length > 0 ? `let { ${varNames.join(", ")} } = state;` : "";
+      varNames.length > 0 ? `let { ${varNames.join(", ")} } = __state__;` : "";
 
     // For module scripts: destructure functions from state (they're reactive)
     // For regular scripts: DON'T destructure - we'll recreate them via funcDefs
     const destructureFuncs = hasModuleScriptFunctions
       ? funcNames.length > 0
-        ? `const { ${funcNames.join(", ")} } = state;`
+        ? `const { ${funcNames.join(", ")} } = __state__;`
         : ""
       : "";
 
@@ -438,7 +441,7 @@ function createVanillaEventHandler(
       ? ""
       : varNames
         .filter((key) => new RegExp(`\\b${key}\\b`).test(code))
-        .map((key) => `state.${key} = ${key};`)
+        .map((key) => `__state__.${key} = ${key};`)
         .join(" ");
 
     // Check if the code or any function definitions use async/await
@@ -1396,14 +1399,14 @@ function transformFunctionDefsToStateAccess(
         for (const varName of variables)
         {
           const pattern = new RegExp(
-            `(?<![^.]\\.)(?<!state\\.)\\b${escapeRegex(
+            `(?<![^.]\\.)(?<!__state__\\.)\\b${escapeRegex(
               varName,
             )}\\b(?!\\s*[:(])`,
             "g",
           );
           transformedExpr = transformedExpr.replace(
             pattern,
-            `state.${varName}`,
+            `__state__.${varName}`,
           );
         }
         return `\${${transformedExpr}}`;
@@ -1417,14 +1420,14 @@ function transformFunctionDefsToStateAccess(
   {
     // Match variable that is:
     // - NOT preceded by a dot (property access)
-    // - NOT preceded by state. (already transformed)
+    // - NOT preceded by __state__. (already transformed)
     // - IS a word boundary
     // - NOT followed by : (object key) or ( (function declaration)
     const pattern = new RegExp(
-      `(?<![^.]\\.)(?<!state\\.)\\b${escapeRegex(varName)}\\b(?!\\s*[:(])`,
+      `(?<![^.]\\.)(?<!__state__\\.)\\b${escapeRegex(varName)}\\b(?!\\s*[:(])`,
       "g",
     );
-    protected_code = protected_code.replace(pattern, `state.${varName}`);
+    protected_code = protected_code.replace(pattern, `__state__.${varName}`);
   }
 
   // Step 4: Restore string literals
