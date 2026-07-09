@@ -108,6 +108,24 @@ export const SHOW_DIRECTIVE = "$show";
 export const BIND_DIRECTIVE = "$bind";
 
 /**
+ * Ensures a $bind element's value is synced to state before a user event
+ * handler for the same event runs.
+ *
+ * Inline handlers (onchange, oninput, $on:) are registered before $bind's
+ * own listener, so without this the handler would read the previous value
+ * from state. setupTwoWayBinding stores the sync function on the element;
+ * handler wrappers call this first so user code always sees fresh state.
+ */
+export function syncBindBeforeHandler(event: Event): void
+{
+  const bindSync = (event.currentTarget as any)?.__ladrillosBindSync;
+  if (bindSync && bindSync.eventType === event.type)
+  {
+    bindSync.sync();
+  }
+}
+
+/**
  * $ref - Reference Directive
  *
  * Creates a reference to the DOM element.
