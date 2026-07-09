@@ -1,11 +1,15 @@
 // Zero-dependency static file server with permissive CORS headers.
-// Usage: node scripts/cors-server.mjs <rootDir> <port>
+// Usage: node scripts/cors-server.mjs <rootDir> <port> [fallbackRootDir]
+// If a file is not found under <rootDir>, it is looked up under
+// [fallbackRootDir]. This lets the REPL be served at / from samples/repl
+// while still resolving shared assets (e.g. /dist-cdn) from the repo root.
 import http from "node:http";
 import { readFile, stat } from "node:fs/promises";
 import { extname, join, normalize } from "node:path";
 
 const root = process.argv[2] ?? ".";
 const port = Number(process.argv[3] ?? 3000);
+const fallbackRoot = process.argv[4];
 const types = {
     ".js": "text/javascript",
     ".mjs": "text/javascript",
@@ -29,20 +33,37 @@ const server = http.createServer(async (req, res) =>
     {
         let p = normalize(decodeURIComponent(new URL(req.url, "http://x").pathname));
         if (p.endsWith("/")) p += "index.html";
-        let file = join(root, p);
-        const s = await stat(file);
-        if (s.isDirectory()) file = join(file, "index.html");
-        const body = await readFile(file);
+        const body = await resolveFile(root, p) ??
+            (fallbackRoot ? await resolveFile(fallbackRoot, p) : null);
+        if (body === null)
+        {
+            res.writeHead(404);
+            return res.end("Not found");
+        }
         res.writeHead(200, {
-            "Content-Type": types[extname(file)] || "application/octet-stream",
+            "Content-Type": types[extname(body.file)] || "application/octet-stream",
         });
-        res.end(body);
+        res.end(body.data);
     } catch
     {
         res.writeHead(404);
         res.end("Not found");
     }
 });
+
+async function resolveFile(base, p)
+{
+    try
+    {
+        let file = join(base, p);
+        const s = await stat(file);
+        if (s.isDirectory()) file = join(file, "index.html");
+        return { file, data: await readFile(file) };
+    } catch
+    {
+        return null;
+    }
+}
 
 server.on("error", (e) =>
 {

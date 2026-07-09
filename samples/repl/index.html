@@ -6,15 +6,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>LadrillosJS Playground</title>
 
-  <!-- Dev IIFE build (npm run dev:repl builds it and serves the repo root).
-       Exposes the global `ladrillosjs`; it has no ES module exports. -->
-  <script src="../../dist-cdn/ladrillos.dev.iife.js"></script>
+  <script src="/dist-cdn/ladrillos.dev.iife.js"></script>
   <script type="module">
-    // Each entry is a folder-as-component: LadrillosJS resolves the path to
-    // <folder>/index.html, which in turn pulls in its own .css and .js files.
-    // All light DOM: header/tabs/preview share the shell's .pane-head styles
-    // and CSS variables, and Monaco injects its stylesheet into document.head,
-    // which would not reach the editor inside a shadow root.
     await ladrillosjs.registerComponents([
       { name: "playground-header", path: "./components/header", useShadowDOM: false },
       { name: "playground-tabs", path: "./components/tabs", useShadowDOM: false },
@@ -201,9 +194,7 @@
   </footer>
 
   <script>
-    // Drag the divider to resize the editor / preview panes. Uses fr units so
-    // the split stays proportional when the window itself resizes. Monaco's
-    // automaticLayout + the iframe reflow to the new size on their own.
+    // divder drag to resize
     (function () {
       const main = document.querySelector("main");
       const resizer = document.getElementById("resizer");

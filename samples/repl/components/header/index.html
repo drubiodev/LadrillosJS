@@ -1,11 +1,11 @@
 <link rel="stylesheet" href="./header.css" />
 
 <header>
-    <h1><span class="brick">▚</span> LadrillosJS Playground</h1>
+    <h1>LadrillosJS Playground</h1>
     <div class="spacer"></div>
     <label>
         Example
-        <select $bind="selected" onchange="pick(event)">
+        <select $bind="selected" onchange="onExampleChange()">
             <for each="name in names">
                 <option value="{name}">{name}</option>
             </for>
