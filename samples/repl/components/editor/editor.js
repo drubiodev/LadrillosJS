@@ -8,7 +8,8 @@ import { EXAMPLES, EXAMPLE_NAMES } from "../../common/examples.js";
 // NOTE: the import keyword is split so Ladrillos' module-import scanner
 // doesn't mistake the Blob source for a real static import.
 self.MonacoEnvironment = {
-    getWorker(_id, label) {
+    getWorker(_id, label)
+    {
         const CDN = "https://cdn.jsdelivr.net/npm/monaco-editor@0.55.1/esm/vs";
         let path = "editor/editor.worker.js";
         if (label === "json") path = "language/json/json.worker.js";
@@ -29,12 +30,14 @@ let activeIndex = 0;
 let newFileSeq = 0;
 let debounceTimer;
 
-function makeFile(tag, code) {
+function makeFile(tag, code)
+{
     return { tag, model: monaco.editor.createModel(code, "html") };
 }
 
 // Tell the tab strip about the current files + selection.
-function emitTabs() {
+function emitTabs()
+{
     $emit(EVENTS.FILES_CHANGED, {
         tabs: files.map((f) => ({ tag: f.tag })),
         activeIndex: activeIndex,
@@ -42,14 +45,16 @@ function emitTabs() {
 }
 
 // Ask the preview to rebuild from the current sources.
-function run() {
+function run()
+{
     if (!editor || files.length === 0) return;
     $emit(EVENTS.PREVIEW_BUILD, {
         files: files.map((f) => ({ tag: f.tag, code: f.model.getValue() })),
     });
 }
 
-function loadExample(name) {
+function loadExample(name)
+{
     for (const f of files) f.model.dispose();
     files = EXAMPLES[name].map((f) => makeFile(f.name, f.code));
     activeIndex = 0;
@@ -58,21 +63,24 @@ function loadExample(name) {
     run();
 }
 
-function selectFile(i) {
+function selectFile(i)
+{
     activeIndex = i;
     editor.setModel(files[i].model);
     emitTabs();
     editor.focus();
 }
 
-function addFile() {
+function addFile()
+{
     const tag = uniqueTag("my-component");
     files = [...files, makeFile(tag, defaultFileCode(tag))];
     selectFile(files.length - 1);
     run();
 }
 
-function removeFile(i) {
+function removeFile(i)
+{
     if (i === 0 || files.length <= 1) return; // keep the root file
     files[i].model.dispose();
     files = files.filter((_, j) => j !== i);
@@ -82,7 +90,8 @@ function removeFile(i) {
     run();
 }
 
-function renameFile(i) {
+function renameFile(i)
+{
     const current = files[i].tag;
     const next = (
         window.prompt(
@@ -91,14 +100,16 @@ function renameFile(i) {
         ) || ""
     ).trim();
     if (!next || next === current) return;
-    if (!/^[a-z][a-z0-9]*-[a-z0-9-]*$/.test(next)) {
+    if (!/^[a-z][a-z0-9]*-[a-z0-9-]*$/.test(next))
+    {
         $emit(
             EVENTS.PREVIEW_ERROR,
             `Invalid tag "${next}". Custom element names must be lowercase and contain a hyphen, e.g. "user-card".`
         );
         return;
     }
-    if (files.some((f, j) => j !== i && f.tag === next)) {
+    if (files.some((f, j) => j !== i && f.tag === next))
+    {
         $emit(EVENTS.PREVIEW_ERROR, `A file named "${next}" already exists.`);
         return;
     }
@@ -107,14 +118,16 @@ function renameFile(i) {
     run();
 }
 
-function uniqueTag(base) {
+function uniqueTag(base)
+{
     let n = ++newFileSeq;
     let tag = `${base}-${n}`;
     while (files.some((f) => f.tag === tag)) tag = `${base}-${++n}`;
     return tag;
 }
 
-function defaultFileCode(tag) {
+function defaultFileCode(tag)
+{
     return [
         `<div class="box">`,
         `  <p>Hello from &lt;${tag}&gt;</p>`,
@@ -136,7 +149,8 @@ $listen(EVENTS.FILE_ADD, () => addFile());
 
 // Wait for the template (and $refs) to be ready before mounting Monaco,
 // then render the first example.
-$host.addEventListener("ladrillos:ready", () => {
+$host.addEventListener("ladrillos:ready", () =>
+{
     editor = monaco.editor.create($refs.editorHost, {
         language: "html", // highlights embedded <script> and <style> too
         theme: "vs-dark",
@@ -157,7 +171,8 @@ $host.addEventListener("ladrillos:ready", () => {
     });
 
     // Debounced live re-run on edit.
-    editor.onDidChangeModelContent(() => {
+    editor.onDidChangeModelContent(() =>
+    {
         clearTimeout(debounceTimer);
         debounceTimer = setTimeout(run, 400);
     });
