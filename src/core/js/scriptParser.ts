@@ -1,5 +1,6 @@
 import { BindingDescriptor, ScriptElement } from "../../types";
 import { EVENT_ATTRIBUTES } from "../../utils/jsevents";
+import { syncBindBeforeHandler } from "../../utils/directives";
 import
 {
   ALLOWED_GLOBALS,
@@ -473,6 +474,10 @@ function createVanillaEventHandler(
     {
       try
       {
+        // If the element also has $bind for this event, sync its value into
+        // state first so the handler reads the current value, not the previous
+        syncBindBeforeHandler(event);
+
         // Get $refs from component host dynamically (they're set after script load)
         // Already wrapped in Proxy by webcomponent.ts for dot notation access
         const $refs = componentHost

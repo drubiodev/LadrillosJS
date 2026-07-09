@@ -21,6 +21,7 @@ import
   REF_DIRECTIVE,
   DIRECTIVE_PATTERNS,
   escapeCssSelector,
+  syncBindBeforeHandler,
 } from "../../utils/directives";
 import { scanLazyElements, getPendingLazyContent } from "../builtins/lazyElement";
 
@@ -1561,6 +1562,10 @@ function createLoopEventHandler(
     {
       try
       {
+        // If the element also has $bind for this event, sync its value into
+        // state first so the handler reads the current value, not the previous
+        syncBindBeforeHandler(event);
+
         fn(
           event,
           context,
@@ -1758,15 +1763,23 @@ function setupTwoWayBinding(
     isUpdatingFromState = val;
   };
 
-  // Listen for changes and update state
-  element.addEventListener(eventType, () =>
+  // Sync input value → state. Also exposed on the element so inline event
+  // handlers for the same event (e.g. onchange alongside $bind on a select)
+  // can pull the value into state before user code reads it — inline
+  // handlers are registered earlier, so without this they'd see the
+  // previous value. See syncBindBeforeHandler in utils/directives.
+  const syncToState = (): void =>
   {
     // Skip if this change was triggered by state→input sync
     if (isUpdatingFromState) return;
 
     const newValue = getElementValue(element, isContentEditable);
     setNestedValue(state, path, newValue);
-  });
+  };
+  (element as any).__ladrillosBindSync = { eventType, sync: syncToState };
+
+  // Listen for changes and update state
+  element.addEventListener(eventType, syncToState);
 }
 
 /**
