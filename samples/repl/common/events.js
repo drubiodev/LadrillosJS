@@ -1,6 +1,3 @@
-// Centralized event-bus names so every REPL component agrees on the wire
-// format. Components import these constants and talk over LadrillosJS's
-// global $emit / $listen bus instead of prop-drilling.
 export const EVENTS = {
     // header → editor
     EXAMPLE_SELECT: "repl:example-select",

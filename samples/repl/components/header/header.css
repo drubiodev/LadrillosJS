@@ -1,0 +1,60 @@
+ header {
+     display: flex;
+     align-items: center;
+     gap: 1rem;
+     padding: 0.75rem 1rem;
+     border-bottom: 1px solid var(--border);
+     background: var(--panel);
+     flex-wrap: wrap;
+ }
+
+ header h1 {
+     font-size: 1rem;
+     margin: 0;
+     font-weight: 600;
+     letter-spacing: 0.2px;
+ }
+
+ header h1 .brick {
+     color: var(--accent);
+ }
+
+ header .spacer {
+     flex: 1;
+ }
+
+ header label {
+     font-size: 0.8rem;
+     color: var(--muted);
+     display: flex;
+     align-items: center;
+     gap: 0.4rem;
+ }
+
+ header select,
+ header button {
+     font: inherit;
+     font-size: 0.85rem;
+     color: var(--text);
+     background: var(--panel-2);
+     border: 1px solid var(--border);
+     border-radius: 6px;
+     padding: 0.4rem 0.7rem;
+     cursor: pointer;
+ }
+
+ header select:hover,
+ header button:hover {
+     border-color: var(--muted);
+ }
+
+ header button.primary {
+     background: var(--accent);
+     border-color: var(--accent);
+     color: #fff;
+     font-weight: 600;
+ }
+
+ header button.primary:hover {
+     background: var(--accent-hover);
+ }

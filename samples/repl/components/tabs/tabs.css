@@ -1,0 +1,87 @@
+.tabs-head {
+    padding: 0 0.4rem;
+    gap: 0.35rem;
+    text-transform: none;
+    letter-spacing: normal;
+    overflow: hidden;
+}
+
+.tabs {
+    display: flex;
+    gap: 2px;
+    flex: 1;
+    overflow-x: auto;
+}
+
+.tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.45rem 0.7rem;
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    color: var(--muted);
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    border-top: 2px solid transparent;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.tab:hover {
+    color: var(--text);
+}
+
+.tab:focus,
+.tab:focus-visible {
+    outline: none;
+}
+
+.tab.active {
+    color: var(--text);
+    background: var(--bg);
+    border-top-color: var(--accent);
+}
+
+.tab .root-badge {
+    font-size: 0.58rem;
+    color: var(--accent);
+    border: 1px solid var(--accent);
+    border-radius: 4px;
+    padding: 0 0.25rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.tab .close {
+    border: 0;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    font-size: 0.95rem;
+    line-height: 1;
+    padding: 0 0.1rem;
+    opacity: 0.6;
+}
+
+.tab .close:hover {
+    opacity: 1;
+    color: var(--danger);
+}
+
+.tab-add {
+    flex: none;
+    font-size: 0.72rem;
+    color: var(--muted);
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.25rem 0.5rem;
+    cursor: pointer;
+}
+
+.tab-add:hover {
+    color: var(--text);
+    border-color: var(--muted);
+}

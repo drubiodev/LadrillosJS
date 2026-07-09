@@ -1,0 +1,9 @@
+<link rel="stylesheet" href="./preview.css" />
+
+<div class="pane-head"><span class="dot"></span> Preview</div>
+<div class="preview-wrap">
+    <iframe $ref="frame" title="preview" sandbox="allow-scripts allow-same-origin allow-forms allow-modals"></iframe>
+    <pre class="preview-error {errorMsg ? 'show' : ''}">{errorMsg}</pre>
+</div>
+
+<script src="./preview.js" type="module"></script>

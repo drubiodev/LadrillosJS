@@ -1,6 +1,6 @@
-// Starter examples for the REPL. Each example is an array of component files;
-// the first entry is the mounted "root". Kept here (not inline in index.html)
-// so the shell stays tiny and examples are easy to add.
+// Starter examples for the playground. Each example is an array of component
+// files; the first entry is the mounted "root". The header lists them, the
+// editor loads them — both import from here, so examples are easy to add.
 export const EXAMPLES = {
     Counter: [
         {
@@ -21,7 +21,7 @@ export const EXAMPLES = {
 
 <style>
   .counter { text-align: center; font-family: system-ui; padding: 2rem; }
-    .count { font-size: 4rem; font-weight: 800; color: #ff6b35; }
+  .count { font-size: 4rem; font-weight: 800; color: #ff6b35; }
   .row { display: flex; gap: .5rem; justify-content: center; margin: 1rem 0; }
   button { padding: .5rem 1rem; border-radius: 8px; border: 1px solid #ccc;
            background: #fff; cursor: pointer; font-size: 1rem; }

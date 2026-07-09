@@ -4,7 +4,25 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>LadrillosJS · REPL</title>
+  <title>LadrillosJS Playground</title>
+
+  <!-- Dev IIFE build (npm run dev:repl builds it and serves the repo root).
+       Exposes the global `ladrillosjs`; it has no ES module exports. -->
+  <script src="../../dist-cdn/ladrillos.dev.iife.js"></script>
+  <script type="module">
+    // Each entry is a folder-as-component: LadrillosJS resolves the path to
+    // <folder>/index.html, which in turn pulls in its own .css and .js files.
+    // All light DOM: header/tabs/preview share the shell's .pane-head styles
+    // and CSS variables, and Monaco injects its stylesheet into document.head,
+    // which would not reach the editor inside a shadow root.
+    await ladrillosjs.registerComponents([
+      { name: "playground-header", path: "./components/header", useShadowDOM: false },
+      { name: "playground-tabs", path: "./components/tabs", useShadowDOM: false },
+      { name: "playground-editor", path: "./components/editor", useShadowDOM: false },
+      { name: "playground-preview", path: "./components/preview", useShadowDOM: false },
+    ]);
+  </script>
+
   <style>
     :root {
       --bg: #0d1117;
@@ -105,12 +123,12 @@
       pointer-events: none;
     }
 
-    .pane>repl-tabs {
+    .pane>playground-tabs {
       flex: 0 0 auto;
       display: block;
     }
 
-    .pane>repl-editor {
+    .pane>playground-editor {
       flex: 1;
       min-height: 0;
       display: block;
@@ -161,81 +179,26 @@
       }
     }
   </style>
-
-  <!-- Monaco editor (VS Code's editor) from CDN, no build step -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.52.2/min/vs/loader.min.js"></script>
-  <script>
-    // Monaco is bootstrapped once here and shared by the editor component via
-    // window.loadMonaco(). Keeping it out of the component avoids re-loading it
-    // and sidesteps cross-origin worker issues.
-    const MONACO_CDN =
-      "https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.52.2/min";
-
-    // Monaco runs language services in web workers. Loading them from a CDN is
-    // cross-origin, so hand Monaco a same-origin data-URL shim that in turn
-    // importScripts() the real worker from the CDN.
-    window.MonacoEnvironment = {
-      getWorkerUrl() {
-        return `data:text/javascript;charset=utf-8,${encodeURIComponent(`
-          self.MonacoEnvironment = { baseUrl: "${MONACO_CDN}/" };
-          importScripts("${MONACO_CDN}/vs/base/worker/workerMain.js");
-        `)}`;
-      },
-    };
-
-    require.config({ paths: { vs: `${MONACO_CDN}/vs` } });
-
-    let __monacoPromise;
-    window.loadMonaco = () => {
-      if (!__monacoPromise) {
-        __monacoPromise = new Promise((resolve) => {
-          require(["vs/editor/editor.main"], () => resolve(window.monaco));
-        });
-      }
-      return __monacoPromise;
-    };
-  </script>
 </head>
 
 <body>
-  <repl-header></repl-header>
+  <playground-header></playground-header>
 
   <main>
     <section class="pane">
-      <repl-tabs></repl-tabs>
-      <repl-editor></repl-editor>
+      <playground-tabs></playground-tabs>
+      <playground-editor></playground-editor>
     </section>
     <div class="resizer" id="resizer" title="Drag to resize"></div>
     <section class="pane">
-      <repl-preview></repl-preview>
+      <playground-preview></playground-preview>
     </section>
   </main>
 
   <footer>
-    Edit the files on the left — the preview updates live. Loaded straight
-    from the CDN, no build step. ·
-    <a href="../../docs/README.md">Docs</a> ·
+    Edit the files on the left — the preview updates live. ·
     <a href="https://github.com/drubiodev/LadrillosJS">GitHub</a>
   </footer>
-
-  <!-- The REPL is itself built from LadrillosJS components. -->
-  <script type="module">
-    import { registerComponents } from "https://cdn.jsdelivr.net/npm/ladrillosjs@latest/dist/index.js";
-    import { EVENTS } from "./common/events.js";
-    import { EXAMPLES, EXAMPLE_NAMES } from "./common/examples.js";
-
-    // Bridge the shared modules onto a global the components can read from a
-    // plain <script>. (Component-local ESM imports don't survive the published
-    // runtime's reactive-state setup, so we centralize once here.)
-    window.REPL = { EVENTS, EXAMPLES, EXAMPLE_NAMES };
-
-    await registerComponents([
-      { name: "repl-header", path: "./components/header/header.html", useShadowDOM: false },
-      { name: "repl-tabs", path: "./components/tabs/tabs.html", useShadowDOM: false },
-      { name: "repl-editor", path: "./components/editor/editor.html", useShadowDOM: false },
-      { name: "repl-preview", path: "./components/preview/preview.html", useShadowDOM: false },
-    ]);
-  </script>
 
   <script>
     // Drag the divider to resize the editor / preview panes. Uses fr units so
