@@ -1,6 +1,11 @@
 import { LadrillosComponent } from "../../types";
 import { REGEX_PATTERNS } from "../../utils/regex";
 import { rewriteImports } from "../js/moduleExecutor";
+import {
+  escapeControlTags,
+  restoreControlTags,
+  isControlElement,
+} from "../html/controlTagEscape";
 
 const parser = new DOMParser();
 
@@ -489,5 +494,24 @@ export async function parseComponent(
 
 function parseHTML(source: string): Document
 {
-  return parser.parseFromString(source, "text/html");
+  // Control elements (<for>, <if>, …) are escaped to <template>
+  // placeholders before parsing so the HTML parser's table insertion
+  // modes cannot foster-parent them out of <table>/<tbody>/<tr>, then
+  // restored with DOM APIs — which parser content rules cannot touch.
+  const doc = parser.parseFromString(escapeControlTags(source), "text/html");
+  restoreControlTags(doc.head);
+  restoreControlTags(doc.body);
+
+  // A component that STARTS with a control element gets its placeholder
+  // parsed into <head> (templates are metadata content), whereas the raw
+  // tag would have opened <body>. Move restored control elements back to
+  // the front of <body>, preserving their order.
+  const strays = Array.from(doc.head.children).filter(isControlElement);
+  const anchor = doc.body.firstChild;
+  for (const el of strays)
+  {
+    doc.body.insertBefore(el, anchor);
+  }
+
+  return doc;
 }

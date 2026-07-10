@@ -1,0 +1,22 @@
+<table>
+  <tbody>
+    <for each="row in rows" key="row.id">
+      <tr>
+        <td class="rid">{row.id}</td>
+        <td class="rname">{row.name}</td>
+        <td class="ractive">
+          <if condition="row.active">✅</if>
+          <else>⬜</else>
+        </td>
+      </tr>
+    </for>
+  </tbody>
+</table>
+
+<script>
+  let rows = [
+    { id: 1, name: "Alice", active: true },
+    { id: 2, name: "Bob", active: false },
+    { id: 3, name: "Carol", active: true },
+  ];
+</script>

@@ -1,0 +1,11 @@
+{
+  "name": "ladrillosjs-benchmarks",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "bench": "node run.mjs"
+  },
+  "devDependencies": {
+    "playwright-core": "^1.50.0"
+  }
+}

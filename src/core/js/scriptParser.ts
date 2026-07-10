@@ -1530,7 +1530,8 @@ function getAllowedGlobalsWithValues(
  * are positional. The blocked globals are constant for the page lifetime, so
  * they don't need to participate in the key.
  */
-const evaluatorCache = new Map<string, Function>();
+const evaluatorCache = new Map<string, Map<string, Function>>();
+const MAX_EVALUATOR_SIGNATURES = 100;
 const MAX_EVALUATOR_CACHE = 5000;
 
 /** Matches strings usable as a JS function parameter name (no hyphens, etc.). */
@@ -1566,34 +1567,10 @@ function evaluateExpression(
       }
     }
 
-    if (cachedBlockedGlobals === null)
-    {
-      cachedBlockedGlobals = getSafeBlockedGlobals();
-      cachedBlockedUndefined = cachedBlockedGlobals.map(() => undefined);
-    }
-    const safeBlocked = cachedBlockedGlobals;
+    ensureBlockedGlobals();
 
-    // Positional params are [blocked globals..., state keys...]. Only the state
-    // keys + expression distinguish one compiled evaluator from another.
-    const cacheKey = keys.join(",") + "\u0000" + expression;
-    let fn = evaluatorCache.get(cacheKey);
-    if (!fn)
-    {
-      // Bound the cache so long-lived apps with many distinct expressions
-      // don't grow it without limit (FIFO eviction of the oldest entry).
-      if (evaluatorCache.size >= MAX_EVALUATOR_CACHE)
-      {
-        const oldest = evaluatorCache.keys().next().value;
-        if (oldest !== undefined) evaluatorCache.delete(oldest);
-      }
-      fn = new Function(
-        ...safeBlocked,
-        ...keys,
-        `"use strict"; return ${expression};`,
-      );
-      evaluatorCache.set(cacheKey, fn);
-    }
-
+    const exprMap = getEvaluatorMap(keys.join(","));
+    const fn = getCompiledEvaluator(keys, exprMap, expression);
     return fn(...cachedBlockedUndefined!, ...stateValues);
   } catch (e)
   {
@@ -1602,6 +1579,129 @@ function evaluateExpression(
     });
     return `{${expression}}`; // Return original on error
   }
+}
+
+function ensureBlockedGlobals(): readonly string[]
+{
+  if (cachedBlockedGlobals === null)
+  {
+    cachedBlockedGlobals = getSafeBlockedGlobals();
+    cachedBlockedUndefined = cachedBlockedGlobals.map(() => undefined);
+  }
+  return cachedBlockedGlobals;
+}
+
+/**
+ * Returns the per-key-signature expression map for compiled evaluators.
+ *
+ * The cache is two-level (keysSig -> expression -> fn) so hot paths that
+ * evaluate many expressions against one context shape can resolve the
+ * signature once and then hit the inner map with the short expression
+ * string - hashing the long joined key signature on every evaluation is
+ * measurable when a loop update runs thousands of evals per flush.
+ */
+function getEvaluatorMap(keysSig: string): Map<string, Function>
+{
+  let exprMap = evaluatorCache.get(keysSig);
+  if (!exprMap)
+  {
+    // Bound the number of distinct context shapes (FIFO eviction).
+    if (evaluatorCache.size >= MAX_EVALUATOR_SIGNATURES)
+    {
+      const oldest = evaluatorCache.keys().next().value;
+      if (oldest !== undefined) evaluatorCache.delete(oldest);
+    }
+    exprMap = new Map();
+    evaluatorCache.set(keysSig, exprMap);
+  }
+  return exprMap;
+}
+
+/**
+ * Returns the compiled evaluator for `expression` against the given state
+ * keys, compiling and caching it on first use.
+ *
+ * Positional params are [blocked globals..., state keys...]. Only the state
+ * keys + expression distinguish one compiled evaluator from another.
+ */
+function getCompiledEvaluator(
+  keys: string[],
+  exprMap: Map<string, Function>,
+  expression: string,
+): Function
+{
+  let fn = exprMap.get(expression);
+  if (!fn)
+  {
+    // Bound the cache so long-lived apps with many distinct expressions
+    // don't grow it without limit (FIFO eviction of the oldest entry).
+    if (exprMap.size >= MAX_EVALUATOR_CACHE)
+    {
+      const oldest = exprMap.keys().next().value;
+      if (oldest !== undefined) exprMap.delete(oldest);
+    }
+    fn = new Function(
+      ...cachedBlockedGlobals!,
+      ...keys,
+      `"use strict"; return ${expression};`,
+    );
+    exprMap.set(expression, fn);
+  }
+  return fn;
+}
+
+/**
+ * Builds a pass-scoped fast evaluator bound to one context object.
+ *
+ * The generic `evaluateExpression(expr, context)` pays per call for
+ * `Object.keys`, identifier filtering, and the cache-key join — noticeable
+ * when a loop update evaluates thousands of bindings against one shared
+ * context per flush. This factory hoists all of that: keys are extracted
+ * once, the argument array is preallocated, and each call only refreshes
+ * the value slots (the caller mutates item/index on the context between
+ * rows) and invokes the cached compiled function.
+ *
+ * CONTRACT: the context's KEY SET must not change for the lifetime of the
+ * returned evaluator (values may change freely). Callers create one per
+ * render pass after all keys (including loop item/index) are present.
+ */
+function createContextEvaluator(
+  context: Record<string, unknown>,
+): (expression: string) => unknown
+{
+  const blocked = ensureBlockedGlobals();
+
+  const allKeys = Object.keys(context);
+  const keys: string[] = [];
+  for (let i = 0; i < allKeys.length; i++)
+  {
+    if (IDENTIFIER_RE.test(allKeys[i]))
+    {
+      keys.push(allKeys[i]);
+    }
+  }
+  const exprMap = getEvaluatorMap(keys.join(","));
+  const nBlocked = blocked.length;
+  const args: unknown[] = new Array(nBlocked + keys.length).fill(undefined);
+
+  return (expression: string): unknown =>
+  {
+    try
+    {
+      const fn = getCompiledEvaluator(keys, exprMap, expression);
+      for (let i = 0; i < keys.length; i++)
+      {
+        args[nBlocked + i] = context[keys[i]];
+      }
+      return fn.apply(null, args);
+    } catch (e)
+    {
+      expressionError(expression, e as Error, {
+        context: getComponentContext(),
+      });
+      return `{${expression}}`; // Return original on error
+    }
+  };
 }
 
 /**
@@ -1784,14 +1884,26 @@ function applyBindings(
 // ============================================================================
 
 /**
+ * Directive-facing expression evaluator. Callable as
+ * `(expr, context) => unknown`; `forContext` additionally builds a
+ * pass-scoped fast evaluator bound to one context object (see
+ * `createContextEvaluator`) whose key set must not change for the
+ * lifetime of the returned function.
+ */
+export interface DirectiveEvaluator
+{
+  (expr: string, context: Record<string, unknown>): unknown;
+  forContext(context: Record<string, unknown>): (expr: string) => unknown;
+}
+
+/**
  * Creates and returns an expression evaluator function for use by directives.
  * This allows directives to evaluate expressions like "item.name" or "count > 5"
  * in the context of the component's state.
  */
-export function createExpressionEvaluator(): (
-  expr: string,
-  context: Record<string, unknown>,
-) => unknown
+export function createExpressionEvaluator(): DirectiveEvaluator
 {
-  return evaluateExpression;
+  const evaluator = evaluateExpression as DirectiveEvaluator;
+  evaluator.forContext = createContextEvaluator;
+  return evaluator;
 }

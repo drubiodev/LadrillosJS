@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>LadrillosJS benchmark</title>
+    <link rel="stylesheet" href="../shared/bench.css" />
+    <script src="../shared/harness.js"></script>
+    <script type="module">
+      import { registerComponent } from "/dist/index.js";
+      // Light DOM so all three implementations render into the same
+      // document structure and share one global stylesheet.
+      await registerComponent("bench-table", "./bench-table.html", false);
+    </script>
+  </head>
+  <body>
+    <bench-table></bench-table>
+  </body>
+</html>

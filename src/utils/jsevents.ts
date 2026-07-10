@@ -11,3 +11,9 @@ export const EVENT_ATTRIBUTES = [
   'ondragstart', 'ondrag', 'ondragend', 'ondragenter', 'ondragleave',
   'ondragover', 'ondrop'
 ];
+
+/**
+ * Set form for O(1) membership checks on hot paths (per-attribute checks
+ * while rendering loop rows).
+ */
+export const EVENT_ATTRIBUTE_SET = new Set(EVENT_ATTRIBUTES);

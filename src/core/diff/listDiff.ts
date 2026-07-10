@@ -313,6 +313,31 @@ export function getStableIndices(source: number[]): Set<number>
   const result = new Set<number>();
   if (n === 0) return result;
 
+  // Fast path: reused indices already in increasing order (the common case —
+  // pure content updates, appends, single removes). Every reused element is
+  // then stable by definition, so the patience sort below can be skipped.
+  let prevValue = -1;
+  let inOrder = true;
+  for (let i = 0; i < n; i++)
+  {
+    const value = source[i];
+    if (value < 0) continue;
+    if (value <= prevValue)
+    {
+      inOrder = false;
+      break;
+    }
+    prevValue = value;
+  }
+  if (inOrder)
+  {
+    for (let i = 0; i < n; i++)
+    {
+      if (source[i] >= 0) result.add(i);
+    }
+    return result;
+  }
+
   // piles[k] holds the position with the smallest tail value for an increasing
   // run of length k + 1. prev links each position to its predecessor in the run.
   const piles: number[] = [];

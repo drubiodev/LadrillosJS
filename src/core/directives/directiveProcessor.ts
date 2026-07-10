@@ -34,7 +34,7 @@ const IF_TAG = "IF";
 const ELSE_IF_TAG = "ELSE-IF";
 const ELSE_TAG = "ELSE";
 const SHOW_TAG = "SHOW";
-import { EVENT_ATTRIBUTES } from "../../utils/jsevents";
+import { EVENT_ATTRIBUTE_SET } from "../../utils/jsevents";
 import
 {
   isEventDirective,
@@ -50,10 +50,10 @@ import
 import { createEventBusHelpers } from "../events/eventBus";
 import
 {
-  diffKeyed,
   createKeyGetter,
   getStableIndices,
 } from "../diff/listDiff";
+import type { DirectiveEvaluator } from "../js/scriptParser";
 import { warn, error } from "../../utils/devWarnings";
 
 // ============================================================================
@@ -759,11 +759,56 @@ function renderLoop(
   // because their event handlers close over it.
   const updateContext = createBaseLoopContext(state);
 
+  // Prime the item/index keys so the pass-scoped fast evaluator captures the
+  // complete key set (its contract: keys must not change once created —
+  // values may, and do, change per row below).
+  updateContext[loop.itemName] = null;
+  if (loop.indexName) updateContext[loop.indexName] = 0;
+  const evalOne: (expr: string) => unknown =
+    typeof (evaluateExpression as Partial<DirectiveEvaluator>).forContext ===
+    "function"
+      ? (evaluateExpression as DirectiveEvaluator).forContext(updateContext)
+      : (expr) => evaluateExpression(expr, updateContext);
+
+  // Fast path: pairwise-identical items mean no structural change — some
+  // OTHER state the loop's bindings reference changed (e.g. a selection
+  // flag). Refresh bindings in place and skip key maps, diffing, and
+  // placement entirely.
+  if (
+    newItems.length === oldItems.length &&
+    oldElements.length === newItems.length
+  )
+  {
+    let identical = true;
+    for (let i = 0; i < newItems.length; i++)
+    {
+      if (newItems[i] !== oldItems[i])
+      {
+        identical = false;
+        break;
+      }
+    }
+    if (identical)
+    {
+      for (let i = 0; i < newItems.length; i++)
+      {
+        updateContext[loop.itemName] = newItems[i];
+        if (loop.indexName) updateContext[loop.indexName] = i;
+        updateElementBindings(
+          oldElements[i],
+          updateContext,
+          evaluateExpression,
+          evalOne,
+        );
+      }
+      loop.previousItems = newItems;
+      return;
+    }
+  }
+
   if (loop.keyAttribute)
   {
     // Keyed reconciliation - match elements by key for optimal reuse.
-    const operations = diffKeyed(oldItems, newItems, loop.keyGetter);
-
     const keyToElement = new Map<unknown, Element>();
     const keyToOldIndex = new Map<unknown, number>();
     for (let i = 0; i < oldItems.length; i++)
@@ -773,17 +818,21 @@ function renderLoop(
       if (oldElements[i]) keyToElement.set(key, oldElements[i]);
     }
 
-    // Remove elements whose key disappeared.
-    for (const op of operations)
+    // Remove elements whose key disappeared. A key-set difference is all
+    // that's needed here — the LIS-based placement below handles moves, so
+    // running the full diff (which computes move operations nobody reads)
+    // would be O(n²) wasted work per flush.
+    const newKeys = new Set<unknown>();
+    for (let i = 0; i < newItems.length; i++)
     {
-      if (op.type === "remove" && op.key !== undefined)
+      newKeys.add(loop.keyGetter(newItems[i], i));
+    }
+    for (const [key, el] of keyToElement)
+    {
+      if (!newKeys.has(key))
       {
-        const el = keyToElement.get(op.key);
-        if (el)
-        {
-          el.remove();
-          keyToElement.delete(op.key);
-        }
+        el.remove();
+        keyToElement.delete(key);
       }
     }
 
@@ -797,7 +846,7 @@ function renderLoop(
         // Reuse existing element - update bindings against the shared context.
         updateContext[loop.itemName] = item;
         if (loop.indexName) updateContext[loop.indexName] = i;
-        updateElementBindings(existingEl, updateContext, evaluateExpression);
+        updateElementBindings(existingEl, updateContext, evaluateExpression, evalOne);
         newElements[i] = existingEl;
         source[i] = keyToOldIndex.get(key) ?? -1;
       } else
@@ -820,6 +869,7 @@ function renderLoop(
           oldElements[i],
           updateContext,
           evaluateExpression,
+          evalOne,
         );
         newElements[i] = oldElements[i];
         source[i] = i;
@@ -910,14 +960,126 @@ function createLoopContext(
 }
 
 /**
+ * A binding template pre-parsed into alternating static text and
+ * expression segments: the rendered value is
+ * `statics[0] + eval(exprs[0]) + statics[1] + … + statics[exprs.length]`.
+ * Parsing once at collection time replaces a regex `.replace` (plus a
+ * closure allocation) per binding per update with a plain concat loop.
+ */
+type ParsedBinding = {
+  statics: string[];
+  exprs: string[];
+};
+
+/**
+ * Parsed templates are shared globally: every row of a 1,000-row loop has
+ * the same handful of template strings, so parsing is done once per
+ * distinct template rather than once per node.
+ */
+const parsedTemplateCache = new Map<string, ParsedBinding>();
+
+function parseBindingTemplate(template: string): ParsedBinding
+{
+  let parsed = parsedTemplateCache.get(template);
+  if (parsed) return parsed;
+
+  const statics: string[] = [];
+  const exprs: string[] = [];
+  const re = /\{([^}]+)\}/g;
+  let last = 0;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(template)))
+  {
+    statics.push(template.slice(last, m.index));
+    exprs.push(m[1].trim());
+    last = m.index + m[0].length;
+  }
+  statics.push(template.slice(last));
+
+  parsed = { statics, exprs };
+  parsedTemplateCache.set(template, parsed);
+  return parsed;
+}
+
+/**
+ * Per-element cache of everything the update path needs to touch: text
+ * nodes and attributes carrying a `__originalTemplate` (with the template
+ * pre-parsed into segments), and the comment placeholders of nested <if>
+ * chains. Collected with TreeWalkers once, then reused on every
+ * subsequent update — the subtree structure of a reused loop element only
+ * changes when a conditional branch swaps, and that invalidates the cache
+ * below.
+ */
+type LoopBindingCache = {
+  texts: { node: Text; parsed: ParsedBinding }[];
+  attrs: { attr: Attr; parsed: ParsedBinding }[];
+  conds: Comment[];
+};
+
+const BINDING_CACHE = "__ladrillosBindingCache" as const;
+
+function collectBindingCache(element: Element): LoopBindingCache
+{
+  const texts: LoopBindingCache["texts"] = [];
+  const attrs: LoopBindingCache["attrs"] = [];
+  const conds: Comment[] = [];
+
+  const collectAttrs = (el: Element): void =>
+  {
+    const list = el.attributes;
+    for (let i = 0; i < list.length; i++)
+    {
+      const template = (list[i] as any).__originalTemplate;
+      if (template)
+      {
+        attrs.push({ attr: list[i], parsed: parseBindingTemplate(template) });
+      }
+    }
+  };
+
+  // A TreeWalker's nextNode does not include the root, so the root's
+  // attributes are collected explicitly first.
+  collectAttrs(element);
+  const walker = document.createTreeWalker(
+    element,
+    NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_COMMENT,
+  );
+  let node: Node | null;
+  while ((node = walker.nextNode()))
+  {
+    if (node.nodeType === Node.TEXT_NODE)
+    {
+      const template = (node as any).__originalTemplate;
+      if (template)
+      {
+        texts.push({
+          node: node as Text,
+          parsed: parseBindingTemplate(template),
+        });
+      }
+    } else if (node.nodeType === Node.ELEMENT_NODE)
+    {
+      collectAttrs(node as Element);
+    } else if ((node as any)[LOOP_COND_META])
+    {
+      conds.push(node as Comment);
+    }
+  }
+
+  return { texts, attrs, conds };
+}
+
+/**
  * Updates bindings on an existing element (for keyed diffing reuse).
  *
- * This walks the whole subtree in a flat pass rather than recursing per child.
- * A `TreeWalker` rooted at `element` already visits every descendant text node
- * and every loop-conditional placeholder in one traversal, so the previous
- * per-child recursion re-walked the same nodes at every depth — O(depth)
- * redundant work for every reused row on every update. Text/attribute updates
- * are idempotent for a fixed context, so flattening produces identical output.
+ * Uses the per-element binding cache instead of re-walking the subtree on
+ * every update; the cache is (re)built on first use and whenever a nested
+ * conditional swaps branches (the only structural change possible on a
+ * reused element). DOM writes are skipped when the computed value matches
+ * what's already there, so an unchanged row costs only expression evals.
+ *
+ * `evalOne` is the pass-scoped fast evaluator bound to `context`; both
+ * refer to the same state, `evalOne` just skips per-call context setup.
  */
 function updateElementBindings(
   element: Element,
@@ -926,79 +1088,56 @@ function updateElementBindings(
     expr: string,
     context: Record<string, unknown>,
   ) => unknown,
+  evalOne: (expr: string) => unknown = (expr) =>
+    evaluateExpression(expr, context),
 ): void
 {
+  let cache = (element as any)[BINDING_CACHE] as LoopBindingCache | undefined;
+  if (!cache)
+  {
+    cache = collectBindingCache(element);
+    (element as any)[BINDING_CACHE] = cache;
+  }
+
   // Re-evaluate any <if>/<else-if>/<else> chains nested inside the element
   // (loop iteration) so the rendered branch matches the current per-item
-  // context. This is a single whole-subtree pass: nested placeholders at any
-  // depth are found here, and a changed branch is fully (re-)processed in place.
-  updateLoopConditionals(element, context, evaluateExpression);
-
-  // Update every {..} text-node binding in the subtree in one traversal.
-  const textWalker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
-  let node: Text | null;
-  while ((node = textWalker.nextNode() as Text | null))
+  // context. A swapped branch changes the subtree, so the cache is rebuilt
+  // (the freshly rendered branch was already processed with the current
+  // context, so re-updating its bindings below is an idempotent no-op).
+  if (updateLoopConditionals(cache.conds, context, evaluateExpression, evalOne))
   {
-    const originalTemplate = (node as any).__originalTemplate;
-    if (originalTemplate)
-    {
-      node.textContent = originalTemplate.replace(
-        /\{([^}]+)\}/g,
-        (_: string, expr: string) =>
-        {
-          const result = evaluateExpression(expr.trim(), context);
-          return String(result ?? "");
-        },
-      );
-    }
+    cache = collectBindingCache(element);
+    (element as any)[BINDING_CACHE] = cache;
   }
 
-  // Update every {..} attribute binding on the root element and each descendant
-  // in one element traversal (a TreeWalker's nextNode does not include the root,
-  // so the root is handled explicitly first).
-  updateAttributeBindings(element, context, evaluateExpression);
-  const elementWalker = document.createTreeWalker(
-    element,
-    NodeFilter.SHOW_ELEMENT,
-  );
-  let el: Element | null;
-  while ((el = elementWalker.nextNode() as Element | null))
+  const texts = cache.texts;
+  for (let i = 0; i < texts.length; i++)
   {
-    updateAttributeBindings(el, context, evaluateExpression);
-  }
-}
-
-/**
- * Re-evaluates {..} attribute bindings on a single element using the stored
- * `__originalTemplate` captured when the element was first rendered.
- */
-function updateAttributeBindings(
-  element: Element,
-  context: Record<string, unknown>,
-  evaluateExpression: (
-    expr: string,
-    context: Record<string, unknown>,
-  ) => unknown,
-): void
-{
-  for (const attr of Array.from(element.attributes))
-  {
-    const originalTemplate = (attr as any).__originalTemplate;
-    if (originalTemplate)
+    const { node, parsed } = texts[i];
+    const { statics, exprs } = parsed;
+    let next = statics[0];
+    for (let j = 0; j < exprs.length; j++)
     {
-      attr.value = originalTemplate.replace(
-        /\{([^}]+)\}/g,
-        (_: string, expr: string) =>
-        {
-          const result = evaluateExpression(expr.trim(), context);
-          if (result !== null && typeof result === "object")
-          {
-            return JSON.stringify(result);
-          }
-          return String(result ?? "");
-        },
-      );
+      next += String(evalOne(exprs[j]) ?? "") + statics[j + 1];
     }
+    if (node.textContent !== next) node.textContent = next;
+  }
+
+  const attrs = cache.attrs;
+  for (let i = 0; i < attrs.length; i++)
+  {
+    const { attr, parsed } = attrs[i];
+    const { statics, exprs } = parsed;
+    let next = statics[0];
+    for (let j = 0; j < exprs.length; j++)
+    {
+      const result = evalOne(exprs[j]);
+      next +=
+        (result !== null && typeof result === "object"
+          ? JSON.stringify(result)
+          : String(result ?? "")) + statics[j + 1];
+    }
+    if (attr.value !== next) attr.value = next;
   }
 }
 
@@ -1042,11 +1181,7 @@ type LoopConditionalMeta = {
 
 function chooseLoopConditionalBranch(
   branches: LoopConditionalBranch[],
-  context: Record<string, unknown>,
-  evaluateExpression: (
-    expr: string,
-    context: Record<string, unknown>,
-  ) => unknown,
+  evalOne: (expr: string) => unknown,
 ): number
 {
   for (let i = 0; i < branches.length; i++)
@@ -1055,7 +1190,7 @@ function chooseLoopConditionalBranch(
     if (b.type === "else") return i;
     try
     {
-      if (evaluateExpression(b.condition, context)) return i;
+      if (evalOne(b.condition)) return i;
     } catch
     {
       // Treat evaluation errors as false so subsequent branches can match.
@@ -1171,10 +1306,8 @@ function resolveLoopConditionals(
     target.remove();
     for (const r of toRemove) r.remove();
 
-    const chosenIdx = chooseLoopConditionalBranch(
-      branches,
-      context,
-      evaluateExpression,
+    const chosenIdx = chooseLoopConditionalBranch(branches, (expr) =>
+      evaluateExpression(expr, context),
     );
     if (chosenIdx >= 0)
     {
@@ -1197,30 +1330,22 @@ function resolveLoopConditionals(
  * rendered branch. If it changed, swap in a fresh branch and process it.
  */
 function updateLoopConditionals(
-  root: Element,
+  placeholders: readonly Comment[],
   context: Record<string, unknown>,
   evaluateExpression: (
     expr: string,
     context: Record<string, unknown>,
   ) => unknown,
-): void
+  evalOne: (expr: string) => unknown,
+): boolean
 {
-  const walker = document.createTreeWalker(root, NodeFilter.SHOW_COMMENT);
-  const placeholders: Comment[] = [];
-  let n: Comment | null;
-  while ((n = walker.nextNode() as Comment | null))
-  {
-    if ((n as any)[LOOP_COND_META]) placeholders.push(n);
-  }
+  let structureChanged = false;
   for (const placeholder of placeholders)
   {
     const meta = (placeholder as any)[LOOP_COND_META] as LoopConditionalMeta;
-    const newIdx = chooseLoopConditionalBranch(
-      meta.branches,
-      context,
-      evaluateExpression,
-    );
+    const newIdx = chooseLoopConditionalBranch(meta.branches, evalOne);
     if (newIdx === meta.currentIndex) continue;
+    structureChanged = true;
 
     if (meta.currentEl && meta.currentEl.parentNode)
     {
@@ -1241,12 +1366,18 @@ function updateLoopConditionals(
       processElementBindings(el, context, evaluateExpression);
     }
   }
+  return structureChanged;
 }
 
 /**
  * Processes {bindings} within an element and its children.
  * Also transforms inline event handlers (onclick, etc.) to work with component scope.
  * Stores original templates for efficient updates during keyed diffing.
+ *
+ * Walks the whole subtree in one flat pass (the previous per-child
+ * recursion re-walked every text node once per ancestor level) and seeds
+ * the element's binding cache with what it finds, so the first
+ * updateElementBindings call doesn't need its own collection walk.
  */
 function processElementBindings(
   element: Element,
@@ -1257,73 +1388,104 @@ function processElementBindings(
   ) => unknown,
 ): void
 {
-  // Process attributes - first replace bindings, then transform event handlers
-  for (const attr of Array.from(element.attributes))
-  {
-    // Event-handler attributes (onclick, $on:…) are compiled as JavaScript by
-    // transformLoopEventHandlers. We must NOT string-interpolate per-item data
-    // into their source here: splicing an untrusted item value straight into
-    // handler code is a code-injection vector. Their {expr} bindings are turned
-    // into live, scoped sub-expressions by the handler compiler instead.
-    if (EVENT_ATTRIBUTES.includes(attr.name) || isEventDirective(attr.name))
-    {
-      continue;
-    }
+  const texts: LoopBindingCache["texts"] = [];
+  const boundAttrs: LoopBindingCache["attrs"] = [];
+  const conds: Comment[] = [];
 
-    if (attr.value.includes("{"))
+  // Pass-scoped fast evaluator: this element's bindings all evaluate
+  // against one context, so hoist the per-eval context setup.
+  const evalOne: (expr: string) => unknown =
+    typeof (evaluateExpression as Partial<DirectiveEvaluator>).forContext ===
+    "function"
+      ? (evaluateExpression as DirectiveEvaluator).forContext(context)
+      : (expr) => evaluateExpression(expr, context);
+
+  const evalToString = (expr: string): string =>
+  {
+    const result = evalOne(expr);
+    return String(result ?? "");
+  };
+
+  const evalToAttrString = (expr: string): string =>
+  {
+    const result = evalOne(expr);
+    // Serialize objects/arrays to JSON so child components can parse them
+    // This allows email="{item}" to pass the actual object, not "[object Object]"
+    if (result !== null && typeof result === "object")
     {
-      // Store original template for keyed diffing reuse
-      (attr as any).__originalTemplate = attr.value;
-      const newValue = attr.value.replace(/\{([^}]+)\}/g, (_, expr) =>
+      return JSON.stringify(result);
+    }
+    return String(result ?? "");
+  };
+
+  const processOne = (el: Element): void =>
+  {
+    // Process attributes - first replace bindings, then transform event handlers
+    for (const attr of Array.from(el.attributes))
+    {
+      // Event-handler attributes (onclick, $on:…) are compiled as JavaScript by
+      // transformLoopEventHandlers. We must NOT string-interpolate per-item data
+      // into their source here: splicing an untrusted item value straight into
+      // handler code is a code-injection vector. Their {expr} bindings are turned
+      // into live, scoped sub-expressions by the handler compiler instead.
+      if (EVENT_ATTRIBUTE_SET.has(attr.name) || isEventDirective(attr.name))
       {
-        const result = evaluateExpression(expr.trim(), context);
-        // Serialize objects/arrays to JSON so child components can parse them
-        // This allows email="{item}" to pass the actual object, not "[object Object]"
-        if (result !== null && typeof result === "object")
+        continue;
+      }
+
+      if (attr.value.includes("{"))
+      {
+        // Store original template for keyed diffing reuse
+        const parsed = parseBindingTemplate(attr.value);
+        (attr as any).__originalTemplate = attr.value;
+        let next = parsed.statics[0];
+        for (let j = 0; j < parsed.exprs.length; j++)
         {
-          return JSON.stringify(result);
+          next += evalToAttrString(parsed.exprs[j]) + parsed.statics[j + 1];
         }
-        return String(result ?? "");
-      });
-      attr.value = newValue;
+        attr.value = next;
+        boundAttrs.push({ attr, parsed });
+      }
     }
-  }
 
-  // Transform inline event handlers (onclick, etc.) into proper event listeners.
-  transformLoopEventHandlers(element, context);
+    // Transform inline event handlers (onclick, etc.) into proper event listeners.
+    transformLoopEventHandlers(el, context);
+  };
 
-  // Process text nodes
-  const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
-  const textNodes: Text[] = [];
-  let node: Text | null;
-
-  while ((node = walker.nextNode() as Text | null))
+  processOne(element);
+  const walker = document.createTreeWalker(
+    element,
+    NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_COMMENT,
+  );
+  let node: Node | null;
+  while ((node = walker.nextNode()))
   {
-    if (node.textContent?.includes("{"))
+    if (node.nodeType === Node.TEXT_NODE)
     {
-      textNodes.push(node);
+      const textContent = node.textContent;
+      if (textContent && textContent.includes("{"))
+      {
+        // Store original template for keyed diffing reuse
+        const parsed = parseBindingTemplate(textContent);
+        (node as any).__originalTemplate = textContent;
+        let next = parsed.statics[0];
+        for (let j = 0; j < parsed.exprs.length; j++)
+        {
+          next += evalToString(parsed.exprs[j]) + parsed.statics[j + 1];
+        }
+        node.textContent = next;
+        texts.push({ node: node as Text, parsed });
+      }
+    } else if (node.nodeType === Node.ELEMENT_NODE)
+    {
+      processOne(node as Element);
+    } else if ((node as any)[LOOP_COND_META])
+    {
+      conds.push(node as Comment);
     }
   }
 
-  for (const textNode of textNodes)
-  {
-    // Store original template for keyed diffing reuse
-    (textNode as any).__originalTemplate = textNode.textContent;
-    textNode.textContent = textNode.textContent!.replace(
-      /\{([^}]+)\}/g,
-      (_, expr) =>
-      {
-        const result = evaluateExpression(expr.trim(), context);
-        return String(result ?? "");
-      },
-    );
-  }
-
-  // Recursively process child elements
-  for (const child of Array.from(element.children))
-  {
-    processElementBindings(child, context, evaluateExpression);
-  }
+  (element as any)[BINDING_CACHE] = { texts, attrs: boundAttrs, conds };
 }
 
 /**
@@ -1362,37 +1524,51 @@ function transformLoopEventHandlers(
   context: Record<string, unknown>,
 ): void
 {
-  // Process standard inline event handlers (onclick, oninput, etc.)
-  for (const attrName of EVENT_ATTRIBUTES)
+  // Scan the element's OWN attributes (usually 0–3) for handler names
+  // rather than probing getAttribute for every known event attribute —
+  // per-row that turned into tens of thousands of misses on large lists.
+  const attrs = element.attributes;
+  let handlerAttrs: { name: string; value: string }[] | null = null;
+  for (let i = 0; i < attrs.length; i++)
   {
-    const handlerCode = element.getAttribute(attrName);
+    const name = attrs[i].name;
+    if (EVENT_ATTRIBUTE_SET.has(name) || isEventDirective(name))
+    {
+      (handlerAttrs ??= []).push({ name, value: attrs[i].value });
+    }
+  }
+  if (!handlerAttrs) return;
 
-    if (handlerCode)
+  for (const { name, value } of handlerAttrs)
+  {
+    // Process standard inline event handlers (onclick, oninput, etc.)
+    if (EVENT_ATTRIBUTE_SET.has(name))
     {
       // Remove the attribute so browser doesn't try to eval it globally
-      element.removeAttribute(attrName);
+      element.removeAttribute(name);
 
       // onclick → click
-      const eventName = attrName.slice(2);
+      const eventName = name.slice(2);
 
       // Create event listener with component context
       const handler = createLoopEventHandler(
-        bindHandlerExpressions(handlerCode),
+        bindHandlerExpressions(value),
         context,
       );
       if (handler)
       {
         element.addEventListener(eventName, handler);
       }
+    } else
+    {
+      // $on: event directive with modifiers
+      processLoopEventDirective(element, name, value, context);
     }
   }
-
-  // Process $on: event directives with modifiers
-  processLoopEventDirectives(element, context);
 }
 
 /**
- * Processes $on: event directives on loop-rendered elements.
+ * Processes one $on: event directive on a loop-rendered element.
  *
  * Syntax: $on:event.modifier1.modifier2="handler()"
  *
@@ -1400,37 +1576,50 @@ function transformLoopEventHandlers(
  *   $on:keyup.enter="submit()"
  *   $on:click.ctrl.prevent="handleClick()"
  */
-function processLoopEventDirectives(
+function processLoopEventDirective(
   element: Element,
+  attrName: string,
+  attrValue: string,
   context: Record<string, unknown>,
 ): void
 {
-  // Get all attributes that start with $on:
-  const attrs = Array.from(element.attributes);
-  const eventAttrs = attrs.filter((attr) => isEventDirective(attr.name));
+  const parsed = parseEventDirective(attrName);
+  if (!parsed) return;
 
-  for (const attr of eventAttrs)
-  {
-    const parsed = parseEventDirective(attr.name);
-    if (!parsed) continue;
+  const handlerCode = bindHandlerExpressions(attrValue);
+  element.removeAttribute(attrName);
 
-    const handlerCode = bindHandlerExpressions(attr.value);
-    element.removeAttribute(attr.name);
+  // Create the base event handler with loop context
+  const baseHandler = createLoopEventHandler(handlerCode, context);
+  if (!baseHandler) return;
 
-    // Create the base event handler with loop context
-    const baseHandler = createLoopEventHandler(handlerCode, context);
-    if (!baseHandler) continue;
+  // Wrap the handler with modifier checks
+  const modifiedHandler = createModifiedHandler(baseHandler, parsed);
 
-    // Wrap the handler with modifier checks
-    const modifiedHandler = createModifiedHandler(baseHandler, parsed);
+  // Get listener options (passive, capture, once)
+  const options = getListenerOptions(parsed.eventModifiers);
 
-    // Get listener options (passive, capture, once)
-    const options = getListenerOptions(parsed.eventModifiers);
-
-    // Add the event listener
-    element.addEventListener(parsed.eventName, modifiedHandler, options);
-  }
+  // Add the event listener
+  element.addEventListener(parsed.eventName, modifiedHandler, options);
 }
+
+/**
+ * Extracted function definitions per script content. Every row of a loop
+ * shares one component script, so parsing it once (not once per handler
+ * per row) is a large win when creating many rows.
+ */
+const funcDefsCache = new Map<string, string>();
+
+/**
+ * Compiled handler functions keyed by their full source body. The body
+ * embeds the handler code and every destructured name, so body equality
+ * implies the compiled function is interchangeable — only the runtime
+ * arguments (context, reactiveState) differ between rows. This collapses
+ * one `new Function` compile per handler per row into one per distinct
+ * handler shape.
+ */
+const loopHandlerFnCache = new Map<string, Function>();
+const MAX_HANDLER_FN_CACHE = 1000;
 
 /**
  * Creates an event handler function for loop-rendered elements.
@@ -1499,7 +1688,15 @@ function createLoopEventHandler(
     {
       // Regular scripts: re-create functions from script content so they
       // work with the local variables that will be synced back to state
-      funcDefs = extractFunctionDefinitions(scriptContent, []);
+      const cached = funcDefsCache.get(scriptContent);
+      if (cached !== undefined)
+      {
+        funcDefs = cached;
+      } else
+      {
+        funcDefs = extractFunctionDefinitions(scriptContent, []);
+        funcDefsCache.set(scriptContent, funcDefs);
+      }
     } else
     {
       // Fallback: destructure functions from context
@@ -1548,15 +1745,27 @@ function createLoopEventHandler(
       ${code};
       ${syncBack}`;
 
-    // Create function with event, context, reactiveState, and event bus helpers as parameters
-    const fn = new Function(
-      "event",
-      "context",
-      "reactiveState",
-      "$emit",
-      "$listen",
-      fnBody,
-    );
+    // Create function with event, context, reactiveState, and event bus helpers
+    // as parameters. Compiles are cached by body: rows of the same loop produce
+    // byte-identical bodies and only differ in the arguments bound below.
+    let fn = loopHandlerFnCache.get(fnBody);
+    if (!fn)
+    {
+      if (loopHandlerFnCache.size >= MAX_HANDLER_FN_CACHE)
+      {
+        const oldest = loopHandlerFnCache.keys().next().value;
+        if (oldest !== undefined) loopHandlerFnCache.delete(oldest);
+      }
+      fn = new Function(
+        "event",
+        "context",
+        "reactiveState",
+        "$emit",
+        "$listen",
+        fnBody,
+      );
+      loopHandlerFnCache.set(fnBody, fn);
+    }
 
     return (event: Event) =>
     {

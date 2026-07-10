@@ -5,6 +5,10 @@ import {
   scanLazyElements,
   getPendingLazyContent,
 } from "../builtins/lazyElement";
+import {
+  escapeControlTags,
+  restoreControlTags,
+} from "./controlTagEscape";
 
 type TemplateLoadResult = {
   bindings: BindingDescriptor[];
@@ -37,7 +41,11 @@ export const loadTemplate = (
   // stashed on a sentinel inside `tpl.content` so subsequent scanners can
   // still find and wire its contents (bindings, listeners, directives).
   const tpl = document.createElement("template");
-  tpl.innerHTML = template;
+  // Escape control elements (<for>, <if>, …) to <template> placeholders
+  // before parsing so table insertion modes cannot foster-parent them out
+  // of <table>/<tbody>/<tr>, then rebuild them with DOM APIs.
+  tpl.innerHTML = escapeControlTags(template);
+  restoreControlTags(tpl.content);
   scanLazyElements(tpl.content);
   host.innerHTML = "";
   host.appendChild(tpl.content);
