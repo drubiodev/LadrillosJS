@@ -26,7 +26,7 @@ Create an `index.html` file. The only thing you need is a single import from the
 
     <!-- That's it! Import from the CDN and register your components -->
     <script type="module">
-        import { registerComponent } from "https://cdn.jsdelivr.net/npm/ladrillosjs/dist/index.min.js";
+        import { registerComponent } from "https://cdn.jsdelivr.net/npm/ladrillosjs@2/dist/index.js";
         registerComponent("my-counter", "./components/counter.html");
     </script>
 </head>
@@ -138,11 +138,14 @@ Navigate to `http://localhost:8080` and see your reactive counter!
 
 ## Adding More Components
 
-Register multiple components at once:
+Register multiple components at once with `registerComponents` (imported the
+same way as `registerComponent`):
 
 ```javascript
+import { registerComponents } from "https://cdn.jsdelivr.net/npm/ladrillosjs@2/dist/index.js";
+
 // Object syntax - tag name as key, path as value
-ladrillosjs.registerComponents({
+await registerComponents({
   "my-header": "./components/header.html",
   "my-footer": "./components/footer.html",
   "user-card": "./components/user-card.html",
@@ -152,7 +155,7 @@ ladrillosjs.registerComponents({
 Or use the array syntax for more options:
 
 ```javascript
-ladrillosjs.registerComponents([
+await registerComponents([
   { name: "my-header", path: "./components/header.html" },
   { name: "my-modal", path: "./components/modal.html", useShadowDOM: false },
   { name: "my-footer", path: "./components/footer.html", lazy: true },

@@ -435,22 +435,21 @@ function diffUnkeyed(oldItems, newItems) {
 
 ## Build Outputs
 
-LadrillosJS builds multiple formats:
+LadrillosJS v2 ships **ESM-only** with four entry points (see
+[`package.json` `exports`](../package.json)):
 
 ```
 dist/
-├── ladrillosjs.es.js      # ES Module (import/export)
-├── ladrillosjs.umd.js     # UMD (works everywhere)
-├── ladrillosjs.cjs.js     # CommonJS (require)
-└── ladrillosjs.d.ts       # TypeScript definitions
+├── index.js     # Full API      → import from "ladrillosjs"
+├── core.js      # Registration  → import from "ladrillosjs/core"
+├── lazy.js      # Lazy strategies → import from "ladrillosjs/lazy"
+├── events.js    # Event bus     → import from "ladrillosjs/events"
+├── *.d.ts       # TypeScript declarations
+└── *.js.map     # Source maps
 ```
 
-CDN-specific builds:
-
-```
-dist-cdn/
-└── ladrillos.iife.js      # IIFE (global variable)
-```
+A development-only IIFE build (`dist-cdn/ladrillos.iife.js`) is produced by
+`npm run build:cdn` for the local samples/REPL; it is not published to npm.
 
 ---
 
@@ -469,7 +468,7 @@ npm run dev
 npm run build:all
 
 # Run samples
-npm run sample:demo
+npm run dev:demo
 ```
 
 Key areas for contributions:

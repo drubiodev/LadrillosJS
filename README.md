@@ -26,7 +26,7 @@
 - [Quick Start](#-quick-start)
 - [Installation](#-installation)
 - [Core Concepts](#-core-concepts)
-- [Directives](#-directives)
+- [Built-in Elements & Directives](#-built-in-elements--directives)
 - [Event Bus](#-event-bus)
 - [Element References](#-element-references)
 - [Lazy Loading](#-lazy-loading)
@@ -34,6 +34,7 @@
 - [Using with Vite](#-using-with-vite)
 - [Browser Support](#-browser-support)
 - [Examples](#-examples)
+- [Documentation](#-documentation)
 - [Security & Trust Model](#-security--trust-model)
 - [Contributing](#-contributing)
 - [License](#-license)
@@ -42,16 +43,7 @@
 
 ## 🚀 Quick Start
 
-### 1. Add the Script
-
-```html
-<script type="module">
-  import ladrillosjs from "https://cdn.jsdelivr.net/npm/ladrillosjs@2/dist/index.js";
-  window.ladrillosjs = ladrillosjs;
-</script>
-```
-
-### 2. Create a Component
+### 1. Create a Component
 
 Save this as `counter.html`:
 
@@ -87,7 +79,10 @@ Save this as `counter.html`:
 </style>
 ```
 
-### 3. Use It
+### 2. Register and Use It
+
+In your `index.html`, import LadrillosJS from the CDN, register the
+component, and drop the tag anywhere on the page:
 
 ```html
 <!DOCTYPE html>
@@ -104,7 +99,20 @@ Save this as `counter.html`:
 </html>
 ```
 
+### 3. Serve It
+
+Components are fetched over HTTP, so serve the folder with any static server
+(opening the file directly via `file://` won't work — browsers block `fetch`
+from local files):
+
+```bash
+npx serve          # or: python -m http.server 8080
+```
+
 That's it! Your reactive component is ready. 🎉
+
+> 📚 **Want more?** The [full documentation](docs/README.md) covers every
+> feature step by step, from your first component to building a design system.
 
 ---
 
@@ -205,6 +213,20 @@ Attach events directly in HTML with inline expressions or function calls:
 <input onkeyup="search(event.target.value)" />
 <form onsubmit="handleSubmit(event)">...</form>
 ```
+
+Or use the `$on:` directive with **modifiers** — dot-separated flags for
+common patterns like `preventDefault`, key filtering, and modifier keys:
+
+```html
+<form $on:submit.prevent="handleSubmit()">...</form>
+<input $on:keyup.enter="search()" />
+<textarea $on:keydown.ctrl.s.prevent="save()"></textarea>
+<div $on:click.self="closeModal()">...</div>
+<button $on:click.once="trackFirstClick()">Buy</button>
+```
+
+See the [Event Modifiers reference](docs/20-event-modifiers.md) for every
+modifier and combination.
 
 ### Two-Way Binding
 
@@ -326,6 +348,8 @@ Use `<lazy>` to defer rendering until a trigger fires (viewport, idle, delay, in
 | `<lazy>`            | Defer rendering          | `<lazy idle><analytics-pixel /></lazy>`                |
 | `$bind`             | Two-way binding          | `<input $bind="email" />`                              |
 | `$ref`              | Element reference        | `<input $ref="inputEl" />`                             |
+| `$on:` + modifiers  | Events with modifiers    | `<form $on:submit.prevent="save()">`                   |
+| `$no:bind`          | Escape `{}` binding      | `<code $no:bind>{literal}</code>`                      |
 
 ---
 
@@ -631,6 +655,22 @@ A complete CRUD example combining all directives:
 ```
 
 > 💡 Check the [samples/](samples/) folder for more examples including lazy loading, event bus communication, and real-world patterns.
+
+---
+
+## 📚 Documentation
+
+Full guides live in the [docs/](docs/README.md) folder:
+
+| Start here | Reference | Advanced |
+| ---------- | --------- | -------- |
+| [Quick Start](docs/01-quick-start.md) | [Built-in Elements & Directives](docs/06-directives.md) | [Event Bus](docs/12-event-bus.md) |
+| [Installation](docs/02-installation.md) | [Event Modifiers (`$on:`)](docs/20-event-modifiers.md) | [Lazy Loading](docs/13-lazy-loading.md) |
+| [Components](docs/03-components.md) | [Conditionals & Loops](docs/07-conditionals.md) | [Shadow DOM](docs/14-shadow-dom.md) |
+| [Reactivity](docs/04-reactivity.md) | [Two-Way Binding](docs/09-two-way-binding.md) | [Design System Guide](docs/19-design-system.md) |
+
+Upgrading from v1? See the [Migration Guide](docs/17-migration-v1-to-v2.md).
+Using TypeScript? See the [TypeScript guide](docs/18-typescript.md).
 
 ---
 

@@ -5,26 +5,27 @@ LadrillosJS can be used with or without a build step. Choose the method that fit
 ## CDN (No Build Step)
 
 Perfect for quick prototypes, learning, or projects without a build system.
-
-### Global Script (UMD)
-
-```html
-<script src="https://cdn.jsdelivr.net/npm/ladrillosjs/dist/ladrillosjs.umd.js"></script>
-<script type="module">
-  // Available globally as `ladrillosjs`
-  ladrillosjs.registerComponent("my-component", "./component.html");
-</script>
-```
-
-### ES Module
+LadrillosJS v2 is distributed as native ES modules:
 
 ```html
 <script type="module">
-  import { registerComponent } from "https://cdn.jsdelivr.net/npm/ladrillosjs/dist/index.min.js";
+  import { registerComponent } from "https://cdn.jsdelivr.net/npm/ladrillosjs@2/dist/index.js";
 
   registerComponent("my-component", "./component.html");
 </script>
 ```
+
+Also available on unpkg:
+
+```html
+<script type="module">
+  import { registerComponent } from "https://unpkg.com/ladrillosjs@2/dist/index.js";
+</script>
+```
+
+> **Note:** v2 is **ESM-only**. The v1 UMD global build
+> (`dist/ladrillosjs.umd.js`) is no longer published — see the
+> [migration guide](./17-migration-v1-to-v2.md) if you're upgrading.
 
 ---
 
@@ -88,12 +89,11 @@ import {
   // Component Registration
   registerComponent, // Register a single component
   registerComponents, // Register multiple components
+  $use, // Shorthand registration (tag name derived from path)
   loadLazyComponent, // Force load a lazy component
 
-  // Framework Helpers (same syntax as inside components!)
-  registerComponent, // Register component (for external scripts)
-  registerComponents, // Register multiple (for external scripts)
-  $use, // Shorthand registration
+  // Configuration
+  configure, // Framework options (cacheSize, onError)
 
   // Event Bus
   $emit, // Emit events
@@ -106,6 +106,21 @@ import {
   lazyOnInteraction, // Load on user interaction
   lazyOnDelay, // Load after delay
 } from "ladrillosjs";
+```
+
+### Granular Imports (Tree-Shaking)
+
+Import only what you need from the sub-path entry points:
+
+```javascript
+// Core only (no lazy loading, no event bus)
+import { registerComponent } from "ladrillosjs/core";
+
+// Lazy loading strategies only
+import { lazyOnVisible, lazyOnIdle } from "ladrillosjs/lazy";
+
+// Event bus only
+import { $emit, $listen } from "ladrillosjs/events";
 ```
 
 ---

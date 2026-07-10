@@ -208,4 +208,4 @@ build:all` — the build now cleans `dist/` and `dist-cdn/` before emitting.
       error reporting.
 
 If something isn't covered here, please
-[open an issue](https://github.com/your-org/LadrillosJS/issues) — we'll add it.
+[open an issue](https://github.com/drubiodev/LadrillosJS/issues) — we'll add it.

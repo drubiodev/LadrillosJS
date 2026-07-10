@@ -248,13 +248,17 @@ $on:<event>[.<modifier>][.<modifier>]...="<handler>"
 **Key modifiers (for `keyup` / `keydown`):**
 
 - Navigation: `.enter`, `.tab`, `.esc` (or `.escape`), `.space`
-- Arrows: `.up`, `.down`, `.left`, `.right`
+- Arrows: `.up`, `.down`, `.arrowleft`, `.arrowright`
+  (`.left`/`.right` always mean mouse buttons)
 - Editing: `.delete`, `.backspace`, `.insert`
 - Position: `.home`, `.end`, `.pageup`, `.pagedown`
 - Function keys: `.f1` – `.f12`
 - Any other `KeyboardEvent.key` value (lowercased), e.g. `.a`, `.z`, `.slash`
 
 Modifiers can be combined, e.g. `$on:click.prevent.stop="handleLink()"` or `$on:keydown.ctrl.s.prevent="save()"`.
+
+> 📖 See [Event Modifiers](./20-event-modifiers.md) for the complete
+> reference, combination gallery, and gotchas.
 
 **Example — save on `Ctrl+S`:**
 

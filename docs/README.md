@@ -23,6 +23,7 @@ Welcome to the LadrillosJS documentation! This guide will help you understand ho
 - [**Two-Way Binding**](./09-two-way-binding.md) - `$bind` for forms
 - [**Element References**](./10-refs.md) - `$ref` for DOM access
 - [**Visibility Toggle**](./11-show.md) - `<show>` for CSS visibility
+- [**Event Modifiers**](./20-event-modifiers.md) - `$on:click.prevent` and every modifier combination
 
 ### Advanced Features
 
@@ -38,6 +39,8 @@ Welcome to the LadrillosJS documentation! This guide will help you understand ho
 ### Guides
 
 - [**Creating a Design System**](./19-design-system.md) - Build themeable, token-driven components from start to finish
+- [**Migrating from v1 to v2**](./17-migration-v1-to-v2.md) - Breaking changes and upgrade checklist
+- [**TypeScript**](./18-typescript.md) - Types, entry points, and tsconfig settings
 
 ---
 
@@ -89,9 +92,9 @@ Use it in your HTML:
 <!DOCTYPE html>
 <html>
   <head>
-    <script src="https://cdn.jsdelivr.net/npm/ladrillosjs/dist/ladrillosjs.umd.js"></script>
     <script type="module">
-      ladrillosjs.registerComponent("my-counter", "./counter.html");
+      import { registerComponent } from "https://cdn.jsdelivr.net/npm/ladrillosjs@2/dist/index.js";
+      registerComponent("my-counter", "./counter.html");
     </script>
   </head>
   <body>

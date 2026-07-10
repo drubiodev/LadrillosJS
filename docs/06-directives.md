@@ -61,11 +61,11 @@ support **multiple top-level children** in their body.
 
 | Directive                          | Purpose               | Example                                 |
 | ---------------------------------- | --------------------- | --------------------------------------- |
-| [`$bind`](./09-two-way-binding.md) | Two-way data binding  | `<input $bind="name">`                  |
-| [`$ref`](./10-refs.md)             | Element reference     | `<input $ref="inputEl">`                |
-| `$key`                             | Loop optimization     | `<for each="x in xs" key="x.id">`       |
-| `$no:bind`                         | Escape binding syntax | `<code $no:bind>{literal}</code>`       |
-| `$on:event.modifier`               | Event with modifiers  | `<input $on:keyup.enter="submit()">`    |
+| [`$bind`](./09-two-way-binding.md)       | Two-way data binding  | `<input $bind="name">`                  |
+| [`$ref`](./10-refs.md)                   | Element reference     | `<input $ref="inputEl">`                |
+| `$key`                                   | Loop optimization     | `<for each="x in xs" key="x.id">`       |
+| `$no:bind`                               | Escape binding syntax | `<code $no:bind>{literal}</code>`       |
+| [`$on:event.modifier`](./20-event-modifiers.md) | Event with modifiers | `<input $on:keyup.enter="submit()">` |
 
 ### Two-Way Binding (`$bind`)
 
@@ -91,6 +91,21 @@ support **multiple top-level children** in their body.
 ```
 
 [Full documentation →](./10-refs.md)
+
+### Events with Modifiers (`$on:`)
+
+Attach event listeners with declarative modifiers — key filters, modifier
+keys, mouse buttons, `prevent`/`stop`, and more. Modifiers combine freely:
+
+```html
+<form $on:submit.prevent="handleSubmit()">…</form>
+<input $on:keyup.enter="search()" />
+<textarea $on:keydown.ctrl.s.prevent="save()"></textarea>
+<div $on:click.self.stop="closeDropdown()">…</div>
+<button $on:click.once="trackFirstClick()">Buy</button>
+```
+
+[Full documentation →](./20-event-modifiers.md)
 
 ---
 
