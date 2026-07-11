@@ -532,9 +532,24 @@ export function createWebComponentClass(
       // If not yet initialized, attributes will be read in connectedCallback
       if (!this._initialized) return;
 
+      const parsed = this._parseAttributeValue(newValue);
+
+      // Initialization has started but reactive state doesn't exist yet
+      // (the async connectedCallback is still awaiting script setup).
+      // Writing to `this.state` now would hit the placeholder object that
+      // loadScripts replaces, silently losing the value. This happens when
+      // a parent component's first binding pass evaluates an attribute
+      // binding (e.g. name="{expr}") on this child while the child is still
+      // initializing. Stash it in the pending-props channel instead — it's
+      // drained into reactive state right after state is created.
+      if (!this._propsReady)
+      {
+        this._pendingProps.set(name, parsed);
+        return;
+      }
+
       // Sync attribute to reactive state
       // This triggers DOM updates automatically via the Proxy
-      const parsed = this._parseAttributeValue(newValue);
       this.state[name] = parsed;
     }
 

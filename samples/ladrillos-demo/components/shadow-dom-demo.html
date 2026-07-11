@@ -1,0 +1,123 @@
+<div class="demo-card">
+  <h3>🛡️ Shadow DOM <span class="tag">default</span></h3>
+  <p class="description">
+    Styles are fully encapsulated — nothing leaks in, nothing leaks out
+  </p>
+
+  <div class="demo-content">
+    <p class="leak-target">
+      I have class <code>leak-target</code>. The page styles it hot pink —
+      but the Shadow DOM boundary blocks it. 🛡️
+    </p>
+    <p class="scoped-note">
+      This green style is defined inside the component and never escapes to
+      the rest of the page.
+    </p>
+  </div>
+
+  <div class="code-hint">
+    <code $no:bind>registerComponent("my-card", "./card.html")</code><br />
+    <code>// useShadowDOM: true is the default</code>
+  </div>
+</div>
+
+<style>
+  :host { display: block; }
+
+  .demo-card {
+    background: var(--bg-elevated, #fff);
+    border: 1px solid var(--border, #e4e4e7);
+    border-radius: 14px;
+    padding: 1.5rem;
+    color: var(--fg, #18181b);
+    box-shadow: var(--shadow-sm, 0 1px 2px rgba(0,0,0,0.04));
+    transition: transform 180ms cubic-bezier(.4,0,.2,1),
+      box-shadow 180ms cubic-bezier(.4,0,.2,1),
+      border-color 180ms cubic-bezier(.4,0,.2,1);
+  }
+
+  .demo-card:hover {
+    transform: translateY(-1px);
+    border-color: var(--border-strong, #d4d4d8);
+    box-shadow: var(--shadow-md, 0 4px 12px rgba(0,0,0,0.06));
+  }
+
+  h3 {
+    margin: 0 0 0.375rem;
+    font-size: 1rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .tag {
+    background: var(--bg-subtle, #f4f4f6);
+    border: 1px solid var(--border, #e4e4e7);
+    color: var(--fg-muted, #52525b);
+    padding: 0.125rem 0.5rem;
+    border-radius: 9999px;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+
+  .description {
+    color: var(--fg-muted, #52525b);
+    font-size: 0.875rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .demo-content {
+    background: var(--bg-subtle, #f4f4f6);
+    border: 1px solid var(--border, #e4e4e7);
+    border-radius: 10px;
+    padding: 1.25rem;
+    margin-bottom: 1rem;
+  }
+
+  /* Same class the page styles hot pink — here it stays neutral,
+     proving the boundary works */
+  .leak-target {
+    border: 1px dashed var(--border-strong, #d4d4d8);
+    border-radius: 8px;
+    padding: 0.75rem 0.875rem;
+    font-size: 0.8125rem;
+    color: var(--fg-muted, #52525b);
+    margin: 0 0 0.75rem;
+  }
+
+  .leak-target code {
+    background: var(--bg-elevated, #fff);
+    border: 1px solid var(--border, #e4e4e7);
+    padding: 0.0625rem 0.375rem;
+    border-radius: 6px;
+    font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+    font-size: 0.75rem;
+    color: var(--fg, #18181b);
+  }
+
+  .scoped-note {
+    background: color-mix(in srgb, #22c55e 10%, transparent);
+    border: 1px solid color-mix(in srgb, #22c55e 35%, transparent);
+    color: #15803d;
+    border-radius: 8px;
+    padding: 0.75rem 0.875rem;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    margin: 0;
+  }
+
+  .code-hint {
+    background: var(--bg-code, #f4f4f6);
+    border: 1px solid var(--border, #e4e4e7);
+    border-radius: 8px;
+    padding: 0.75rem 0.875rem;
+    font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+    font-size: 0.8125rem;
+    color: var(--fg-muted, #52525b);
+    line-height: 1.6;
+  }
+</style>

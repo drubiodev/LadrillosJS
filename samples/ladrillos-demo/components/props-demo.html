@@ -1,0 +1,156 @@
+<div class="demo-card">
+  <h3>🎁 Props via Attributes</h3>
+  <p class="description">
+    Attributes override script defaults — no prop declarations needed
+  </p>
+
+  <div class="demo-content">
+    <div class="badge-stack">
+      <demo-user-badge
+        name="Alice"
+        role="Engineer"
+        color="#3b82f6"
+      ></demo-user-badge>
+      <demo-user-badge
+        name="Bob"
+        role="Designer"
+        color="#22c55e"
+      ></demo-user-badge>
+      <!-- No attributes: falls back to script defaults -->
+      <demo-user-badge></demo-user-badge>
+    </div>
+
+    <div class="live-section">
+      <h4>Live-Bound Props</h4>
+      <div class="live-controls">
+        <input type="text" $bind="liveName" placeholder="Type a name..." />
+        <select $bind="liveColor" title="Pick a color">
+          <option value="#8b5cf6">Purple</option>
+          <option value="#ef4444">Red</option>
+          <option value="#f59e0b">Amber</option>
+          <option value="#06b6d4">Cyan</option>
+        </select>
+      </div>
+      <demo-user-badge
+        name="{liveName || 'You'}"
+        role="Live-bound prop"
+        color="{liveColor}"
+      ></demo-user-badge>
+    </div>
+  </div>
+
+  <div class="code-hint">
+    <code $no:bind>&lt;demo-user-badge name="Alice" role="Engineer"&gt;</code
+    ><br />
+    <code $no:bind>&lt;demo-user-badge name="{liveName || 'You'}"&gt;</code>
+  </div>
+</div>
+
+<script>
+  let liveName = "";
+  let liveColor = "#8b5cf6";
+</script>
+
+<style>
+  :host { display: block; }
+
+  .demo-card {
+    background: var(--bg-elevated, #fff);
+    border: 1px solid var(--border, #e4e4e7);
+    border-radius: 14px;
+    padding: 1.5rem;
+    color: var(--fg, #18181b);
+    box-shadow: var(--shadow-sm, 0 1px 2px rgba(0,0,0,0.04));
+    transition: transform 180ms cubic-bezier(.4,0,.2,1),
+      box-shadow 180ms cubic-bezier(.4,0,.2,1),
+      border-color 180ms cubic-bezier(.4,0,.2,1);
+  }
+
+  .demo-card:hover {
+    transform: translateY(-1px);
+    border-color: var(--border-strong, #d4d4d8);
+    box-shadow: var(--shadow-md, 0 4px 12px rgba(0,0,0,0.06));
+  }
+
+  h3 {
+    margin: 0 0 0.375rem;
+    font-size: 1rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+
+  h4 {
+    margin: 0 0 0.625rem;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--fg-muted, #52525b);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .description {
+    color: var(--fg-muted, #52525b);
+    font-size: 0.875rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .demo-content {
+    background: var(--bg-subtle, #f4f4f6);
+    border: 1px solid var(--border, #e4e4e7);
+    border-radius: 10px;
+    padding: 1.25rem;
+    margin-bottom: 1rem;
+  }
+
+  .badge-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .live-section {
+    margin-top: 1.25rem;
+    padding-top: 1.25rem;
+    border-top: 1px dashed var(--border-strong, #d4d4d8);
+  }
+
+  .live-controls {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 0.625rem;
+  }
+
+  .live-controls input,
+  .live-controls select {
+    padding: 0.5rem 0.625rem;
+    border: 1px solid var(--border, #e4e4e7);
+    border-radius: 8px;
+    background: var(--bg-elevated, #fff);
+    color: var(--fg, #18181b);
+    font-size: 0.875rem;
+    transition: border-color 150ms, box-shadow 150ms;
+  }
+
+  .live-controls input {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .live-controls input:focus,
+  .live-controls select:focus {
+    outline: none;
+    border-color: var(--accent, #18181b);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent, #18181b) 12%, transparent);
+  }
+
+  .code-hint {
+    background: var(--bg-code, #f4f4f6);
+    border: 1px solid var(--border, #e4e4e7);
+    border-radius: 8px;
+    padding: 0.75rem 0.875rem;
+    font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+    font-size: 0.8125rem;
+    color: var(--fg-muted, #52525b);
+    line-height: 1.6;
+  }
+</style>

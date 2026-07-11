@@ -34,6 +34,24 @@
       </select>
     </div>
 
+    <div class="input-group">
+      <label class="checkbox-label">
+        <input type="checkbox" $bind="subscribed" />
+        Subscribe to newsletter
+      </label>
+    </div>
+
+    <div class="input-group">
+      <label>Volume: {volume}%</label>
+      <input
+        type="range"
+        min="0"
+        max="100"
+        $bind="volume"
+        title="Adjust volume"
+      />
+    </div>
+
     <div class="preview">
       <h4>Live Preview:</h4>
       <p><strong>Name:</strong> {username || '(empty)'}</p>
@@ -43,6 +61,8 @@
         <strong>Color:</strong>
         <span class="color-badge" style="background: {color}">{color}</span>
       </p>
+      <p><strong>Subscribed:</strong> {subscribed ? 'Yes ✅' : 'No'}</p>
+      <p><strong>Volume:</strong> {volume}%</p>
     </div>
   </div>
 
@@ -56,6 +76,8 @@
   let email = "";
   let message = "";
   let color = "blue";
+  let subscribed = false;
+  let volume = 40;
 </script>
 
 <style>
@@ -147,6 +169,29 @@
     font-size: 0.875rem;
     box-sizing: border-box;
     transition: border-color 150ms, box-shadow 150ms;
+  }
+
+  .input-group .checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    font-size: 0.875rem;
+    color: var(--fg, #18181b);
+  }
+
+  .checkbox-label input[type="checkbox"] {
+    width: auto;
+    accent-color: var(--accent, #18181b);
+    cursor: pointer;
+  }
+
+  .input-group input[type="range"] {
+    padding: 0;
+    border: none;
+    background: transparent;
+    accent-color: var(--accent, #18181b);
+    cursor: pointer;
   }
 
   .input-group input:focus,

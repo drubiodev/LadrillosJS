@@ -1,0 +1,64 @@
+<div class="badge">
+  <div class="avatar" style="background: {color}">
+    {(name || '?').charAt(0).toUpperCase()}
+  </div>
+  <div class="meta">
+    <span class="name">{name || 'Anonymous'}</span>
+    <span class="role" style="color: {color}">{role}</span>
+  </div>
+</div>
+
+<script>
+  // Defaults — overridden by attributes passed from the parent
+  let name = "Guest";
+  let role = "Visitor";
+  let color = "#71717a";
+</script>
+
+<style>
+  :host { display: block; }
+
+  .badge {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    background: var(--bg-elevated, #fff);
+    border: 1px solid var(--border, #e4e4e7);
+    border-radius: 10px;
+    padding: 0.625rem 0.875rem;
+  }
+
+  .avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    color: #fff;
+    font-weight: 700;
+    font-size: 0.9375rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .meta {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.35;
+    min-width: 0;
+  }
+
+  .name {
+    font-weight: 600;
+    font-size: 0.875rem;
+    color: var(--fg, #18181b);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .role {
+    font-size: 0.75rem;
+    font-weight: 500;
+  }
+</style>

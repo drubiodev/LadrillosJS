@@ -1,0 +1,141 @@
+<div class="demo-card">
+  <h3>📦 The &lt;lazy&gt; Built-in Element</h3>
+  <p class="description">
+    Defer any inline markup declaratively — no separate component or
+    registration options needed. Each block below is detached at parse time
+    and inserted when its strategy fires.
+  </p>
+
+  <div class="demo-content">
+    <div class="lazy-grid">
+      <div class="slot">
+        <code $no:bind>&lt;lazy&gt;</code>
+        <lazy>
+          <div class="loaded">👀 Inserted when scrolled into view</div>
+        </lazy>
+      </div>
+
+      <div class="slot">
+        <code $no:bind>&lt;lazy delay="2000"&gt;</code>
+        <lazy delay="2000">
+          <div class="loaded">⏱️ Inserted 2 seconds after mount</div>
+        </lazy>
+      </div>
+
+      <div class="slot">
+        <code $no:bind>&lt;lazy idle&gt;</code>
+        <lazy idle>
+          <div class="loaded">🧘 Inserted when the browser went idle</div>
+        </lazy>
+      </div>
+    </div>
+  </div>
+
+  <div class="code-hint">
+    <code $no:bind>&lt;lazy margin="100px"&gt;&lt;heavy-chart /&gt;&lt;/lazy&gt;</code><br />
+    <code $no:bind>&lt;lazy interaction="click,focus"&gt;…&lt;/lazy&gt;</code>
+  </div>
+</div>
+
+<style>
+  :host { display: block; }
+
+  .demo-card {
+    background: var(--bg-elevated, #fff);
+    border: 1px solid var(--border, #e4e4e7);
+    border-radius: 14px;
+    padding: 1.5rem;
+    color: var(--fg, #18181b);
+    box-shadow: var(--shadow-sm, 0 1px 2px rgba(0,0,0,0.04));
+    transition: transform 180ms cubic-bezier(.4,0,.2,1),
+      box-shadow 180ms cubic-bezier(.4,0,.2,1),
+      border-color 180ms cubic-bezier(.4,0,.2,1);
+  }
+
+  .demo-card:hover {
+    transform: translateY(-1px);
+    border-color: var(--border-strong, #d4d4d8);
+    box-shadow: var(--shadow-md, 0 4px 12px rgba(0,0,0,0.06));
+  }
+
+  h3 {
+    margin: 0 0 0.375rem;
+    font-size: 1rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+
+  .description {
+    color: var(--fg-muted, #52525b);
+    font-size: 0.875rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .demo-content {
+    background: var(--bg-subtle, #f4f4f6);
+    border: 1px solid var(--border, #e4e4e7);
+    border-radius: 10px;
+    padding: 1.25rem;
+    margin-bottom: 1rem;
+  }
+
+  .lazy-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 0.75rem;
+  }
+
+  .slot {
+    background: var(--bg-elevated, #fff);
+    border: 1px solid var(--border, #e4e4e7);
+    border-radius: 10px;
+    padding: 0.875rem 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.625rem;
+    min-height: 6.5rem;
+  }
+
+  .slot > code {
+    background: var(--bg-code, #f4f4f6);
+    border: 1px solid var(--border, #e4e4e7);
+    border-radius: 6px;
+    padding: 0.25rem 0.5rem;
+    font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+    font-size: 0.6875rem;
+    color: var(--fg-muted, #52525b);
+    align-self: flex-start;
+  }
+
+  .loaded {
+    font-size: 0.8125rem;
+    color: var(--fg, #18181b);
+    background: var(--bg-subtle, #f4f4f6);
+    border: 1px solid var(--border-strong, #d4d4d8);
+    border-radius: 8px;
+    padding: 0.625rem 0.75rem;
+    animation: pop-in 320ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  @keyframes pop-in {
+    from {
+      opacity: 0;
+      transform: translateY(4px) scale(0.97);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  .code-hint {
+    background: var(--bg-code, #f4f4f6);
+    border: 1px solid var(--border, #e4e4e7);
+    border-radius: 8px;
+    padding: 0.75rem 0.875rem;
+    font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+    font-size: 0.8125rem;
+    color: var(--fg-muted, #52525b);
+    line-height: 1.6;
+  }
+</style>

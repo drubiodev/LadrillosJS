@@ -1,0 +1,20 @@
+<!-- Registered with useShadowDOM: false — no <style> tag here on purpose.
+     This card is styled entirely by the page's global CSS, which is exactly
+     the point of the demo. -->
+<div class="demo-card">
+  <div class="demo-header">
+    <h3>☀️ Light DOM</h3>
+    <span class="demo-badge">useShadowDOM: false</span>
+  </div>
+  <div class="demo-content">
+    <p class="demo-description">
+      This card opts out of Shadow DOM, so global page styles reach inside.
+      Even this card's chrome comes from the page stylesheet — the component
+      ships no CSS of its own.
+    </p>
+    <p class="leak-target">
+      Same <code>leak-target</code> class as the card on the left — here the
+      page's hot pink style wins. 🎨
+    </p>
+  </div>
+</div>

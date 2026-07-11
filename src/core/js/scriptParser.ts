@@ -372,14 +372,18 @@ function createVanillaEventHandler(
     // Block dangerous globals like window, document, fetch, etc.
     const safeBlocked = getSafeBlockedGlobals();
 
-    // Build the function parameters: event + blocked + allowed + "state" reference + "$refs"
+    // Build the function parameters: event + blocked + allowed + "state" reference + "$refs" + "$host"
     // The reactive-state param is named `__state__` (not `state`) so a user
     // variable named `state` doesn't collide with it (which would produce
     // `let { state } = state;` — a "already declared" SyntaxError).
+    // `$host` must be a parameter here (not just a script-scope closure)
+    // because script functions are RE-CREATED from source in this handler
+    // scope, losing their original closure over the script's $host.
     const allKeys = [
       "event",
       "__state__",
       "$refs",
+      "$host",
       ...safeBlocked,
       ...allowed.keys,
     ];
@@ -488,6 +492,7 @@ function createVanillaEventHandler(
           event,
           state, // Pass reactive state
           $refs, // Pass $refs Map
+          componentHost, // Pass $host (the component element)
           ...safeBlocked.map(() => undefined), // Shadow dangerous globals
           ...allowed.values, // Inject safe globals
         ];
