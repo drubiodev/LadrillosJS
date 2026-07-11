@@ -96,6 +96,12 @@ export type LoopDescriptor = {
   previousItems?: unknown[];
   /** Cached key getter function for performance */
   keyGetter?: (item: unknown, index: number) => unknown;
+  /**
+   * Whether the template subtree contains any <if> chain. Detected once at
+   * scan time so per-row rendering can skip the conditional-resolution walk
+   * entirely for the common conditional-free template.
+   */
+  hasConditionals?: boolean;
 };
 
 /**

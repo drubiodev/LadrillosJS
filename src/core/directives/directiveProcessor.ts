@@ -53,7 +53,7 @@ import
   createKeyGetter,
   getStableIndices,
 } from "../diff/listDiff";
-import type { DirectiveEvaluator } from "../js/scriptParser";
+import type { BoundEvaluator, DirectiveEvaluator } from "../js/scriptParser";
 import { warn, error } from "../../utils/devWarnings";
 
 // ============================================================================
@@ -328,6 +328,11 @@ function scanLoops(
       placeholder,
       renderedElements: [],
       originalParent: parent as Element | ShadowRoot,
+      // Detected once here so renderLoop can skip the per-row conditional
+      // walk (a querySelectorAll on every clone) for conditional-free
+      // templates. resolveLoopConditionals never matches a root-level <if>
+      // (querySelectorAll excludes the root), so querySelector parity holds.
+      hasConditionals: template.querySelector(IF_TAG) !== null,
     };
 
     context.loops.push(descriptor);
@@ -734,15 +739,106 @@ function renderLoop(
     loop.keyGetter = createKeyGetter(loop.keyAttribute, loop.itemName);
   }
 
+  // One reusable context for ALL evaluation this pass — creates and updates
+  // alike. Handlers never capture it (they close over a small per-row
+  // context, below), so mutating item/index per element is safe and avoids
+  // copying the whole component state once per item.
+  const updateContext = createBaseLoopContext(state);
+
+  // Prime the item/index keys so the pass-scoped fast evaluator captures the
+  // complete key set (its contract: keys must not change once created —
+  // values may, and do, change per row below).
+  updateContext[loop.itemName] = null;
+  if (loop.indexName) updateContext[loop.indexName] = 0;
+
+  // Static-mode fast evaluator: state slots are filled once, and only the
+  // item/index slots are refreshed per row (setRow → refresh()). State
+  // values cannot change mid-pass — no user code runs during a flush.
+  const volatileKeys = loop.indexName
+    ? [loop.itemName, loop.indexName]
+    : [loop.itemName];
+  const evalOne: BoundEvaluator =
+    typeof (evaluateExpression as Partial<DirectiveEvaluator>).forContext ===
+    "function"
+      ? (evaluateExpression as DirectiveEvaluator).forContext(
+        updateContext,
+        volatileKeys,
+      )
+      : (expr) => evaluateExpression(expr, updateContext);
+
+  // Point the shared context (and the evaluator's volatile slots) at a row.
+  const setRow = (item: unknown, index: number): void =>
+  {
+    updateContext[loop.itemName] = item;
+    if (loop.indexName) updateContext[loop.indexName] = index;
+    evalOne.refresh?.();
+  };
+
+  // Everything handler creation needs that is identical across rows — name
+  // lists, the generated destructuring prelude, event-bus helpers — built at
+  // most once per pass, and only if a handler attribute is actually seen.
+  let handlerSetup: LoopHandlerSetup | null = null;
+  const getSetup = (): LoopHandlerSetup =>
+    (handlerSetup ??= createLoopHandlerSetup(
+      state,
+      loop.indexName ? [loop.itemName, loop.indexName] : [loop.itemName],
+    ));
+
+  // Refresh the small per-row context captured by an element's handlers so a
+  // reused row's handlers read the CURRENT item/index at event time, not the
+  // values from when the element was first created.
+  const refreshRowCtx = (el: Element, item: unknown, index: number): void =>
+  {
+    const rowCtx = (el as any)[LOOP_ROW_CTX] as
+      | Record<string, unknown>
+      | undefined;
+    if (rowCtx)
+    {
+      rowCtx[loop.itemName] = item;
+      if (loop.indexName) rowCtx[loop.indexName] = index;
+    }
+  };
+
+  // Precompiled row-instantiation plan for this template (null when the
+  // template needs the generic walk — nested <if>/<for>).
+  const plan = getCreationPlan(loop);
+
   // Helper to create a new element for an item
   const createElement = (item: unknown, index: number): Element =>
   {
     const clone = loop.template.cloneNode(true) as Element;
-    const loopContext = createLoopContext(state, loop, item, index);
+    setRow(item, index);
+    // Small per-row context for event handlers: item/index own-properties
+    // over a pass-shared prototype carrying state functions and markers.
+    const rowCtx: Record<string, unknown> = Object.create(getSetup().proto);
+    rowCtx[loop.itemName] = item;
+    if (loop.indexName) rowCtx[loop.indexName] = index;
+    (clone as any)[LOOP_ROW_CTX] = rowCtx;
+    if (plan)
+    {
+      applyCreationPlan(clone, plan, evalOne, rowCtx, getSetup);
+      return clone;
+    }
     // Resolve any <if>/<else-if>/<else> chains nested inside the loop
     // template before processing bindings so dead branches are pruned.
-    resolveLoopConditionals(clone, loopContext, evaluateExpression);
-    processElementBindings(clone, loopContext, evaluateExpression);
+    // Skipped entirely when scan time proved the template has none.
+    if (loop.hasConditionals)
+    {
+      resolveLoopConditionals(
+        clone,
+        updateContext,
+        evaluateExpression,
+        evalOne,
+      );
+    }
+    processElementBindings(
+      clone,
+      updateContext,
+      evaluateExpression,
+      evalOne,
+      rowCtx,
+      getSetup,
+    );
     return clone;
   };
 
@@ -751,24 +847,6 @@ function renderLoop(
   // drives the shared LIS-based move minimization below.
   const newElements: Element[] = new Array(newItems.length);
   const source: number[] = new Array(newItems.length);
-
-  // One reusable context for all in-place updates this pass. The update path
-  // never captures the context (no event handlers are created there), so
-  // mutating item/index per element is safe and avoids copying the whole
-  // component state once per item. New elements still get a fresh context
-  // because their event handlers close over it.
-  const updateContext = createBaseLoopContext(state);
-
-  // Prime the item/index keys so the pass-scoped fast evaluator captures the
-  // complete key set (its contract: keys must not change once created —
-  // values may, and do, change per row below).
-  updateContext[loop.itemName] = null;
-  if (loop.indexName) updateContext[loop.indexName] = 0;
-  const evalOne: (expr: string) => unknown =
-    typeof (evaluateExpression as Partial<DirectiveEvaluator>).forContext ===
-    "function"
-      ? (evaluateExpression as DirectiveEvaluator).forContext(updateContext)
-      : (expr) => evaluateExpression(expr, updateContext);
 
   // Fast path: pairwise-identical items mean no structural change — some
   // OTHER state the loop's bindings reference changed (e.g. a selection
@@ -792,13 +870,14 @@ function renderLoop(
     {
       for (let i = 0; i < newItems.length; i++)
       {
-        updateContext[loop.itemName] = newItems[i];
-        if (loop.indexName) updateContext[loop.indexName] = i;
+        setRow(newItems[i], i);
+        refreshRowCtx(oldElements[i], newItems[i], i);
         updateElementBindings(
           oldElements[i],
           updateContext,
           evaluateExpression,
           evalOne,
+          getSetup,
         );
       }
       loop.previousItems = newItems;
@@ -844,9 +923,15 @@ function renderLoop(
       if (existingEl)
       {
         // Reuse existing element - update bindings against the shared context.
-        updateContext[loop.itemName] = item;
-        if (loop.indexName) updateContext[loop.indexName] = i;
-        updateElementBindings(existingEl, updateContext, evaluateExpression, evalOne);
+        setRow(item, i);
+        refreshRowCtx(existingEl, item, i);
+        updateElementBindings(
+          existingEl,
+          updateContext,
+          evaluateExpression,
+          evalOne,
+          getSetup,
+        );
         newElements[i] = existingEl;
         source[i] = keyToOldIndex.get(key) ?? -1;
       } else
@@ -863,13 +948,14 @@ function renderLoop(
     {
       if (i < reuseCount)
       {
-        updateContext[loop.itemName] = newItems[i];
-        if (loop.indexName) updateContext[loop.indexName] = i;
+        setRow(newItems[i], i);
+        refreshRowCtx(oldElements[i], newItems[i], i);
         updateElementBindings(
           oldElements[i],
           updateContext,
           evaluateExpression,
           evalOne,
+          getSetup,
         );
         newElements[i] = oldElements[i];
         source[i] = i;
@@ -921,11 +1007,12 @@ function renderLoop(
 }
 
 /**
- * Builds the base per-loop context (everything except the item/index entries).
- *
- * Spreading the component state is the expensive part, so callers that update
- * many elements in one pass build this once and then set the item/index keys
- * per element instead of recreating the whole object each time.
+ * Builds the shared per-pass evaluation context (everything except the
+ * item/index entries). Spreading the component state is the expensive part,
+ * so renderLoop builds this ONCE per pass and mutates the item/index keys
+ * per element — for creates and updates alike — instead of recreating the
+ * whole object each time. Event handlers never capture this object; they
+ * get a small per-row context (see createLoopHandlerSetup).
  */
 function createBaseLoopContext(
   state: Record<string, unknown>,
@@ -941,25 +1028,6 @@ function createBaseLoopContext(
 }
 
 /**
- * Creates a loop context object for element binding.
- */
-function createLoopContext(
-  state: Record<string, unknown>,
-  loop: LoopDescriptor,
-  item: unknown,
-  index: number,
-): Record<string, unknown>
-{
-  const loopContext = createBaseLoopContext(state);
-  loopContext[loop.itemName] = item;
-  if (loop.indexName)
-  {
-    loopContext[loop.indexName] = index;
-  }
-  return loopContext;
-}
-
-/**
  * A binding template pre-parsed into alternating static text and
  * expression segments: the rendered value is
  * `statics[0] + eval(exprs[0]) + statics[1] + … + statics[exprs.length]`.
@@ -969,6 +1037,14 @@ function createLoopContext(
 type ParsedBinding = {
   statics: string[];
   exprs: string[];
+  /**
+   * Compiled evaluator Functions aligned with `exprs`, valid only for the
+   * key-set signature in `fnsSig` (null = compile error, falls back to the
+   * reporting slow path). Resolved once per template per context shape so
+   * hot loops skip the per-eval cache lookup — see compiledFnsFor.
+   */
+  fns?: (Function | null)[];
+  fnsSig?: string;
 };
 
 /**
@@ -977,6 +1053,31 @@ type ParsedBinding = {
  * distinct template rather than once per node.
  */
 const parsedTemplateCache = new Map<string, ParsedBinding>();
+
+/**
+ * Returns compiled Functions for every expression in `parsed`, resolving
+ * them through the bound evaluator once per (template, context shape) and
+ * reusing them afterwards. A null entry means the expression failed to
+ * compile; callers fall back to the plain evaluator for it so the original
+ * per-update error reporting is preserved.
+ */
+function compiledFnsFor(
+  parsed: ParsedBinding,
+  evalOne: BoundEvaluator,
+): (Function | null)[]
+{
+  if (parsed.fnsSig !== evalOne.sig)
+  {
+    const fns: (Function | null)[] = new Array(parsed.exprs.length);
+    for (let i = 0; i < parsed.exprs.length; i++)
+    {
+      fns[i] = evalOne.compile!(parsed.exprs[i]);
+    }
+    parsed.fns = fns;
+    parsed.fnsSig = evalOne.sig;
+  }
+  return parsed.fns!;
+}
 
 function parseBindingTemplate(template: string): ParsedBinding
 {
@@ -1017,6 +1118,14 @@ type LoopBindingCache = {
 };
 
 const BINDING_CACHE = "__ladrillosBindingCache" as const;
+
+/**
+ * Per-element key holding the small context its event handlers close over
+ * ({item, index} own-props over a pass-shared prototype). renderLoop
+ * refreshes the item/index values whenever the element is reused for a
+ * different row, so handlers read current data at event time.
+ */
+const LOOP_ROW_CTX = "__ladrillosLoopCtx" as const;
 
 function collectBindingCache(element: Element): LoopBindingCache
 {
@@ -1069,6 +1178,228 @@ function collectBindingCache(element: Element): LoopBindingCache
   return { texts, attrs, conds };
 }
 
+// ============================================================================
+// Loop creation plan — per-template precompiled row instantiation
+// ============================================================================
+//
+// For loop templates without <if> chains or nested <for> elements, every
+// row's subtree structure is identical to the template's, so the location of
+// each bound text node, bound attribute, and handler attribute can be
+// recorded ONCE as a child-index path from the root. Creating a row then
+// costs cloneNode plus direct navigation to exactly the nodes that need
+// work — no TreeWalker over the whole subtree, no per-node attribute
+// scanning, and all templates/handler code pre-parsed. This is computed
+// lazily at first render (no build step) and is invisible to callers: the
+// applied result — evaluated bindings, listeners, seeded binding cache — is
+// identical to what the generic processElementBindings walk produces.
+
+type PlanTextEntry = { path: number[]; parsed: ParsedBinding };
+type PlanAttrEntry = { path: number[]; name: string; parsed: ParsedBinding };
+type PlanHandlerEntry = {
+  path: number[];
+  /** Attribute to strip from the clone. */
+  attrName: string;
+  /** DOM event name to listen for. */
+  eventName: string;
+  /** Handler source with {expr} bindings already rewritten. */
+  code: string;
+  /** Modifier info for $on: directives (null for plain onXXX handlers). */
+  directive: NonNullable<ReturnType<typeof parseEventDirective>> | null;
+  options?: ReturnType<typeof getListenerOptions>;
+};
+
+type LoopCreationPlan = {
+  texts: PlanTextEntry[];
+  attrs: PlanAttrEntry[];
+  handlers: PlanHandlerEntry[];
+};
+
+/** Plan per loop descriptor; null marks a template the plan can't cover. */
+const creationPlans = new WeakMap<LoopDescriptor, LoopCreationPlan | null>();
+
+function getCreationPlan(loop: LoopDescriptor): LoopCreationPlan | null
+{
+  let plan = creationPlans.get(loop);
+  if (plan === undefined)
+  {
+    plan = buildCreationPlan(loop);
+    creationPlans.set(loop, plan);
+  }
+  return plan;
+}
+
+function buildCreationPlan(loop: LoopDescriptor): LoopCreationPlan | null
+{
+  // Conditionals change the subtree per row, and nested <for> subtrees rely
+  // on the generic walk's semantics — fall back for both.
+  if (loop.hasConditionals) return null;
+  if (loop.template.querySelector(FOR_TAG) !== null) return null;
+
+  const texts: PlanTextEntry[] = [];
+  const attrs: PlanAttrEntry[] = [];
+  const handlers: PlanHandlerEntry[] = [];
+  const path: number[] = [];
+
+  const visit = (node: Node): void =>
+  {
+    if (node.nodeType === Node.ELEMENT_NODE)
+    {
+      const list = (node as Element).attributes;
+      for (let i = 0; i < list.length; i++)
+      {
+        const attr = list[i];
+        if (EVENT_ATTRIBUTE_SET.has(attr.name))
+        {
+          handlers.push({
+            path: path.slice(),
+            attrName: attr.name,
+            eventName: attr.name.slice(2),
+            code: bindHandlerExpressions(attr.value),
+            directive: null,
+          });
+        } else if (isEventDirective(attr.name))
+        {
+          const parsedDirective = parseEventDirective(attr.name);
+          if (parsedDirective)
+          {
+            handlers.push({
+              path: path.slice(),
+              attrName: attr.name,
+              eventName: parsedDirective.eventName,
+              code: bindHandlerExpressions(attr.value),
+              directive: parsedDirective,
+              options: getListenerOptions(parsedDirective.eventModifiers),
+            });
+          }
+        } else if (attr.value.includes("{"))
+        {
+          attrs.push({
+            path: path.slice(),
+            name: attr.name,
+            parsed: parseBindingTemplate(attr.value),
+          });
+        }
+      }
+    } else if (node.nodeType === Node.TEXT_NODE)
+    {
+      const text = node.textContent;
+      if (text && text.includes("{"))
+      {
+        texts.push({ path: path.slice(), parsed: parseBindingTemplate(text) });
+      }
+    }
+    const children = node.childNodes;
+    for (let i = 0; i < children.length; i++)
+    {
+      path.push(i);
+      visit(children[i]);
+      path.pop();
+    }
+  };
+  visit(loop.template);
+
+  return { texts, attrs, handlers };
+}
+
+/**
+ * Instantiates one row from a fresh clone using the precomputed plan:
+ * evaluates each bound text/attribute in place, attaches handlers, and
+ * seeds the element's binding cache exactly as the generic walk would.
+ */
+function applyCreationPlan(
+  clone: Element,
+  plan: LoopCreationPlan,
+  evalOne: BoundEvaluator,
+  rowCtx: Record<string, unknown>,
+  getSetup: () => LoopHandlerSetup,
+): void
+{
+  const canInvoke = evalOne.invoke !== undefined && evalOne.sig !== undefined;
+
+  const resolve = (path: number[]): Node =>
+  {
+    let node: Node = clone;
+    for (let i = 0; i < path.length; i++)
+    {
+      node = node.childNodes[path[i]];
+    }
+    return node;
+  };
+
+  const cacheTexts: LoopBindingCache["texts"] = new Array(plan.texts.length);
+  for (let t = 0; t < plan.texts.length; t++)
+  {
+    const { path, parsed } = plan.texts[t];
+    const node = resolve(path) as Text;
+    (node as any).__originalTemplate = node.textContent;
+    const { statics, exprs } = parsed;
+    const fns = canInvoke ? compiledFnsFor(parsed, evalOne) : null;
+    let next = statics[0];
+    for (let j = 0; j < exprs.length; j++)
+    {
+      const fn = fns !== null ? fns[j] : null;
+      const result =
+        fn !== null ? evalOne.invoke!(fn, exprs[j]) : evalOne(exprs[j]);
+      next += String(result ?? "") + statics[j + 1];
+    }
+    node.textContent = next;
+    cacheTexts[t] = { node, parsed };
+  }
+
+  const cacheAttrs: LoopBindingCache["attrs"] = new Array(plan.attrs.length);
+  for (let a = 0; a < plan.attrs.length; a++)
+  {
+    const { path, name, parsed } = plan.attrs[a];
+    const el = resolve(path) as Element;
+    const attr = el.getAttributeNode(name)!;
+    (attr as any).__originalTemplate = attr.value;
+    const { statics, exprs } = parsed;
+    const fns = canInvoke ? compiledFnsFor(parsed, evalOne) : null;
+    let next = statics[0];
+    for (let j = 0; j < exprs.length; j++)
+    {
+      const fn = fns !== null ? fns[j] : null;
+      const result =
+        fn !== null ? evalOne.invoke!(fn, exprs[j]) : evalOne(exprs[j]);
+      next +=
+        (result !== null && typeof result === "object"
+          ? JSON.stringify(result)
+          : String(result ?? "")) + statics[j + 1];
+    }
+    attr.value = next;
+    cacheAttrs[a] = { attr, parsed };
+  }
+
+  if (plan.handlers.length > 0)
+  {
+    const setup = getSetup();
+    for (const h of plan.handlers)
+    {
+      const el = resolve(h.path) as Element;
+      el.removeAttribute(h.attrName);
+      const base = createLoopEventHandler(h.code, rowCtx, setup);
+      if (!base) continue;
+      if (h.directive)
+      {
+        el.addEventListener(
+          h.eventName,
+          createModifiedHandler(base, h.directive),
+          h.options,
+        );
+      } else
+      {
+        el.addEventListener(h.eventName, base);
+      }
+    }
+  }
+
+  (clone as any)[BINDING_CACHE] = {
+    texts: cacheTexts,
+    attrs: cacheAttrs,
+    conds: [],
+  };
+}
+
 /**
  * Updates bindings on an existing element (for keyed diffing reuse).
  *
@@ -1088,8 +1419,8 @@ function updateElementBindings(
     expr: string,
     context: Record<string, unknown>,
   ) => unknown,
-  evalOne: (expr: string) => unknown = (expr) =>
-    evaluateExpression(expr, context),
+  evalOne: BoundEvaluator = (expr) => evaluateExpression(expr, context),
+  getSetup?: () => LoopHandlerSetup,
 ): void
 {
   let cache = (element as any)[BINDING_CACHE] as LoopBindingCache | undefined;
@@ -1104,21 +1435,39 @@ function updateElementBindings(
   // context. A swapped branch changes the subtree, so the cache is rebuilt
   // (the freshly rendered branch was already processed with the current
   // context, so re-updating its bindings below is an idempotent no-op).
-  if (updateLoopConditionals(cache.conds, context, evaluateExpression, evalOne))
+  if (
+    cache.conds.length > 0 &&
+    updateLoopConditionals(
+      cache.conds,
+      context,
+      evaluateExpression,
+      evalOne,
+      ((element as any)[LOOP_ROW_CTX] as Record<string, unknown>) ?? context,
+      getSetup,
+    )
+  )
   {
     cache = collectBindingCache(element);
     (element as any)[BINDING_CACHE] = cache;
   }
+
+  // With a full BoundEvaluator, resolve each template's compiled Functions
+  // once and invoke them directly — no per-eval cache lookup or arg refill.
+  const canInvoke = evalOne.invoke !== undefined && evalOne.sig !== undefined;
 
   const texts = cache.texts;
   for (let i = 0; i < texts.length; i++)
   {
     const { node, parsed } = texts[i];
     const { statics, exprs } = parsed;
+    const fns = canInvoke ? compiledFnsFor(parsed, evalOne) : null;
     let next = statics[0];
     for (let j = 0; j < exprs.length; j++)
     {
-      next += String(evalOne(exprs[j]) ?? "") + statics[j + 1];
+      const fn = fns !== null ? fns[j] : null;
+      const result =
+        fn !== null ? evalOne.invoke!(fn, exprs[j]) : evalOne(exprs[j]);
+      next += String(result ?? "") + statics[j + 1];
     }
     if (node.textContent !== next) node.textContent = next;
   }
@@ -1128,10 +1477,13 @@ function updateElementBindings(
   {
     const { attr, parsed } = attrs[i];
     const { statics, exprs } = parsed;
+    const fns = canInvoke ? compiledFnsFor(parsed, evalOne) : null;
     let next = statics[0];
     for (let j = 0; j < exprs.length; j++)
     {
-      const result = evalOne(exprs[j]);
+      const fn = fns !== null ? fns[j] : null;
+      const result =
+        fn !== null ? evalOne.invoke!(fn, exprs[j]) : evalOne(exprs[j]);
       next +=
         (result !== null && typeof result === "object"
           ? JSON.stringify(result)
@@ -1249,8 +1601,11 @@ function resolveLoopConditionals(
     expr: string,
     context: Record<string, unknown>,
   ) => unknown,
+  evalOne?: BoundEvaluator,
 ): void
 {
+  const chooser: (expr: string) => unknown =
+    evalOne ?? ((expr) => evaluateExpression(expr, context));
   // Loop because resolving an outer chain inserts a new branch subtree that
   // may itself contain further `<if>` chains we still need to process.
   // querySelectorAll returns a static snapshot; re-querying each iteration
@@ -1306,9 +1661,7 @@ function resolveLoopConditionals(
     target.remove();
     for (const r of toRemove) r.remove();
 
-    const chosenIdx = chooseLoopConditionalBranch(branches, (expr) =>
-      evaluateExpression(expr, context),
-    );
+    const chosenIdx = chooseLoopConditionalBranch(branches, chooser);
     if (chosenIdx >= 0)
     {
       const rendered = renderLoopConditionalBranch(branches[chosenIdx]);
@@ -1328,6 +1681,10 @@ function resolveLoopConditionals(
  * re-evaluate them. If the chosen branch is unchanged, do nothing — the
  * normal updateElementBindings recursion will refresh bindings inside the
  * rendered branch. If it changed, swap in a fresh branch and process it.
+ *
+ * `rowCtx` is the per-row handler context of the element being reused, so
+ * handlers created inside a freshly swapped branch capture THIS row's
+ * item/index — not the shared pass context that later rows will mutate.
  */
 function updateLoopConditionals(
   placeholders: readonly Comment[],
@@ -1336,7 +1693,9 @@ function updateLoopConditionals(
     expr: string,
     context: Record<string, unknown>,
   ) => unknown,
-  evalOne: (expr: string) => unknown,
+  evalOne: BoundEvaluator,
+  rowCtx: Record<string, unknown>,
+  getSetup?: () => LoopHandlerSetup,
 ): boolean
 {
   let structureChanged = false;
@@ -1362,8 +1721,15 @@ function updateLoopConditionals(
       meta.currentEl = el;
       // Resolve any nested <if> chains and process bindings on the freshly
       // rendered subtree using the current per-item context.
-      resolveLoopConditionals(el, context, evaluateExpression);
-      processElementBindings(el, context, evaluateExpression);
+      resolveLoopConditionals(el, context, evaluateExpression, evalOne);
+      processElementBindings(
+        el,
+        context,
+        evaluateExpression,
+        evalOne,
+        rowCtx,
+        getSetup,
+      );
     }
   }
   return structureChanged;
@@ -1386,36 +1752,46 @@ function processElementBindings(
     expr: string,
     context: Record<string, unknown>,
   ) => unknown,
+  evalOnePass?: BoundEvaluator,
+  handlerCtx?: Record<string, unknown>,
+  getSetupIn?: () => LoopHandlerSetup,
 ): void
 {
   const texts: LoopBindingCache["texts"] = [];
   const boundAttrs: LoopBindingCache["attrs"] = [];
   const conds: Comment[] = [];
 
-  // Pass-scoped fast evaluator: this element's bindings all evaluate
-  // against one context, so hoist the per-eval context setup.
-  const evalOne: (expr: string) => unknown =
-    typeof (evaluateExpression as Partial<DirectiveEvaluator>).forContext ===
+  // Pass-scoped fast evaluator: reuse the caller's when provided (renderLoop
+  // shares one across ALL rows of a pass); otherwise build one bound to this
+  // context in legacy per-call-refill mode.
+  const evalOne: BoundEvaluator =
+    evalOnePass ??
+    (typeof (evaluateExpression as Partial<DirectiveEvaluator>).forContext ===
     "function"
       ? (evaluateExpression as DirectiveEvaluator).forContext(context)
-      : (expr) => evaluateExpression(expr, context);
+      : (expr) => evaluateExpression(expr, context));
 
-  const evalToString = (expr: string): string =>
-  {
-    const result = evalOne(expr);
-    return String(result ?? "");
-  };
+  // Context captured by event handlers. renderLoop passes the small per-row
+  // object; standalone callers fall back to the evaluation context.
+  const hCtx = handlerCtx ?? context;
+  let fallbackSetup: LoopHandlerSetup | null = null;
+  const getSetup =
+    getSetupIn ??
+    ((): LoopHandlerSetup =>
+      (fallbackSetup ??= createLoopHandlerSetupFromContext(context)));
 
-  const evalToAttrString = (expr: string): string =>
+  // With a full BoundEvaluator, resolve compiled Functions per template once
+  // (shared across every row of the loop) and invoke them directly.
+  const canInvoke = evalOne.invoke !== undefined && evalOne.sig !== undefined;
+
+  const evalSegment = (
+    fns: (Function | null)[] | null,
+    exprs: string[],
+    j: number,
+  ): unknown =>
   {
-    const result = evalOne(expr);
-    // Serialize objects/arrays to JSON so child components can parse them
-    // This allows email="{item}" to pass the actual object, not "[object Object]"
-    if (result !== null && typeof result === "object")
-    {
-      return JSON.stringify(result);
-    }
-    return String(result ?? "");
+    const fn = fns !== null ? fns[j] : null;
+    return fn !== null ? evalOne.invoke!(fn, exprs[j]) : evalOne(exprs[j]);
   };
 
   const processOne = (el: Element): void =>
@@ -1438,10 +1814,18 @@ function processElementBindings(
         // Store original template for keyed diffing reuse
         const parsed = parseBindingTemplate(attr.value);
         (attr as any).__originalTemplate = attr.value;
+        const fns = canInvoke ? compiledFnsFor(parsed, evalOne) : null;
         let next = parsed.statics[0];
         for (let j = 0; j < parsed.exprs.length; j++)
         {
-          next += evalToAttrString(parsed.exprs[j]) + parsed.statics[j + 1];
+          const result = evalSegment(fns, parsed.exprs, j);
+          // Serialize objects/arrays to JSON so child components can parse
+          // them. This allows email="{item}" to pass the actual object, not
+          // "[object Object]".
+          next +=
+            (result !== null && typeof result === "object"
+              ? JSON.stringify(result)
+              : String(result ?? "")) + parsed.statics[j + 1];
         }
         attr.value = next;
         boundAttrs.push({ attr, parsed });
@@ -1449,7 +1833,7 @@ function processElementBindings(
     }
 
     // Transform inline event handlers (onclick, etc.) into proper event listeners.
-    transformLoopEventHandlers(el, context);
+    transformLoopEventHandlers(el, hCtx, getSetup);
   };
 
   processOne(element);
@@ -1468,10 +1852,13 @@ function processElementBindings(
         // Store original template for keyed diffing reuse
         const parsed = parseBindingTemplate(textContent);
         (node as any).__originalTemplate = textContent;
+        const fns = canInvoke ? compiledFnsFor(parsed, evalOne) : null;
         let next = parsed.statics[0];
         for (let j = 0; j < parsed.exprs.length; j++)
         {
-          next += evalToString(parsed.exprs[j]) + parsed.statics[j + 1];
+          next +=
+            String(evalSegment(fns, parsed.exprs, j) ?? "") +
+            parsed.statics[j + 1];
         }
         node.textContent = next;
         texts.push({ node: node as Text, parsed });
@@ -1518,10 +1905,15 @@ function bindHandlerExpressions(code: string): string
  * component state in scope: onclick="removeTodo(todo.id)". Any `{expr}` inside a
  * handler is turned into a scoped sub-expression (see bindHandlerExpressions),
  * never string-interpolated into the source.
+ *
+ * `rowCtx` is the small per-row context the handler closes over; `getSetup`
+ * resolves the pass-shared handler setup lazily so rows without handlers
+ * never pay for it.
  */
 function transformLoopEventHandlers(
   element: Element,
-  context: Record<string, unknown>,
+  rowCtx: Record<string, unknown>,
+  getSetup: () => LoopHandlerSetup,
 ): void
 {
   // Scan the element's OWN attributes (usually 0–3) for handler names
@@ -1539,6 +1931,7 @@ function transformLoopEventHandlers(
   }
   if (!handlerAttrs) return;
 
+  const setup = getSetup();
   for (const { name, value } of handlerAttrs)
   {
     // Process standard inline event handlers (onclick, oninput, etc.)
@@ -1553,7 +1946,8 @@ function transformLoopEventHandlers(
       // Create event listener with component context
       const handler = createLoopEventHandler(
         bindHandlerExpressions(value),
-        context,
+        rowCtx,
+        setup,
       );
       if (handler)
       {
@@ -1562,7 +1956,7 @@ function transformLoopEventHandlers(
     } else
     {
       // $on: event directive with modifiers
-      processLoopEventDirective(element, name, value, context);
+      processLoopEventDirective(element, name, value, rowCtx, setup);
     }
   }
 }
@@ -1580,7 +1974,8 @@ function processLoopEventDirective(
   element: Element,
   attrName: string,
   attrValue: string,
-  context: Record<string, unknown>,
+  rowCtx: Record<string, unknown>,
+  setup: LoopHandlerSetup,
 ): void
 {
   const parsed = parseEventDirective(attrName);
@@ -1590,7 +1985,7 @@ function processLoopEventDirective(
   element.removeAttribute(attrName);
 
   // Create the base event handler with loop context
-  const baseHandler = createLoopEventHandler(handlerCode, context);
+  const baseHandler = createLoopEventHandler(handlerCode, rowCtx, setup);
   if (!baseHandler) return;
 
   // Wrap the handler with modifier checks
@@ -1622,134 +2017,174 @@ const loopHandlerFnCache = new Map<string, Function>();
 const MAX_HANDLER_FN_CACHE = 1000;
 
 /**
- * Creates an event handler function for loop-rendered elements.
- * The handler has access to the loop context (including loop variables and functions).
+ * Everything loop event-handler creation needs that is identical across the
+ * rows of one render pass: the generated destructuring prelude (name lists,
+ * function definitions, sync-back), the event-bus helpers, the prototype
+ * for per-row handler contexts, and a per-pass compiled-handler cache.
  *
- * IMPORTANT: Functions from the original script need to be re-created with access
- * to the reactive state, otherwise they operate on stale closure variables.
+ * The old path rebuilt all of this — including a multi-KB function body
+ * string embedding the component's function definitions — once per handler
+ * per row, which dominated large list creation.
  */
-function createLoopEventHandler(
-  code: string,
-  context: Record<string, unknown>,
-): ((event: Event) => void) | null
+type LoopHandlerSetup = {
+  reactiveState: Record<string, unknown>;
+  /** Prototype for per-row handler contexts: state functions + markers. */
+  proto: Record<string, unknown>;
+  /** Function-body text before/after the handler code. */
+  bodyPrefix: string;
+  bodySuffix: string;
+  emit: (eventName: string, data?: unknown) => void;
+  listen: Function;
+  /** Compiled handler per code string for this pass (null = failed). */
+  fnCache: Map<string, Function | null>;
+};
+
+/**
+ * Builds the pass-shared handler setup from the component state and the
+ * loop's variable names. Mirrors the name derivation the per-row builder
+ * used: state entries split into variables (destructured as `let` with
+ * sync-back) and functions; loop variables destructured as `const` from the
+ * per-row context, dropping any that a state variable would shadow (the
+ * state destructure wins, as it did with the old spread-based context).
+ */
+function createLoopHandlerSetup(
+  state: Record<string, unknown>,
+  loopVarNamesIn: readonly string[],
+): LoopHandlerSetup
 {
-  try
+  const scriptContent = ((state as any).__scriptContent as string) || "";
+  const hasScriptContent = scriptContent.trim().length > 0;
+  const hasModuleScripts = (state as any).__hasModuleScripts === true;
+
+  const stateVarNames: string[] = [];
+  const funcNames: string[] = [];
+  for (const key of Object.keys(state))
   {
-    // Get reactive state and script content from context (set by renderLoop)
-    const reactiveState = context.__reactiveState__ as
-      | Record<string, unknown>
-      | undefined;
-    const scriptContent = (context.__scriptContent__ as string) || "";
+    if (key.startsWith("__")) continue;
+    if (typeof state[key] === "function") funcNames.push(key);
+    else stateVarNames.push(key);
+  }
 
-    // Separate functions from variables in context (skip internal markers)
-    const contextKeys = Object.keys(context).filter(
-      (key) => !key.startsWith("__"),
-    );
+  const loopVarNames = loopVarNamesIn.filter(
+    (name) => !stateVarNames.includes(name),
+  );
+  // A loop variable shadows a same-named state function in the row context,
+  // so it must not also appear in the function destructure.
+  const visibleFuncNames = funcNames.filter(
+    (name) => !loopVarNamesIn.includes(name),
+  );
 
-    // Get list of state variable names (excluding loop variables and functions)
-    const stateVarNames = reactiveState
-      ? Object.keys(reactiveState).filter(
-        (key) =>
-          !key.startsWith("__") && typeof reactiveState[key] !== "function",
-      )
-      : [];
-
-    // Get loop-specific variables (item, index, etc.) - these are in context but not in state
-    const loopVarNames = contextKeys.filter(
-      (key) =>
-        !stateVarNames.includes(key) && typeof context[key] !== "function",
-    );
-
-    // All variable names for destructuring
-    const allVarNames = [...stateVarNames, ...loopVarNames];
-
-    // If we have script content, re-create functions so they work with reactive state
-    // Otherwise, destructure functions from context (fallback for module scripts)
-    const hasScriptContent = scriptContent.trim().length > 0;
-    const funcNames = contextKeys.filter(
-      (key) => typeof context[key] === "function",
-    );
-
-    // Check if we have module script functions (they manage state directly)
-    const hasModuleScripts =
-      reactiveState && (reactiveState as any).__hasModuleScripts === true;
-
-    let funcDefs = "";
-    let destructureFuncs = "";
-
-    if (hasModuleScripts)
+  let funcDefs = "";
+  let destructureFuncs = "";
+  if (hasModuleScripts || !hasScriptContent)
+  {
+    // Module-script functions are reactive (or no source is available):
+    // destructure them from the handler context.
+    destructureFuncs =
+      visibleFuncNames.length > 0
+        ? `const { ${visibleFuncNames.join(", ")} } = context;`
+        : "";
+  } else
+  {
+    // Regular scripts: re-create functions from script content so they
+    // work with the local variables that will be synced back to state.
+    const cached = funcDefsCache.get(scriptContent);
+    if (cached !== undefined)
     {
-      // Module script functions are reactive - just destructure them
-      destructureFuncs =
-        funcNames.length > 0
-          ? `const { ${funcNames.join(", ")} } = context;`
-          : "";
-    } else if (hasScriptContent)
-    {
-      // Regular scripts: re-create functions from script content so they
-      // work with the local variables that will be synced back to state
-      const cached = funcDefsCache.get(scriptContent);
-      if (cached !== undefined)
-      {
-        funcDefs = cached;
-      } else
-      {
-        funcDefs = extractFunctionDefinitions(scriptContent, []);
-        funcDefsCache.set(scriptContent, funcDefs);
-      }
+      funcDefs = cached;
     } else
     {
-      // Fallback: destructure functions from context
-      destructureFuncs =
-        funcNames.length > 0
-          ? `const { ${funcNames.join(", ")} } = context;`
-          : "";
+      funcDefs = extractFunctionDefinitions(scriptContent, []);
+      funcDefsCache.set(scriptContent, funcDefs);
     }
+  }
 
-    // Destructure loop variables as const (they're read-only within the iteration)
-    const destructureLoopVars =
-      loopVarNames.length > 0
-        ? `const { ${loopVarNames.join(", ")} } = context;`
-        : "";
+  const destructureLoopVars =
+    loopVarNames.length > 0
+      ? `const { ${loopVarNames.join(", ")} } = context;`
+      : "";
+  const destructureStateVars =
+    stateVarNames.length > 0
+      ? `let { ${stateVarNames.join(", ")} } = reactiveState;`
+      : "";
+  // Sync state variables back after execution (only for regular scripts)
+  const syncBack =
+    !hasModuleScripts && stateVarNames.length > 0
+      ? stateVarNames.map((key) => `reactiveState.${key} = ${key};`).join(" ")
+      : "";
 
-    // Destructure state variables as let (for sync-back)
-    // Use reactiveState if available, otherwise fall back to context
-    const stateSource =
-      reactiveState && stateVarNames.length > 0 ? "reactiveState" : "context";
-    const destructureStateVars =
-      stateVarNames.length > 0
-        ? `let { ${stateVarNames.join(", ")} } = ${stateSource};`
-        : "";
+  const componentId =
+    ((state as any).__componentId as string) || "anonymous";
+  const eventBusHelpers = createEventBusHelpers(componentId);
 
-    // Sync state variables back after execution (only for regular scripts)
-    const syncBack =
-      !hasModuleScripts && reactiveState && stateVarNames.length > 0
-        ? stateVarNames.map((key) => `reactiveState.${key} = ${key};`).join(" ")
-        : "";
+  const proto: Record<string, unknown> = {
+    __reactiveState__: state,
+    __scriptContent__: scriptContent,
+    __componentUrl__: (state as any).__componentUrl || "",
+  };
+  for (const name of funcNames)
+  {
+    proto[name] = state[name];
+  }
 
-    // Get component ID for event bus helpers
-    const componentId =
-      (context.__componentId__ as string) ||
-      (reactiveState as any)?.__componentId ||
-      "anonymous";
-
-    // Create event bus helpers bound to component
-    const eventBusHelpers = createEventBusHelpers(componentId);
-
-    // Build function body
-    const fnBody = `"use strict";
+  return {
+    reactiveState: state,
+    proto,
+    bodyPrefix: `"use strict";
       ${destructureLoopVars}
       ${destructureStateVars}
       ${destructureFuncs}
       ${funcDefs}
-      ${code};
-      ${syncBack}`;
+      `,
+    bodySuffix: `;
+      ${syncBack}`,
+    emit: eventBusHelpers.$emit,
+    listen: eventBusHelpers.$listen,
+    fnCache: new Map(),
+  };
+}
 
-    // Create function with event, context, reactiveState, and event bus helpers
-    // as parameters. Compiles are cached by body: rows of the same loop produce
-    // byte-identical bodies and only differ in the arguments bound below.
-    let fn = loopHandlerFnCache.get(fnBody);
-    if (!fn)
+/**
+ * Fallback setup builder for processElementBindings calls that don't come
+ * from renderLoop (none in the current codebase): derives the loop-variable
+ * names the way the old per-row builder did — context keys that aren't
+ * internal markers, functions, or state entries.
+ */
+function createLoopHandlerSetupFromContext(
+  context: Record<string, unknown>,
+): LoopHandlerSetup
+{
+  const state =
+    (context.__reactiveState__ as Record<string, unknown>) ?? context;
+  const loopVarNames = Object.keys(context).filter(
+    (key) =>
+      !key.startsWith("__") &&
+      typeof context[key] !== "function" &&
+      !Object.prototype.hasOwnProperty.call(state, key),
+  );
+  return createLoopHandlerSetup(state, loopVarNames);
+}
+
+/**
+ * Resolves the compiled handler Function for `code` under `setup`.
+ * Two cache levels: the per-pass map (code → fn) makes repeat rows a single
+ * Map hit; the global body-keyed map dedupes compiles across passes and
+ * components (byte-identical bodies are interchangeable — only the runtime
+ * arguments differ).
+ */
+function getLoopHandlerFn(
+  code: string,
+  setup: LoopHandlerSetup,
+): Function | null
+{
+  let fn = setup.fnCache.get(code);
+  if (fn !== undefined) return fn;
+
+  const fnBody = setup.bodyPrefix + code + setup.bodySuffix;
+  fn = loopHandlerFnCache.get(fnBody) ?? null;
+  if (fn === null)
+  {
+    try
     {
       if (loopHandlerFnCache.size >= MAX_HANDLER_FN_CACHE)
       {
@@ -1765,35 +2200,48 @@ function createLoopEventHandler(
         fnBody,
       );
       loopHandlerFnCache.set(fnBody, fn);
-    }
-
-    return (event: Event) =>
+    } catch (e)
     {
-      try
-      {
-        // If the element also has $bind for this event, sync its value into
-        // state first so the handler reads the current value, not the previous
-        syncBindBeforeHandler(event);
-
-        fn(
-          event,
-          context,
-          reactiveState,
-          eventBusHelpers.$emit,
-          eventBusHelpers.$listen,
-        );
-      } catch (e)
-      {
-        error(`Error in loop event handler: ${code}`, null, e);
-      }
-    };
-  } catch (e)
-  {
-    warn(
-      `Failed to create loop event handler: ${code} — ${(e as Error).message}`,
-    );
-    return null;
+      warn(
+        `Failed to create loop event handler: ${code} — ${(e as Error).message}`,
+      );
+      fn = null;
+    }
   }
+  setup.fnCache.set(code, fn);
+  return fn;
+}
+
+/**
+ * Creates an event handler function for a loop-rendered element. The handler
+ * reads state variables live from the reactive state and the loop variables
+ * from `rowCtx` — the small per-row context renderLoop keeps refreshed on
+ * element reuse, so the handler always sees the row's CURRENT item/index.
+ */
+function createLoopEventHandler(
+  code: string,
+  rowCtx: Record<string, unknown>,
+  setup: LoopHandlerSetup,
+): ((event: Event) => void) | null
+{
+  const fn = getLoopHandlerFn(code, setup);
+  if (!fn) return null;
+
+  const { reactiveState, emit, listen } = setup;
+  return (event: Event) =>
+  {
+    try
+    {
+      // If the element also has $bind for this event, sync its value into
+      // state first so the handler reads the current value, not the previous
+      syncBindBeforeHandler(event);
+
+      fn(event, rowCtx, reactiveState, emit, listen);
+    } catch (e)
+    {
+      error(`Error in loop event handler: ${code}`, null, e);
+    }
+  };
 }
 
 /**

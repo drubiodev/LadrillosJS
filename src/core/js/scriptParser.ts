@@ -1657,17 +1657,30 @@ function getCompiledEvaluator(
  * `Object.keys`, identifier filtering, and the cache-key join — noticeable
  * when a loop update evaluates thousands of bindings against one shared
  * context per flush. This factory hoists all of that: keys are extracted
- * once, the argument array is preallocated, and each call only refreshes
- * the value slots (the caller mutates item/index on the context between
- * rows) and invokes the cached compiled function.
+ * once and the argument array is preallocated.
  *
- * CONTRACT: the context's KEY SET must not change for the lifetime of the
- * returned evaluator (values may change freely). Callers create one per
- * render pass after all keys (including loop item/index) are present.
+ * Two modes:
+ *   - Legacy (no `volatileKeys`): every call refills ALL value slots from
+ *     the context, so callers may mutate any context value between calls.
+ *   - Static (`volatileKeys` given): all slots are filled once at creation;
+ *     only the named volatile slots are refilled — and only when the caller
+ *     invokes `refresh()` after mutating them. All other context VALUES
+ *     must stay unchanged for the evaluator's lifetime. This is the loop
+ *     renderer's mode: state values are constant within a flush, only the
+ *     item/index slots change per row.
+ *
+ * CONTRACT (both modes): the context's KEY SET must not change for the
+ * lifetime of the returned evaluator. Callers create one per render pass
+ * after all keys (including loop item/index) are present.
+ *
+ * The returned evaluator also exposes `compile`/`invoke`/`sig` so hot loops
+ * can resolve an expression's compiled Function once per template and skip
+ * the per-eval cache lookup entirely.
  */
 function createContextEvaluator(
   context: Record<string, unknown>,
-): (expression: string) => unknown
+  volatileKeys?: readonly string[],
+): BoundEvaluator
 {
   const blocked = ensureBlockedGlobals();
 
@@ -1680,19 +1693,82 @@ function createContextEvaluator(
       keys.push(allKeys[i]);
     }
   }
-  const exprMap = getEvaluatorMap(keys.join(","));
+  const sig = keys.join(",");
+  const exprMap = getEvaluatorMap(sig);
   const nBlocked = blocked.length;
   const args: unknown[] = new Array(nBlocked + keys.length).fill(undefined);
 
-  return (expression: string): unknown =>
+  const fillAll = (): void =>
+  {
+    for (let i = 0; i < keys.length; i++)
+    {
+      args[nBlocked + i] = context[keys[i]];
+    }
+  };
+
+  const isStatic = volatileKeys !== undefined;
+  let volatileSlots: number[] | null = null;
+  let volatileNames: string[] | null = null;
+  if (isStatic)
+  {
+    fillAll();
+    volatileSlots = [];
+    volatileNames = [];
+    for (const name of volatileKeys)
+    {
+      const idx = keys.indexOf(name);
+      if (idx >= 0)
+      {
+        volatileSlots.push(nBlocked + idx);
+        volatileNames.push(name);
+      }
+    }
+  }
+
+  const evaluator = ((expression: string): unknown =>
   {
     try
     {
       const fn = getCompiledEvaluator(keys, exprMap, expression);
-      for (let i = 0; i < keys.length; i++)
+      if (!isStatic) fillAll();
+      return fn.apply(null, args);
+    } catch (e)
+    {
+      expressionError(expression, e as Error, {
+        context: getComponentContext(),
+      });
+      return `{${expression}}`; // Return original on error
+    }
+  }) as BoundEvaluator;
+
+  evaluator.sig = sig;
+  evaluator.refresh = isStatic
+    ? (): void =>
+    {
+      for (let i = 0; i < volatileSlots!.length; i++)
       {
-        args[nBlocked + i] = context[keys[i]];
+        args[volatileSlots![i]] = context[volatileNames![i]];
       }
+    }
+    : fillAll;
+  evaluator.compile = (expression: string): Function | null =>
+  {
+    try
+    {
+      return getCompiledEvaluator(keys, exprMap, expression);
+    } catch (e)
+    {
+      expressionError(expression, e as Error, {
+        context: getComponentContext(),
+      });
+      return null;
+    }
+  };
+  evaluator.invoke = (fn: Function, expression: string): unknown =>
+  {
+    try
+    {
+      if (!isStatic) fillAll();
       return fn.apply(null, args);
     } catch (e)
     {
@@ -1702,6 +1778,7 @@ function createContextEvaluator(
       return `{${expression}}`; // Return original on error
     }
   };
+  return evaluator;
 }
 
 /**
@@ -1884,6 +1961,29 @@ function applyBindings(
 // ============================================================================
 
 /**
+ * A pass-scoped evaluator bound to one context object, produced by
+ * `DirectiveEvaluator.forContext`. Callable as `(expr) => unknown`; the
+ * optional members let hot loops skip per-eval overhead (see
+ * `createContextEvaluator` for the mode semantics).
+ */
+export interface BoundEvaluator
+{
+  (expr: string): unknown;
+  /**
+   * Refill argument slots from the context: the volatile slots in static
+   * mode, all slots in legacy mode. Static-mode callers MUST call this
+   * after mutating a volatile context value.
+   */
+  refresh?: () => void;
+  /** Compiled Function for `expr` under this key set, or null on a syntax error. */
+  compile?: (expr: string) => Function | null;
+  /** Invoke a Function from `compile` against the current argument slots. */
+  invoke?: (fn: Function, expr: string) => unknown;
+  /** Key-set signature; compiled Functions are only valid for a matching sig. */
+  sig?: string;
+}
+
+/**
  * Directive-facing expression evaluator. Callable as
  * `(expr, context) => unknown`; `forContext` additionally builds a
  * pass-scoped fast evaluator bound to one context object (see
@@ -1893,7 +1993,10 @@ function applyBindings(
 export interface DirectiveEvaluator
 {
   (expr: string, context: Record<string, unknown>): unknown;
-  forContext(context: Record<string, unknown>): (expr: string) => unknown;
+  forContext(
+    context: Record<string, unknown>,
+    volatileKeys?: readonly string[],
+  ): BoundEvaluator;
 }
 
 /**

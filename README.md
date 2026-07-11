@@ -613,29 +613,29 @@ Medians of 10 runs, headless Chromium on an Apple M5 Pro,
 
 | Operation | LadrillosJS | React 18.3 (keyed, memoized rows) | Vanilla JS (hand-optimized) |
 |---|---:|---:|---:|
-| create 1,000 rows | 9.5 ms | 4.2 ms | 1.8 ms |
-| replace all 1,000 rows | 10 ms | 8.3 ms | 2 ms |
-| partial update (every 10th of 1,000) | 1.5 ms | 1.2 ms | 0.2 ms |
-| select row | 1.3 ms | 0.3 ms | 0 ms |
-| swap 2 rows | **1.5 ms** | 3.2 ms | 0 ms |
-| remove row | 1.5 ms | 1 ms | 0 ms |
-| append 1,000 to 1,000 rows | 9.5 ms | 4.4 ms | 1.2 ms |
+| create 1,000 rows | **3.6 ms** | 4.2 ms | 1.8 ms |
+| replace all 1,000 rows | **4.1 ms** | 8.1 ms | 2.1 ms |
+| partial update (every 10th of 1,000) | 1.2 ms | 1.2 ms | 0.2 ms |
+| select row | 0.8 ms | 0.4 ms | 0 ms |
+| swap 2 rows | **1.1 ms** | 3.4 ms | 0.1 ms |
+| remove row | 1 ms | 1.1 ms | 0 ms |
+| append 1,000 to 1,000 rows | 4 ms | 4.2 ms | 1.2 ms |
 | clear 1,000 rows | **1.3 ms** | 3.4 ms | 0.8 ms |
-| create 10,000 rows | **89.2 ms** | 217.8 ms | 12.6 ms |
-| **JS payload (min+gzip)** | **24.2 KB** | **47 KB** | ~1 KB |
-| JS heap after 1,000 rows | 3.8 MB | 6.2 MB | 1.3 MB |
+| create 10,000 rows | **29.1 ms** | 214.9 ms | 13.1 ms |
+| **JS payload (min+gzip)** | **25.3 KB** | **47 KB** | ~1 KB |
+| JS heap after 1,000 rows | 2.4 MB | 6.2 MB | 1.3 MB |
 
 **How to read this honestly:**
 
 - Every operation lands well within a single 60 fps frame (16.7 ms):
-  updates on a 1,000-row list take 1–2 ms, and bulk creation of 1,000
-  rows is under 10 ms.
-- LadrillosJS beats React on row swaps, clearing, and — by 2.4× — on
-  creating 10,000 rows, while shipping **half the JS** and using **~40%
-  less memory** for the same UI.
-- React 18 remains faster on bulk creation at the 1,000-row size and on
-  single-row selection. We publish these numbers to track and improve
-  them — not to claim LadrillosJS wins everything.
+  updates on a 1,000-row list take about a millisecond, and bulk creation
+  of 1,000 rows is under 5 ms.
+- LadrillosJS beats React on bulk creation (and by 7× on 10,000 rows),
+  full replaces, row swaps, and clearing, while shipping **half the JS**
+  and using **~60% less memory** for the same UI.
+- React 18 remains faster on single-row selection, and partial updates
+  are a tie. We publish these numbers to track and improve them — not to
+  claim LadrillosJS wins everything.
 - Vanilla JS is the baseline.
 
 Reproduce it yourself (no benchmark numbers should be trusted otherwise):
