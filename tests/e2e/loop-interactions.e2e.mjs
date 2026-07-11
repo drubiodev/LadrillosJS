@@ -1,12 +1,13 @@
 /**
  * Real-browser regression test: loop event handlers across the row
  * lifecycle — freshly created rows, keyed reuse with NEW item objects
- * (relabel), keyed moves (swap), $on: modifier directives, and non-keyed
- * index handlers after a removal.
+ * (relabel), keyed moves (swap), $on: modifier directives, bubbling order,
+ * stopPropagation, and non-keyed index handlers after a removal.
  *
- * Guards the loop renderer's per-row handler contexts: handlers must read
- * the row's CURRENT item/index at event time, not the values captured when
- * the element was first created.
+ * The whole suite runs TWICE: once with per-element listeners (default)
+ * and once with opt-in event delegation (?delegate=1 →
+ * configure({ delegateLoopEvents: true })). Both modes must behave
+ * identically for every assertion.
  *
  * Run:
  *   npm run build
@@ -82,95 +83,117 @@ if (!executablePath) {
 }
 
 const browser = await chromium.launch({ executablePath, headless: true });
-const page = await (await browser.newContext()).newPage();
-const pageErrors = [];
-page.on("pageerror", (e) => pageErrors.push(e.message));
-
-await page.goto(`http://localhost:${PORT}/tests/e2e/fixtures/loop-interactions.html`);
-await page.waitForFunction(
-  () => window.__componentsReady === true && window.__loopReady === true,
-  null,
-  { timeout: 10000 }
-);
-await page.waitForFunction(
-  () => document.querySelectorAll("loop-clicks .krow").length === 4,
-  null,
-  { timeout: 5000 }
-);
-
-const labels = () =>
-  page.$$eval("loop-clicks .klabel", (els) => els.map((e) => e.textContent));
-const plainRows = () =>
-  page.$$eval("loop-clicks .prow", (els) => els.map((e) => e.textContent));
-const probe = (key) => page.evaluate((k) => window.__probe[k], key);
-
 let failed = false;
-const assert = (cond, msg) => {
-  if (!cond) {
-    failed = true;
-    console.error("  ✗", msg);
-  } else {
-    console.log("  ✓", msg);
-  }
-};
-const eq = (a, b, msg) =>
-  assert(JSON.stringify(a) === JSON.stringify(b), `${msg} (got ${JSON.stringify(a)})`);
+
+async function runSuite(mode, query) {
+  const page = await (await browser.newContext()).newPage();
+  const pageErrors = [];
+  page.on("pageerror", (e) => pageErrors.push(e.message));
+
+  await page.goto(
+    `http://localhost:${PORT}/tests/e2e/fixtures/loop-interactions.html${query}`
+  );
+  await page.waitForFunction(
+    () => window.__componentsReady === true && window.__loopReady === true,
+    null,
+    { timeout: 10000 }
+  );
+  await page.waitForFunction(
+    () => document.querySelectorAll("loop-clicks .krow").length === 4,
+    null,
+    { timeout: 5000 }
+  );
+
+  const labels = () =>
+    page.$$eval("loop-clicks .klabel", (els) => els.map((e) => e.textContent));
+  const plainRows = () =>
+    page.$$eval("loop-clicks .prow", (els) => els.map((e) => e.textContent));
+  const probe = (key) => page.evaluate((k) => window.__probe[k], key);
+
+  const assert = (cond, msg) => {
+    if (!cond) {
+      failed = true;
+      console.error(`  ✗ [${mode}]`, msg);
+    } else {
+      console.log(`  ✓ [${mode}]`, msg);
+    }
+  };
+  const eq = (a, b, msg) =>
+    assert(JSON.stringify(a) === JSON.stringify(b), `${msg} (got ${JSON.stringify(a)})`);
+
+  // 1. Initial render
+  eq(await labels(), ["a1", "b2", "c3", "d4"], "keyed rows render");
+  eq(await plainRows(), ["x:0", "y:1", "z:2"], "non-keyed rows render with index");
+
+  // 2. Click a freshly created row → handler sees its item; click bubbles
+  //    to the row root's own onclick afterwards (inner → outer order).
+  await page.click("loop-clicks .krow:nth-child(2) .klabel");
+  eq(await probe("lastPick"), "2:b2", "click on created row passes current item");
+  eq(await probe("lastRowClick"), 2, "click bubbles to the row root handler");
+  await page.waitForFunction(
+    () => document.querySelector("loop-clicks .krow:nth-child(2)").classList.contains("sel"),
+    null,
+    { timeout: 5000 }
+  );
+  assert(true, "selection class updates after handler mutates state");
+
+  // 3. $on:click.stop on an inner element must NOT reach the row handler
+  await page.evaluate(() => {
+    window.__probe.lastRowClick = null;
+  });
+  await page.click("loop-clicks .krow:nth-child(3) .kstop");
+  eq(await probe("lastStop"), 3, "$on:click.stop handler fires");
+  eq(await probe("lastRowClick"), null, ".stop prevents the row root handler from firing");
+
+  // 4. Relabel: same keys, NEW item objects → reused row's handler must see the new item
+  await page.evaluate(() => window.__loopApi.relabel());
+  await page.waitForFunction(
+    () => document.querySelector("loop-clicks .klabel")?.textContent === "a1!",
+    null,
+    { timeout: 5000 }
+  );
+  await page.click("loop-clicks .krow:nth-child(2) .klabel");
+  eq(await probe("lastPick"), "2:b2!", "reused row handler reads CURRENT item after relabel");
+
+  // 5. Swap rows 2 and 4 → moved element's handler must follow its item
+  await page.evaluate(() => window.__loopApi.swapRows());
+  await page.waitForFunction(
+    () => document.querySelector("loop-clicks .krow:nth-child(2) .klabel")?.textContent === "d4!",
+    null,
+    { timeout: 5000 }
+  );
+  eq(await labels(), ["a1!", "d4!", "c3!", "b2!"], "swap reorders rows");
+  await page.click("loop-clicks .krow:nth-child(2) .klabel");
+  eq(await probe("lastPick"), "4:d4!", "moved row handler reads its own item");
+
+  // 6. $on:click.prevent directive in a loop
+  await page.click("loop-clicks .krow:nth-child(3) .kprev");
+  eq(await probe("lastMark"), 3, "$on:click directive handler fires with loop item");
+  const hash = await page.evaluate(() => location.hash);
+  eq(hash, "", ".prevent modifier stops the default navigation");
+
+  // 7. Non-keyed removal → positionally reused element's handler sees new item+index
+  await page.evaluate(() => window.__loopApi.dropFirstName());
+  await page.waitForFunction(
+    () => document.querySelectorAll("loop-clicks .prow").length === 2,
+    null,
+    { timeout: 5000 }
+  );
+  eq(await plainRows(), ["y:0", "z:1"], "non-keyed rows shift after removal");
+  await page.click("loop-clicks .prow:nth-child(1)");
+  eq(await probe("lastIndexPick"), "y@0", "reused non-keyed row handler reads current item and index");
+
+  assert(
+    pageErrors.length === 0,
+    `no page errors ${pageErrors.length ? "— got: " + pageErrors.join("; ") : ""}`
+  );
+
+  await page.context().close();
+}
 
 console.log("loop-interactions e2e (real Chromium):");
-
-// 1. Initial render
-eq(await labels(), ["a1", "b2", "c3", "d4"], "keyed rows render");
-eq(await plainRows(), ["x:0", "y:1", "z:2"], "non-keyed rows render with index");
-
-// 2. Click a freshly created row → handler sees its item
-await page.click("loop-clicks .krow:nth-child(2) .klabel");
-eq(await probe("lastPick"), "2:b2", "click on created row passes current item");
-await page.waitForFunction(
-  () => document.querySelector("loop-clicks .krow:nth-child(2)").classList.contains("sel"),
-  null,
-  { timeout: 5000 }
-);
-assert(true, "selection class updates after handler mutates state");
-
-// 3. Relabel: same keys, NEW item objects → reused row's handler must see the new item
-await page.evaluate(() => window.__loopApi.relabel());
-await page.waitForFunction(
-  () => document.querySelector("loop-clicks .klabel")?.textContent === "a1!",
-  null,
-  { timeout: 5000 }
-);
-await page.click("loop-clicks .krow:nth-child(2) .klabel");
-eq(await probe("lastPick"), "2:b2!", "reused row handler reads CURRENT item after relabel");
-
-// 4. Swap rows 2 and 4 → moved element's handler must follow its item
-await page.evaluate(() => window.__loopApi.swapRows());
-await page.waitForFunction(
-  () => document.querySelector("loop-clicks .krow:nth-child(2) .klabel")?.textContent === "d4!",
-  null,
-  { timeout: 5000 }
-);
-eq(await labels(), ["a1!", "d4!", "c3!", "b2!"], "swap reorders rows");
-await page.click("loop-clicks .krow:nth-child(2) .klabel");
-eq(await probe("lastPick"), "4:d4!", "moved row handler reads its own item");
-
-// 5. $on:click.prevent directive in a loop
-await page.click("loop-clicks .krow:nth-child(3) .kprev");
-eq(await probe("lastMark"), 3, "$on:click directive handler fires with loop item");
-const hash = await page.evaluate(() => location.hash);
-eq(hash, "", ".prevent modifier stops the default navigation");
-
-// 6. Non-keyed removal → positionally reused element's handler sees new item+index
-await page.evaluate(() => window.__loopApi.dropFirstName());
-await page.waitForFunction(
-  () => document.querySelectorAll("loop-clicks .prow").length === 2,
-  null,
-  { timeout: 5000 }
-);
-eq(await plainRows(), ["y:0", "z:1"], "non-keyed rows shift after removal");
-await page.click("loop-clicks .prow:nth-child(1)");
-eq(await probe("lastIndexPick"), "y@0", "reused non-keyed row handler reads current item and index");
-
-assert(pageErrors.length === 0, `no page errors ${pageErrors.length ? "— got: " + pageErrors.join("; ") : ""}`);
+await runSuite("direct", "");
+await runSuite("delegated", "?delegate=1");
 
 await browser.close();
 server.close();

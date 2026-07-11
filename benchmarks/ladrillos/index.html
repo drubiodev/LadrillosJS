@@ -7,6 +7,9 @@
     <script src="../shared/harness.js"></script>
     <script type="module">
       import { registerComponent } from "/dist/index.js";
+      // Default configuration on purpose: the published numbers must show
+      // out-of-the-box behavior (delegateLoopEvents lands within noise on
+      // this suite; it exists for listener-count/memory-sensitive apps).
       // Light DOM so all three implementations render into the same
       // document structure and share one global stylesheet.
       await registerComponent("bench-table", "./bench-table.html", false);

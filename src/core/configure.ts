@@ -31,6 +31,36 @@ export interface LadrillosConfig {
    * });
    */
   onError?: LadrillosErrorHandler | null;
+
+  /**
+   * Opt-in event delegation for `<for>` loop rows. When enabled, eligible
+   * inline handlers (onclick, $on:… on bubbling events) inside loop rows
+   * share ONE listener per event type on the loop's container instead of
+   * one listener per element — faster bulk row creation and less memory on
+   * large lists. Handler code and template syntax are unchanged.
+   *
+   * Two observable differences versus direct listeners:
+   *   1. `event.currentTarget` inside a loop handler is the list container,
+   *      not the row element (`event.target` is unaffected).
+   *   2. A manual `stopPropagation()` call from a listener you attach
+   *      yourself between the row and the container stops delegated
+   *      handlers from firing.
+   *
+   * Non-bubbling events (focus, blur, mouseenter, …) and handlers using
+   * the `.self`, `.capture`, `.once`, or `.passive` modifiers automatically
+   * keep per-element listeners.
+   *
+   * Set this before components render; templates already rendered keep the
+   * mode they were created with. Defaults to false.
+   */
+  delegateLoopEvents?: boolean;
+}
+
+let loopDelegationEnabled = false;
+
+/** Whether opt-in loop event delegation is active (see LadrillosConfig). */
+export function isLoopDelegationEnabled(): boolean {
+  return loopDelegationEnabled;
 }
 
 /**
@@ -45,5 +75,8 @@ export function configure(config: LadrillosConfig): void {
   }
   if (config.onError !== undefined) {
     setErrorHandler(config.onError);
+  }
+  if (config.delegateLoopEvents !== undefined) {
+    loopDelegationEnabled = config.delegateLoopEvents;
   }
 }

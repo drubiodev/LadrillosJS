@@ -1,8 +1,9 @@
 <div class="keyed">
   <for each="row in rows" key="row.id">
-    <div class="krow {row.id === selected ? 'sel' : ''}">
+    <div class="krow {row.id === selected ? 'sel' : ''}" onclick="rowClick(row.id)">
       <span class="klabel" onclick="pick(row.id, row.label)">{row.label}</span>
       <a href="#nav" class="kprev" $on:click.prevent="mark(row.id)">p</a>
+      <span class="kstop" $on:click.stop="markStop(row.id)">s</span>
     </div>
   </for>
 </div>
@@ -27,8 +28,16 @@
     window.__probe.lastPick = id + ":" + label;
   }
 
+  function rowClick(id) {
+    window.__probe.lastRowClick = id;
+  }
+
   function mark(id) {
     window.__probe.lastMark = id;
+  }
+
+  function markStop(id) {
+    window.__probe.lastStop = id;
   }
 
   function pickIndex(i, name) {

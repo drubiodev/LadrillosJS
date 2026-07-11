@@ -24,6 +24,7 @@ import
   syncBindBeforeHandler,
 } from "../../utils/directives";
 import { scanLazyElements, getPendingLazyContent } from "../builtins/lazyElement";
+import { isLoopDelegationEnabled } from "../configure";
 
 // ============================================================================
 // Built-in element tag names (uppercase = DOM tagName form)
@@ -816,7 +817,7 @@ function renderLoop(
     (clone as any)[LOOP_ROW_CTX] = rowCtx;
     if (plan)
     {
-      applyCreationPlan(clone, plan, evalOne, rowCtx, getSetup);
+      applyCreationPlan(clone, plan, evalOne, rowCtx, getSetup, loop);
       return clone;
     }
     // Resolve any <if>/<else-if>/<else> chains nested inside the loop
@@ -1208,11 +1209,242 @@ type PlanHandlerEntry = {
   options?: ReturnType<typeof getListenerOptions>;
 };
 
+/**
+ * A group of delegated handler entries sharing one element (path). `stamp`
+ * is the immutable marker object written onto every row's element at that
+ * path — shared across rows, so stamping costs one property write.
+ */
+type PlanDelegatedGroup = {
+  path: number[];
+  entries: PlanHandlerEntry[];
+  stamp: { owner: LoopDescriptor; entries: PlanHandlerEntry[] };
+};
+
 type LoopCreationPlan = {
   texts: PlanTextEntry[];
   attrs: PlanAttrEntry[];
+  /** Handlers attached per element (delegation off or ineligible). */
   handlers: PlanHandlerEntry[];
+  /** Handlers served by one container listener per event type (or null). */
+  delegated: PlanDelegatedGroup[] | null;
+  /** Distinct event types needing a container listener. */
+  delegatedEvents: string[];
 };
+
+// ============================================================================
+// Opt-in event delegation (configure({ delegateLoopEvents: true }))
+// ============================================================================
+//
+// Instead of one listener per handler per row (2,000 addEventListener calls
+// and closures for a 1,000-row list with two handlers), eligible handlers
+// share ONE listener per event type on the loop's container. Rows carry two
+// expando stamps: the handler element points at its plan entries, the row
+// root already carries the per-row context. On an event, the dispatcher
+// walks target → container collecting this loop's matched entries
+// (inner-to-outer, mimicking bubble order), resolves the row context at the
+// row root, and invokes — honoring stopPropagation between handlers via
+// event.cancelBubble.
+//
+// Eligibility: the event must bubble and the handler must not use the
+// `.self` (reads currentTarget), `.capture`, `.once`, or `.passive`
+// modifiers; ineligible handlers keep per-element listeners transparently.
+
+/** Events that bubble (and are worth delegating). */
+const DELEGATABLE_EVENTS = new Set([
+  "click",
+  "dblclick",
+  "auxclick",
+  "contextmenu",
+  "mousedown",
+  "mouseup",
+  "mousemove",
+  "mouseover",
+  "mouseout",
+  "pointerdown",
+  "pointerup",
+  "pointermove",
+  "pointerover",
+  "pointerout",
+  "pointercancel",
+  "touchstart",
+  "touchend",
+  "touchmove",
+  "touchcancel",
+  "keydown",
+  "keyup",
+  "keypress",
+  "input",
+  "beforeinput",
+  "change",
+  "submit",
+  "reset",
+  "focusin",
+  "focusout",
+  "wheel",
+  "dragstart",
+  "drag",
+  "dragend",
+  "dragenter",
+  "dragover",
+  "dragleave",
+  "drop",
+  "cut",
+  "copy",
+  "paste",
+]);
+
+/** Stamp on a handler element inside a delegated row (shared per plan group). */
+const DELEGATED_KEY = "__ladrillosDelegated" as const;
+
+/** Stamp on a delegated row's root marking which loop owns it. */
+const LOOP_ROW_OWNER = "__ladrillosLoopOwner" as const;
+
+function isDelegatableHandler(
+  eventName: string,
+  directive: PlanHandlerEntry["directive"],
+): boolean
+{
+  if (!DELEGATABLE_EVENTS.has(eventName)) return false;
+  if (directive)
+  {
+    const mods = directive.eventModifiers;
+    if (
+      mods.includes("self") ||
+      mods.includes("capture") ||
+      mods.includes("once") ||
+      mods.includes("passive")
+    )
+    {
+      return false;
+    }
+  }
+  return true;
+}
+
+type DelegationState = {
+  container: Node;
+  /** Latest handler setup — refreshed each render pass. */
+  setup: LoopHandlerSetup;
+  /** Event types that already have a container listener. */
+  events: Set<string>;
+};
+
+const delegationStates = new WeakMap<LoopDescriptor, DelegationState>();
+
+/**
+ * Attaches (once per loop per event type) the shared container listeners
+ * and keeps the dispatch setup current.
+ */
+function ensureDelegation(
+  loop: LoopDescriptor,
+  setup: LoopHandlerSetup,
+  events: readonly string[],
+): void
+{
+  let state = delegationStates.get(loop);
+  if (!state)
+  {
+    const container = (loop.placeholder.parentNode ??
+      loop.originalParent) as Node;
+    state = { container, setup, events: new Set() };
+    delegationStates.set(loop, state);
+  }
+  state.setup = setup;
+  for (const type of events)
+  {
+    if (!state.events.has(type))
+    {
+      state.events.add(type);
+      const captured = state;
+      state.container.addEventListener(type, (event: Event) =>
+        dispatchDelegated(event, loop, captured),
+      );
+    }
+  }
+}
+
+/**
+ * Shared container listener body: walk target → container collecting this
+ * loop's stamped handler elements (inner-to-outer), resolve the row context
+ * at the row root, then invoke in bubble order. `event.cancelBubble` (set
+ * by stopPropagation, including the `.stop` modifier) stops the remaining
+ * handlers exactly as it would stop real bubbling between per-element
+ * listeners.
+ */
+function dispatchDelegated(
+  event: Event,
+  loop: LoopDescriptor,
+  state: DelegationState,
+): void
+{
+  const container = state.container;
+  const matched: PlanHandlerEntry[][] = [];
+  let rowCtx: Record<string, unknown> | null = null;
+
+  let node: Node | null = event.target as Node | null;
+  while (node && node !== container)
+  {
+    const stamp = (node as any)[DELEGATED_KEY] as
+      | { owner: LoopDescriptor; entries: PlanHandlerEntry[] }
+      | undefined;
+    if (stamp && stamp.owner === loop)
+    {
+      matched.push(stamp.entries);
+    }
+    if ((node as any)[LOOP_ROW_OWNER] === loop)
+    {
+      rowCtx =
+        ((node as any)[LOOP_ROW_CTX] as Record<string, unknown>) ?? null;
+      break; // row roots are direct children of the container
+    }
+    node = node.parentNode;
+  }
+  if (rowCtx === null || matched.length === 0) return;
+
+  for (const entries of matched)
+  {
+    for (const h of entries)
+    {
+      if (h.eventName !== event.type) continue;
+      runDelegatedHandler(h, event, rowCtx, state.setup);
+      if (event.cancelBubble) return;
+    }
+  }
+}
+
+function runDelegatedHandler(
+  h: PlanHandlerEntry,
+  event: Event,
+  rowCtx: Record<string, unknown>,
+  setup: LoopHandlerSetup,
+): void
+{
+  const fn = getLoopHandlerFn(h.code, setup);
+  if (!fn) return;
+
+  const run = (ev: Event): void =>
+  {
+    try
+    {
+      // If the element also has $bind for this event, sync its value into
+      // state first so the handler reads the current value, not the previous
+      syncBindBeforeHandler(ev);
+
+      fn(ev, rowCtx, setup.reactiveState, setup.emit, setup.listen);
+    } catch (e)
+    {
+      error(`Error in loop event handler: ${h.code}`, null, e);
+    }
+  };
+
+  if (h.directive)
+  {
+    createModifiedHandler(run, h.directive)(event);
+  } else
+  {
+    run(event);
+  }
+}
 
 /** Plan per loop descriptor; null marks a template the plan can't cover. */
 const creationPlans = new WeakMap<LoopDescriptor, LoopCreationPlan | null>();
@@ -1298,7 +1530,42 @@ function buildCreationPlan(loop: LoopDescriptor): LoopCreationPlan | null
   };
   visit(loop.template);
 
-  return { texts, attrs, handlers };
+  // Partition handlers between delegation and per-element attachment. The
+  // flag is read once here (the plan is cached per loop), so set
+  // delegateLoopEvents before components render.
+  let direct = handlers;
+  let delegated: PlanDelegatedGroup[] | null = null;
+  const delegatedEvents: string[] = [];
+  if (isLoopDelegationEnabled() && handlers.length > 0)
+  {
+    direct = [];
+    const byPath = new Map<string, PlanDelegatedGroup>();
+    for (const h of handlers)
+    {
+      if (isDelegatableHandler(h.eventName, h.directive))
+      {
+        const key = h.path.join(",");
+        let group = byPath.get(key);
+        if (!group)
+        {
+          const entries: PlanHandlerEntry[] = [];
+          group = { path: h.path, entries, stamp: { owner: loop, entries } };
+          byPath.set(key, group);
+        }
+        group.entries.push(h);
+        if (!delegatedEvents.includes(h.eventName))
+        {
+          delegatedEvents.push(h.eventName);
+        }
+      } else
+      {
+        direct.push(h);
+      }
+    }
+    if (byPath.size > 0) delegated = [...byPath.values()];
+  }
+
+  return { texts, attrs, handlers: direct, delegated, delegatedEvents };
 }
 
 /**
@@ -1312,6 +1579,7 @@ function applyCreationPlan(
   evalOne: BoundEvaluator,
   rowCtx: Record<string, unknown>,
   getSetup: () => LoopHandlerSetup,
+  loop: LoopDescriptor,
 ): void
 {
   const canInvoke = evalOne.invoke !== undefined && evalOne.sig !== undefined;
@@ -1370,7 +1638,7 @@ function applyCreationPlan(
     cacheAttrs[a] = { attr, parsed };
   }
 
-  if (plan.handlers.length > 0)
+  if (plan.handlers.length > 0 || plan.delegated !== null)
   {
     const setup = getSetup();
     for (const h of plan.handlers)
@@ -1390,6 +1658,23 @@ function applyCreationPlan(
       {
         el.addEventListener(h.eventName, base);
       }
+    }
+    if (plan.delegated !== null)
+    {
+      // No listeners on the row at all: stamp the handler elements with
+      // their (shared) plan entries and mark the row root as this loop's.
+      // The container listener resolves everything at dispatch time.
+      (clone as any)[LOOP_ROW_OWNER] = loop;
+      for (const group of plan.delegated)
+      {
+        const el = resolve(group.path) as Element;
+        for (const h of group.entries)
+        {
+          el.removeAttribute(h.attrName);
+        }
+        (el as any)[DELEGATED_KEY] = group.stamp;
+      }
+      ensureDelegation(loop, setup, plan.delegatedEvents);
     }
   }
 
