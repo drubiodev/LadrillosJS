@@ -194,6 +194,21 @@ export function createReactiveArray<T>(arr: T[], onMutate: () => void): T[]
 }
 
 /**
+ * Checks whether a value is a plain object (created via `{}` literal or
+ * `Object.create(null)`). Dates, Maps, DOM nodes, class instances, and
+ * arrays are excluded — only plain objects get deep reactive wrapping.
+ */
+function isPlainObject(value: unknown): value is Record<string, unknown>
+{
+  if (value === null || typeof value !== "object" || Array.isArray(value))
+  {
+    return false;
+  }
+  const proto = Object.getPrototypeOf(value);
+  return proto === Object.prototype || proto === null;
+}
+
+/**
  * Recursively wraps all arrays in an object with reactive proxies.
  * This ensures nested arrays also trigger reactivity updates.
  *
@@ -284,11 +299,98 @@ export function createReactiveState(
     }
   });
 
+  // Deep reactivity: nested plain objects read off the state are wrapped in
+  // proxies (lazily, on property access) so writes like
+  // `user.profile.name = "x"` — from scripts or $bind's setNestedValue —
+  // trigger the bindings that depend on the ROOT key ("user"). The binding
+  // registry is keyed by top-level state keys, so any nested write updates
+  // everything that references that root. Proxies are cached per
+  // (object, rootKey) pair to keep identity stable across reads.
+  const deepProxyCache = new WeakMap<object, Map<string, object>>();
+
+  const wrapDeep = (
+    obj: Record<string, unknown>,
+    rootKey: string
+  ): Record<string, unknown> =>
+  {
+    let byRoot = deepProxyCache.get(obj);
+    const cached = byRoot?.get(rootKey);
+    if (cached)
+    {
+      return cached as Record<string, unknown>;
+    }
+
+    const proxy = new Proxy(obj, {
+      get(target, key)
+      {
+        const value = target[key as keyof typeof target];
+        if (typeof key === "string" && isPlainObject(value))
+        {
+          return wrapDeep(value, rootKey);
+        }
+        return value;
+      },
+
+      set(target, key, value)
+      {
+        if (typeof key !== "string")
+        {
+          (target as any)[key] = value;
+          return true;
+        }
+
+        // Skip if value hasn't actually changed
+        if (key in target && target[key] === value) return true;
+
+        // Arrays assigned into nested objects become reactive, tied to
+        // the same root key so mutations re-render its dependents.
+        target[key] = Array.isArray(value)
+          ? createReactiveArray(value, () =>
+            triggerUpdate(rootKey, initialState))
+          : value;
+
+        if (!(initialState as any).__suspendReactivity)
+        {
+          triggerUpdate(rootKey, initialState);
+        }
+        return true;
+      },
+
+      deleteProperty(target, key)
+      {
+        const existed = key in target;
+        delete (target as any)[key];
+        if (
+          existed &&
+          typeof key === "string" &&
+          !(initialState as any).__suspendReactivity
+        )
+        {
+          triggerUpdate(rootKey, initialState);
+        }
+        return true;
+      },
+    });
+
+    if (!byRoot)
+    {
+      byRoot = new Map();
+      deepProxyCache.set(obj, byRoot);
+    }
+    byRoot.set(rootKey, proxy);
+    return proxy;
+  };
+
   // Create a Proxy that intercepts property changes
   const reactiveState = new Proxy(initialState, {
     get(target, key: string)
     {
-      return target[key];
+      const value = target[key];
+      if (typeof key === "string" && isPlainObject(value))
+      {
+        return wrapDeep(value, key);
+      }
+      return value;
     },
 
     set(target, key: string, value)

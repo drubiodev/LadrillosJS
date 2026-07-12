@@ -11,6 +11,11 @@
     </div>
 
     <div class="input-group">
+      <label>Nickname (nested path):</label>
+      <input type="text" $bind="user.profile.name" placeholder="Bound to user.profile.name" />
+    </div>
+
+    <div class="input-group">
       <label>Email:</label>
       <input type="email" $bind="email" placeholder="you@example.com" />
     </div>
@@ -55,6 +60,7 @@
     <div class="preview">
       <h4>Live Preview:</h4>
       <p><strong>Name:</strong> {username || '(empty)'}</p>
+      <p><strong>Nickname:</strong> {user.profile.name || '(empty)'}</p>
       <p><strong>Email:</strong> {email || '(empty)'}</p>
       <p><strong>Message:</strong> {message || '(empty)'}</p>
       <p>
@@ -73,6 +79,7 @@
 
 <script>
   let username = "";
+  let user = { profile: { name: "Daniel" } };
   let email = "";
   let message = "";
   let color = "blue";
