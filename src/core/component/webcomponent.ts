@@ -356,9 +356,22 @@ export function createWebComponentClass(
         {
           (globalThis as any).__ladrillosStateCallbacks = new Map();
         }
+        // The wrapper passes the state key its array is bound to (when known)
+        // so mutations refresh that key's text/attribute bindings too, not
+        // just directives. Keyless calls fall back to directive updates.
         (globalThis as any).__ladrillosStateCallbacks.set(
           this._componentId,
-          () => this._updateDirectives(),
+          (stateKey?: string) =>
+          {
+            const notify = (this.state as any)?.__notifyKeyChanged;
+            if (stateKey && typeof notify === "function")
+            {
+              notify(stateKey);
+            } else
+            {
+              this._updateDirectives();
+            }
+          },
         );
       }
 

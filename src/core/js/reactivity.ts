@@ -289,15 +289,49 @@ export function createReactiveState(
     }
   };
 
-  // Wrap any arrays in initialState with reactive proxies
-  // This enables array.push(), array.splice(), etc. to trigger updates
-  wrapArraysInObject(initialState, () =>
+  // Key-aware mutation handler for reactive arrays. A push/splice/index
+  // assignment must update the same bindings a reassignment of the key
+  // would (e.g. {items.length}), not just the directives — so it routes
+  // through triggerUpdate for the owning top-level key. During script
+  // bootstrap (__suspendReactivity) bindings can't be evaluated yet, so
+  // only the (batched) directive callback runs.
+  const arrayOnMutate = (key: string) => () =>
   {
-    if (onStateChange)
+    if ((initialState as any).__suspendReactivity)
     {
-      onStateChange();
+      if (onStateChange)
+      {
+        onStateChange();
+      }
+      return;
     }
-  });
+    triggerUpdate(key, initialState);
+  };
+
+  // External mutation channel: module-script arrays wrapped OUTSIDE this
+  // closure (e.g. the __wrapReactiveArray helper injected into external
+  // modules) can't reach triggerUpdate directly. The state proxy exposes
+  // this function as `__notifyKeyChanged` so those wrappers can request
+  // the same per-key binding updates a reassignment would produce.
+  const notifyKeyChanged = (key: string): void =>
+  {
+    arrayOnMutate(key)();
+  };
+
+  // Wrap any arrays in initialState with reactive proxies, each tied to its
+  // top-level key. This enables array.push(), array.splice(), etc. to
+  // trigger updates for the bindings that depend on that key.
+  for (const key of Object.keys(initialState))
+  {
+    const value = initialState[key];
+    if (Array.isArray(value))
+    {
+      initialState[key] = createReactiveArray(value, arrayOnMutate(key));
+    } else if (value && typeof value === "object")
+    {
+      wrapArraysInObject(value as Record<string, unknown>, arrayOnMutate(key));
+    }
+  }
 
   // Deep reactivity: nested plain objects read off the state are wrapped in
   // proxies (lazily, on property access) so writes like
@@ -345,8 +379,7 @@ export function createReactiveState(
         // Arrays assigned into nested objects become reactive, tied to
         // the same root key so mutations re-render its dependents.
         target[key] = Array.isArray(value)
-          ? createReactiveArray(value, () =>
-            triggerUpdate(rootKey, initialState))
+          ? createReactiveArray(value, arrayOnMutate(rootKey))
           : value;
 
         if (!(initialState as any).__suspendReactivity)
@@ -385,6 +418,13 @@ export function createReactiveState(
   const reactiveState = new Proxy(initialState, {
     get(target, key: string)
     {
+      // Not an own property (get-trap only), so it never appears in
+      // Object.keys(state) or event-handler destructuring.
+      if (key === "__notifyKeyChanged")
+      {
+        return notifyKeyChanged;
+      }
+
       const value = target[key];
       if (typeof key === "string" && isPlainObject(value))
       {
@@ -401,15 +441,10 @@ export function createReactiveState(
       // Skip if value hasn't actually changed (for existing keys)
       if (!isNewKey && target[key] === value) return true;
 
-      // Wrap arrays with reactive proxies before storing
+      // Wrap arrays with reactive proxies before storing, tied to this key
+      // so mutations update the bindings that depend on it.
       const wrappedValue = Array.isArray(value)
-        ? createReactiveArray(value, () =>
-        {
-          if (onStateChange)
-          {
-            onStateChange();
-          }
-        })
+        ? createReactiveArray(value, arrayOnMutate(key))
         : value;
 
       // Update the underlying value

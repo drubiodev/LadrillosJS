@@ -303,13 +303,15 @@ function autoExportAllDeclarations(code: string): string {
  *
  * Into:
  *   import { foo as __raw_foo, bar as __raw_bar } from "./module.js";
- *   const foo = __wrapReactiveArray(__raw_foo, __ladrillos_componentId);
- *   const bar = __wrapReactiveArray(__raw_bar, __ladrillos_componentId);
+ *   const foo = __wrapReactiveArray(__raw_foo, __ladrillos_componentId, "foo");
+ *   const bar = __wrapReactiveArray(__raw_bar, __ladrillos_componentId, "bar");
  *
  * @param code - The module code with imports
  * @returns Transformed code with reactive import wrapping
+ *
+ * Exported for tests (the blob-URL execution path can't run under Node).
  */
-function transformImportsForReactivity(code: string): string {
+export function transformImportsForReactivity(code: string): string {
   // Match named imports: import { a, b as c } from "..."
   const namedImportRegex =
     /import\s*\{([^}]+)\}\s*from\s*(['"][^'"]+['"])\s*;?/g;
@@ -333,14 +335,14 @@ function transformImportsForReactivity(code: string): string {
           const rawName = `__raw_${local}`;
           newImports.push(`${imported} as ${rawName}`);
           wrapperStatements.push(
-            `const ${local} = __wrapReactiveArray(${rawName}, __ladrillos_componentId);`,
+            `const ${local} = __wrapReactiveArray(${rawName}, __ladrillos_componentId, "${local}");`,
           );
         } else {
           // Simple import "foo"
           const rawName = `__raw_${imp}`;
           newImports.push(`${imp} as ${rawName}`);
           wrapperStatements.push(
-            `const ${imp} = __wrapReactiveArray(${rawName}, __ladrillos_componentId);`,
+            `const ${imp} = __wrapReactiveArray(${rawName}, __ladrillos_componentId, "${imp}");`,
           );
         }
       }
@@ -418,7 +420,8 @@ function detectHelperCollisions(code: string): Set<string> {
   return found;
 }
 
-function generateHelperInjectionCode(
+// Exported for tests (the blob-URL execution path can't run under Node).
+export function generateHelperInjectionCode(
   componentId?: string,
   componentUrl?: string,
   exclude: ReadonlySet<string> = new Set(),
@@ -456,15 +459,18 @@ const __REACTIVE_ARRAY = Symbol.for("ladrillos-reactive-array");
 // Array mutation methods to intercept
 const __ARRAY_METHODS = ["push", "pop", "shift", "unshift", "splice", "sort", "reverse", "fill", "copyWithin"];
 
-// Wrap an array in a reactive proxy
-const __wrapReactiveArray = (arr, componentId) => {
+// Wrap an array in a reactive proxy. stateKey is the local binding name the
+// array is exported/merged into component state under; passing it to the
+// component's callback lets mutations refresh the text/attribute bindings
+// that depend on that key (not just directives).
+const __wrapReactiveArray = (arr, componentId, stateKey) => {
   if (!Array.isArray(arr) || arr[__REACTIVE_ARRAY]) return arr;
-  
+
   const onMutate = () => {
     const callback = globalThis.__ladrillosStateCallbacks?.get(componentId);
-    if (callback) callback();
+    if (callback) callback(stateKey);
   };
-  
+
   return new Proxy(arr, {
     get(target, key) {
       if (key === __REACTIVE_ARRAY) return true;
@@ -476,14 +482,14 @@ const __wrapReactiveArray = (arr, componentId) => {
           return result;
         };
       }
-      if (Array.isArray(value)) return __wrapReactiveArray(value, componentId);
+      if (Array.isArray(value)) return __wrapReactiveArray(value, componentId, stateKey);
       return value;
     },
     set(target, key, value) {
       const index = parseInt(key, 10);
       const isIndex = !isNaN(index);
       const isLength = key === "length";
-      target[key] = Array.isArray(value) ? __wrapReactiveArray(value, componentId) : value;
+      target[key] = Array.isArray(value) ? __wrapReactiveArray(value, componentId, stateKey) : value;
       if (isIndex || isLength) onMutate();
       return true;
     }
