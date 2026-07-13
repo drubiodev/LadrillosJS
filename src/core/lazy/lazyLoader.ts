@@ -19,7 +19,8 @@ const loadingPromises = new Map<string, Promise<LadrillosComponent>>();
 let componentsRegistry: Record<string, LadrillosComponent>;
 
 /** Loaded component data for creating instances */
-interface LoadedComponentData {
+interface LoadedComponentData
+{
   component: LadrillosComponent;
   useShadowDOM: boolean;
 }
@@ -29,7 +30,8 @@ const loadedComponents = new Map<string, LoadedComponentData>();
 const definedRealComponents = new Set<string>();
 
 /** Pending lazy component configs */
-interface LazyComponentConfig {
+interface LazyComponentConfig
+{
   name: string;
   absolutePath: string;
   useShadowDOM: boolean;
@@ -41,7 +43,8 @@ const lazyConfigs = new Map<string, LazyComponentConfig>();
 /**
  * Get the internal tag name for the real component
  */
-function getRealTagName(name: string): string {
+function getRealTagName(name: string): string
+{
   return `${name}--loaded`;
 }
 
@@ -50,7 +53,8 @@ function getRealTagName(name: string): string {
  */
 export function initLazyLoader(
   registry: Record<string, LadrillosComponent>
-): void {
+): void
+{
   componentsRegistry = registry;
 }
 
@@ -62,7 +66,8 @@ export function registerLazyComponent(
   absolutePath: string,
   useShadowDOM: boolean,
   strategy: LazyStrategy
-): void {
+): void
+{
   // Store config for lazy loading
   lazyConfigs.set(name, {
     name,
@@ -72,7 +77,8 @@ export function registerLazyComponent(
   });
 
   // Define a placeholder custom element
-  if (!customElements.get(name)) {
+  if (!customElements.get(name))
+  {
     customElements.define(name, createPlaceholderClass(name));
   }
 }
@@ -80,31 +86,33 @@ export function registerLazyComponent(
 /**
  * Load a lazy component (shared across all instances)
  */
-async function loadLazyComponent(name: string): Promise<string> {
+async function loadLazyComponent(name: string): Promise<string>
+{
   const realTagName = getRealTagName(name);
 
   // Already loaded and defined?
-  if (definedRealComponents.has(name)) {
+  if (definedRealComponents.has(name))
+  {
     return realTagName;
   }
 
   // Already loading? Return shared promise
-  if (loadingPromises.has(name)) {
+  if (loadingPromises.has(name))
+  {
     await loadingPromises.get(name)!;
     return realTagName;
   }
 
   const config = lazyConfigs.get(name);
-  if (!config) {
+  if (!config)
+  {
     throw new Error(`Lazy component "${name}" not registered`);
   }
 
   // Create shared loading promise
-  const loadPromise = (async () => {
+  const loadPromise = (async () =>
+  {
     const fetchResult = await fetchComponentSource(config.absolutePath);
-    if (!fetchResult) {
-      throw new Error(`Failed to fetch component source for "${name}"`);
-    }
 
     // Use the resolved path for correct relative path resolution in child components
     const component = await parseComponent(
@@ -123,7 +131,8 @@ async function loadLazyComponent(name: string): Promise<string> {
     );
 
     // Define the real component with the internal tag name
-    if (!customElements.get(realTagName)) {
+    if (!customElements.get(realTagName))
+    {
       customElements.define(realTagName, ComponentClass);
     }
 
@@ -138,10 +147,12 @@ async function loadLazyComponent(name: string): Promise<string> {
 
   loadingPromises.set(name, loadPromise);
 
-  try {
+  try
+  {
     await loadPromise;
     return realTagName;
-  } finally {
+  } finally
+  {
     // Clean up loading promise after completion
     loadingPromises.delete(name);
   }
@@ -150,21 +161,26 @@ async function loadLazyComponent(name: string): Promise<string> {
 /**
  * Create a placeholder class for a lazy component
  */
-function createPlaceholderClass(componentName: string) {
-  return class LazyPlaceholder extends HTMLElement {
+function createPlaceholderClass(componentName: string)
+{
+  return class LazyPlaceholder extends HTMLElement
+  {
     private teardown?: () => void;
     private isLoading = false;
     private isUpgraded = false;
 
-    connectedCallback() {
+    connectedCallback()
+    {
       // Check for eager attribute - load immediately
-      if (this.hasAttribute("eager")) {
+      if (this.hasAttribute("eager"))
+      {
         this.triggerLoad();
         return;
       }
 
       const config = lazyConfigs.get(componentName);
-      if (!config) {
+      if (!config)
+      {
         // Component already loaded, upgrade immediately
         this.triggerLoad();
         return;
@@ -176,12 +192,14 @@ function createPlaceholderClass(componentName: string) {
         | undefined;
     }
 
-    disconnectedCallback() {
+    disconnectedCallback()
+    {
       this.teardown?.();
       this.teardown = undefined;
     }
 
-    private async triggerLoad() {
+    private async triggerLoad()
+    {
       if (this.isLoading || this.isUpgraded) return;
       this.isLoading = true;
 
@@ -189,27 +207,39 @@ function createPlaceholderClass(componentName: string) {
       this.teardown?.();
       this.teardown = undefined;
 
-      try {
+      try
+      {
         const realTagName = await loadLazyComponent(componentName);
         this.isUpgraded = true;
 
         // Create real component instance and replace placeholder
         this.upgradeToRealComponent(realTagName);
-      } catch (err) {
-        error(`Failed to load lazy component "<${componentName}>"`, {
-          tagName: componentName,
-        });
+      } catch (err)
+      {
+        const diagnostic = err instanceof Error ? err : new Error(String(err));
+        error(
+          "Could not load the lazy component.",
+          { tagName: componentName },
+          diagnostic,
+          {
+            code: ErrorCode.COMPONENT_LOAD_FAILED,
+            hint: "Check the registered component path and the original error shown below.",
+          },
+        );
         this.isLoading = false;
       }
     }
 
-    private upgradeToRealComponent(realTagName: string) {
+    private upgradeToRealComponent(realTagName: string)
+    {
       // Create real component using document.createElement (requires it to be defined)
       const realElement = document.createElement(realTagName);
 
       // Copy attributes (except internal ones)
-      for (const attr of Array.from(this.attributes)) {
-        if (attr.name !== "eager" && attr.name !== "tabindex") {
+      for (const attr of Array.from(this.attributes))
+      {
+        if (attr.name !== "eager" && attr.name !== "tabindex")
+        {
           realElement.setAttribute(attr.name, attr.value);
         }
       }
@@ -219,14 +249,17 @@ function createPlaceholderClass(componentName: string) {
       // <code-block> wrapping a <template> the component reads in its script).
       // The real component's connectedCallback will snapshot these as
       // __originalHTML / __originalChildren before rendering its own template.
-      while (this.firstChild) {
+      while (this.firstChild)
+      {
         realElement.appendChild(this.firstChild);
       }
 
       // Replace in DOM
-      if (this.parentNode) {
+      if (this.parentNode)
+      {
         this.parentNode.replaceChild(realElement, this);
-      } else {
+      } else
+      {
         error(
           `No parent node for placeholder - cannot upgrade lazy component`,
           { tagName: componentName }
@@ -239,7 +272,8 @@ function createPlaceholderClass(componentName: string) {
 /**
  * Check if a component is registered for lazy loading
  */
-export function isLazyComponent(name: string): boolean {
+export function isLazyComponent(name: string): boolean
+{
   return lazyConfigs.has(name) || definedRealComponents.has(name);
 }
 
@@ -248,8 +282,10 @@ export function isLazyComponent(name: string): boolean {
  */
 export async function forceLoadLazyComponent(
   name: string
-): Promise<LadrillosComponent | undefined> {
-  if (lazyConfigs.has(name)) {
+): Promise<LadrillosComponent | undefined>
+{
+  if (lazyConfigs.has(name))
+  {
     await loadLazyComponent(name);
   }
   return componentsRegistry[name];
@@ -258,8 +294,10 @@ export async function forceLoadLazyComponent(
 /**
  * Get the real tag name for a loaded lazy component
  */
-export function getLazyComponentTagName(name: string): string | undefined {
-  if (definedRealComponents.has(name)) {
+export function getLazyComponentTagName(name: string): string | undefined
+{
+  if (definedRealComponents.has(name))
+  {
     return getRealTagName(name);
   }
   return undefined;

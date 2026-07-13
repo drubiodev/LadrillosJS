@@ -46,7 +46,7 @@ export default defineConfig({
     terserOptions: {
       compress: {
         ecma: 2020,
-        drop_console: true,
+        drop_console: false,
         drop_debugger: true,
         pure_funcs: ["console.log", "console.warn", "console.info"],
         pure_getters: true,
@@ -73,7 +73,8 @@ export default defineConfig({
       // to break a module-init cycle; it is also imported statically elsewhere,
       // so Rollup can't (and shouldn't) split it into its own chunk. Silence the
       // resulting INEFFECTIVE_DYNAMIC_IMPORT notice; forward all other warnings.
-      onwarn(warning, defaultHandler) {
+      onwarn(warning, defaultHandler)
+      {
         if (warning.code === "INEFFECTIVE_DYNAMIC_IMPORT") return;
         defaultHandler(warning);
       },

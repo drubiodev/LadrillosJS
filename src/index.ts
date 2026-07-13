@@ -1,26 +1,34 @@
-import {
-  ladrillos,
-  ComponentConfig,
-  RegisterComponentsResult,
-} from "./core/ladrillos";
-import {
-  registerComponent,
-  registerComponents,
-  $use,
-} from "./core/helpers/frameworkHelpers";
+import
+  {
+    ladrillos,
+    ComponentConfig,
+    RegisterComponentsResult,
+  } from "./core/ladrillos";
+import
+  {
+    registerComponent,
+    registerComponents,
+    $use,
+  } from "./core/helpers/frameworkHelpers";
 import { $emit, $listen, EventCallback } from "./core/events/eventBus";
 import { configure, LadrillosConfig } from "./core/configure";
-import { ErrorCode, type LadrillosErrorHandler } from "./utils/devWarnings";
+import
+  {
+    ErrorCode,
+    LadrillosError,
+    type LadrillosErrorHandler,
+  } from "./utils/devWarnings";
 
 // Import lazy loading strategies
-import {
-  LazyStrategy,
-  lazyOnIdle,
-  lazyOnVisible,
-  lazyOnMedia,
-  lazyOnInteraction,
-  lazyOnDelay,
-} from "./core/lazy";
+import
+  {
+    LazyStrategy,
+    lazyOnIdle,
+    lazyOnVisible,
+    lazyOnMedia,
+    lazyOnInteraction,
+    lazyOnDelay,
+  } from "./core/lazy";
 
 // Export public types
 export type {
@@ -34,10 +42,11 @@ export type {
 export type { LadrillosComponent } from "./types";
 
 // Export error code enum for consumers to branch on
-export { ErrorCode };
+export { ErrorCode, LadrillosError };
 
 // Export lazy loading strategies
-export {
+export
+{
   lazyOnIdle,
   lazyOnVisible,
   lazyOnMedia,

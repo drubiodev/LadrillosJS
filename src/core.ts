@@ -15,13 +15,19 @@
  */
 
 import { ComponentConfig, RegisterComponentsResult } from "./core/ladrillos";
-import {
-  registerComponent,
-  registerComponents,
-  $use,
-} from "./core/helpers/frameworkHelpers";
+import
+  {
+    registerComponent,
+    registerComponents,
+    $use,
+  } from "./core/helpers/frameworkHelpers";
 import { configure, LadrillosConfig } from "./core/configure";
-import { ErrorCode, type LadrillosErrorHandler } from "./utils/devWarnings";
+import
+  {
+    ErrorCode,
+    LadrillosError,
+    type LadrillosErrorHandler,
+  } from "./utils/devWarnings";
 
 // Export public types
 export type {
@@ -33,7 +39,7 @@ export type {
 export type { LadrillosComponent } from "./types";
 
 // Export error code enum
-export { ErrorCode };
+export { ErrorCode, LadrillosError };
 
 // Public exports
 export { registerComponent, registerComponents, $use, configure };

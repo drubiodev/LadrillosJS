@@ -9,18 +9,30 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
+      "development": "./dist/index.dev.js",
       "default": "./dist/index.js"
+    },
+    "./dev": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.dev.js"
     },
     "./core": {
       "types": "./dist/core.d.ts",
+      "development": "./dist/core.dev.js",
       "default": "./dist/core.js"
+    },
+    "./core/dev": {
+      "types": "./dist/core.d.ts",
+      "default": "./dist/core.dev.js"
     },
     "./lazy": {
       "types": "./dist/lazy.d.ts",
+      "development": "./dist/lazy.dev.js",
       "default": "./dist/lazy.js"
     },
     "./events": {
       "types": "./dist/events.d.ts",
+      "development": "./dist/events.dev.js",
       "default": "./dist/events.js"
     }
   },
@@ -48,7 +60,7 @@
   ],
   "scripts": {
     "clean": "rimraf dist dist-cdn coverage",
-    "build": "npm run clean && vite build --config vite.npm.config.ts",
+    "build": "npm run clean && vite build --config vite.npm.config.ts && vite build --config vite.npm.dev.config.ts",
     "build:dev": "tsc -p tsconfig.json",
     "dev": "tsc -p tsconfig.json -w",
     "build:cdn": "vite build --config vite.cdn.config.ts",

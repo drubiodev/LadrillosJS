@@ -30,7 +30,8 @@ const IS_DEV: boolean =
 // ============================================================================
 
 const PREFIX = "[LadrillosJS]";
-const DOCS_BASE_URL = "https://ladrillosjs.dev/errors";
+const DOCS_BASE_URL =
+  "https://github.com/drubiodev/LadrillosJS/blob/main/docs/21-error-handling.md";
 
 // ============================================================================
 // Console Styling
@@ -59,7 +60,8 @@ const styles = {
 /**
  * Check if we're in a browser environment with styled console support
  */
-const supportsStyledConsole = (): boolean => {
+const supportsStyledConsole = (): boolean =>
+{
   return (
     typeof window !== "undefined" &&
     typeof console !== "undefined" &&
@@ -75,7 +77,8 @@ const supportsStyledConsole = (): boolean => {
  * Context information about the current component being processed.
  * This is set by the framework during component initialization.
  */
-export interface ComponentContext {
+export interface ComponentContext
+{
   /** The component tag name (e.g., "my-counter") */
   tagName?: string;
   /** The source file path (e.g., "components/counter.html") */
@@ -93,14 +96,16 @@ let currentContext: ComponentContext | null = null;
  * Set the current component context for error reporting.
  * Call this at the start of component initialization.
  */
-export function setComponentContext(context: ComponentContext | null): void {
+export function setComponentContext(context: ComponentContext | null): void
+{
   currentContext = context;
 }
 
 /**
  * Get the current component context.
  */
-export function getComponentContext(): ComponentContext | null {
+export function getComponentContext(): ComponentContext | null
+{
   return currentContext;
 }
 
@@ -111,12 +116,15 @@ export function getComponentContext(): ComponentContext | null {
 export function withComponentContext<T>(
   context: ComponentContext,
   fn: () => T,
-): T {
+): T
+{
   const previousContext = currentContext;
   currentContext = context;
-  try {
+  try
+  {
     return fn();
-  } finally {
+  } finally
+  {
     currentContext = previousContext;
   }
 }
@@ -127,12 +135,15 @@ export function withComponentContext<T>(
 export async function withComponentContextAsync<T>(
   context: ComponentContext,
   fn: () => Promise<T>,
-): Promise<T> {
+): Promise<T>
+{
   const previousContext = currentContext;
   currentContext = context;
-  try {
+  try
+  {
     return await fn();
-  } finally {
+  } finally
+  {
     currentContext = previousContext;
   }
 }
@@ -153,23 +164,27 @@ export function generateCodeFrame(
   source: string,
   start: number = 0,
   end: number = source.length,
-): string {
+): string
+{
   const lines = source.split("\n");
   let count = 0;
   const res: string[] = [];
 
-  for (let i = 0; i < lines.length; i++) {
+  for (let i = 0; i < lines.length; i++)
+  {
     const line = lines[i];
     const lineLength = line.length + 1; // +1 for newline
     const lineNumber = i + 1;
 
-    if (count + lineLength >= start) {
+    if (count + lineLength >= start)
+    {
       // Show 2 lines before and after
       for (
         let j = Math.max(0, i - 2);
         j <= Math.min(lines.length - 1, i + 2);
         j++
-      ) {
+      )
+      {
         const ln = j + 1;
         const lineContent = lines[j];
         const linePrefix = `${ln}`.padStart(4) + " │ ";
@@ -177,7 +192,8 @@ export function generateCodeFrame(
         res.push(`${linePrefix}${lineContent}`);
 
         // Add underline for the error line
-        if (j === i) {
+        if (j === i)
+        {
           const pad = start - (count - lineLength);
           const length = Math.min(
             end > count ? end - start : lineLength - pad,
@@ -204,12 +220,14 @@ export function generateCodeFrame(
 export function findExpressionPosition(
   template: string,
   expression: string,
-): { start: number; end: number } | null {
+): { start: number; end: number } | null
+{
   // Look for {expression} pattern
   const searchPattern = `{${expression}}`;
   const index = template.indexOf(searchPattern);
 
-  if (index !== -1) {
+  if (index !== -1)
+  {
     return {
       start: index,
       end: index + searchPattern.length,
@@ -218,7 +236,8 @@ export function findExpressionPosition(
 
   // Also try without braces for attribute values
   const exprIndex = template.indexOf(expression);
-  if (exprIndex !== -1) {
+  if (exprIndex !== -1)
+  {
     return {
       start: exprIndex,
       end: exprIndex + expression.length,
@@ -237,17 +256,20 @@ export function findExpressionPosition(
  * If context is explicitly passed (even null), uses that.
  * Only falls back to currentContext if context is undefined.
  */
-function formatComponentInfo(context?: ComponentContext | null): string {
+function formatComponentInfo(context?: ComponentContext | null): string
+{
   const ctx = context !== undefined ? context : currentContext;
   if (!ctx) return "";
 
   const parts: string[] = [];
 
-  if (ctx.tagName) {
+  if (ctx.tagName)
+  {
     parts.push(`<${ctx.tagName}>`);
   }
 
-  if (ctx.sourcePath) {
+  if (ctx.sourcePath)
+  {
     // Extract just the filename for brevity
     const fileName = ctx.sourcePath.split("/").pop() || ctx.sourcePath;
     parts.push(`(${fileName})`);
@@ -262,7 +284,8 @@ function formatComponentInfo(context?: ComponentContext | null): string {
 function formatMessage(
   message: string,
   context?: ComponentContext | null,
-): string {
+): string
+{
   const componentInfo = formatComponentInfo(context);
   return `${message}${componentInfo}`;
 }
@@ -274,7 +297,8 @@ function formatMessage(
 /**
  * Error codes for documentation linking
  */
-export enum ErrorCode {
+export enum ErrorCode
+{
   // Expression evaluation errors (1xx)
   EXPRESSION_EVAL_FAILED = 101,
   EXPRESSION_SYNTAX_ERROR = 102,
@@ -296,6 +320,10 @@ export enum ErrorCode {
   // Component errors (5xx)
   COMPONENT_LOAD_FAILED = 501,
   COMPONENT_NOT_FOUND = 502,
+  COMPONENT_ALREADY_REGISTERED = 503,
+  INVALID_COMPONENT_PATH = 504,
+  COMPONENT_REGISTRATION_FAILED = 505,
+  INVALID_COMPONENT_NAME = 506,
 
   // Module errors (6xx)
   MODULE_LOAD_FAILED = 601,
@@ -305,8 +333,71 @@ export enum ErrorCode {
 /**
  * Get documentation URL for an error code
  */
-export function getErrorDocsUrl(code: ErrorCode): string {
-  return `${DOCS_BASE_URL}/${code}`;
+export function getErrorDocsUrl(code: ErrorCode): string
+{
+  return `${DOCS_BASE_URL}#ljs${code}`;
+}
+
+function formatErrorCode(code: ErrorCode): string
+{
+  return `LJS${code}`;
+}
+
+export interface DiagnosticDetails
+{
+  /** Stable code that links this diagnostic to the error reference. */
+  code: ErrorCode;
+  /** A concise, concrete action the developer can take. */
+  hint?: string;
+}
+
+export class LadrillosError extends Error
+{
+  readonly code: ErrorCode;
+  readonly docsUrl: string;
+  readonly componentContext: ComponentContext | null;
+  readonly hint?: string;
+
+  constructor(
+    message: string,
+    code: ErrorCode,
+    options: {
+      context?: ComponentContext | null;
+      hint?: string;
+      cause?: unknown;
+    } = {},
+  )
+  {
+    const docsUrl = getErrorDocsUrl(code);
+    super(
+      `[${formatErrorCode(code)}] ${formatMessage(message, options.context)} See ${docsUrl}`,
+      options.cause !== undefined ? { cause: options.cause } : undefined,
+    );
+    this.name = "LadrillosError";
+    this.code = code;
+    this.docsUrl = docsUrl;
+    this.componentContext = options.context ?? null;
+    this.hint = options.hint;
+  }
+}
+
+function formatDiagnostic(
+  message: string,
+  context: ComponentContext | null | undefined,
+  details: DiagnosticDetails,
+): string
+{
+  const lines = [
+    `[${formatErrorCode(details.code)}] ${formatMessage(message, context)}`,
+  ];
+
+  if (details.hint)
+  {
+    lines.push(`  How to fix: ${details.hint}`);
+  }
+
+  lines.push(`  Learn more: ${getErrorDocsUrl(details.code)}`);
+  return lines.join("\n");
 }
 
 // ============================================================================
@@ -328,7 +419,8 @@ let customErrorHandler: LadrillosErrorHandler | null = null;
  * Register (or clear) a custom error handler. Called by `configure()`.
  * Pass `null` to remove.
  */
-export function setErrorHandler(handler: LadrillosErrorHandler | null): void {
+export function setErrorHandler(handler: LadrillosErrorHandler | null): void
+{
   customErrorHandler = handler;
 }
 
@@ -336,12 +428,15 @@ export function setErrorHandler(handler: LadrillosErrorHandler | null): void {
  * Dispatch an error through the custom handler (if registered). Swallows
  * handler errors to avoid recursive failures.
  */
-function dispatchError(err: unknown, context?: ComponentContext | null): void {
+function dispatchError(err: unknown, context?: ComponentContext | null): void
+{
   if (!customErrorHandler) return;
-  try {
+  try
+  {
     const errorObj = err instanceof Error ? err : new Error(String(err));
     customErrorHandler(errorObj, context ?? null);
-  } catch {
+  } catch
+  {
     /* swallow */
   }
 }
@@ -350,14 +445,23 @@ function dispatchError(err: unknown, context?: ComponentContext | null): void {
  * Log a styled warning message (dev mode only).
  * Includes component context if available.
  */
-export function warn(message: string, context?: ComponentContext | null): void {
+export function warn(
+  message: string,
+  context?: ComponentContext | null,
+  details?: DiagnosticDetails,
+): void
+{
   if (!IS_DEV) return;
 
-  const fullMessage = formatMessage(message, context);
+  const fullMessage = details
+    ? formatDiagnostic(message, context, details)
+    : formatMessage(message, context);
 
-  if (supportsStyledConsole()) {
+  if (supportsStyledConsole())
+  {
     console.warn(`%c${PREFIX}%c ${fullMessage}`, styles.prefix, styles.reset);
-  } else {
+  } else
+  {
     console.warn(`${PREFIX} ${fullMessage}`);
   }
 }
@@ -373,21 +477,35 @@ export function error(
   message: string,
   context?: ComponentContext | null,
   cause?: unknown,
-): void {
-  const fullMessage = formatMessage(message, context);
+  details?: DiagnosticDetails,
+): void
+{
+  const fullMessage = details
+    ? IS_DEV
+      ? formatDiagnostic(message, context, details)
+      : `[${formatErrorCode(details.code)}] ${formatMessage(message, context)} See ${getErrorDocsUrl(details.code)}`
+    : formatMessage(message, context);
 
-  if (supportsStyledConsole()) {
+  if (supportsStyledConsole())
+  {
     console.error(`%c${PREFIX}%c ${fullMessage}`, styles.prefix, styles.reset);
-  } else {
+  } else
+  {
     console.error(`${PREFIX} ${fullMessage}`);
   }
 
-  if (cause !== undefined && typeof console !== "undefined") {
+  if (cause !== undefined && typeof console !== "undefined")
+  {
     console.error(cause);
   }
 
-  const errorObj =
-    cause instanceof Error
+  const errorObj = details
+    ? new LadrillosError(message, details.code, {
+      context,
+      hint: details.hint,
+      cause,
+    })
+    : cause instanceof Error
       ? cause
       : new Error(fullMessage, cause !== undefined ? { cause } : undefined);
   dispatchError(errorObj, context);
@@ -411,23 +529,31 @@ export function expressionError(
     template?: string;
     errorCode?: ErrorCode;
   } = {},
-): void {
-  const ctx = options.context || currentContext;
+): void
+{
+  const ctx =
+    options.context !== undefined ? options.context : currentContext;
   const code = options.errorCode || inferErrorCode(originalError);
 
   // Determine error type for better messaging
   const errorType = getErrorType(originalError);
 
-  if (!IS_DEV) {
+  if (!IS_DEV)
+  {
     // Production: minimal output with docs link
     console.warn(`${PREFIX} Expression warning. See: ${getErrorDocsUrl(code)}`);
+    dispatchError(
+      new LadrillosError(errorType, code, { context: ctx, cause: originalError }),
+      ctx,
+    );
     return;
   }
 
   // Build the error message
   const componentInfo = formatComponentInfo(ctx);
 
-  if (supportsStyledConsole()) {
+  if (supportsStyledConsole())
+  {
     // Styled browser output
     console.groupCollapsed(
       `%c${PREFIX}%c ${errorType}%c${componentInfo}`,
@@ -438,7 +564,8 @@ export function expressionError(
 
     console.log(`%cExpression:%c ${expression}`, styles.dim, styles.expression);
 
-    if (ctx?.tagName) {
+    if (ctx?.tagName)
+    {
       console.log(
         `%cComponent:%c <${ctx.tagName}>`,
         styles.dim,
@@ -446,14 +573,17 @@ export function expressionError(
       );
     }
 
-    if (ctx?.sourcePath) {
+    if (ctx?.sourcePath)
+    {
       console.log(`%cFile:%c ${ctx.sourcePath}`, styles.dim, styles.file);
     }
 
     // Show code frame if template is available
-    if (options.template) {
+    if (options.template)
+    {
       const position = findExpressionPosition(options.template, expression);
-      if (position) {
+      if (position)
+      {
         console.log(`%cLocation in template:%c`, styles.dim, styles.reset);
         console.log(
           generateCodeFrame(options.template, position.start, position.end),
@@ -469,24 +599,29 @@ export function expressionError(
     console.log(`%cDocs:%c ${getErrorDocsUrl(code)}`, styles.dim, styles.file);
 
     console.groupEnd();
-  } else {
+  } else
+  {
     // Plain text output (Node.js or unstyled console)
     const lines = [
       `${PREFIX} ${errorType}${componentInfo}`,
       `  Expression: ${expression}`,
     ];
 
-    if (ctx?.tagName) {
+    if (ctx?.tagName)
+    {
       lines.push(`  Component: <${ctx.tagName}>`);
     }
 
-    if (ctx?.sourcePath) {
+    if (ctx?.sourcePath)
+    {
       lines.push(`  File: ${ctx.sourcePath}`);
     }
 
-    if (options.template) {
+    if (options.template)
+    {
       const position = findExpressionPosition(options.template, expression);
-      if (position) {
+      if (position)
+      {
         lines.push(`  Location:`);
         lines.push(
           generateCodeFrame(options.template, position.start, position.end)
@@ -502,6 +637,11 @@ export function expressionError(
 
     console.warn(lines.join("\n"));
   }
+
+  dispatchError(
+    new LadrillosError(errorType, code, { context: ctx, cause: originalError }),
+    ctx,
+  );
 }
 
 /**
@@ -511,21 +651,30 @@ export function scriptError(
   message: string,
   originalError: Error,
   context?: ComponentContext | null,
-): void {
-  const ctx = context || currentContext;
+): void
+{
+  const ctx = context !== undefined ? context : currentContext;
+  const diagnostic = new LadrillosError(
+    message,
+    ErrorCode.SCRIPT_EXTRACT_FAILED,
+    { context: ctx, cause: originalError },
+  );
 
-  if (!IS_DEV) {
+  if (!IS_DEV)
+  {
     console.error(
       `${PREFIX} Script error. See: ${getErrorDocsUrl(
         ErrorCode.SCRIPT_EXTRACT_FAILED,
       )}`,
     );
+    dispatchError(diagnostic, ctx);
     return;
   }
 
   const componentInfo = formatComponentInfo(ctx);
 
-  if (supportsStyledConsole()) {
+  if (supportsStyledConsole())
+  {
     console.group(
       `%c${PREFIX}%c Script Error%c${componentInfo}`,
       styles.prefix,
@@ -535,7 +684,8 @@ export function scriptError(
 
     console.log(`%cMessage:%c ${message}`, styles.dim, styles.reset);
 
-    if (ctx?.tagName) {
+    if (ctx?.tagName)
+    {
       console.log(
         `%cComponent:%c <${ctx.tagName}>`,
         styles.dim,
@@ -543,24 +693,28 @@ export function scriptError(
       );
     }
 
-    if (ctx?.sourcePath) {
+    if (ctx?.sourcePath)
+    {
       console.log(`%cFile:%c ${ctx.sourcePath}`, styles.dim, styles.file);
     }
 
     console.log(`%cError:%c`, styles.dim, styles.reset, originalError);
 
     console.groupEnd();
-  } else {
+  } else
+  {
     const lines = [
       `${PREFIX} Script Error${componentInfo}`,
       `  Message: ${message}`,
     ];
 
-    if (ctx?.tagName) {
+    if (ctx?.tagName)
+    {
       lines.push(`  Component: <${ctx.tagName}>`);
     }
 
-    if (ctx?.sourcePath) {
+    if (ctx?.sourcePath)
+    {
       lines.push(`  File: ${ctx.sourcePath}`);
     }
 
@@ -568,6 +722,8 @@ export function scriptError(
 
     console.error(lines.join("\n"));
   }
+
+  dispatchError(diagnostic, ctx);
 }
 
 // ============================================================================
@@ -577,21 +733,26 @@ export function scriptError(
 /**
  * Infer error code from the error type
  */
-function inferErrorCode(err: Error): ErrorCode {
-  if (err instanceof SyntaxError) {
+function inferErrorCode(err: Error): ErrorCode
+{
+  if (err instanceof SyntaxError)
+  {
     return ErrorCode.EXPRESSION_SYNTAX_ERROR;
   }
 
-  if (err instanceof ReferenceError) {
+  if (err instanceof ReferenceError)
+  {
     return ErrorCode.EXPRESSION_UNDEFINED_VAR;
   }
 
-  if (err instanceof TypeError) {
+  if (err instanceof TypeError)
+  {
     // Check if it's a null/undefined property access
     if (
       err.message.includes("Cannot read properties of null") ||
       err.message.includes("Cannot read properties of undefined")
-    ) {
+    )
+    {
       return ErrorCode.EXPRESSION_NULL_ACCESS;
     }
   }
@@ -602,25 +763,32 @@ function inferErrorCode(err: Error): ErrorCode {
 /**
  * Get a human-readable error type description
  */
-function getErrorType(err: Error): string {
-  if (err instanceof SyntaxError) {
+function getErrorType(err: Error): string
+{
+  if (err instanceof SyntaxError)
+  {
     return "Invalid expression syntax";
   }
 
-  if (err instanceof ReferenceError) {
+  if (err instanceof ReferenceError)
+  {
     // Extract the undefined variable name if possible
     const match = err.message.match(/(\w+) is not defined/);
-    if (match) {
+    if (match)
+    {
       return `Undefined variable: "${match[1]}"`;
     }
     return "Undefined variable";
   }
 
-  if (err instanceof TypeError) {
-    if (err.message.includes("Cannot read properties of null")) {
+  if (err instanceof TypeError)
+  {
+    if (err.message.includes("Cannot read properties of null"))
+    {
       return "Cannot access property of null";
     }
-    if (err.message.includes("Cannot read properties of undefined")) {
+    if (err.message.includes("Cannot read properties of undefined"))
+    {
       return "Cannot access property of undefined";
     }
     return "Type error";
@@ -636,19 +804,12 @@ export function createError(
   message: string,
   code: ErrorCode,
   context?: ComponentContext | null,
-): Error {
-  const ctx = context || currentContext;
-  const fullMessage = formatMessage(message, ctx);
-
-  const error = new Error(fullMessage);
-  error.name = "LadrillosError";
-
-  // Attach metadata for error handling
-  (error as any).code = code;
-  (error as any).docsUrl = getErrorDocsUrl(code);
-  (error as any).componentContext = ctx;
-
-  return error;
+  hint?: string,
+  cause?: unknown,
+): LadrillosError
+{
+  const ctx = context !== undefined ? context : currentContext;
+  return new LadrillosError(message, code, { context: ctx, hint, cause });
 }
 
 // ============================================================================
@@ -664,7 +825,8 @@ export function deprecate(
   feature: string,
   replacement?: string,
   version?: string,
-): void {
+): void
+{
   if (!IS_DEV) return;
 
   // Only warn once per feature
@@ -673,23 +835,27 @@ export function deprecate(
 
   let message = `"${feature}" is deprecated`;
 
-  if (version) {
+  if (version)
+  {
     message += ` and will be removed in version ${version}`;
   }
 
-  if (replacement) {
+  if (replacement)
+  {
     message += `. Use "${replacement}" instead`;
   }
 
   message += ".";
 
-  if (supportsStyledConsole()) {
+  if (supportsStyledConsole())
+  {
     console.warn(
       `%c${PREFIX}%c ⚠️ Deprecation: ${message}`,
       styles.prefix,
       "color: #ff9800",
     );
-  } else {
+  } else
+  {
     console.warn(`${PREFIX} ⚠️ Deprecation: ${message}`);
   }
 }

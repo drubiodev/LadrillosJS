@@ -41,6 +41,7 @@ Welcome to the LadrillosJS documentation! This guide will help you understand ho
 - [**Creating a Design System**](./19-design-system.md) - Build themeable, token-driven components from start to finish
 - [**Migrating from v1 to v2**](./17-migration-v1-to-v2.md) - Breaking changes and upgrade checklist
 - [**TypeScript**](./18-typescript.md) - Types, entry points, and tsconfig settings
+- [**Error Handling**](./21-error-handling.md) - Diagnostic codes, fixes, and error reporting
 
 ---
 

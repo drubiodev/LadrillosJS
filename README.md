@@ -556,10 +556,22 @@ import { configure } from "ladrillosjs";
 
 configure({
   cacheSize: 50, // Component LRU cache size (default: 25)
-  onError: (err) => telemetry.capture(err), // Custom error handler
+  onError: (err, context) => telemetry.capture(err, { context }),
   delegateLoopEvents: true, // Opt-in loop event delegation (default: false)
 });
 ```
+
+Development builds include actionable `LJSxxx` diagnostics with component and
+file context, a suggested fix, and a link to the
+[error reference](docs/21-error-handling.md). Vite and other bundlers that
+honor the `development` package condition select this build automatically. To
+select it explicitly, import from `ladrillosjs/dev` (or
+`ladrillosjs/core/dev`). Production builds retain coded errors but remove
+development-only warnings.
+
+The `onError` callback is also suitable for telemetry. Coded framework errors
+are instances of `LadrillosError` and expose `code`, `docsUrl`, `hint`,
+`componentContext`, and the original `cause`.
 
 #### `delegateLoopEvents`
 

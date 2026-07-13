@@ -2,19 +2,27 @@ import { LadrillosComponent } from "../types";
 import { parseComponent } from "./component/extract";
 import { fetchComponentSource } from "./component/loader";
 import { createWebComponent } from "./component/webcomponent";
-import {
-  LazyStrategy,
-  defaultLazyStrategy,
-  initLazyLoader,
-  registerLazyComponent,
-  forceLoadLazyComponent,
-} from "./lazy";
-import { warn, error } from "../utils/devWarnings";
+import
+  {
+    LazyStrategy,
+    defaultLazyStrategy,
+    initLazyLoader,
+    registerLazyComponent,
+    forceLoadLazyComponent,
+  } from "./lazy";
+import
+  {
+    warn,
+    error,
+    ErrorCode,
+    LadrillosError,
+  } from "../utils/devWarnings";
 
 /**
  * Component registration configuration
  */
-export interface ComponentConfig {
+export interface ComponentConfig
+{
   name: string;
   path: string;
   useShadowDOM?: boolean;
@@ -30,7 +38,8 @@ export interface ComponentConfig {
 /**
  * Result of a batch component registration
  */
-export interface RegisterComponentsResult {
+export interface RegisterComponentsResult
+{
   /** Components that registered successfully */
   success: string[];
   /** Components that failed with their errors */
@@ -39,10 +48,12 @@ export interface RegisterComponentsResult {
   skipped: string[];
 }
 
-class Ladrillos {
+class Ladrillos
+{
   components: Record<string, LadrillosComponent>;
 
-  constructor() {
+  constructor()
+  {
     this.components = {};
     // Initialize lazy loader with our components registry
     initLazyLoader(this.components);
@@ -53,32 +64,61 @@ class Ladrillos {
     path: string,
     useShadowDOM: boolean = true,
     lazy: boolean | LazyStrategy = false,
-  ): Promise<void> {
+  ): Promise<void>
+  {
     // check if component is already registered
-    if (this.components[name]) {
-      warn(`Component with name "<${name}>" is already registered.`);
+    if (this.components[name])
+    {
+      warn(
+        `Component "<${name}>" is already registered.`,
+        { tagName: name, sourcePath: path },
+        {
+          code: ErrorCode.COMPONENT_ALREADY_REGISTERED,
+          hint: "Remove the duplicate registration call or use a different component name.",
+        },
+      );
       return;
     }
 
-    // Resolve relative path to absolute URL
-    // This ensures script src paths inside components resolve correctly
-    const absolutePath = new URL(path, window.location.href).href;
+    const context = { tagName: name, sourcePath: path };
 
-    // Handle lazy loading
-    if (lazy) {
-      const strategy = lazy === true ? defaultLazyStrategy : lazy;
-      registerLazyComponent(name, absolutePath, useShadowDOM, strategy);
+    if (!name?.trim() || !name.includes("-"))
+    {
+      error(
+        `Invalid component name "${name || "(empty)"}". Custom element names must contain a hyphen.`,
+        context,
+        undefined,
+        {
+          code: ErrorCode.INVALID_COMPONENT_NAME,
+          hint: 'Use a lowercase name with a hyphen, such as "user-card".',
+        },
+      );
       return;
     }
 
-    // Eager loading: Fetch and define component immediately
-    try {
-      const fetchResult = await fetchComponentSource(absolutePath);
-      if (!fetchResult) {
-        throw new Error(
-          `Failed to fetch component source from ${absolutePath}`,
-        );
+    if (!path?.trim())
+    {
+      error("A component path is required.", context, undefined, {
+        code: ErrorCode.INVALID_COMPONENT_PATH,
+        hint: "Pass a URL or relative .html path as the second argument to registerComponent().",
+      });
+      return;
+    }
+
+    try
+    {
+      // Resolve relative paths before loading so nested resources use the
+      // component file as their base URL.
+      const absolutePath = new URL(path, window.location.href).href;
+
+      if (lazy)
+      {
+        const strategy = lazy === true ? defaultLazyStrategy : lazy;
+        registerLazyComponent(name, absolutePath, useShadowDOM, strategy);
+        return;
       }
+
+      const fetchResult = await fetchComponentSource(absolutePath);
       // Use the resolved path (e.g., /components/search/index.html instead of /components/search)
       const component = await parseComponent(
         fetchResult.source,
@@ -89,14 +129,20 @@ class Ladrillos {
       this.components[name] = component;
 
       createWebComponent(component, useShadowDOM);
-    } catch (e) {
+    } catch (e)
+    {
+      const diagnostic = e instanceof LadrillosError ? e : null;
       error(
-        `Error registering component \"<${name}>\"`,
-        {
-          tagName: name,
-          sourcePath: path,
-        },
+        "Could not register the component.",
+        context,
         e,
+        {
+          code:
+            diagnostic?.code ?? ErrorCode.COMPONENT_REGISTRATION_FAILED,
+          hint:
+            diagnostic?.hint ??
+            "Check the component template and the original error shown below.",
+        },
       );
     }
   }
@@ -129,15 +175,16 @@ class Ladrillos {
     configs:
       | ComponentConfig[]
       | Record<string, string | Omit<ComponentConfig, "name">>,
-  ): Promise<RegisterComponentsResult> {
+  ): Promise<RegisterComponentsResult>
+  {
     // Normalize input to array format
     const componentConfigs: ComponentConfig[] = Array.isArray(configs)
       ? configs
       : Object.entries(configs).map(([name, value]) =>
-          typeof value === "string"
-            ? { name, path: value }
-            : { name, ...value },
-        );
+        typeof value === "string"
+          ? { name, path: value }
+          : { name, ...value },
+      );
 
     const result: RegisterComponentsResult = {
       success: [],
@@ -151,8 +198,10 @@ class Ladrillos {
     const eagerComponents: Array<ComponentConfig & { absolutePath: string }> =
       [];
 
-    for (const config of componentConfigs) {
-      if (this.components[config.name]) {
+    for (const config of componentConfigs)
+    {
+      if (this.components[config.name])
+      {
         result.skipped.push(config.name);
         continue;
       }
@@ -161,16 +210,20 @@ class Ladrillos {
       const absolutePath = new URL(config.path, window.location.href).href;
       const configWithPath = { ...config, absolutePath };
 
-      if (config.lazy) {
+      if (config.lazy)
+      {
         lazyComponents.push(configWithPath);
-      } else {
+      } else
+      {
         eagerComponents.push(configWithPath);
       }
     }
 
     // Register lazy components immediately (no network request yet)
-    for (const config of lazyComponents) {
-      try {
+    for (const config of lazyComponents)
+    {
+      try
+      {
         const strategy =
           config.lazy === true
             ? defaultLazyStrategy
@@ -183,7 +236,8 @@ class Ladrillos {
           strategy,
         );
         result.success.push(config.name);
-      } catch (e) {
+      } catch (e)
+      {
         result.failed.push({
           name: config.name,
           error: e instanceof Error ? e : new Error(String(e)),
@@ -192,13 +246,15 @@ class Ladrillos {
     }
 
     // Process eager components with parallel fetching
-    if (eagerComponents.length === 0) {
+    if (eagerComponents.length === 0)
+    {
       return result;
     }
 
     // Parallel fetch all eager component sources
     const fetchResults = await Promise.allSettled(
-      eagerComponents.map(async (config) => {
+      eagerComponents.map(async (config) =>
+      {
         const result = await fetchComponentSource(config.absolutePath);
         return { config, result };
       }),
@@ -206,17 +262,14 @@ class Ladrillos {
 
     // Parse components in parallel
     const parseResults = await Promise.allSettled(
-      fetchResults.map(async (fetchResult, index) => {
-        if (fetchResult.status === "rejected") {
+      fetchResults.map(async (fetchResult, index) =>
+      {
+        if (fetchResult.status === "rejected")
+        {
           throw fetchResult.reason;
         }
 
         const { config, result } = fetchResult.value;
-        if (!result) {
-          throw new Error(
-            `Failed to fetch component source from ${config.absolutePath}`,
-          );
-        }
 
         // Use the resolved path for correct relative path resolution in child components
         const component = await parseComponent(
@@ -229,11 +282,13 @@ class Ladrillos {
     );
 
     // Batch register all successfully parsed components
-    for (let i = 0; i < parseResults.length; i++) {
+    for (let i = 0; i < parseResults.length; i++)
+    {
       const parseResult = parseResults[i];
       const config = eagerComponents[i];
 
-      if (parseResult.status === "rejected") {
+      if (parseResult.status === "rejected")
+      {
         result.failed.push({
           name: config.name,
           error:
@@ -256,10 +311,12 @@ class Ladrillos {
       this.components[config.name] = component;
 
       // Define custom element
-      try {
+      try
+      {
         createWebComponent(component, useShadowDOM);
         result.success.push(config.name);
-      } catch (e) {
+      } catch (e)
+      {
         result.failed.push({
           name: config.name,
           error: e instanceof Error ? e : new Error(String(e)),
@@ -278,7 +335,8 @@ class Ladrillos {
    */
   async loadLazyComponent(
     name: string,
-  ): Promise<LadrillosComponent | undefined> {
+  ): Promise<LadrillosComponent | undefined>
+  {
     return forceLoadLazyComponent(name);
   }
 }

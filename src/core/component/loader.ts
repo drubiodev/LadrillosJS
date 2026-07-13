@@ -1,4 +1,5 @@
 import { getCachedComponentSource, setCachedComponentSource } from "./cache";
+import { createError, ErrorCode } from "../../utils/devWarnings";
 
 /**
  * Resolves a component path, supporting folder-as-component pattern.
@@ -14,11 +15,14 @@ import { getCachedComponentSource, setCachedComponentSource } from "./cache";
  */
 async function resolveComponentPath(
   basePath: string
-): Promise<{ path: string; response: Response } | null> {
+): Promise<{ path: string; response: Response } | null>
+{
   // If path already has .html extension, use it directly
-  if (basePath.endsWith(".html")) {
+  if (basePath.endsWith(".html"))
+  {
     const response = await fetch(basePath);
-    if (response.ok) {
+    if (response.ok)
+    {
       return { path: basePath, response };
     }
     return null;
@@ -32,26 +36,33 @@ async function resolveComponentPath(
   // Try folder/index.html pattern FIRST (folder-as-component convention)
   // This avoids 404 console errors from trying the direct path first
   const indexPath = `${normalizedPath}/index.html`;
-  try {
+  try
+  {
     const indexResponse = await fetch(indexPath);
-    if (indexResponse.ok) {
+    if (indexResponse.ok)
+    {
       return { path: indexPath, response: indexResponse };
     }
-  } catch {
+  } catch
+  {
     // Ignore and try next resolution
   }
 
   // Fallback: Try direct path (some servers might serve HTML without extension)
-  try {
+  try
+  {
     const directResponse = await fetch(normalizedPath);
-    if (directResponse.ok) {
+    if (directResponse.ok)
+    {
       const contentType = directResponse.headers.get("content-type") || "";
       // Only accept if it's actually HTML
-      if (contentType.includes("text/html")) {
+      if (contentType.includes("text/html"))
+      {
         return { path: normalizedPath, response: directResponse };
       }
     }
-  } catch {
+  } catch
+  {
     // Ignore
   }
 
@@ -61,7 +72,8 @@ async function resolveComponentPath(
 /**
  * Result of fetching a component source
  */
-export interface FetchComponentResult {
+export interface FetchComponentResult
+{
   /** The HTML source content */
   source: string;
   /** The actual resolved path (may differ from input for folder-as-component) */
@@ -70,43 +82,51 @@ export interface FetchComponentResult {
 
 export async function fetchComponentSource(
   path: string
-): Promise<FetchComponentResult | undefined> {
-  if (!path) {
-    throw new Error("Path cannot be null or empty");
+): Promise<FetchComponentResult>
+{
+  if (!path?.trim())
+  {
+    throw createError(
+      "A component path is required.",
+      ErrorCode.INVALID_COMPONENT_PATH,
+      null,
+      "Pass a URL or relative .html path to registerComponent().",
+    );
   }
 
   // check cache for component source
   const cachedSource = getCachedComponentSource(path);
-  if (cachedSource) {
+  if (cachedSource)
+  {
     // Return cached source with the original path
     // (we can't know the resolved path from cache alone, but the caller
     // should use the resolvedPath from the first fetch)
     return { source: cachedSource, resolvedPath: path };
   }
 
-  try {
-    const resolved = await resolveComponentPath(path);
+  const resolved = await resolveComponentPath(path);
 
-    if (!resolved) {
-      throw new Error(
-        `Failed to fetch component from ${path}: Could not resolve path. ` +
-          `Tried: ${path}${
-            !path.endsWith(".html") ? ` and ${path}/index.html` : ""
-          }`
-      );
-    }
-
-    const text = await resolved.response.text();
-
-    // Cache with both the original path and resolved path
-    setCachedComponentSource(path, text);
-    if (resolved.path !== path) {
-      setCachedComponentSource(resolved.path, text);
-    }
-
-    return { source: text, resolvedPath: resolved.path };
-  } catch (error) {
-    console.error(`Error fetching component from ${path}:`, error);
-    return undefined;
+  if (!resolved)
+  {
+    const attemptedPaths = path.endsWith(".html")
+      ? path
+      : `${path}/index.html and ${path}`;
+    throw createError(
+      `Could not load the component file. Tried ${attemptedPaths}.`,
+      ErrorCode.COMPONENT_LOAD_FAILED,
+      { sourcePath: path },
+      "Check the path, serve the app over HTTP, and make sure the server returns an HTML response.",
+    );
   }
+
+  const text = await resolved.response.text();
+
+  // Cache with both the original path and resolved path
+  setCachedComponentSource(path, text);
+  if (resolved.path !== path)
+  {
+    setCachedComponentSource(resolved.path, text);
+  }
+
+  return { source: text, resolvedPath: resolved.path };
 }
