@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "prebench": "npm --prefix .. run build",
     "bench": "node run.mjs"
   },
   "devDependencies": {

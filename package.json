@@ -61,8 +61,8 @@
   "scripts": {
     "clean": "rimraf dist dist-cdn coverage",
     "build": "npm run clean && vite build --config vite.npm.config.ts && vite build --config vite.npm.dev.config.ts",
-    "build:dev": "tsc -p tsconfig.json",
-    "dev": "tsc -p tsconfig.json -w",
+    "build:dev": "vite build --config vite.npm.dev.config.ts",
+    "dev": "vite build --config vite.npm.dev.config.ts --watch",
     "build:cdn": "vite build --config vite.cdn.config.ts",
     "build:cdn:dev": "vite build --config vite.cdn.dev.config.ts",
     "watch:cdn": "vite build --config vite.cdn.dev.config.ts --watch",

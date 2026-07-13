@@ -12,6 +12,9 @@ npm install
 npm run bench
 ```
 
+The `prebench` step rebuilds the package so the browser always measures the
+current production bundle rather than stale `dist/` output.
+
 Results are printed to the terminal and written to `results.json` (raw
 samples) and `results.md` (README-ready table). The runner serves the repo
 root over HTTP and drives each page in headless Chromium via
