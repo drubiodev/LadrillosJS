@@ -23,6 +23,7 @@ import
   ErrorCode,
 } from "../../utils/devWarnings";
 import { createReactiveState } from "./reactivity";
+import { transformCodeToStateAccess } from "../../utils/stateTransform";
 import
 {
   frameworkHelperNames,
@@ -428,10 +429,14 @@ function createVanillaEventHandler(
       functionsToSkip,
     );
 
-    // Transform function definitions to use state.varName for variable access
-    // This ensures async callbacks (like .then()) write directly to reactive state
-    // instead of local destructured copies that won't be synced back
-    const funcDefs = transformFunctionDefsToStateAccess(rawFuncDefs, varNames);
+    // Transform function definitions to use __state__.varName for variable
+    // access. This ensures async callbacks (like .then()) write directly to
+    // reactive state instead of local destructured copies that won't be
+    // synced back. No declaration rewrite: funcDefs are function definitions,
+    // not top-level state declarations.
+    const funcDefs = transformCodeToStateAccess(rawFuncDefs, varNames, {
+      rewriteDeclarations: false,
+    });
 
     // Sync back any variables the inline handler code references.
     // Inline code operates on local `let` copies (from the destructure above),
@@ -889,7 +894,10 @@ function executeScriptWithReactiveState(
     const allVariables = [...new Set([...variableNames, ...templateBindings])];
 
     // Transform the script to use __state__ for variable access
-    const transformedContent = transformToStateAccess(content, allVariables);
+    const transformedContent = transformCodeToStateAccess(
+      content,
+      allVariables,
+    );
 
     const sourceUrl = componentUrl || "ladrillos-component";
     const wrappedScript = `
@@ -1248,210 +1256,13 @@ function extractFunctionNames(content: string): string[]
 // ============================================================================
 // State Access Transformation
 // ============================================================================
-
-/**
- * Escapes special regex characters in a string
- */
-function escapeRegex(str: string): string
-{
-  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-/**
- * Transforms variable declarations and accesses to use a __state__ object.
- *
- * This transformation allows script functions and callbacks (like $listen) to
- * read/write from the reactive state instead of local closure variables.
- *
- * Transforms:
- *   let messages = [];
- *   $listen("event", (data) => { messages = [...messages, data]; });
- *
- * Into:
- *   __state__.messages = [];
- *   $listen("event", (data) => { __state__.messages = [...__state__.messages, data]; });
- *
- * This is similar to what Svelte's compiler does, but at runtime.
- */
-function transformToStateAccess(code: string, variables: string[]): string
-{
-  if (variables.length === 0) return code;
-
-  // Step 1: Protect regular string literals (single and double quotes) with placeholders
-  // Template literals are handled separately to allow transforming expressions inside ${}
-  const strings: string[] = [];
-  let protected_code = code.replace(
-    /(["'])(?:(?!\1)[^\\]|\\.)*\1/g,
-    (match) =>
-    {
-      strings.push(match);
-      return `__STRING_PLACEHOLDER_${strings.length - 1}__`;
-    },
-  );
-
-  // Step 2: Handle template literals specially - transform expressions inside ${}
-  // Match template literals and process their interpolations
-  protected_code = protected_code.replace(
-    /`(?:[^`\\$]|\\.|\$(?!\{)|\$\{[^}]*\})*`/g,
-    (templateLiteral) =>
-    {
-      // Transform expressions inside ${...}
-      return templateLiteral.replace(/\$\{([^}]+)\}/g, (match, expr) =>
-      {
-        // Transform variable references in the expression
-        let transformedExpr = expr;
-        for (const varName of variables)
-        {
-          const pattern = new RegExp(
-            `(?<![^.]\\.)(?<!__state__\\.)\\b${escapeRegex(
-              varName,
-            )}\\b(?!\\s*[:(])`,
-            "g",
-          );
-          transformedExpr = transformedExpr.replace(
-            pattern,
-            `__state__.${varName}`,
-          );
-        }
-        return `\${${transformedExpr}}`;
-      });
-    },
-  );
-
-  // Step 3: Transform top-level variable declarations
-  // `let x = value;` → `__state__.x ??= value;`
-  // Use ??= to preserve attribute overrides (attributes win over script defaults)
-  for (const varName of variables)
-  {
-    const declRegex = new RegExp(
-      `\\b(let|const|var)\\s+(${escapeRegex(varName)})\\s*=`,
-      "g",
-    );
-    protected_code = protected_code.replace(
-      declRegex,
-      `__state__.${varName} ??=`,
-    );
-  }
-
-  // Step 4: Replace all standalone variable references with __state__.varName
-  // Do this iteratively to handle all occurrences
-  for (const varName of variables)
-  {
-    // This regex matches the variable name that is:
-    // - NOT preceded by a single dot (property access like foo.bar)
-    //   but IS allowed after spread operator (...)
-    // - NOT preceded by __state__. (already transformed)
-    // - IS a word boundary on both sides
-    // - NOT followed by : (object key) or ( (function declaration)
-    //
-    // The lookbehind (?<![^.]\.) means: not preceded by a dot that itself
-    // is not preceded by a dot. This allows ...varName but blocks .varName
-    const pattern = new RegExp(
-      `(?<![^.]\\.)(?<!__state__\\.)\\b${escapeRegex(varName)}\\b(?!\\s*[:(])`,
-      "g",
-    );
-
-    protected_code = protected_code.replace(pattern, `__state__.${varName}`);
-  }
-
-  // Step 5: Restore regular string literals
-  let transformed = protected_code;
-  for (let i = 0; i < strings.length; i++)
-  {
-    transformed = transformed.replace(
-      `__STRING_PLACEHOLDER_${i}__`,
-      strings[i],
-    );
-  }
-
-  return transformed;
-}
-
-/**
- * Transforms function definitions to use state.varName for variable access.
- * This ensures async callbacks (like .then()) write directly to reactive state
- * instead of local destructured copies.
- *
- * Example:
- *   const searchData = async () => { data = result; }
- * Becomes:
- *   const searchData = async () => { state.data = result; }
- *
- * This is different from transformToStateAccess (which uses __state__) because
- * event handlers pass the state as "state" parameter.
- */
-function transformFunctionDefsToStateAccess(
-  funcDefs: string,
-  variables: string[],
-): string
-{
-  if (!funcDefs || variables.length === 0) return funcDefs;
-
-  // Step 1: Protect string literals from transformation
-  const strings: string[] = [];
-  let protected_code = funcDefs.replace(
-    /"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'/g,
-    (match) =>
-    {
-      strings.push(match);
-      return `__STRING_PLACEHOLDER_${strings.length - 1}__`;
-    },
-  );
-
-  // Step 2: Handle template literals - transform expressions inside ${}
-  protected_code = protected_code.replace(
-    /`(?:[^`\\$]|\\.|\$(?!\{)|\$\{[^}]*\})*`/g,
-    (templateLiteral) =>
-    {
-      return templateLiteral.replace(/\$\{([^}]+)\}/g, (match, expr) =>
-      {
-        let transformedExpr = expr;
-        for (const varName of variables)
-        {
-          const pattern = new RegExp(
-            `(?<![^.]\\.)(?<!__state__\\.)\\b${escapeRegex(
-              varName,
-            )}\\b(?!\\s*[:(])`,
-            "g",
-          );
-          transformedExpr = transformedExpr.replace(
-            pattern,
-            `__state__.${varName}`,
-          );
-        }
-        return `\${${transformedExpr}}`;
-      });
-    },
-  );
-
-  // Step 3: Replace variable references with state.varName
-  // Skip function parameter names by not transforming inside parameter lists
-  for (const varName of variables)
-  {
-    // Match variable that is:
-    // - NOT preceded by a dot (property access)
-    // - NOT preceded by __state__. (already transformed)
-    // - IS a word boundary
-    // - NOT followed by : (object key) or ( (function declaration)
-    const pattern = new RegExp(
-      `(?<![^.]\\.)(?<!__state__\\.)\\b${escapeRegex(varName)}\\b(?!\\s*[:(])`,
-      "g",
-    );
-    protected_code = protected_code.replace(pattern, `__state__.${varName}`);
-  }
-
-  // Step 4: Restore string literals
-  let transformed = protected_code;
-  for (let i = 0; i < strings.length; i++)
-  {
-    transformed = transformed.replace(
-      `__STRING_PLACEHOLDER_${i}__`,
-      strings[i],
-    );
-  }
-
-  return transformed;
-}
+//
+// The transform itself lives in utils/stateTransform.ts
+// (transformCodeToStateAccess), shared with moduleExecutor.ts. It protects
+// string literals AND template-literal text segments, recursively transforms
+// ${...} interpolations, rewrites `let x = v` declarations to
+// `__state__.x ??= v`, and rewrites standalone references (object-shorthand
+// aware) to `__state__.x`.
 
 // ============================================================================
 // Security & Sandboxing Helpers
