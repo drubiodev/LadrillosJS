@@ -32,7 +32,6 @@
 - [Lazy Loading](#-lazy-loading)
 - [API Reference](#-api-reference)
 - [Using with Vite](#-using-with-vite)
-- [Browser Support](#-browser-support)
 - [Benchmarks](#-benchmarks)
 - [Examples](#-examples)
 - [Documentation](#-documentation)

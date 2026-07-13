@@ -41,8 +41,7 @@
     "dist/**/*.js.map",
     "dist/**/*.d.ts",
     "LICENSE",
-    "README.md",
-    "CHANGELOG.md"
+    "README.md"
   ],
   "engines": {
     "node": ">=18"
