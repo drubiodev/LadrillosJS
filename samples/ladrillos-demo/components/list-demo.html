@@ -1,0 +1,349 @@
+<div class="demo-card">
+  <h3>📋 List Rendering</h3>
+  <p class="description">Render lists with the <code>&lt;for&gt;</code> built-in</p>
+
+  <div class="demo-content">
+    <div class="section">
+      <h4>Simple List</h4>
+      <ul class="fruit-list">
+        <for each="fruit in fruits">
+          <li class="fruit-item">🍎 {fruit}</li>
+        </for>
+      </ul>
+    </div>
+
+    <div class="section">
+      <h4>With Index</h4>
+      <div class="indexed-list">
+        <for each="(color, index) in colors">
+          <div class="color-item" style="background: {color}">
+            <span class="index">#{index + 1}</span>
+            <span class="name">{color}</span>
+          </div>
+        </for>
+      </div>
+    </div>
+
+    <div class="section">
+      <h4>Object Array</h4>
+      <div class="user-grid">
+        <for each="user in users" key="user.id">
+          <div class="user-card">
+            <div class="avatar">{user.avatar}</div>
+            <div class="info">
+              <div class="name">{user.name}</div>
+              <div class="role">{user.role}</div>
+            </div>
+          </div>
+        </for>
+      </div>
+    </div>
+
+    <div class="section">
+      <h4>Dynamic List</h4>
+      <div class="controls">
+        <input type="text" $bind="newItem" placeholder="Add item..." />
+        <button onclick="addItem()">Add</button>
+      </div>
+      <ul class="dynamic-list">
+        <for each="(item, i) in dynamicItems">
+          <li>
+            {item}
+            <button onclick="removeItem(i)" class="remove-btn">x</button>
+          </li>
+        </for>
+      </ul>
+    </div>
+  </div>
+
+  <div class="code-hint">
+    <code $no:bind>&lt;for each="item in items"&gt;&lt;li&gt;{item}&lt;/li&gt;&lt;/for&gt;</code><br />
+    <code $no:bind>&lt;for each="(item, i) in items"&gt;...&lt;/for&gt;</code>
+  </div>
+</div>
+
+<script>
+  let fruits = ["Apple", "Banana", "Cherry", "Dragonfruit"];
+
+  let colors = [
+    "#ef4444",
+    "#f97316",
+    "#eab308",
+    "#22c55e",
+    "#3b82f6",
+    "#8b5cf6",
+  ];
+
+  let users = [
+    { id: 1, name: "Alice", role: "Developer", avatar: "👩‍💻" },
+    { id: 2, name: "Bob", role: "Designer", avatar: "👨‍🎨" },
+    { id: 3, name: "Carol", role: "Manager", avatar: "👩‍💼" },
+  ];
+
+  let dynamicItems = ["First item", "Second item"];
+  let newItem = "";
+
+  function addItem() {
+    if (newItem.trim()) {
+      dynamicItems = [...dynamicItems, newItem.trim()];
+      newItem = "";
+    }
+  }
+
+  function removeItem(index) {
+    console.log("Removing item at index:", index);
+    dynamicItems = dynamicItems.filter((_, i) => i !== index);
+  }
+</script>
+
+<style>
+  :host {
+    display: block;
+  }
+
+  .demo-card {
+    background: var(--bg-elevated, #fff);
+    border: 1px solid var(--border, #e4e4e7);
+    border-radius: 14px;
+    padding: 1.5rem;
+    color: var(--fg, #18181b);
+    box-shadow: var(--shadow-sm, 0 1px 2px rgba(0, 0, 0, 0.04));
+    transition: transform 180ms cubic-bezier(.4, 0, .2, 1),
+      box-shadow 180ms cubic-bezier(.4, 0, .2, 1),
+      border-color 180ms cubic-bezier(.4, 0, .2, 1);
+  }
+
+  .demo-card:hover {
+    transform: translateY(-1px);
+    border-color: var(--border-strong, #d4d4d8);
+    box-shadow: var(--shadow-md, 0 4px 12px rgba(0, 0, 0, 0.06));
+  }
+
+  h3 {
+    margin: 0 0 0.375rem;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--fg, #18181b);
+    letter-spacing: -0.01em;
+  }
+
+  h4 {
+    margin: 0 0 0.625rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--fg-subtle, #71717a);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  .description {
+    color: var(--fg-muted, #52525b);
+    font-size: 0.875rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .description code {
+    background: var(--bg-code, #f4f4f6);
+    border: 1px solid var(--border, #e4e4e7);
+    color: var(--fg, #18181b);
+    padding: 0.0625rem 0.375rem;
+    border-radius: 6px;
+    font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+    font-size: 0.8125rem;
+  }
+
+  .demo-content {
+    background: var(--bg-subtle, #f4f4f6);
+    border: 1px solid var(--border, #e4e4e7);
+    border-radius: 10px;
+    padding: 1.25rem;
+    margin-bottom: 1rem;
+  }
+
+  .section {
+    margin-bottom: 1.25rem;
+    padding-bottom: 1.25rem;
+    border-bottom: 1px solid var(--border, #e4e4e7);
+  }
+
+  .section:last-child {
+    margin-bottom: 0;
+    padding-bottom: 0;
+    border-bottom: none;
+  }
+
+  .fruit-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.375rem;
+  }
+
+  .fruit-item {
+    background: var(--bg-elevated, #fff);
+    border: 1px solid var(--border, #e4e4e7);
+    color: var(--fg, #18181b);
+    padding: 0.3125rem 0.75rem;
+    border-radius: 9999px;
+    font-size: 0.8125rem;
+    transition: border-color 150ms, transform 80ms;
+  }
+
+  .fruit-item:hover {
+    border-color: var(--border-strong, #d4d4d8);
+  }
+
+  .indexed-list {
+    display: flex;
+    gap: 0.375rem;
+    flex-wrap: wrap;
+  }
+
+  .color-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.375rem 0.625rem;
+    border-radius: 6px;
+    color: #fff;
+    font-size: 0.75rem;
+    font-weight: 500;
+  }
+
+  .color-item .index {
+    opacity: 0.85;
+  }
+
+  .user-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 0.625rem;
+  }
+
+  .user-card {
+    background: var(--bg-elevated, #fff);
+    border: 1px solid var(--border, #e4e4e7);
+    padding: 1rem;
+    border-radius: 10px;
+    text-align: center;
+    transition: border-color 150ms, transform 150ms;
+  }
+
+  .user-card:hover {
+    border-color: var(--border-strong, #d4d4d8);
+    transform: translateY(-1px);
+  }
+
+  .user-card .avatar {
+    font-size: 1.75rem;
+    margin-bottom: 0.375rem;
+  }
+
+  .user-card .name {
+    font-weight: 600;
+    font-size: 0.875rem;
+    color: var(--fg, #18181b);
+  }
+
+  .user-card .role {
+    font-size: 0.75rem;
+    color: var(--fg-muted, #52525b);
+  }
+
+  .controls {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .controls input {
+    flex: 1;
+    padding: 0.5rem 0.75rem;
+    background: var(--bg-elevated, #fff);
+    color: var(--fg, #18181b);
+    border: 1px solid var(--border, #e4e4e7);
+    border-radius: 8px;
+    font-size: 0.875rem;
+    transition: border-color 150ms, box-shadow 150ms;
+  }
+
+  .controls input:focus {
+    outline: none;
+    border-color: var(--accent, #18181b);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent, #18181b) 12%, transparent);
+  }
+
+  .controls button {
+    padding: 0.5rem 0.875rem;
+    background: var(--accent, #18181b);
+    color: var(--accent-fg, #fff);
+    border: 1px solid var(--accent, #18181b);
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 500;
+    font-size: 0.8125rem;
+    transition: opacity 150ms, transform 80ms;
+  }
+
+  .controls button:hover {
+    opacity: 0.88;
+  }
+
+  .controls button:active {
+    transform: scale(0.97);
+  }
+
+  .dynamic-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .dynamic-list li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: var(--bg-elevated, #fff);
+    border: 1px solid var(--border, #e4e4e7);
+    padding: 0.5rem 0.75rem;
+    border-radius: 8px;
+    margin-bottom: 0.375rem;
+    font-size: 0.875rem;
+    transition: border-color 150ms;
+  }
+
+  .dynamic-list li:hover {
+    border-color: var(--border-strong, #d4d4d8);
+  }
+
+  .remove-btn {
+    background: transparent;
+    color: var(--fg-subtle, #71717a);
+    border: 1px solid var(--border, #e4e4e7);
+    border-radius: 6px;
+    width: 24px;
+    height: 24px;
+    cursor: pointer;
+    font-size: 0.875rem;
+    line-height: 1;
+    transition: background-color 150ms, color 150ms;
+  }
+
+  .remove-btn:hover {
+    background: var(--bg-subtle, #f4f4f6);
+    color: var(--fg, #18181b);
+  }
+
+  .code-hint {
+    background: var(--bg-code, #f4f4f6);
+    border: 1px solid var(--border, #e4e4e7);
+    border-radius: 8px;
+    padding: 0.75rem 0.875rem;
+    font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+    font-size: 0.75rem;
+    color: var(--fg-muted, #52525b);
+    line-height: 1.7;
+  }
+</style>

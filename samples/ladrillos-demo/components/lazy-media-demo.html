@@ -1,0 +1,39 @@
+<template>
+  <div class="demo-card">
+    <div class="demo-header">
+      <h3>📱 lazyOnMedia</h3>
+      <span class="demo-badge">Loaded!</span>
+    </div>
+    <div class="demo-content">
+      <p class="demo-description">
+        This component loaded because your viewport is under 1200px wide. Uses
+        <code>matchMedia</code> for responsive loading.
+      </p>
+      <div class="demo-info">
+        <div class="info-item">
+          <span class="label">Strategy:</span>
+          <code>lazyOnMedia('(max-width: 1200px)')</code>
+        </div>
+        <div class="info-item">
+          <span class="label">Use case:</span>
+          <span>Mobile-only navigation, responsive widgets</span>
+        </div>
+      </div>
+      <div class="viewport-info">
+        <span class="viewport-label">Media query matched:</span>
+        <span class="viewport-value">✓ max-width: 1200px</span>
+      </div>
+      <div class="load-indicator">
+        ✅ Component rendered at: <strong>{loadTime}</strong>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script>
+  let loadTime = new Date().toLocaleTimeString();
+</script>
+
+<style>
+  /* Component-specific styles inherited from parent index.html */
+</style>

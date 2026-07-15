@@ -1,0 +1,220 @@
+<div class="demo-card">
+  <h3>👁️ Show/Hide Toggle</h3>
+  <p class="description">
+    Use <code>&lt;show&gt;</code> for CSS-based visibility (keeps element in DOM)
+  </p>
+
+  <div class="demo-content">
+    <div class="toggle-group">
+      <button onclick="showPanel1 = !showPanel1" class="toggle-btn">
+        {showPanel1 ? 'Hide' : 'Show'} Panel 1
+      </button>
+      <button onclick="showPanel2 = !showPanel2" class="toggle-btn">
+        {showPanel2 ? 'Hide' : 'Show'} Panel 2
+      </button>
+      <button onclick="showPanel3 = !showPanel3" class="toggle-btn">
+        {showPanel3 ? 'Hide' : 'Show'} Panel 3
+      </button>
+    </div>
+
+    <div class="panels">
+      <show condition="showPanel1">
+        <div class="panel panel-1">
+          <span class="icon">🎨</span>
+          <span>Panel 1 - Design</span>
+        </div>
+      </show>
+
+      <show condition="showPanel2">
+        <div class="panel panel-2">
+          <span class="icon">⚙️</span>
+          <span>Panel 2 - Settings</span>
+        </div>
+      </show>
+
+      <show condition="showPanel3">
+        <div class="panel panel-3">
+          <span class="icon">📊</span>
+          <span>Panel 3 - Analytics</span>
+        </div>
+      </show>
+    </div>
+
+    <div class="difference">
+      <h4>&lt;show&gt; vs &lt;if&gt;</h4>
+      <p>
+        <strong>&lt;show&gt;:</strong> Toggles <code>display: none</code> (element
+        stays in DOM)
+      </p>
+      <p><strong>&lt;if&gt;:</strong> Adds/removes element from DOM entirely</p>
+    </div>
+  </div>
+
+  <div class="code-hint">
+    <code $no:bind>&lt;show condition="isVisible"&gt;...&lt;/show&gt;</code>
+  </div>
+</div>
+
+<script>
+  let showPanel1 = true;
+  let showPanel2 = true;
+  let showPanel3 = false;
+</script>
+
+<style>
+  :host {
+    display: block;
+  }
+
+  .demo-card {
+    background: var(--bg-elevated, #fff);
+    border: 1px solid var(--border, #e4e4e7);
+    border-radius: 14px;
+    padding: 1.5rem;
+    color: var(--fg, #18181b);
+    box-shadow: var(--shadow-sm, 0 1px 2px rgba(0, 0, 0, 0.04));
+    transition: transform 180ms cubic-bezier(.4, 0, .2, 1),
+      box-shadow 180ms cubic-bezier(.4, 0, .2, 1),
+      border-color 180ms cubic-bezier(.4, 0, .2, 1);
+  }
+
+  .demo-card:hover {
+    transform: translateY(-1px);
+    border-color: var(--border-strong, #d4d4d8);
+    box-shadow: var(--shadow-md, 0 4px 12px rgba(0, 0, 0, 0.06));
+  }
+
+  h3 {
+    margin: 0 0 0.375rem;
+    font-size: 1rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+
+  h4 {
+    margin: 0 0 0.5rem;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--fg-muted, #52525b);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .description {
+    color: var(--fg-muted, #52525b);
+    font-size: 0.875rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .description code {
+    background: var(--bg-code, #f4f4f6);
+    border: 1px solid var(--border, #e4e4e7);
+    color: var(--fg, #18181b);
+    padding: 0.0625rem 0.375rem;
+    border-radius: 6px;
+    font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+    font-size: 0.8125rem;
+  }
+
+  .demo-content {
+    background: var(--bg-subtle, #f4f4f6);
+    border: 1px solid var(--border, #e4e4e7);
+    border-radius: 10px;
+    padding: 1.25rem;
+    margin-bottom: 1rem;
+  }
+
+  .toggle-group {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .toggle-btn {
+    padding: 0.5rem 0.875rem;
+    background: var(--bg-elevated, #fff);
+    border: 1px solid var(--border, #e4e4e7);
+    color: var(--fg, #18181b);
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    transition: background-color 150ms, border-color 150ms, transform 80ms;
+  }
+
+  .toggle-btn:hover {
+    background: var(--bg-subtle, #f4f4f6);
+    border-color: var(--border-strong, #d4d4d8);
+  }
+
+  .toggle-btn:active {
+    transform: scale(0.97);
+  }
+
+  .panels {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+  }
+
+  .panel {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    padding: 0.875rem 1rem;
+    border-radius: 8px;
+    font-weight: 500;
+    font-size: 0.875rem;
+    background: var(--bg-elevated, #fff);
+    border: 1px solid var(--border, #e4e4e7);
+    color: var(--fg, #18181b);
+    transition: background-color 150ms, border-color 150ms;
+  }
+
+  .panel:hover {
+    border-color: var(--border-strong, #d4d4d8);
+  }
+
+  .panel .icon {
+    font-size: 1.125rem;
+  }
+
+  .difference {
+    background: var(--bg-elevated, #fff);
+    border: 1px solid var(--border, #e4e4e7);
+    padding: 1rem;
+    border-radius: 8px;
+    font-size: 0.8125rem;
+    color: var(--fg-muted, #52525b);
+  }
+
+  .difference p {
+    margin: 0.25rem 0;
+  }
+
+  .difference strong {
+    color: var(--fg, #18181b);
+  }
+
+  .difference code {
+    background: var(--bg-code, #f4f4f6);
+    border: 1px solid var(--border, #e4e4e7);
+    color: var(--fg, #18181b);
+    padding: 0.0625rem 0.375rem;
+    border-radius: 4px;
+    font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+    font-size: 0.75rem;
+  }
+
+  .code-hint {
+    background: var(--bg-code, #f4f4f6);
+    border: 1px solid var(--border, #e4e4e7);
+    border-radius: 8px;
+    padding: 0.75rem 0.875rem;
+    font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+    font-size: 0.8125rem;
+    color: var(--fg-muted, #52525b);
+  }
+</style>

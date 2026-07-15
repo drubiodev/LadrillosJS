@@ -1,0 +1,35 @@
+<if condition="messages.length === 0">
+  <div class="greeting">
+    <h1>Nice to see you, {name}.<br />What's new?</h1>
+  </div>
+
+  <div class="suggestions">
+    <for each="suggestion in suggestionItems">
+      <button class="suggestion-btn" onclick="sendMessage(suggestion)">
+        {suggestion}
+      </button>
+    </for>
+  </div>
+</if>
+
+<div class="messages" $ref="messagesContainer">
+  <for each="message in messages">
+    <div class="message-card" data-type="{message.type}">
+      <div class="message-header">
+        <div class="message-sender">{message.sender}</div>
+        <div class="message-timestamp">{message.timestamp}</div>
+      </div>
+      <div class="message-content">{message.text}</div>
+    </div>
+  </for>
+</div>
+
+<script src="./content.js" type="module"></script>
+
+<script>
+  const sendMessage = (text) => {
+    console.log("Message sent!");
+    console.log("Text:", text);
+    $emit("message:send", { text });
+  };
+</script>

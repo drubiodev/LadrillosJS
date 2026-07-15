@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LadrillosJS Playground</title>
+
+  <script src="/dist-cdn/ladrillos.dev.iife.js"></script>
+  <script type="module">
+    await ladrillosjs.registerComponents([
+      { name: "playground-header", path: "./components/header", useShadowDOM: false },
+      { name: "playground-tabs", path: "./components/tabs", useShadowDOM: false },
+      { name: "playground-editor", path: "./components/editor", useShadowDOM: false },
+      { name: "playground-preview", path: "./components/preview", useShadowDOM: false },
+    ]);
+  </script>
+
+  <style>
+    :root {
+      --bg: #0d1117;
+      --panel: #161b22;
+      --panel-2: #1c2230;
+      --border: #30363d;
+      --text: #e6edf3;
+      --muted: #9198a1;
+      --accent: #ff6b35;
+      --accent-hover: #e85a28;
+      --danger: #f85149;
+      --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
+        "Liberation Mono", monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    /* Thin, theme-matched scrollbars */
+    * {
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) transparent;
+    }
+
+    *::-webkit-scrollbar {
+      width: 10px;
+      height: 10px;
+    }
+
+    *::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    *::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 8px;
+      border: 2px solid transparent;
+      background-clip: padding-box;
+    }
+
+    *::-webkit-scrollbar-thumb:hover {
+      background: var(--muted);
+      background-clip: padding-box;
+    }
+
+    *::-webkit-scrollbar-corner {
+      background: transparent;
+    }
+
+    html,
+    body {
+      height: 100%;
+      margin: 0;
+    }
+
+    body {
+      display: flex;
+      flex-direction: column;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+        sans-serif;
+    }
+
+    /* ── Layout shell ─────────────────────────────────────────────── */
+    main {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1fr 6px 1fr;
+      min-height: 0;
+    }
+
+    .pane {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      min-height: 0;
+    }
+
+    /* Draggable divider between the two panes */
+    .resizer {
+      background: var(--border);
+      cursor: col-resize;
+      touch-action: none;
+    }
+
+    .resizer:hover,
+    .resizer.dragging {
+      background: var(--accent);
+    }
+
+    body.resizing {
+      user-select: none;
+    }
+
+    body.resizing iframe {
+      pointer-events: none;
+    }
+
+    .pane>playground-tabs {
+      flex: 0 0 auto;
+      display: block;
+    }
+
+    .pane>playground-editor {
+      flex: 1;
+      min-height: 0;
+      display: block;
+    }
+
+    /* Shared pane header (used by the tabs strip and the preview label) */
+    .pane-head {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 0.9rem;
+      font-size: 0.72rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      border-bottom: 1px solid var(--border);
+      background: var(--panel);
+    }
+
+    .pane-head .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent);
+    }
+
+    footer {
+      padding: 0.4rem 1rem;
+      font-size: 0.72rem;
+      color: var(--muted);
+      border-top: 1px solid var(--border);
+      background: var(--panel);
+    }
+
+    footer a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    @media (max-width: 800px) {
+      main {
+        grid-template-columns: 1fr;
+        grid-template-rows: 1fr 6px 1fr;
+      }
+
+      .resizer {
+        cursor: row-resize;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <playground-header></playground-header>
+
+  <main>
+    <section class="pane">
+      <playground-tabs></playground-tabs>
+      <playground-editor></playground-editor>
+    </section>
+    <div class="resizer" id="resizer" title="Drag to resize"></div>
+    <section class="pane">
+      <playground-preview></playground-preview>
+    </section>
+  </main>
+
+  <footer>
+    Edit the files on the left — the preview updates live. ·
+    <a href="https://github.com/drubiodev/LadrillosJS">GitHub</a>
+  </footer>
+
+  <script>
+    // divder drag to resize
+    (function () {
+      const main = document.querySelector("main");
+      const resizer = document.getElementById("resizer");
+      const mq = matchMedia("(max-width: 800px)");
+
+      resizer.addEventListener("pointerdown", (e) => {
+        e.preventDefault();
+        const vertical = mq.matches; // stacked layout resizes top/bottom
+        const rect = main.getBoundingClientRect();
+        resizer.setPointerCapture(e.pointerId);
+        resizer.classList.add("dragging");
+        document.body.classList.add("resizing");
+        document.body.style.cursor = vertical ? "row-resize" : "col-resize";
+
+        const onMove = (ev) => {
+          const frac = vertical
+            ? (ev.clientY - rect.top) / rect.height
+            : (ev.clientX - rect.left) / rect.width;
+          const f = Math.max(0.15, Math.min(0.85, frac));
+          const track = `${f}fr 6px ${1 - f}fr`;
+          if (vertical) main.style.gridTemplateRows = track;
+          else main.style.gridTemplateColumns = track;
+        };
+
+        const onUp = () => {
+          resizer.releasePointerCapture(e.pointerId);
+          resizer.classList.remove("dragging");
+          document.body.classList.remove("resizing");
+          document.body.style.cursor = "";
+          window.removeEventListener("pointermove", onMove);
+          window.removeEventListener("pointerup", onUp);
+        };
+
+        window.addEventListener("pointermove", onMove);
+        window.addEventListener("pointerup", onUp);
+      });
+
+      // Crossing the breakpoint swaps rows<->columns; drop stale inline sizing
+      // so the CSS layout takes over cleanly.
+      mq.addEventListener("change", () => {
+        main.style.gridTemplateColumns = "";
+        main.style.gridTemplateRows = "";
+      });
+    })();
+  </script>
+</body>
+
+</html>

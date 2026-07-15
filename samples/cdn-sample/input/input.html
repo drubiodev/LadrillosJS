@@ -1,0 +1,63 @@
+<div class="input-area">
+  <div class="input-container">
+    <input
+      type="text"
+      $bind="messageText"
+      $on:keyup.enter=" sendMessage()"
+      class="input-field"
+      placeholder="Message Co-Driver"
+    />
+    <div class="input-actions">
+      <div class="input-actions-left">
+        <button class="action-btn" title="Add attachment">
+          <svg
+            class="icon"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <line x1="12" y1="5" x2="12" y2="19" />
+            <line x1="5" y1="12" x2="19" y2="12" />
+          </svg>
+        </button>
+        <button class="smart-btn">
+          Smart
+          <svg
+            class="icon"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            style="width: 14px"
+          >
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
+        </button>
+      </div>
+      <button class="mic-btn" title="Voice input">
+        <svg
+          class="icon"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+        >
+          <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+          <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+          <line x1="12" y1="19" x2="12" y2="23" />
+          <line x1="8" y1="23" x2="16" y2="23" />
+        </svg>
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+  let messageText = "";
+
+  function sendMessage() {
+    $emit("message:send", { text: messageText });
+    messageText = "";
+  }
+</script>

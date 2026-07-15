@@ -1,0 +1,17 @@
+<link rel="stylesheet" href="./header.css" />
+
+<header>
+    <h1>LadrillosJS Playground</h1>
+    <div class="spacer"></div>
+    <label>
+        Example
+        <select $bind="selected" onchange="onExampleChange()">
+            <for each="name in names">
+                <option value="{name}">{name}</option>
+            </for>
+        </select>
+    </label>
+    <button class="primary" onclick="run()">Run ▸</button>
+</header>
+
+<script src="./header.js" type="module"></script>

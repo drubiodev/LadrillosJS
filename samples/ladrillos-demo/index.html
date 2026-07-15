@@ -1,0 +1,1151 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LadrillosJS - Feature Showcase</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <script type="module">
+      import {
+        registerComponents,
+        lazyOnVisible,
+        lazyOnIdle,
+        lazyOnInteraction,
+        lazyOnMedia,
+        lazyOnDelay,
+      } from "ladrillosjs";
+
+      // Register all demo components
+      await registerComponents([
+        // Eager components (load immediately)
+        {
+          name: "code-block",
+          path: "./components/code-block.html",
+        },
+        { name: "demo-hello-world", path: "./components/hello-world.html" },
+        { name: "demo-counter", path: "./components/counter-demo.html" },
+        {
+          name: "demo-two-way-binding",
+          path: "./components/two-way-binding.html",
+        },
+        {
+          name: "demo-conditional",
+          path: "./components/conditional-demo.html",
+        },
+        { name: "demo-list", path: "./components/list-demo.html" },
+        { name: "demo-show-hide", path: "./components/show-hide.html" },
+        { name: "demo-ref", path: "./components/ref-demo.html" },
+        { name: "demo-todo", path: "./components/todo-list.html" },
+        { name: "demo-event-sender", path: "./components/event-sender.html" },
+        {
+          name: "demo-event-receiver",
+          path: "./components/event-receiver.html",
+        },
+        { name: "demo-user-badge", path: "./components/user-badge.html" },
+        { name: "demo-props", path: "./components/props-demo.html" },
+        { name: "demo-lifecycle", path: "./components/lifecycle-demo.html" },
+        {
+          name: "demo-event-modifiers",
+          path: "./components/event-modifiers-demo.html",
+        },
+        {
+          name: "demo-lazy-element",
+          path: "./components/lazy-element-demo.html",
+        },
+        { name: "demo-shadow-dom", path: "./components/shadow-dom-demo.html" },
+        {
+          name: "demo-light-dom",
+          path: "./components/light-dom-demo.html",
+          useShadowDOM: false,
+        },
+
+        // Lazy loading demos
+        {
+          name: "lazy-visible-demo",
+          path: "./components/lazy-visible-demo.html",
+          lazy: lazyOnVisible({ rootMargin: "100px" }),
+          useShadowDOM: false,
+        },
+        {
+          name: "lazy-idle-demo",
+          path: "./components/lazy-idle-demo.html",
+          lazy: lazyOnIdle(5000),
+          useShadowDOM: false,
+        },
+        {
+          name: "lazy-interaction-demo",
+          path: "./components/lazy-interaction-demo.html",
+          lazy: lazyOnInteraction(["click", "focusin"]),
+          useShadowDOM: false,
+        },
+        {
+          name: "lazy-media-demo",
+          path: "./components/lazy-media-demo.html",
+          lazy: lazyOnMedia("(max-width: 1200px)"),
+          useShadowDOM: false,
+        },
+        {
+          name: "lazy-delay-demo",
+          path: "./components/lazy-delay-demo.html",
+          lazy: lazyOnDelay(2000),
+          useShadowDOM: false,
+        },
+        {
+          name: "lazy-eager-demo",
+          path: "./components/lazy-eager-demo.html",
+          useShadowDOM: false,
+          lazy: lazyOnVisible(),
+        },
+      ]);
+    </script>
+    <script>
+      // Apply theme before paint to avoid FOUC
+      (function () {
+        try {
+          var stored = localStorage.getItem("theme");
+          var prefersDark = window.matchMedia(
+            "(prefers-color-scheme: dark)"
+          ).matches;
+          var theme = stored || (prefersDark ? "dark" : "light");
+          document.documentElement.dataset.theme = theme;
+        } catch (e) {
+          document.documentElement.dataset.theme = "light";
+        }
+      })();
+    </script>
+    <style>
+      :root {
+        --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI",
+          Roboto, sans-serif;
+        --font-mono: "SF Mono", ui-monospace, "Cascadia Code", Menlo, Consolas,
+          monospace;
+
+        --radius-sm: 6px;
+        --radius-md: 10px;
+        --radius-lg: 14px;
+
+        --max-width: 1120px;
+
+        --transition: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+      }
+
+      /* Light theme (default) */
+      :root,
+      :root[data-theme="light"] {
+        --bg: #fbfbfd;
+        --bg-elevated: #ffffff;
+        --bg-subtle: #f4f4f6;
+        --bg-code: #f4f4f6;
+
+        --fg: #18181b;
+        --fg-muted: #52525b;
+        --fg-subtle: #71717a;
+
+        --border: #e4e4e7;
+        --border-strong: #d4d4d8;
+
+        --accent: #18181b;
+        --accent-fg: #ffffff;
+        --accent-muted: #f4f4f6;
+
+        --link: #2563eb;
+        --link-hover: #1d4ed8;
+
+        --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.04);
+        --shadow-md: 0 1px 3px 0 rgba(0, 0, 0, 0.06),
+          0 1px 2px -1px rgba(0, 0, 0, 0.04);
+
+        color-scheme: light;
+      }
+
+      /* Dark theme */
+      :root[data-theme="dark"] {
+        --bg: #0a0a0a;
+        --bg-elevated: #111113;
+        --bg-subtle: #18181b;
+        --bg-code: #18181b;
+
+        --fg: #fafafa;
+        --fg-muted: #a1a1aa;
+        --fg-subtle: #71717a;
+
+        --border: #27272a;
+        --border-strong: #3f3f46;
+
+        --accent: #fafafa;
+        --accent-fg: #18181b;
+        --accent-muted: #1f1f22;
+
+        --link: #60a5fa;
+        --link-hover: #93c5fd;
+
+        --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+        --shadow-md: 0 1px 3px 0 rgba(0, 0, 0, 0.4),
+          0 1px 2px -1px rgba(0, 0, 0, 0.3);
+
+        color-scheme: dark;
+      }
+
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      html {
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+      }
+
+      body {
+        font-family: var(--font-sans);
+        line-height: 1.6;
+        background: var(--bg);
+        color: var(--fg);
+        min-height: 100vh;
+        transition: background-color var(--transition),
+          color var(--transition);
+      }
+
+      a {
+        color: var(--link);
+        text-decoration: none;
+        transition: color var(--transition);
+      }
+
+      a:hover {
+        color: var(--link-hover);
+      }
+
+      img,
+      picture,
+      video,
+      canvas,
+      svg {
+        display: block;
+        max-width: 100%;
+      }
+
+      button,
+      input,
+      select,
+      textarea {
+        font: inherit;
+        color: inherit;
+      }
+
+      code {
+        font-family: var(--font-mono);
+        font-size: 0.875em;
+      }
+
+      /* Top navigation bar */
+      .nav {
+        position: sticky;
+        top: 0;
+        z-index: 50;
+        backdrop-filter: saturate(180%) blur(12px);
+        -webkit-backdrop-filter: saturate(180%) blur(12px);
+        background: color-mix(in srgb, var(--bg) 80%, transparent);
+        border-bottom: 1px solid var(--border);
+      }
+
+      .nav-inner {
+        max-width: var(--max-width);
+        margin: 0 auto;
+        padding: 0.875rem 1.5rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+      }
+
+      .nav-brand {
+        font-size: 0.9375rem;
+        font-weight: 600;
+        color: var(--fg);
+        letter-spacing: -0.01em;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+
+      .nav-brand-mark {
+        width: 24px;
+        height: 24px;
+        border-radius: 6px;
+        background: var(--accent);
+        color: var(--accent-fg);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.75rem;
+        font-weight: 700;
+      }
+
+      .nav-actions {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+
+      .icon-btn {
+        appearance: none;
+        background: transparent;
+        border: 1px solid var(--border);
+        color: var(--fg-muted);
+        width: 36px;
+        height: 36px;
+        border-radius: var(--radius-sm);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: background-color var(--transition),
+          color var(--transition), border-color var(--transition);
+      }
+
+      .icon-btn:hover {
+        background: var(--bg-subtle);
+        color: var(--fg);
+        border-color: var(--border-strong);
+      }
+
+      .icon-btn:focus-visible {
+        outline: 2px solid var(--link);
+        outline-offset: 2px;
+      }
+
+      .icon-btn svg {
+        width: 16px;
+        height: 16px;
+      }
+
+      .theme-toggle .icon-sun {
+        display: none;
+      }
+
+      :root[data-theme="dark"] .theme-toggle .icon-sun {
+        display: block;
+      }
+
+      :root[data-theme="dark"] .theme-toggle .icon-moon {
+        display: none;
+      }
+
+      /* Hero */
+      .hero {
+        text-align: center;
+        padding: 5rem 1.5rem 3rem;
+        max-width: var(--max-width);
+        margin: 0 auto;
+      }
+
+      .hero h1 {
+        font-size: clamp(2.25rem, 5vw, 3.25rem);
+        font-weight: 700;
+        color: var(--fg);
+        letter-spacing: -0.035em;
+        line-height: 1.1;
+        margin-bottom: 1rem;
+      }
+
+      .hero .tagline {
+        font-size: 1.125rem;
+        color: var(--fg-muted);
+        max-width: 38rem;
+        margin: 0 auto 2rem;
+      }
+
+      .hero .badges {
+        display: flex;
+        gap: 0.5rem;
+        justify-content: center;
+        flex-wrap: wrap;
+      }
+
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.375rem;
+        padding: 0.375rem 0.75rem;
+        background: var(--bg-elevated);
+        border: 1px solid var(--border);
+        border-radius: 9999px;
+        font-size: 0.8125rem;
+        font-weight: 500;
+        color: var(--fg-muted);
+      }
+
+      /* Layout */
+      .container {
+        max-width: var(--max-width);
+        margin: 0 auto;
+        padding: 2rem 1.5rem 4rem;
+      }
+
+      section {
+        margin-bottom: 3.5rem;
+      }
+
+      .section-title {
+        font-size: 1.0625rem;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.625rem;
+        color: var(--fg);
+        letter-spacing: -0.01em;
+      }
+
+      .section-title .icon {
+        font-size: 1.125rem;
+        opacity: 0.9;
+      }
+
+      .section-description {
+        color: var(--fg-muted);
+        margin-bottom: 1.5rem;
+        font-size: 0.9375rem;
+        max-width: 42rem;
+      }
+
+      .section-description code {
+        background: var(--bg-code);
+        border: 1px solid var(--border);
+        padding: 0.0625rem 0.375rem;
+        border-radius: var(--radius-sm);
+        color: var(--fg);
+      }
+
+      .subsection-title {
+        color: var(--fg-subtle);
+        font-size: 0.75rem;
+        font-weight: 600;
+        margin-bottom: 0.875rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+      }
+
+      /* Demo Grid Layouts */
+      .demo-grid {
+        display: grid;
+        gap: 1rem;
+      }
+
+      .demo-grid.two-col {
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      }
+
+      .demo-grid.three-col {
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      }
+
+      .demo-grid.full-width {
+        grid-template-columns: 1fr;
+      }
+
+      .demo-grid.event-bus {
+        grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+      }
+
+      .demo-grid + .subsection-title {
+        margin-top: 2rem;
+      }
+
+      /* Lazy demo cards (light DOM, shared) */
+      .demo-grid .demo-card {
+        background: var(--bg-elevated);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        overflow: hidden;
+        transition: transform 180ms cubic-bezier(0.4, 0, 0.2, 1),
+          box-shadow 180ms cubic-bezier(0.4, 0, 0.2, 1),
+          border-color 180ms cubic-bezier(0.4, 0, 0.2, 1);
+      }
+
+      .demo-grid .demo-card:hover {
+        transform: translateY(-1px);
+        border-color: var(--border-strong);
+        box-shadow: var(--shadow-md);
+      }
+
+      .demo-grid .demo-card .demo-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.875rem 1.125rem;
+        background: var(--bg-subtle);
+        border-bottom: 1px solid var(--border);
+      }
+
+      .demo-grid .demo-card .demo-header h3 {
+        font-size: 0.9375rem;
+        font-weight: 600;
+        color: var(--fg);
+        margin: 0;
+        letter-spacing: -0.01em;
+      }
+
+      .demo-grid .demo-card .demo-badge {
+        background: var(--bg-elevated);
+        border: 1px solid var(--border);
+        color: var(--fg-muted);
+        padding: 0.1875rem 0.625rem;
+        border-radius: 9999px;
+        font-size: 0.6875rem;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+        text-transform: uppercase;
+      }
+
+      .demo-grid .demo-card .demo-content {
+        padding: 1.25rem;
+      }
+
+      .demo-grid .demo-card .demo-description {
+        color: var(--fg-muted);
+        margin-bottom: 1rem;
+        line-height: 1.6;
+        font-size: 0.875rem;
+      }
+
+      .demo-grid .demo-card .demo-description code {
+        background: var(--bg-code);
+        border: 1px solid var(--border);
+        color: var(--fg);
+        padding: 0.0625rem 0.375rem;
+        border-radius: var(--radius-sm);
+        font-family: var(--font-mono);
+        font-size: 0.75rem;
+      }
+
+      .demo-grid .demo-card .demo-info {
+        background: var(--bg-subtle);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-md);
+        padding: 0.875rem 1rem;
+        margin-bottom: 1rem;
+      }
+
+      .demo-grid .demo-card .info-item {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-bottom: 0.5rem;
+        font-size: 0.8125rem;
+      }
+
+      .demo-grid .demo-card .info-item:last-child {
+        margin-bottom: 0;
+      }
+
+      .demo-grid .demo-card .info-item .label {
+        color: var(--fg-subtle);
+        font-weight: 500;
+      }
+
+      .demo-grid .demo-card .info-item code {
+        background: var(--bg-elevated);
+        border: 1px solid var(--border);
+        color: var(--fg);
+        padding: 0.0625rem 0.375rem;
+        border-radius: var(--radius-sm);
+        font-family: var(--font-mono);
+        font-size: 0.75rem;
+      }
+
+      .demo-grid .demo-card .load-indicator {
+        background: var(--bg-subtle);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-md);
+        padding: 0.625rem 0.875rem;
+        font-size: 0.8125rem;
+        color: var(--fg-muted);
+      }
+
+      .demo-grid .demo-card .load-indicator strong {
+        color: var(--fg);
+        font-variant-numeric: tabular-nums;
+      }
+
+      .demo-grid .demo-card .interaction-demo,
+      .demo-grid .demo-card .viewport-info {
+        background: var(--bg-subtle);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-md);
+        padding: 1rem;
+        margin-bottom: 1rem;
+        text-align: center;
+      }
+
+      .demo-grid .demo-card .interaction-demo p {
+        color: var(--fg-muted);
+        margin-bottom: 0.625rem;
+        font-size: 0.875rem;
+      }
+
+      .demo-grid .demo-card .demo-button {
+        background: var(--accent);
+        color: var(--accent-fg);
+        border: 1px solid var(--accent);
+        padding: 0.5rem 1rem;
+        border-radius: var(--radius-md);
+        font-weight: 500;
+        font-size: 0.875rem;
+        cursor: pointer;
+        transition: opacity 150ms, transform 80ms;
+      }
+
+      .demo-grid .demo-card .demo-button:hover {
+        opacity: 0.88;
+      }
+
+      .demo-grid .demo-card .demo-button:active {
+        transform: scale(0.97);
+      }
+
+      .demo-grid .demo-card .viewport-info {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.625rem;
+      }
+
+      .demo-grid .demo-card .viewport-label {
+        color: var(--fg-muted);
+        font-size: 0.8125rem;
+      }
+
+      .demo-grid .demo-card .viewport-value {
+        background: var(--bg-elevated);
+        border: 1px solid var(--border);
+        color: var(--fg);
+        padding: 0.1875rem 0.625rem;
+        border-radius: var(--radius-sm);
+        font-weight: 500;
+        font-family: var(--font-mono);
+        font-size: 0.8125rem;
+      }
+
+      /* Global style used by the Shadow DOM vs Light DOM demo:
+         the shadow card blocks it, the light card receives it */
+      .leak-target {
+        background: linear-gradient(135deg, #ec4899, #8b5cf6);
+        color: #fff;
+        padding: 0.75rem 1rem;
+        border-radius: 10px;
+        font-weight: 600;
+        font-size: 0.875rem;
+        margin: 0;
+      }
+
+      .leak-target code {
+        background: rgba(255, 255, 255, 0.2);
+        border: 1px solid rgba(255, 255, 255, 0.35);
+        color: #fff;
+        padding: 0.0625rem 0.375rem;
+        border-radius: 6px;
+      }
+
+      /* Lazy placeholder — clean, neutral */
+      .lazy-placeholder {
+        background: var(--bg-elevated);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        overflow: hidden;
+        cursor: pointer;
+        transition: border-color var(--transition),
+          background-color var(--transition);
+      }
+
+      .lazy-placeholder.interaction:hover {
+        border-color: var(--border-strong);
+        background: var(--bg-subtle);
+      }
+
+      .placeholder-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.875rem 1.125rem;
+        background: var(--bg-subtle);
+        border-bottom: 1px solid var(--border);
+      }
+
+      .placeholder-header h3 {
+        font-size: 0.9375rem;
+        font-weight: 600;
+        color: var(--fg);
+        margin: 0;
+      }
+
+      .placeholder-badge {
+        background: var(--bg-elevated);
+        border: 1px solid var(--border);
+        color: var(--fg-muted);
+        padding: 0.1875rem 0.625rem;
+        border-radius: 9999px;
+        font-size: 0.75rem;
+        font-weight: 500;
+      }
+
+      .placeholder-content {
+        padding: 1.5rem 1.125rem;
+        text-align: center;
+      }
+
+      .placeholder-content p {
+        color: var(--fg-muted);
+        margin-bottom: 1rem;
+        font-size: 0.9375rem;
+      }
+
+      .placeholder-info {
+        background: var(--bg-code);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-md);
+        padding: 0.75rem;
+        margin-bottom: 1rem;
+      }
+
+      .placeholder-info code {
+        color: var(--fg);
+        font-size: 0.8125rem;
+      }
+
+      .click-hint {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0.5rem 0 0.25rem;
+      }
+
+      .click-hint span {
+        background: var(--accent);
+        color: var(--accent-fg);
+        padding: 0.625rem 1.5rem;
+        border-radius: var(--radius-md);
+        font-weight: 500;
+        font-size: 0.9375rem;
+        transition: opacity var(--transition);
+      }
+
+      .click-hint span:hover {
+        opacity: 0.9;
+      }
+
+      /* Footer */
+      .footer {
+        max-width: var(--max-width);
+        margin: 0 auto;
+        text-align: center;
+        padding: 2.5rem 1.5rem 3rem;
+        border-top: 1px solid var(--border);
+        color: var(--fg-subtle);
+        font-size: 0.875rem;
+      }
+
+      .footer p + p {
+        margin-top: 0.5rem;
+      }
+
+      /* Responsive */
+      @media (max-width: 768px) {
+        .hero {
+          padding: 3rem 1.25rem 2rem;
+        }
+
+        .hero .tagline {
+          font-size: 1rem;
+        }
+
+        .demo-grid.event-bus,
+        .demo-grid.two-col {
+          grid-template-columns: 1fr;
+        }
+
+        .container {
+          padding: 1.5rem 1rem 3rem;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          transition-duration: 0.01ms !important;
+          animation-duration: 0.01ms !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <nav class="nav" aria-label="Primary">
+      <div class="nav-inner">
+        <a href="#" class="nav-brand" aria-label="LadrillosJS home">
+          <span class="nav-brand-mark" aria-hidden="true">L</span>
+          LadrillosJS
+        </a>
+        <div class="nav-actions">
+          <a
+            class="icon-btn"
+            href="https://github.com/drubiodev/LadrillosJS"
+            target="_blank"
+            rel="noopener"
+            aria-label="GitHub repository"
+            title="GitHub"
+          >
+            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path
+                d="M12 .5C5.73.5.86 5.37.86 11.64c0 4.94 3.2 9.13 7.64 10.61.56.1.77-.24.77-.54 0-.27-.01-1.16-.02-2.1-3.1.67-3.76-1.32-3.76-1.32-.51-1.3-1.25-1.65-1.25-1.65-1.02-.7.08-.69.08-.69 1.13.08 1.72 1.16 1.72 1.16 1 1.72 2.63 1.22 3.27.93.1-.73.39-1.22.71-1.5-2.48-.28-5.09-1.24-5.09-5.51 0-1.22.43-2.21 1.14-2.99-.11-.28-.5-1.42.11-2.96 0 0 .94-.3 3.07 1.14a10.6 10.6 0 0 1 5.59 0c2.13-1.44 3.07-1.14 3.07-1.14.61 1.54.23 2.68.11 2.96.71.78 1.14 1.77 1.14 2.99 0 4.28-2.61 5.22-5.1 5.5.4.34.76 1.02.76 2.06 0 1.49-.01 2.69-.01 3.05 0 .3.2.65.78.54A11.16 11.16 0 0 0 23.14 11.64C23.14 5.37 18.27.5 12 .5Z"
+              />
+            </svg>
+          </a>
+          <button
+            class="icon-btn theme-toggle"
+            type="button"
+            aria-label="Toggle color theme"
+            title="Toggle theme"
+          >
+            <svg
+              class="icon-moon"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z" />
+            </svg>
+            <svg
+              class="icon-sun"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <circle cx="12" cy="12" r="4" />
+              <path d="M12 2v2" />
+              <path d="M12 20v2" />
+              <path d="m4.93 4.93 1.41 1.41" />
+              <path d="m17.66 17.66 1.41 1.41" />
+              <path d="M2 12h2" />
+              <path d="M20 12h2" />
+              <path d="m6.34 17.66-1.41 1.41" />
+              <path d="m19.07 4.93-1.41 1.41" />
+            </svg>
+          </button>
+        </div>
+      </div>
+    </nav>
+
+    <header class="hero">
+      <h1>LadrillosJS</h1>
+      <p class="tagline">
+        A lightweight, zero-dependency web component framework with
+        single-file components and reactive state.
+      </p>
+      <div class="badges">
+        <span class="badge">Zero Dependencies</span>
+        <span class="badge">Single-File Components</span>
+        <span class="badge">Reactive State</span>
+        <span class="badge">Familiar Syntax</span>
+      </div>
+    </header>
+
+    <main class="container">
+      <!-- Basics Section -->
+      <section>
+        <h2 class="section-title">
+          <span class="icon">🎯</span>
+          Basics
+        </h2>
+        <div class="demo-grid two-col">
+          <demo-hello-world></demo-hello-world>
+          <demo-counter></demo-counter>
+        </div>
+      </section>
+
+      <!-- Components & Props Section -->
+      <section>
+        <h2 class="section-title">
+          <span class="icon">🧩</span>
+          Components &amp; Props
+        </h2>
+        <p class="section-description">
+          Pass data into components with plain HTML attributes — they override
+          script defaults. Inside every script you also get
+          <code>$host</code>, <code>$refs</code>, and lifecycle events.
+        </p>
+        <div class="demo-grid two-col">
+          <demo-props></demo-props>
+          <demo-lifecycle></demo-lifecycle>
+        </div>
+      </section>
+
+      <!-- Data Binding Section -->
+      <section>
+        <h2 class="section-title">
+          <span class="icon">🔗</span>
+          Data Binding
+        </h2>
+        <div class="demo-grid two-col">
+          <demo-two-way-binding></demo-two-way-binding>
+          <demo-ref></demo-ref>
+        </div>
+      </section>
+
+      <!-- Control Flow Section -->
+      <section>
+        <h2 class="section-title">
+          <span class="icon">🔀</span>
+          Control Flow
+        </h2>
+        <div class="demo-grid two-col">
+          <demo-conditional></demo-conditional>
+          <demo-show-hide></demo-show-hide>
+        </div>
+      </section>
+
+      <!-- Lists Section -->
+      <section>
+        <h2 class="section-title">
+          <span class="icon">📋</span>
+          List Rendering
+        </h2>
+        <div class="demo-grid full-width">
+          <demo-list></demo-list>
+        </div>
+      </section>
+
+      <!-- Real-World Example Section -->
+      <section>
+        <h2 class="section-title">
+          <span class="icon">✅</span>
+          Real-World Example
+        </h2>
+        <div class="demo-grid full-width">
+          <demo-todo></demo-todo>
+        </div>
+      </section>
+
+      <!-- Cross-Component Communication Section -->
+      <section>
+        <h2 class="section-title">
+          <span class="icon">📡</span>
+          Cross-Component Communication
+        </h2>
+        <p class="section-description">
+          Use <code>$emit</code> and <code>$listen</code>
+          to communicate between components without prop drilling!
+        </p>
+        <div class="demo-grid event-bus">
+          <demo-event-sender></demo-event-sender>
+          <demo-event-receiver></demo-event-receiver>
+        </div>
+      </section>
+
+      <!-- Event Modifiers Section -->
+      <section>
+        <h2 class="section-title">
+          <span class="icon">⌨️</span>
+          Event Modifiers
+        </h2>
+        <p class="section-description">
+          Attach listeners declaratively with <code>$on:event.modifier</code> —
+          key filters, <code>.prevent</code>, <code>.stop</code>,
+          <code>.once</code>, <code>.self</code>, and system keys, all
+          combinable. Every interaction shows up in the event log.
+        </p>
+        <div class="demo-grid full-width">
+          <demo-event-modifiers></demo-event-modifiers>
+        </div>
+      </section>
+
+      <!-- Shadow DOM Section -->
+      <section>
+        <h2 class="section-title">
+          <span class="icon">🛡️</span>
+          Styling &amp; Shadow DOM
+        </h2>
+        <p class="section-description">
+          Components use Shadow DOM by default for full style encapsulation —
+          or opt out with <code>useShadowDOM: false</code> to let global styles
+          in. Both cards below contain the same
+          <code>leak-target</code> element; only one turns pink.
+        </p>
+        <div class="demo-grid two-col">
+          <demo-shadow-dom></demo-shadow-dom>
+          <demo-light-dom></demo-light-dom>
+        </div>
+      </section>
+
+      <!-- Lazy Loading Section -->
+      <section>
+        <h2 class="section-title">
+          <span class="icon">⚡</span>
+          Lazy Loading Strategies
+        </h2>
+        <p class="section-description">
+          Load components on-demand using different strategies. Scroll down to
+          see <code>lazyOnVisible</code> in action! Check the load timestamps to
+          see when each component was initialized.
+        </p>
+
+        <h3 class="subsection-title">Immediate Strategies</h3>
+        <div class="demo-grid two-col" style="margin-bottom: 2rem">
+          <!-- lazyOnIdle - loads when browser is idle -->
+          <lazy-idle-demo></lazy-idle-demo>
+          <!-- lazyOnDelay - loads after 2 seconds -->
+          <lazy-delay-demo></lazy-delay-demo>
+        </div>
+
+        <h3 class="subsection-title">Interaction-Based</h3>
+        <div class="demo-grid two-col" style="margin-bottom: 2rem">
+          <!-- lazyOnInteraction - loads on click/focus -->
+          <lazy-interaction-demo tabindex="0">
+            <!-- Placeholder content shown before component loads -->
+            <div class="lazy-placeholder interaction">
+              <div class="placeholder-header">
+                <h3>lazyOnInteraction</h3>
+                <span class="placeholder-badge">Tab + Enter to load</span>
+              </div>
+              <div class="placeholder-content">
+                <p>
+                  <strong>Click or Tab here</strong> to trigger lazy loading
+                </p>
+                <div class="placeholder-info">
+                  <code>lazyOnInteraction(['click', 'focusin'])</code>
+                </div>
+                <div class="click-hint">
+                  <span>Focus me</span>
+                </div>
+              </div>
+            </div>
+          </lazy-interaction-demo>
+          <!-- eager attribute override -->
+          <lazy-eager-demo eager></lazy-eager-demo>
+        </div>
+
+        <h3 class="subsection-title">Visibility &amp; Media Query</h3>
+        <div class="demo-grid two-col" style="margin-bottom: 2rem">
+          <!-- lazyOnVisible - loads when visible -->
+          <lazy-visible-demo></lazy-visible-demo>
+          <!-- lazyOnMedia - loads based on media query -->
+          <lazy-media-demo></lazy-media-demo>
+        </div>
+
+        <h3 class="subsection-title">Declarative Inline Lazy</h3>
+        <div class="demo-grid full-width">
+          <!-- <lazy> built-in element for inline content -->
+          <demo-lazy-element></demo-lazy-element>
+        </div>
+      </section>
+
+      <section>
+        <h2 class="section-title">
+          <span class="icon">📄</span>
+          Single-File Components
+        </h2>
+        <p class="section-description">
+          Every component is one <code>.html</code> file — template, script,
+          and scoped styles together. This is all it takes:
+        </p>
+        <code-block filename="counter.html">
+          <template>
+            <div>
+              <h2>Count: {count}</h2>
+              <button onclick="increment()">Add</button>
+              <button onclick="reset()">Reset</button>
+            </div>
+
+            <script>
+              let count = 0;
+
+              const increment = () => {
+                count++;
+              };
+
+              const reset = () => {
+                count = 0;
+              };
+            </script>
+          </template>
+        </code-block>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <p>Built with LadrillosJS</p>
+      <p>
+        <a
+          href="https://github.com/drubiodev/LadrillosJS"
+          target="_blank"
+          rel="noopener"
+          >GitHub</a
+        >
+        ·
+        <a
+          href="https://www.npmjs.com/package/ladrillosjs"
+          target="_blank"
+          rel="noopener"
+          >npm</a
+        >
+      </p>
+    </footer>
+
+    <script>
+      (function () {
+        var root = document.documentElement;
+        var btn = document.querySelector(".theme-toggle");
+        var media = window.matchMedia("(prefers-color-scheme: dark)");
+
+        function setTheme(theme, persist) {
+          root.dataset.theme = theme;
+          if (persist) {
+            try {
+              localStorage.setItem("theme", theme);
+            } catch (e) {}
+          }
+          if (btn) {
+            btn.setAttribute(
+              "aria-label",
+              theme === "dark" ? "Switch to light theme" : "Switch to dark theme"
+            );
+          }
+        }
+
+        if (btn) {
+          btn.addEventListener("click", function () {
+            var next = root.dataset.theme === "dark" ? "light" : "dark";
+            setTheme(next, true);
+          });
+        }
+
+        media.addEventListener &&
+          media.addEventListener("change", function (e) {
+            try {
+              if (!localStorage.getItem("theme")) {
+                setTheme(e.matches ? "dark" : "light", false);
+              }
+            } catch (err) {}
+          });
+      })();
+    </script>
+  </body>
+</html>

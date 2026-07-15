@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>e2e: control elements inside tables</title>
+    <script type="module">
+      import { registerComponent } from "/dist/index.js";
+      // Light DOM instance (asserted via document queries) …
+      await registerComponent("table-rows-light", "./components/table-rows.html", false);
+      // … and a Shadow DOM instance (asserted via shadowRoot).
+      await registerComponent("table-rows-shadow", "./components/table-rows.html", true);
+      window.__componentsReady = true;
+    </script>
+  </head>
+  <body>
+    <table-rows-light></table-rows-light>
+    <table-rows-shadow></table-rows-shadow>
+  </body>
+</html>

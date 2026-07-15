@@ -1,0 +1,292 @@
+<div class="demo-card" style="border-color: {themeColor}">
+  <h3>📥 Event Bus - Receiver</h3>
+  <p class="description">
+    Use <code>$listen</code> to receive events from other components
+  </p>
+
+  <div class="demo-content">
+    <div class="theme-indicator" style="background: {themeColor}">
+      Current theme: {themeColor}
+    </div>
+
+    <div class="messages-section">
+      <h4>📨 Received Messages:</h4>
+      <if condition="messages.length === 0">
+        <div class="empty">
+          No messages yet. Send one from the sender component!
+        </div>
+      </if>
+      <else>
+        <div class="message-list">
+          <for each="msg in messages">
+            <div class="message-item">
+              <span class="time">{msg.time}</span>
+              <span class="text">{msg.text}</span>
+            </div>
+          </for>
+        </div>
+      </else>
+    </div>
+
+    <if condition="notification">
+      <div class="notification">
+        <div class="notification-header">
+          <span class="notification-icon">🔔</span>
+          <span class="notification-title">{notification?.title}</span>
+          <button onclick="dismissNotification()" class="dismiss-btn">×</button>
+        </div>
+        <p class="notification-message">{notification?.message}</p>
+        <span class="notification-time">{notification?.time}</span>
+      </div>
+    </if>
+
+    <button onclick="clearMessages()" class="clear-btn">
+      🗑️ Clear All Messages
+    </button>
+  </div>
+
+  <div class="code-hint">
+    <code $no:bind>$listen("demo:message", (data) =&gt; { ... })</code>
+  </div>
+</div>
+
+<script>
+  let messages = [];
+  let themeColor = "#8b5cf6";
+  let notification = null;
+
+  // Listen for messages from the sender component
+  $listen("demo:message", (data) => {
+    messages = [...messages, data];
+  });
+
+  // Listen for theme changes
+  $listen("demo:theme", (data) => {
+    themeColor = data.color;
+  });
+
+  // Listen for notifications
+  $listen("demo:notification", (data) => {
+    console.log("Received notification:", data);
+    notification = data;
+  });
+
+  function clearMessages() {
+    messages = [];
+  }
+
+  function dismissNotification() {
+    notification = null;
+  }
+</script>
+
+<style>
+  :host {
+    display: block;
+  }
+
+  .demo-card {
+    background: var(--bg-elevated, #fff);
+    border: 1px solid var(--border, #e4e4e7);
+    border-radius: 14px;
+    padding: 1.5rem;
+    color: var(--fg, #18181b);
+    box-shadow: var(--shadow-sm, 0 1px 2px rgba(0, 0, 0, 0.04));
+    transition: transform 180ms cubic-bezier(.4, 0, .2, 1),
+      box-shadow 180ms cubic-bezier(.4, 0, .2, 1),
+      border-color 220ms cubic-bezier(.4, 0, .2, 1);
+  }
+
+  .demo-card:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-md, 0 4px 12px rgba(0, 0, 0, 0.06));
+  }
+
+  h3 {
+    margin: 0 0 0.375rem;
+    font-size: 1rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+
+  h4 {
+    margin: 0 0 0.625rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--fg-subtle, #71717a);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  .description {
+    color: var(--fg-muted, #52525b);
+    font-size: 0.875rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .description code {
+    background: var(--bg-code, #f4f4f6);
+    border: 1px solid var(--border, #e4e4e7);
+    color: var(--fg, #18181b);
+    padding: 0.0625rem 0.375rem;
+    border-radius: 6px;
+    font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+    font-size: 0.8125rem;
+  }
+
+  .demo-content {
+    background: var(--bg-subtle, #f4f4f6);
+    border: 1px solid var(--border, #e4e4e7);
+    border-radius: 10px;
+    padding: 1.25rem;
+    margin-bottom: 1rem;
+  }
+
+  .theme-indicator {
+    padding: 0.625rem 0.875rem;
+    border-radius: 8px;
+    color: #fff;
+    font-weight: 500;
+    text-align: center;
+    margin-bottom: 1rem;
+    font-size: 0.875rem;
+    transition: background-color 220ms cubic-bezier(.4, 0, .2, 1);
+  }
+
+  .messages-section {
+    margin-bottom: 1rem;
+  }
+
+  .empty {
+    color: var(--fg-subtle, #71717a);
+    font-style: italic;
+    text-align: center;
+    padding: 1rem;
+    font-size: 0.875rem;
+  }
+
+  .message-list {
+    max-height: 150px;
+    overflow-y: auto;
+  }
+
+  .message-item {
+    display: flex;
+    gap: 0.75rem;
+    padding: 0.5rem 0.75rem;
+    background: var(--bg-elevated, #fff);
+    border: 1px solid var(--border, #e4e4e7);
+    border-radius: 8px;
+    margin-bottom: 0.375rem;
+    font-size: 0.875rem;
+    animation: slideIn 200ms ease;
+  }
+
+  .message-item .time {
+    color: var(--fg-subtle, #71717a);
+    font-size: 0.75rem;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .message-item .text {
+    flex: 1;
+    color: var(--fg, #18181b);
+  }
+
+  .notification {
+    background: var(--bg-elevated, #fff);
+    border: 1px solid var(--border, #e4e4e7);
+    padding: 0.875rem 1rem;
+    border-radius: 10px;
+    margin-bottom: 1rem;
+    color: var(--fg, #18181b);
+    animation: slideIn 220ms cubic-bezier(.4, 0, .2, 1);
+    box-shadow: var(--shadow-sm, 0 1px 2px rgba(0, 0, 0, 0.04));
+  }
+
+  @keyframes slideIn {
+    from {
+      opacity: 0;
+      transform: translateY(-4px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .notification-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.375rem;
+  }
+
+  .notification-icon {
+    font-size: 1rem;
+  }
+
+  .notification-title {
+    font-weight: 600;
+    flex: 1;
+    font-size: 0.875rem;
+  }
+
+  .dismiss-btn {
+    background: transparent;
+    border: 1px solid var(--border, #e4e4e7);
+    color: var(--fg-muted, #52525b);
+    width: 22px;
+    height: 22px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.875rem;
+    line-height: 1;
+    transition: background-color 150ms, color 150ms;
+  }
+
+  .dismiss-btn:hover {
+    background: var(--bg-subtle, #f4f4f6);
+    color: var(--fg, #18181b);
+  }
+
+  .notification-message {
+    margin: 0 0 0.25rem;
+    font-size: 0.875rem;
+    color: var(--fg-muted, #52525b);
+  }
+
+  .notification-time {
+    font-size: 0.75rem;
+    color: var(--fg-subtle, #71717a);
+  }
+
+  .clear-btn {
+    width: 100%;
+    padding: 0.5rem;
+    background: transparent;
+    color: var(--fg-muted, #52525b);
+    border: 1px solid var(--border, #e4e4e7);
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.8125rem;
+    transition: background-color 150ms, color 150ms;
+  }
+
+  .clear-btn:hover {
+    background: var(--bg-subtle, #f4f4f6);
+    color: var(--fg, #18181b);
+  }
+
+  .code-hint {
+    background: var(--bg-code, #f4f4f6);
+    border: 1px solid var(--border, #e4e4e7);
+    border-radius: 8px;
+    padding: 0.75rem 0.875rem;
+    font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+    font-size: 0.8125rem;
+    color: var(--fg-muted, #52525b);
+  }
+</style>

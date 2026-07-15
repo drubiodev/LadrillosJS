@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Co-Driver</title>
+  <link rel="stylesheet" href="/main.css" />
+  <!-- Use local CDN build instead of actual CDN -->
+  <script src="http://localhost:3000/ladrillos.dev.iife.js"></script>
+  <script type="module">
+    await ladrillosjs.registerComponents([
+      {
+        name: "header-component",
+        path: "/components/header",
+      },
+      {
+        name: "search-component",
+        path: "/components/search",
+      },
+    ]);
+  </script>
+</head>
+
+<body>
+  <header-component title="Data"></header-component>
+  <main>
+    <search-component></search-component>
+  </main>
+</body>
+
+</html>

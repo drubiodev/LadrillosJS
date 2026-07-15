@@ -1,0 +1,251 @@
+<div class="demo-card">
+  <h3>📡 Event Bus - Sender</h3>
+  <p class="description">
+    Use <code>$emit</code> to broadcast events across components
+  </p>
+
+  <div class="demo-content">
+    <div class="input-section">
+      <label>Enter a message:</label>
+      <input type="text" $bind="message" placeholder="Type something..." />
+    </div>
+
+    <div class="color-section">
+      <label>Pick a theme:</label>
+      <div class="color-buttons">
+        <for each="c in colors">
+          <button onclick="sendTheme(c.value)" class="color-btn" style="background: {c.value}">
+            {c.name}
+          </button>
+        </for>
+      </div>
+    </div>
+
+    <div class="action-buttons">
+      <button onclick="sendMessage()" class="send-btn">📤 Send Message</button>
+      <button onclick="sendNotification()" class="notify-btn">
+        🔔 Send Notification
+      </button>
+    </div>
+
+    <div class="sent-log">
+      <p>Last sent: {lastSent || 'Nothing yet'}</p>
+    </div>
+  </div>
+
+  <div class="code-hint">
+    <code $no:bind>$emit("message-sent", { text: message })</code>
+  </div>
+</div>
+
+<script>
+  let message = "";
+  let lastSent = "";
+
+  let colors = [
+    { name: "🔴", value: "#ef4444" },
+    { name: "🟢", value: "#22c55e" },
+    { name: "🔵", value: "#3b82f6" },
+    { name: "🟣", value: "#8b5cf6" },
+  ];
+
+  function sendMessage() {
+    if (message.trim()) {
+      $emit("demo:message", {
+        text: message,
+        time: new Date().toLocaleTimeString(),
+      });
+      lastSent = `Message: "${message}"`;
+      message = "";
+    }
+  }
+
+  function sendTheme(color) {
+    $emit("demo:theme", { color });
+    lastSent = `Theme: ${color}`;
+  }
+
+  function sendNotification() {
+    $emit("demo:notification", {
+      title: "Hello!",
+      message: "This is a cross-component notification",
+      time: new Date().toLocaleTimeString(),
+    });
+    lastSent = "Notification sent!";
+  }
+</script>
+
+<style>
+  :host {
+    display: block;
+  }
+
+  .demo-card {
+    background: var(--bg-elevated, #fff);
+    border: 1px solid var(--border, #e4e4e7);
+    border-radius: 14px;
+    padding: 1.5rem;
+    color: var(--fg, #18181b);
+    box-shadow: var(--shadow-sm, 0 1px 2px rgba(0, 0, 0, 0.04));
+    transition: transform 180ms cubic-bezier(.4, 0, .2, 1),
+      box-shadow 180ms cubic-bezier(.4, 0, .2, 1),
+      border-color 180ms cubic-bezier(.4, 0, .2, 1);
+  }
+
+  .demo-card:hover {
+    transform: translateY(-1px);
+    border-color: var(--border-strong, #d4d4d8);
+    box-shadow: var(--shadow-md, 0 4px 12px rgba(0, 0, 0, 0.06));
+  }
+
+  h3 {
+    margin: 0 0 0.375rem;
+    font-size: 1rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+
+  .description {
+    color: var(--fg-muted, #52525b);
+    font-size: 0.875rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .description code {
+    background: var(--bg-code, #f4f4f6);
+    border: 1px solid var(--border, #e4e4e7);
+    color: var(--fg, #18181b);
+    padding: 0.0625rem 0.375rem;
+    border-radius: 6px;
+    font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+    font-size: 0.8125rem;
+  }
+
+  .demo-content {
+    background: var(--bg-subtle, #f4f4f6);
+    border: 1px solid var(--border, #e4e4e7);
+    border-radius: 10px;
+    padding: 1.25rem;
+    margin-bottom: 1rem;
+  }
+
+  .input-section,
+  .color-section {
+    margin-bottom: 1rem;
+  }
+
+  .input-section label,
+  .color-section label {
+    display: block;
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+    font-size: 0.8125rem;
+    color: var(--fg-muted, #52525b);
+  }
+
+  .input-section input {
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    background: var(--bg-elevated, #fff);
+    color: var(--fg, #18181b);
+    border: 1px solid var(--border, #e4e4e7);
+    border-radius: 8px;
+    font-size: 0.9375rem;
+    box-sizing: border-box;
+    transition: border-color 150ms, box-shadow 150ms;
+  }
+
+  .input-section input:focus {
+    outline: none;
+    border-color: var(--accent, #18181b);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent, #18181b) 12%, transparent);
+  }
+
+  .color-buttons {
+    display: flex;
+    gap: 0.375rem;
+  }
+
+  .color-btn {
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    border: 2px solid transparent;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 1rem;
+    transition: transform 120ms, border-color 150ms;
+  }
+
+  .color-btn:hover {
+    transform: scale(1.08);
+    border-color: var(--accent, #18181b);
+  }
+
+  .color-btn:active {
+    transform: scale(0.95);
+  }
+
+  .action-buttons {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+  }
+
+  .send-btn,
+  .notify-btn {
+    flex: 1;
+    padding: 0.5rem 0.875rem;
+    border: 1px solid var(--border, #e4e4e7);
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 500;
+    font-size: 0.8125rem;
+    transition: opacity 150ms, transform 80ms, background-color 150ms;
+    background: var(--bg-elevated, #fff);
+    color: var(--fg, #18181b);
+  }
+
+  .send-btn {
+    background: var(--accent, #18181b);
+    color: var(--accent-fg, #fff);
+    border-color: var(--accent, #18181b);
+  }
+
+  .send-btn:hover {
+    opacity: 0.88;
+  }
+
+  .notify-btn:hover {
+    background: var(--bg-subtle, #f4f4f6);
+    border-color: var(--border-strong, #d4d4d8);
+  }
+
+  .send-btn:active,
+  .notify-btn:active {
+    transform: scale(0.97);
+  }
+
+  .sent-log {
+    background: var(--bg-elevated, #fff);
+    border: 1px solid var(--border, #e4e4e7);
+    padding: 0.625rem 0.75rem;
+    border-radius: 8px;
+    font-size: 0.8125rem;
+    color: var(--fg-muted, #52525b);
+  }
+
+  .sent-log p {
+    margin: 0;
+  }
+
+  .code-hint {
+    background: var(--bg-code, #f4f4f6);
+    border: 1px solid var(--border, #e4e4e7);
+    border-radius: 8px;
+    padding: 0.75rem 0.875rem;
+    font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+    font-size: 0.8125rem;
+    color: var(--fg-muted, #52525b);
+  }
+</style>

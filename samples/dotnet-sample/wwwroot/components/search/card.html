@@ -1,0 +1,149 @@
+<div class="card">
+  <div class="card-icon">
+    <slot name="icon">
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width="24"
+        height="24"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <rect width="20" height="16" x="2" y="4" rx="2" />
+        <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
+      </svg>
+    </slot>
+  </div>
+  <div class="card-content">
+    <div class="card-header">
+      <h3 class="card-title">{email.subject}</h3>
+      <span class="card-date">{formattedDate}</span>
+    </div>
+    <p class="card-subtitle">{email.from}</p>
+    <p class="card-preview">{email.body}</p>
+  </div>
+</div>
+
+<script>
+  const formattedDate = email?.timestamp
+    ? new Date(email.timestamp).toLocaleDateString()
+    : "";
+</script>
+
+<style>
+  .card {
+    display: flex;
+    gap: 16px;
+    padding: 16px 20px;
+    background: #1e1e1e;
+    border-radius: 8px;
+    border: 1px solid #333;
+    transition: background-color 0.2s ease;
+    margin-top: 0.6rem;
+    margin-bottom: 0.6rem;
+  }
+
+  .card:hover {
+    background: #252525;
+  }
+
+  .card-icon {
+    flex-shrink: 0;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #2a2a2a;
+    border-radius: 8px;
+    color: #6b9fff;
+  }
+
+  .card-icon svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .card-content {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+    margin-bottom: 4px;
+  }
+
+  .card-title {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: #e0e0e0;
+    line-height: 1.4;
+  }
+
+  .card-date {
+    flex-shrink: 0;
+    font-size: 12px;
+    color: #888;
+    white-space: nowrap;
+  }
+
+  .card-subtitle {
+    margin: 0 0 8px 0;
+    font-size: 12px;
+    color: #6b9fff;
+  }
+
+  .card-preview {
+    margin: 0;
+    font-size: 13px;
+    color: #999;
+    line-height: 1.5;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+  }
+
+  .card-details {
+    margin-top: 8px;
+  }
+
+  .card-details summary {
+    cursor: pointer;
+    font-size: 13px;
+    color: #6b9fff;
+    list-style: none;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .card-details summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .card-details summary::before {
+    content: "▸";
+    transition: transform 0.2s ease;
+  }
+
+  .card-details[open] summary::before {
+    transform: rotate(90deg);
+  }
+
+  .card-details-content {
+    padding-top: 12px;
+    font-size: 13px;
+    color: #999;
+    line-height: 1.6;
+  }
+</style>

@@ -1,0 +1,83 @@
+<style>
+  header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 1.25rem;
+    background: #1a1f35;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  h1 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin: 0;
+    color: #e2e8f0;
+    letter-spacing: -0.01em;
+  }
+
+  nav {
+    display: flex;
+    gap: 3rem;
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+  }
+
+  nav a {
+    color: #94a3b8;
+    text-decoration: none;
+    font-weight: 500;
+    font-size: 0.95rem;
+    transition: color 0.2s ease;
+  }
+
+  nav a:hover {
+    color: #ffffff;
+  }
+
+  .login-btn {
+    color: #94a3b8;
+    text-decoration: none;
+    font-weight: 500;
+    font-size: 0.95rem;
+    padding: 0.6rem 1.5rem;
+    border: 1px solid #3b4261;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+  }
+
+  .login-btn:hover {
+    color: #ffffff;
+    border-color: #64748b;
+  }
+</style>
+
+<header>
+  <h1>LadrillosJS</h1>
+  <nav>
+    <for each="link in navLinks">
+      <a href="{link.href}">{link.text}</a>
+    </for>
+  </nav>
+
+  <if condition="!isLoggedIn">
+    <a onclick="login()" class="login-btn">Log in</a>
+  </if>
+  <else>
+    <a onclick="login()" class="login-btn">Log Out</a>
+  </else>
+</header>
+
+<script type="module">
+  import { links } from "./links.ts";
+
+  const navLinks = links;
+  let isLoggedIn = false;
+
+  function login() {
+    isLoggedIn = !isLoggedIn;
+  }
+</script>

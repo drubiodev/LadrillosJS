@@ -1,0 +1,66 @@
+<div class="keyed">
+  <for each="row in rows" key="row.id">
+    <div class="krow {row.id === selected ? 'sel' : ''}" onclick="rowClick(row.id)">
+      <span class="klabel" onclick="pick(row.id, row.label)">{row.label}</span>
+      <a href="#nav" class="kprev" $on:click.prevent="mark(row.id)">p</a>
+      <span class="kstop" $on:click.stop="markStop(row.id)">s</span>
+    </div>
+  </for>
+</div>
+<div class="plain">
+  <for each="(name, i) in names">
+    <span class="prow" onclick="pickIndex(i, name)">{name}:{i}</span>
+  </for>
+</div>
+
+<script>
+  let rows = [
+    { id: 1, label: "a1" },
+    { id: 2, label: "b2" },
+    { id: 3, label: "c3" },
+    { id: 4, label: "d4" },
+  ];
+  let names = ["x", "y", "z"];
+  let selected = 0;
+
+  function pick(id, label) {
+    selected = id;
+    window.__probe.lastPick = id + ":" + label;
+  }
+
+  function rowClick(id) {
+    window.__probe.lastRowClick = id;
+  }
+
+  function mark(id) {
+    window.__probe.lastMark = id;
+  }
+
+  function markStop(id) {
+    window.__probe.lastStop = id;
+  }
+
+  function pickIndex(i, name) {
+    window.__probe.lastIndexPick = name + "@" + i;
+  }
+
+  function relabel() {
+    rows = rows.map((r) => ({ id: r.id, label: r.label + "!" }));
+  }
+
+  function swapRows() {
+    const next = rows.slice();
+    const t = next[1];
+    next[1] = next[3];
+    next[3] = t;
+    rows = next;
+  }
+
+  function dropFirstName() {
+    names = names.filter((n) => n !== "x");
+  }
+
+  window.__probe = {};
+  window.__loopApi = { relabel, swapRows, dropFirstName };
+  window.__loopReady = true;
+</script>

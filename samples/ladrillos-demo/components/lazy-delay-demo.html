@@ -1,0 +1,35 @@
+<template>
+  <div class="demo-card">
+    <div class="demo-header">
+      <h3>⏱️ lazyOnDelay</h3>
+      <span class="demo-badge">Loaded!</span>
+    </div>
+    <div class="demo-content">
+      <p class="demo-description">
+        This component loaded after a 2 second delay. Simple time-based loading
+        using <code>setTimeout</code>.
+      </p>
+      <div class="demo-info">
+        <div class="info-item">
+          <span class="label">Strategy:</span>
+          <code>lazyOnDelay(2000)</code>
+        </div>
+        <div class="info-item">
+          <span class="label">Use case:</span>
+          <span>Chat widgets, secondary content, deferred features</span>
+        </div>
+      </div>
+      <div class="load-indicator">
+        ✅ Component rendered at: <strong>{loadTime}</strong>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script>
+  let loadTime = new Date().toLocaleTimeString();
+</script>
+
+<style>
+  /* Component-specific styles inherited from parent index.html */
+</style>

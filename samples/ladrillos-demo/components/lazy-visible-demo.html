@@ -1,0 +1,35 @@
+<template>
+  <div class="demo-card">
+    <div class="demo-header">
+      <h3>👁️ lazyOnVisible</h3>
+      <span class="demo-badge">Loaded!</span>
+    </div>
+    <div class="demo-content">
+      <p class="demo-description">
+        This component loaded when it became visible in the viewport. Uses
+        <code>IntersectionObserver</code> with configurable root margin.
+      </p>
+      <div class="demo-info">
+        <div class="info-item">
+          <span class="label">Strategy:</span>
+          <code $no:bind>lazyOnVisible({ rootMargin: '100px' })</code>
+        </div>
+        <div class="info-item">
+          <span class="label">Use case:</span>
+          <span>Below-the-fold content, footers, image galleries</span>
+        </div>
+      </div>
+      <div class="load-indicator">
+        ✅ Component rendered at: <strong>{loadTime}</strong>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script>
+  let loadTime = new Date().toLocaleTimeString();
+</script>
+
+<style>
+  /* Component-specific styles inherited from parent index.html */
+</style>

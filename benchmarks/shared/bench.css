@@ -1,0 +1,35 @@
+body {
+  font-family: system-ui, sans-serif;
+  margin: 0;
+  padding: 1rem;
+}
+
+.rows {
+  width: 100%;
+}
+
+.row {
+  display: flex;
+  gap: 8px;
+  padding: 4px 8px;
+  border-bottom: 1px solid #ddd;
+}
+
+.col-id {
+  width: 6em;
+  color: #666;
+}
+
+.col-label {
+  flex: 1;
+}
+
+.col-label a {
+  cursor: pointer;
+  color: #06c;
+}
+
+.row.danger {
+  background: #fdd;
+  color: #900;
+}

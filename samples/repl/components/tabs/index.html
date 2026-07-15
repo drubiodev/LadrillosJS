@@ -1,0 +1,22 @@
+<link rel="stylesheet" href="./tabs.css" />
+
+<div class="pane-head tabs-head">
+    <span class="dot"></span>
+    <div class="tabs">
+        <for each="(tab, i) in tabs" key="tab.tag">
+            <button class="tab {i === activeIndex ? 'active' : ''}" title="Double-click to rename" onclick="select(i)"
+                $on:dblclick="rename(i)">
+                <span>{tab.tag}.html</span>
+                <if condition="i === 0">
+                    <span class="root-badge">root</span>
+                </if>
+                <else-if condition="tabs.length > 1">
+                    <span class="close" title="Remove file" $on:click.stop="closeFile(i)">×</span>
+                </else-if>
+            </button>
+        </for>
+    </div>
+    <button class="tab-add" title="Add a component file" onclick="add()">+ file</button>
+</div>
+
+<script src="./tabs.js" type="module"></script>

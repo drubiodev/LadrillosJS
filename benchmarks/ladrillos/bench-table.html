@@ -1,0 +1,62 @@
+<div class="rows">
+  <for each="row in rows" key="row.id">
+    <div class="{row.id === selected ? 'row danger' : 'row'}">
+      <span class="col-id">{row.id}</span>
+      <span class="col-label"><a onclick="selectRow(row.id)">{row.label}</a></span>
+      <span class="col-remove"><a onclick="removeRow(row.id)">✕</a></span>
+    </div>
+  </for>
+</div>
+
+<script>
+  let rows = [];
+  let selected = 0;
+
+  function createRows(n) {
+    rows = window.__bench.buildData(n);
+  }
+
+  function appendRows(n) {
+    rows = rows.concat(window.__bench.buildData(n));
+  }
+
+  function updateRows() {
+    rows = rows.map((r, i) =>
+      i % 10 === 0 ? { id: r.id, label: r.label + " !!!" } : r
+    );
+  }
+
+  function selectRow(id) {
+    selected = id;
+  }
+
+  function swapRows() {
+    if (rows.length > 998) {
+      const next = rows.slice();
+      const tmp = next[1];
+      next[1] = next[998];
+      next[998] = tmp;
+      rows = next;
+    }
+  }
+
+  function removeRow(id) {
+    rows = rows.filter((r) => r.id !== id);
+  }
+
+  function clearRows() {
+    rows = [];
+    selected = 0;
+  }
+
+  window.benchApi = {
+    create: createRows,
+    append: appendRows,
+    update: updateRows,
+    select: selectRow,
+    swap: swapRows,
+    remove: removeRow,
+    clear: clearRows,
+  };
+  window.benchReady = true;
+</script>

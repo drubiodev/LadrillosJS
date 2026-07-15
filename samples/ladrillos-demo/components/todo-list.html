@@ -1,0 +1,367 @@
+<div class="demo-card">
+  <h3>✅ Todo List</h3>
+  <p class="description">
+    Complete CRUD example combining reactivity, binding & loops
+  </p>
+
+  <div class="demo-content">
+    <form onsubmit="addTodo(event)" class="add-form">
+      <input type="text" $bind="newTodo" placeholder="What needs to be done?" class="todo-input" />
+      <button type="submit" class="add-btn">Add</button>
+    </form>
+
+    <div class="filter-bar">
+      <button onclick="filter = 'all'" class="filter-btn {filter === 'all' ? 'active' : ''}">
+        All ({todos.length})
+      </button>
+      <button onclick="filter = 'active'" class="filter-btn {filter === 'active' ? 'active' : ''}">
+        Active ({activeTodos})
+      </button>
+      <button onclick="filter = 'completed'" class="filter-btn {filter === 'completed' ? 'active' : ''}">
+        Done ({completedTodos})
+      </button>
+    </div>
+
+    <if condition="filteredTodos.length === 0">
+      <div class="empty-state">
+        <span class="empty-icon">📝</span>
+        <p>No {filter === 'all' ? '' : filter} todos</p>
+      </div>
+    </if>
+    <else>
+      <ul class="todo-list">
+        <for each="todo in filteredTodos" key="todo.id">
+          <li class="todo-item {todo.completed ? 'completed' : ''}">
+            <label class="checkbox-label">
+              <input type="checkbox" onclick="toggleTodo(todo.id)" class="todo-checkbox" />
+              <span class="checkmark">{todo.completed ? '✓' : ''}</span>
+            </label>
+            <span class="todo-text">{todo.text}</span>
+            <button onclick="removeTodo(todo.id)" class="delete-btn">🗑️</button>
+          </li>
+        </for>
+      </ul>
+    </else>
+
+    <if condition="completedTodos > 0">
+      <div class="clear-completed">
+        <button onclick="clearCompleted()" class="clear-btn">
+          Clear completed ({completedTodos})
+        </button>
+      </div>
+    </if>
+  </div>
+
+  <div class="code-hint">
+    Full CRUD: Add, toggle, delete, filter todos with reactive state
+  </div>
+</div>
+
+<script>
+  let todos = [
+    { id: 1, text: "Learn LadrillosJS", completed: true },
+    { id: 2, text: "Build awesome components", completed: false },
+    { id: 3, text: "Share with the world", completed: false },
+  ];
+  let newTodo = "";
+  let filter = "all";
+  let nextId = 4;
+
+  // Computed values
+  let filteredTodos = [];
+  let activeTodos = 0;
+  let completedTodos = 0;
+
+  function updateComputed() {
+    activeTodos = todos.filter((t) => !t.completed).length;
+    completedTodos = todos.filter((t) => t.completed).length;
+
+    if (filter === "active") {
+      filteredTodos = todos.filter((t) => !t.completed);
+    } else if (filter === "completed") {
+      filteredTodos = todos.filter((t) => t.completed);
+    } else {
+      filteredTodos = [...todos];
+    }
+  }
+
+  // Initialize computed values
+  updateComputed();
+
+  function addTodo(event) {
+    event.preventDefault();
+    if (newTodo.trim()) {
+      todos = [
+        ...todos,
+        { id: nextId++, text: newTodo.trim(), completed: false },
+      ];
+      newTodo = "";
+      updateComputed();
+    }
+  }
+
+  function toggleTodo(id) {
+    todos = todos.map((t) =>
+      t.id === id ? { ...t, completed: !t.completed } : t
+    );
+    updateComputed();
+  }
+
+  function removeTodo(id) {
+    todos = todos.filter((t) => t.id !== id);
+    updateComputed();
+  }
+
+  function clearCompleted() {
+    todos = todos.filter((t) => !t.completed);
+    updateComputed();
+  }
+</script>
+
+<style>
+  :host {
+    display: block;
+  }
+
+  .demo-card {
+    background: var(--bg-elevated, #fff);
+    border: 1px solid var(--border, #e4e4e7);
+    border-radius: 14px;
+    padding: 1.5rem;
+    color: var(--fg, #18181b);
+    box-shadow: var(--shadow-sm, 0 1px 2px rgba(0, 0, 0, 0.04));
+    transition: transform 180ms cubic-bezier(.4, 0, .2, 1),
+      box-shadow 180ms cubic-bezier(.4, 0, .2, 1),
+      border-color 180ms cubic-bezier(.4, 0, .2, 1);
+  }
+
+  .demo-card:hover {
+    transform: translateY(-1px);
+    border-color: var(--border-strong, #d4d4d8);
+    box-shadow: var(--shadow-md, 0 4px 12px rgba(0, 0, 0, 0.06));
+  }
+
+  h3 {
+    margin: 0 0 0.375rem;
+    font-size: 1rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+
+  .description {
+    color: var(--fg-muted, #52525b);
+    font-size: 0.875rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .demo-content {
+    background: var(--bg-subtle, #f4f4f6);
+    border: 1px solid var(--border, #e4e4e7);
+    border-radius: 10px;
+    padding: 1.25rem;
+    margin-bottom: 1rem;
+    color: var(--fg, #18181b);
+  }
+
+  .add-form {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+  }
+
+  .todo-input {
+    flex: 1;
+    padding: 0.5rem 0.75rem;
+    background: var(--bg-elevated, #fff);
+    color: var(--fg, #18181b);
+    border: 1px solid var(--border, #e4e4e7);
+    border-radius: 8px;
+    font-size: 0.9375rem;
+    transition: border-color 150ms, box-shadow 150ms;
+  }
+
+  .todo-input:focus {
+    outline: none;
+    border-color: var(--accent, #18181b);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent, #18181b) 12%, transparent);
+  }
+
+  .add-btn {
+    padding: 0.5rem 1rem;
+    background: var(--accent, #18181b);
+    color: var(--accent-fg, #fff);
+    border: 1px solid var(--accent, #18181b);
+    border-radius: 8px;
+    font-weight: 500;
+    font-size: 0.875rem;
+    cursor: pointer;
+    transition: opacity 150ms, transform 80ms;
+  }
+
+  .add-btn:hover {
+    opacity: 0.88;
+  }
+
+  .add-btn:active {
+    transform: scale(0.97);
+  }
+
+  .filter-bar {
+    display: flex;
+    gap: 0.375rem;
+    margin-bottom: 1rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--border, #e4e4e7);
+  }
+
+  .filter-btn {
+    padding: 0.375rem 0.75rem;
+    background: transparent;
+    color: var(--fg-muted, #52525b);
+    border: 1px solid transparent;
+    border-radius: 8px;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 150ms, color 150ms, border-color 150ms;
+  }
+
+  .filter-btn:hover {
+    background: var(--bg-subtle, #f4f4f6);
+    color: var(--fg, #18181b);
+  }
+
+  .filter-btn.active {
+    background: var(--bg-elevated, #fff);
+    color: var(--fg, #18181b);
+    border-color: var(--border, #e4e4e7);
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 2rem 1rem;
+    color: var(--fg-subtle, #71717a);
+    font-size: 0.875rem;
+  }
+
+  .empty-icon {
+    font-size: 2rem;
+    display: block;
+    margin-bottom: 0.375rem;
+    opacity: 0.6;
+  }
+
+  .todo-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .todo-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.625rem 0.5rem;
+    border-bottom: 1px solid var(--border, #e4e4e7);
+    transition: background-color 150ms;
+  }
+
+  .todo-item:hover {
+    background: var(--bg-elevated, #fff);
+  }
+
+  .todo-item:last-child {
+    border-bottom: none;
+  }
+
+  .todo-item.completed .todo-text {
+    text-decoration: line-through;
+    color: var(--fg-subtle, #71717a);
+  }
+
+  .checkbox-label {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border: 1.5px solid var(--border-strong, #d4d4d8);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background-color 150ms, border-color 150ms;
+    flex-shrink: 0;
+  }
+
+  .todo-item.completed .checkbox-label {
+    background: var(--accent, #18181b);
+    border-color: var(--accent, #18181b);
+  }
+
+  .todo-checkbox {
+    display: none;
+  }
+
+  .checkmark {
+    color: var(--accent-fg, #fff);
+    font-weight: bold;
+    font-size: 0.75rem;
+  }
+
+  .todo-text {
+    flex: 1;
+    font-size: 0.9375rem;
+    color: var(--fg, #18181b);
+  }
+
+  .delete-btn {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    opacity: 0.4;
+    transition: opacity 150ms, transform 80ms;
+    font-size: 0.9375rem;
+    padding: 0.25rem;
+    border-radius: 6px;
+  }
+
+  .delete-btn:hover {
+    opacity: 1;
+    background: var(--bg-subtle, #f4f4f6);
+  }
+
+  .delete-btn:active {
+    transform: scale(0.92);
+  }
+
+  .clear-completed {
+    margin-top: 1rem;
+    text-align: center;
+  }
+
+  .clear-btn {
+    padding: 0.4375rem 0.875rem;
+    background: transparent;
+    color: var(--fg-muted, #52525b);
+    border: 1px solid var(--border, #e4e4e7);
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.8125rem;
+    transition: background-color 150ms, color 150ms;
+  }
+
+  .clear-btn:hover {
+    background: var(--bg-subtle, #f4f4f6);
+    color: var(--fg, #18181b);
+  }
+
+  .code-hint {
+    background: var(--bg-code, #f4f4f6);
+    border: 1px solid var(--border, #e4e4e7);
+    border-radius: 8px;
+    padding: 0.75rem 0.875rem;
+    font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+    font-size: 0.8125rem;
+    color: var(--fg-muted, #52525b);
+    text-align: center;
+  }
+</style>

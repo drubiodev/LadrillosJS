@@ -1,471 +1,827 @@
 # LadrillosJS
 
-<img src="https://raw.githubusercontent.com/drubiodev/LadrillosJS/refs/heads/main/LadrillosJS.png" alt="LadrillosJS" width="400"/>
+<p align="center">
+  <img src="https://raw.githubusercontent.com/drubiodev/LadrillosJS/refs/heads/main/LadrillosJS.jpg" alt="LadrillosJS" width="300"/>
+</p>
 
-A lightweight, zero-dependency web component framework for building modular web applications.
+<p align="center">
+  <strong>A lightweight, zero-dependency web component framework.</strong>
+</p>
 
-"I designed this framework to empower developers with the ability to componentize their code efficiently and effectively, without the need for a full-scale framework. By focusing on simplicity and leveraging core web fundamentals, my goal was to create a lightweight and accessible solution that enhances development while staying true to the basics."
+<p align="center">
+  <a href="https://www.npmjs.com/package/ladrillosjs"><img src="https://img.shields.io/npm/v/ladrillosjs.svg" alt="npm version"></a>
+  <a href="https://github.com/drubiodev/LadrillosJS/blob/main/LICENSE"><img src="https://img.shields.io/npm/l/ladrillosjs.svg" alt="license"></a>
+  <a href="https://bundlephobia.com/package/ladrillosjs"><img src="https://img.shields.io/bundlephobia/minzip/ladrillosjs" alt="bundle size"></a>
+  <a href="https://github.com/drubiodev/LadrillosJS"><img src="https://img.shields.io/github/stars/drubiodev/LadrillosJS?style=social" alt="GitHub stars"></a>
+</p>
 
-## Table of Contents
+<p align="center">
+  Build modular web apps with simple HTML components. No virtual DOM, no complex tooling required.
+</p>
 
-- [Features](#features)
-- [Getting Started](#getting-started)
-- [Installation](#installation)
-- [Your First Component](#your-first-component)
-- [Core Concepts](#core-concepts)
-  - [Component Registration](#component-registration)
-  - [State Management](#state-management)
-  - [Event Handling](#event-handling)
-  - [Data Binding](#data-binding)
-  - [Conditional Rendering](#conditional-rendering)
-  - [Slots](#slots)
-- [Advanced Features](#advanced-features)
-  - [External Scripts](#external-scripts)
-  - [Global State Stores](#global-state-stores)
-  - [Shadow DOM](#shadow-dom)
-- [API Reference](#api-reference)
-- [Examples](#examples)
-- [Contributing](#contributing)
-- [License](#license)
+---
 
-## Features
+## 📑 Table of Contents
 
-- 🚀 **Zero Dependencies** - Pure JavaScript, no build tools required
-- 📦 **Single-File Components** - HTML, CSS, and JavaScript in one file
-- ⚡ **Reactive State** - Automatic re-rendering on state changes
-- 🎯 **Event System** - Built-in event emission and listening
-- 🔄 **Two-Way Data Binding** - For form inputs and contenteditable elements
-- 🎨 **Scoped Styles** - Component styles with optional Shadow DOM
-- 🏪 **State Management** - Simple store implementation for shared state
-- 🔌 **Slots Support** - Content projection with named and default slots
-- 📝 **TypeScript Support** - Includes type definitions
+- [Quick Start](#-quick-start)
+- [Installation](#-installation)
+- [Core Concepts](#-core-concepts)
+- [Built-in Elements & Directives](#-built-in-elements--directives)
+- [Event Bus](#-event-bus)
+- [Element References](#-element-references)
+- [Lazy Loading](#-lazy-loading)
+- [API Reference](#-api-reference)
+- [Using with Vite](#-using-with-vite)
+- [Benchmarks](#-benchmarks)
+- [Examples](#-examples)
+- [Documentation](#-documentation)
+- [Security & Trust Model](#-security--trust-model)
+- [Contributing](#-contributing)
+- [License](#-license)
 
-## Getting Started
+---
 
-The repository includes several example applications that demonstrate various features:
+## 🚀 Quick Start
 
-- **[Todo App](samples/apps/todo)** - Classic todo list with component composition
-- **[Notes App](samples/apps/notes)** - Multi-component app with global state management
-- **[Markdown Editor](samples/apps/markdown)** - Real-time markdown preview
-- **[API Example](samples/apps/api)** - Fetching and displaying external data
-- **[Business Card](samples/apps/biz)** - Editable form with two-way data binding
-- **[Button Game](samples/apps/button-game)** - Interactive game with component events
-- **[Slideshow](samples/apps/slideshow)** - Multi-slide presentation system
-- **[Docs](samples/apps/docs)** - Documentation viewer with syntax highlighting
+### 1. Create a Component
 
-To run the examples:
-
-```bash
-# Clone the repository
-git clone https://github.com/drubiodev/LadrillosJS.git
-cd LadrillosJS
-
-# Install dependencies (for dev server only)
-npm install
-
-# Start the development server
-npm run dev
-```
-
-## Installation
-
-### NPM
-
-```bash
-npm install ladrillosjs
-```
-
-### CDN
+Save this as `counter.html`:
 
 ```html
-<script defer src="https://cdn.jsdelivr.net/npm/ladrillosjs"></script>
-```
-
-## Your First Component
-
-A component in LadrillosJS is a reusable custom HTML element that bundles its own template, logic, and styles into a single file.
-
-### 1. Create a Component File
-
-Create `hello-world.html`:
-
-```html
-<!-- hello-world.html -->
-<div class="greeting">
-  <h1>{title}</h1>
-  <p>Hello, {name}!</p>
-  <button onclick="greet">Click me ({count})</button>
+<div class="counter">
+  <div class="count-display">{count}</div>
+  <div class="buttons">
+    <button onclick="count--">−</button>
+    <button onclick="count = 0">Reset</button>
+    <button onclick="count++">+</button>
+  </div>
+  <p>Double: {count * 2} | Squared: {count * count}</p>
 </div>
 
 <script>
-  // Component state
-  let title = "Welcome to LadrillosJS";
-  let name = "World";
   let count = 0;
-
-  // Event handler
-  const greet = () => {
-    count++;
-    name = prompt("What's your name?") || "World";
-  };
 </script>
 
 <style>
-  .greeting {
+  .counter {
     text-align: center;
     padding: 2rem;
-    background: #f0f0f0;
-    border-radius: 8px;
   }
-
+  .count-display {
+    font-size: 4rem;
+    font-weight: bold;
+  }
   button {
     padding: 0.5rem 1rem;
-    font-size: 1rem;
+    margin: 0.25rem;
     cursor: pointer;
   }
 </style>
 ```
 
-### 2. Register and Use the Component
+### 2. Register and Use It
+
+In your `index.html`, import LadrillosJS from the CDN, register the
+component, and drop the tag anywhere on the page:
 
 ```html
 <!DOCTYPE html>
 <html>
   <head>
-    <title>My App</title>
+    <script type="module">
+      import { registerComponent } from "https://cdn.jsdelivr.net/npm/ladrillosjs@2/dist/index.js";
+      registerComponent("my-counter", "./counter.html");
+    </script>
   </head>
   <body>
-    <!-- Use your component -->
-    <hello-world></hello-world>
-
-    <!-- Register component -->
-    <script type="module">
-      import { registerComponent } from "ladrillosjs";
-      registerComponent("hello-world", "./hello-world.html");
-    </script>
+    <my-counter></my-counter>
   </body>
 </html>
 ```
 
-## Core Concepts
+### 3. Serve It
 
-### Component Registration
+Components are fetched over HTTP, so serve the folder with any static server
+(opening the file directly via `file://` won't work — browsers block `fetch`
+from local files):
 
-Register single or multiple components:
+```bash
+npx serve          # or: python -m http.server 8080
+```
+
+That's it! Your reactive component is ready. 🎉
+
+> 📚 **Want more?** The [full documentation](docs/README.md) covers every
+> feature step by step, from your first component to building a design system.
+
+---
+
+## 📦 Installation
+
+### CDN (No Build Step)
+
+LadrillosJS v2 is distributed as native ES modules. Import directly from a CDN:
+
+```html
+<!-- ES Module (recommended) -->
+<script type="module">
+  import {
+    registerComponent,
+    registerComponents,
+  } from "https://cdn.jsdelivr.net/npm/ladrillosjs@2/dist/index.js";
+
+  registerComponent("my-component", "./component.html");
+</script>
+
+<!-- Also available on unpkg -->
+<script type="module">
+  import { registerComponent } from "https://unpkg.com/ladrillosjs@2/dist/index.js";
+</script>
+```
+
+> **Note:** LadrillosJS v2 is ESM-only. Legacy UMD/IIFE global builds are not published to npm.
+
+### NPM (With Build Tools)
+
+```bash
+npm install ladrillosjs
+```
 
 ```javascript
+import { registerComponent, registerComponents } from "ladrillosjs";
+
 // Single component
-import { registerComponent } from "ladrillosjs";
-registerComponent("my-component", "./my-component.html");
-
-// Multiple components with concurrency control
-import { registerComponents } from "ladrillosjs";
-await registerComponents(
-  [
-    { name: "app-header", path: "./components/header.html" },
-    { name: "app-footer", path: "./components/footer.html" },
-    { name: "user-card", path: "./components/user-card.html" },
-  ],
-  10
-); // Max 10 parallel fetches (default: 5)
-
-// Using CDN
-ladrillosjs.registerComponent("my-component", "./my-component.html");
-```
-
-### State Management
-
-Components have reactive state that automatically triggers re-renders:
-
-```html
-<div>
-  <h2>User: {user.name}</h2>
-  <p>Score: {score}</p>
-  <button onclick="updateScore">Add Point</button>
-</div>
-
-<script>
-  const date = new Date(Date.now());
-  const formattedDate = date.toLocaleDateString("en-US"); // Format: MM/DD/YYYY
-  // Initial state
-  let score = 0;
-  let user = {
-    name: "Player 1",
-  };
-
-  const updateScore = () => {
-    // Update state and trigger re-render
-    score++;
-  };
-</script>
-```
-
-### Event Handling
-
-Multiple ways to handle events:
-
-```html
-<!-- Method reference -->
-<button onclick="handleClick">Click me: {count}</button>
-
-<!-- Function with arguments -->
-<button onclick="addItem('Hello', 123)">Add Item</button>
-
-<!-- Inline arrow function -->
-<button onclick="(e) => console.log(e.target)">Log Target</button>
-
-<script>
-  const count = 0;
-  this.setState({ items: [] });
-
-  const handleClick = (event) => {
-    console.log("Clicked!", event);
-    count++;
-  };
-
-  const addItem = (name, value) => {
-    this.setState({ items: [...this.state.items, { name, value }] });
-  };
-</script>
-<div>
-  <h1>Shopping Cart ({items.length} items)</h1>
-
-  <div data-if="items.length === 0">
-    <p>Your cart is empty</p>
-  </div>
-
-  <div data-else-if="items.length < 3">
-    <p>You have a few items</p>
-  </div>
-
-  <div data-else>
-    <p>You have many items!</p>
-  </div>
-
-  <button data-if="!isLoggedIn" onclick="login">Login</button>
-  <button data-else onclick="logout">Logout</button>
-</div>
-<script>
-  const items = ["apple", "banana", "orange"];
-  const isLoggedIn = false;
-
-  function login() {
-    isLoggedIn = true;
-  }
-
-  function logout() {
-    isLoggedIn = false;
-  }
-</script>
-```
-
-### Slots
-
-Content projection using slots:
-
-```html
-<!-- card.html -->
-<div class="card">
-  <div class="card-header">
-    <slot name="header">Default Header</slot>
-  </div>
-  <div class="card-body">
-    <slot></slot>
-    <!-- Default slot -->
-  </div>
-  <div class="card-footer">
-    <slot name="footer"></slot>
-  </div>
-</div>
-
-<!-- Usage -->
-<my-card>
-  <h2 slot="header">User Profile</h2>
-  <p>This goes in the default slot</p>
-  <button slot="footer">Save</button>
-</my-card>
-```
-
-## Advanced Features
-
-### External Scripts
-
-Load external JavaScript with components:
-
-```html
-<!-- With 'bind' attribute for component context -->
-<script src="./helpers.js" bind></script>
-
-<!-- ES modules with bind -->
-<script src="./component-logic.js" type="module" bind></script>
-
-<!-- Regular external script -->
-<script src="https://cdn.example.com/library.js"></script>
-```
-
-For modules with `bind`, export a default function:
-
-```javascript
-// component-logic.js
-export default function () {
-  // 'this' refers to the component instance
-  this.formatDate = (date) => {
-    return new Intl.DateTimeFormat("en-US").format(date);
-  };
-
-  this.init = () => {
-    console.log("Component initialized");
-  };
-
-  // Called automatically if defined
-  this.init();
-}
-```
-
-### Global State Stores
-
-Share state across components:
-
-```javascript
-// stores/userStore.js
-import { createStore } from "ladrillosjs";
-
-export const userStore = createStore({
-  user: null,
-  isAuthenticated: false,
-});
-
-export function login(userData) {
-  userStore.setState({
-    user: userData,
-    isAuthenticated: true,
-  });
-}
-
-export function logout() {
-  userStore.setState({
-    user: null,
-    isAuthenticated: false,
-  });
-}
-```
-
-```html
-<!-- header.html -->
-<header>
-  <span data-if="isAuthenticated">Welcome, {user.name}!</span>
-  <button data-else onclick="showLogin">Login</button>
-</header>
-
-<script type="module" src="./header-logic.js" bind></script>
-```
-
-```javascript
-// header-logic.js
-import { userStore } from "../stores/userStore.js";
-
-export default function () {
-  // Subscribe to store changes
-  userStore.subscribe((state) => {
-    this.setState({
-      user: state.user,
-      isAuthenticated: state.isAuthenticated,
-    });
-  });
-
-  this.showLogin = () => {
-    this.emit("show-login");
-  };
-}
-```
-
-### Shadow DOM
-
-Components use Shadow DOM by default for style encapsulation. To disable:
-
-```javascript
-// Disable Shadow DOM for a component
-registerComponent("my-component", "./my-component.html", false);
+registerComponent("my-counter", "./components/counter.html");
 
 // Multiple components
-registerComponents([
-  { name: "global-styles", path: "./global.html", useShadowDOM: false },
-  { name: "isolated-widget", path: "./widget.html", useShadowDOM: true },
+await registerComponents([
+  { name: "app-header", path: "./components/header.html" },
+  { name: "app-footer", path: "./components/footer.html" },
 ]);
 ```
 
-## API Reference
+### Granular Imports (Tree-Shaking)
 
-### Component Methods
+```javascript
+// Full API
+import { registerComponent, $emit, $listen } from "ladrillosjs";
 
-| Method                            | Description                                  |
-| --------------------------------- | -------------------------------------------- |
-| `this.setState(partial)`          | Update component state and trigger re-render |
-| `this.emit(eventName, data?)`     | Dispatch a custom event                      |
-| `this.listen(eventName, handler)` | Listen for custom events                     |
-| `this.querySelector(selector)`    | Query element within component               |
-| `this.querySelectorAll(selector)` | Query all elements within component          |
+// Core only (no lazy loading, no event bus)
+import { registerComponent } from "ladrillosjs/core";
 
-### Store Methods
+// Lazy loading strategies only
+import { lazyOnVisible, lazyOnIdle } from "ladrillosjs/lazy";
 
-| Method                      | Description                |
-| --------------------------- | -------------------------- |
-| `createStore(initialState)` | Create a new store         |
-| `store.getState()`          | Get current store state    |
-| `store.setState(partial)`   | Update store state         |
-| `store.subscribe(callback)` | Subscribe to state changes |
-| `store.reset()`             | Reset to initial state     |
+// Event bus only
+import { $emit, $listen } from "ladrillosjs/events";
+```
 
-## Examples
+---
 
-### Component Communication
+## 📖 Core Concepts
+
+### Template Bindings
+
+Use `{expression}` to display reactive data. Any JavaScript expression works:
 
 ```html
-<!-- parent.html -->
+<h1>{title}</h1>
+<p>Hello, {user.name}!</p>
+<span>Total: {items.length} items</span>
+<p>Is adult: {age >= 18 ? 'Yes' : 'No'}</p>
+```
+
+### Reactive State
+
+Just declare variables with `let` — changes automatically update the DOM:
+
+```html
+<script>
+  let count = 0;
+  let user = { name: "Alice", role: "Developer" };
+  let items = ["Apple", "Banana", "Cherry"];
+</script>
+```
+
+### Event Handlers
+
+Attach events directly in HTML with inline expressions or function calls:
+
+```html
+<button onclick="count++">Increment</button>
+<button onclick="handleClick()">Click me</button>
+<input onkeyup="search(event.target.value)" />
+<form onsubmit="handleSubmit(event)">...</form>
+```
+
+Or use the `$on:` directive with **modifiers** — dot-separated flags for
+common patterns like `preventDefault`, key filtering, and modifier keys:
+
+```html
+<form $on:submit.prevent="handleSubmit()">...</form>
+<input $on:keyup.enter="search()" />
+<textarea $on:keydown.ctrl.s.prevent="save()"></textarea>
+<div $on:click.self="closeModal()">...</div>
+<button $on:click.once="trackFirstClick()">Buy</button>
+```
+
+See the [Event Modifiers reference](docs/20-event-modifiers.md) for every
+modifier and combination.
+
+### Two-Way Binding
+
+Use `$bind` to sync form inputs with state:
+
+```html
+<input type="text" $bind="username" placeholder="Enter name" />
+<p>Hello, {username}!</p>
+
+<textarea $bind="bio"></textarea>
+
+<select $bind="country">
+  <option value="us">United States</option>
+  <option value="uk">United Kingdom</option>
+</select>
+
+<script>
+  let username = "";
+  let bio = "";
+  let country = "us";
+</script>
+```
+
+---
+
+## 🧩 Built-in Elements & Directives
+
+### Conditional Rendering
+
+Use `<if>`, `<else-if>`, and `<else>` to conditionally render elements:
+
+```html
+<if condition="status === 'loading'">Loading...</if>
+<else-if condition="status === 'error'">Something went wrong!</else-if>
+<else>Content loaded successfully!</else>
+
+<script>
+  let status = "loading";
+</script>
+```
+
+### Show/Hide (CSS Toggle)
+
+Use `<show>` to toggle visibility without removing from DOM (uses `display: none`):
+
+```html
+<show condition="isVisible">I can be shown or hidden</show>
+
+<button onclick="isVisible = !isVisible">Toggle</button>
+
+<script>
+  let isVisible = true;
+</script>
+```
+
+> **`<show>` vs `<if>`:** `<show>` toggles CSS display (children stay in DOM), `<if>` adds/removes children entirely.
+
+### List Rendering
+
+Use `<for>` to render lists with optional index and key:
+
+```html
+<!-- Simple list -->
+<ul>
+  <for each="fruit in fruits">
+    <li>🍎 {fruit}</li>
+  </for>
+</ul>
+
+<!-- With index -->
+<for each="(item, index) in items">
+  <div>#{index + 1}: {item}</div>
+</for>
+
+<!-- Object array with key -->
+<for each="user in users" key="user.id">
+  <div>
+    <span>{user.avatar}</span>
+    <span>{user.name}</span>
+    <span>{user.role}</span>
+  </div>
+</for>
+
+<script>
+  let fruits = ["Apple", "Banana", "Cherry"];
+  let items = ["First", "Second", "Third"];
+  let users = [
+    { id: 1, name: "Alice", role: "Developer", avatar: "👩‍💻" },
+    { id: 2, name: "Bob", role: "Designer", avatar: "👨‍🎨" },
+  ];
+</script>
+```
+
+### Lazy Loading
+
+Use `<lazy>` to defer rendering until a trigger fires (viewport, idle, delay, interaction, media):
+
+```html
+<lazy margin="100px">
+  <heavy-chart></heavy-chart>
+</lazy>
+
+<lazy interaction="click,focus">
+  <support-chat></support-chat>
+</lazy>
+```
+
+### Cheat Sheet
+
+| Element / Directive | Purpose                  | Example                                                |
+| ------------------- | ------------------------ | ------------------------------------------------------ |
+| `<if>`              | Conditional render       | `<if condition="isLoggedIn">Welcome!</if>`             |
+| `<else-if>`         | Chained condition        | `<else-if condition="isGuest">Hello Guest</else-if>`   |
+| `<else>`            | Fallback                 | `<else>Please log in</else>`                           |
+| `<show>`            | CSS visibility toggle    | `<show condition="isOpen">Menu</show>`                 |
+| `<for>`             | Loop rendering           | `<for each="item in items"><li>{item}</li></for>`      |
+| `<for>` (indexed)   | Loop with index          | `<for each="(item, i) in items">…</for>`               |
+| `<for key="…">`     | List optimization        | `<for each="u in users" key="u.id">…</for>`            |
+| `<lazy>`            | Defer rendering          | `<lazy idle><analytics-pixel /></lazy>`                |
+| `$bind`             | Two-way binding          | `<input $bind="email" />`                              |
+| `$ref`              | Element reference        | `<input $ref="inputEl" />`                             |
+| `$on:` + modifiers  | Events with modifiers    | `<form $on:submit.prevent="save()">`                   |
+| `$no:bind`          | Escape `{}` binding      | `<code $no:bind>{literal}</code>`                      |
+
+---
+
+## 📡 Event Bus
+
+Communicate between components using `$emit` and `$listen`:
+
+### Sender Component
+
+```html
+<button onclick="sendMessage()">Send Message</button>
+
+<script>
+  let message = "Hello from sender!";
+
+  function sendMessage() {
+    $emit("my-event", { text: message, time: new Date().toLocaleTimeString() });
+  }
+</script>
+```
+
+### Receiver Component
+
+```html
 <div>
-  <child-component data-message="Hello"></child-component>
+  <p>Received: {receivedMessage}</p>
 </div>
 
 <script>
-  this.listen("child-event", (data) => {
-    console.log("Received from child:", data);
+  let receivedMessage = "Waiting...";
+
+  $listen("my-event", (data) => {
+    receivedMessage = data.text;
   });
 </script>
+```
 
-<!-- child.html -->
-<button onclick="sendMessage">{data-message}</button>
+---
+
+## 🏷️ Element References
+
+Use `$ref` to get direct DOM access for advanced manipulation:
+
+```html
+<input type="text" $ref="inputEl" placeholder="Click button to focus" />
+<button onclick="focusInput()">Focus Input</button>
+
+<canvas $ref="canvas" width="200" height="100"></canvas>
+<button onclick="draw()">Draw on Canvas</button>
 
 <script>
-  const sendMessage = () => {
-    this.emit("child-event", {
-      message: this.state["data-message"],
-      timestamp: Date.now(),
-    });
-  };
+  function focusInput() {
+    $refs.inputEl.focus();
+    $refs.inputEl.select();
+  }
+
+  function draw() {
+    const ctx = $refs.canvas.getContext("2d");
+    ctx.fillStyle = "blue";
+    ctx.fillRect(10, 10, 100, 50);
+  }
 </script>
 ```
 
-### Dynamic Component Creation
+---
+
+## ⏳ Lazy Loading
+
+Load components only when needed to improve initial page load:
+
+### Lazy Loading Strategies
 
 ```javascript
-// Create components programmatically
-const createCard = (userData) => {
-  const card = document.createElement("user-card");
-  card.setAttribute("user-id", userData.id);
-  card.setAttribute("name", userData.name);
-  document.querySelector("#user-list").appendChild(card);
-};
+import {
+  registerComponents,
+  lazyOnVisible,
+  lazyOnIdle,
+  lazyOnInteraction,
+  lazyOnMedia,
+  lazyOnDelay,
+} from "ladrillosjs";
 
-// Fetch and create
-fetch("/api/users")
-  .then((res) => res.json())
-  .then((users) => users.forEach(createCard));
+await registerComponents([
+  // Load when visible in viewport
+  {
+    name: "lazy-footer",
+    path: "./footer.html",
+    lazy: lazyOnVisible({ rootMargin: "100px" }),
+  },
+
+  // Load when browser is idle
+  {
+    name: "analytics-widget",
+    path: "./analytics.html",
+    lazy: lazyOnIdle(5000), // timeout: 5s max wait
+  },
+
+  // Load on user interaction
+  {
+    name: "modal-dialog",
+    path: "./modal.html",
+    lazy: lazyOnInteraction(["click", "focusin"]),
+  },
+
+  // Load based on media query
+  {
+    name: "mobile-nav",
+    path: "./mobile-nav.html",
+    lazy: lazyOnMedia("(max-width: 768px)"),
+  },
+
+  // Load after delay
+  {
+    name: "chat-widget",
+    path: "./chat.html",
+    lazy: lazyOnDelay(3000), // 3 second delay
+  },
+]);
 ```
 
-## Contributing
+| Strategy            | Use Case                                     |
+| ------------------- | -------------------------------------------- |
+| `lazyOnVisible`     | Below-fold content, footers, image galleries |
+| `lazyOnIdle`        | Non-critical features, analytics             |
+| `lazyOnInteraction` | Modals, dropdowns, tooltips                  |
+| `lazyOnMedia`       | Mobile/desktop specific components           |
+| `lazyOnDelay`       | Chat widgets, notifications                  |
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+### Eager Override
 
-## License
+Force a lazy component to load immediately by adding the `eager` attribute:
 
-MIT License - see [LICENSE](LICENSE) file for details.
+```html
+<lazy-footer eager></lazy-footer>
+```
+
+---
+
+## 📋 API Reference
+
+### `registerComponent`
+
+```javascript
+registerComponent(name, path, useShadowDOM?, lazy?)
+```
+
+| Parameter      | Type                    | Default  | Description                     |
+| -------------- | ----------------------- | -------- | ------------------------------- |
+| `name`         | string                  | required | Tag name (must include hyphen)  |
+| `path`         | string                  | required | Path to `.html` component file  |
+| `useShadowDOM` | boolean                 | `true`   | Enable Shadow DOM encapsulation |
+| `lazy`         | boolean \| LazyStrategy | `false`  | Lazy loading configuration      |
+
+```javascript
+// Basic usage
+registerComponent("my-button", "./button.html");
+
+// Without Shadow DOM (for global CSS)
+registerComponent("my-nav", "./nav.html", false);
+
+// With lazy loading
+registerComponent("my-footer", "./footer.html", true, lazyOnVisible());
+```
+
+### `registerComponents`
+
+Register multiple components with parallel fetching:
+
+```javascript
+const result = await registerComponents([
+  { name: "app-header", path: "./header.html" },
+  { name: "app-footer", path: "./footer.html", lazy: lazyOnVisible() },
+  { name: "user-card", path: "./user-card.html", useShadowDOM: false },
+]);
+
+// Returns: { success: [...], failed: [...], skipped: [...] }
+```
+
+### `$use`
+
+Infer the component tag name from the file path:
+
+```javascript
+await $use("./components/user-card.html"); // Registers as <user-card>
+```
+
+### `loadLazyComponent`
+
+Force a lazy component to load immediately from JavaScript:
+
+```javascript
+import { loadLazyComponent } from "ladrillosjs";
+
+await loadLazyComponent("my-lazy-footer");
+```
+
+### `configure`
+
+Configure framework-level options (optional):
+
+```javascript
+import { configure } from "ladrillosjs";
+
+configure({
+  cacheSize: 50, // Component LRU cache size (default: 25)
+  onError: (err, context) => telemetry.capture(err, { context }),
+  delegateLoopEvents: true, // Opt-in loop event delegation (default: false)
+});
+```
+
+Development builds include actionable `LJSxxx` diagnostics with component and
+file context, a suggested fix, and a link to the
+[error reference](docs/21-error-handling.md). Vite and other bundlers that
+honor the `development` package condition select this build automatically. To
+select it explicitly, import from `ladrillosjs/dev` (or
+`ladrillosjs/core/dev`). Production builds retain coded errors but remove
+development-only warnings.
+
+The `onError` callback is also suitable for telemetry. Coded framework errors
+are instances of `LadrillosError` and expose `code`, `docsUrl`, `hint`,
+`componentContext`, and the original `cause`.
+
+#### `delegateLoopEvents`
+
+By default every handler inside a `<for>` row gets its own listener. With
+`delegateLoopEvents: true`, eligible handlers share **one listener per event
+type** on the loop's container — thousands of rows, a handful of listeners.
+Templates and handler code don't change at all, and render performance is
+the same either way; enable it when listener count itself matters (very
+large lists, memory-constrained devices, many handlers per row).
+
+Fine print:
+
+- Non-bubbling events (`focus`, `blur`, `mouseenter`, …) and handlers using
+  the `.self`, `.capture`, `.once`, or `.passive` modifiers automatically
+  keep per-element listeners. `.stop`, `.prevent`, and key/system modifiers
+  work identically in both modes.
+- `event.currentTarget` inside a delegated handler is the list container,
+  not the row element (`event.target` is unaffected).
+- If you manually attach your own listener on an element inside a row and
+  call `stopPropagation()`, delegated handlers above it won't fire.
+- Call `configure()` before your components render; already-rendered loops
+  keep the mode they were created with.
+
+### Event Bus
+
+| Function                   | Description                         |
+| -------------------------- | ----------------------------------- |
+| `$emit(event, data)`       | Broadcast an event to all listeners |
+| `$listen(event, callback)` | Subscribe to an event               |
+
+---
+
+## 🛠️ Using with Vite
+
+LadrillosJS works seamlessly with Vite for production builds:
+
+```bash
+npm install ladrillosjs vite
+```
+
+```javascript
+// vite.config.js
+import { defineConfig } from "vite";
+
+export default defineConfig({
+  // LadrillosJS components work out of the box!
+});
+```
+
+```javascript
+// main.js
+import { registerComponent } from "ladrillosjs";
+
+registerComponent("my-counter", "./components/counter.html", false);
+```
+
+See the [samples/](samples/) directory for complete examples:
+
+- `samples/vite-sample/` — Basic Vite setup
+- `samples/vite-basic-site/` — Multi-component site
+- `samples/ladrillos-demo/` — Full feature showcase
+
+---
+
+## 📊 Benchmarks
+
+A [js-framework-benchmark](https://github.com/krausest/js-framework-benchmark)–style
+suite lives in [benchmarks/](benchmarks/). It renders the same keyed
+1,000-row list in LadrillosJS, React 18 (keyed, memoized rows — the
+idiomatic fast path), and hand-optimized vanilla JS, and measures each
+operation from invocation until the live DOM reflects the change.
+Medians of 10 runs, headless Chromium on an Apple M5 Pro,
+`ladrillosjs@2.0.0-beta.11`:
+
+| Operation | LadrillosJS | React 18.3 (keyed, memoized rows) | Vanilla JS (hand-optimized) |
+|---|---:|---:|---:|
+| create 1,000 rows | **3.7 ms** | 4.1 ms | 1.8 ms |
+| replace all 1,000 rows | **4.1 ms** | 7 ms | 2 ms |
+| partial update (every 10th of 1,000) | 1.1 ms | 1.2 ms | 0.2 ms |
+| select row | 0.7 ms | 0.4 ms | 0 ms |
+| swap 2 rows | **1.1 ms** | 3.3 ms | 0.1 ms |
+| remove row | 1 ms | 1 ms | 0 ms |
+| append 1,000 to 1,000 rows | **3.8 ms** | 4.3 ms | 1.3 ms |
+| clear 1,000 rows | **1.3 ms** | 5.1 ms | 0.8 ms |
+| create 10,000 rows | **28.9 ms** | 218.3 ms | 13 ms |
+| **JS payload (min+gzip)** | **25.9 KB** | **47 KB** | ~1 KB |
+| JS heap after 1,000 rows | 2.4 MB | 6.2 MB | 1.3 MB |
+
+**How to read this honestly:**
+
+- Every operation lands well within a single 60 fps frame (16.7 ms):
+  updates on a 1,000-row list take about a millisecond, and bulk creation
+  of 1,000 rows is under 5 ms.
+- LadrillosJS beats React on bulk creation (and by 7× on 10,000 rows),
+  full replaces, row swaps, and clearing, while shipping **half the JS**
+  and using **~60% less memory** for the same UI.
+- React 18 remains faster on single-row selection, and partial updates
+  are a tie. We publish these numbers to track and improve them — not to
+  claim LadrillosJS wins everything.
+- Vanilla JS is the baseline.
+
+Reproduce it yourself (no benchmark numbers should be trusted otherwise):
+
+```bash
+cd benchmarks && npm install && npm run bench
+```
+
+Methodology, fairness notes, and raw samples: [benchmarks/README.md](benchmarks/README.md)
+and [benchmarks/results.json](benchmarks/results.json).
+
+---
+
+## 📚 Examples
+
+### Todo List
+
+A complete CRUD example combining all directives:
+
+```html
+<div class="todo-app">
+  <form onsubmit="addTodo(event)">
+    <input type="text" $bind="newTodo" placeholder="What needs to be done?" />
+    <button type="submit">Add</button>
+  </form>
+
+  <ul>
+    <for each="todo in todos" key="todo.id">
+      <li>
+        <input type="checkbox" onclick="toggleTodo(todo.id)" />
+        <span class="{todo.completed ? 'done' : ''}">{todo.text}</span>
+        <button onclick="removeTodo(todo.id)">🗑️</button>
+      </li>
+    </for>
+  </ul>
+
+  <if condition="todos.length === 0"><p>No todos yet!</p></if>
+</div>
+
+<script>
+  let todos = [
+    { id: 1, text: "Learn LadrillosJS", completed: false },
+    { id: 2, text: "Build something awesome", completed: false },
+  ];
+  let newTodo = "";
+  let nextId = 3;
+
+  function addTodo(event) {
+    event.preventDefault();
+    if (newTodo.trim()) {
+      todos = [...todos, { id: nextId++, text: newTodo, completed: false }];
+      newTodo = "";
+    }
+  }
+
+  function toggleTodo(id) {
+    todos = todos.map((t) =>
+      t.id === id ? { ...t, completed: !t.completed } : t,
+    );
+  }
+
+  function removeTodo(id) {
+    todos = todos.filter((t) => t.id !== id);
+  }
+</script>
+```
+
+> 💡 Check the [samples/](samples/) folder for more examples including lazy loading, event bus communication, and real-world patterns.
+
+---
+
+## 📚 Documentation
+
+Full guides live in the [docs/](docs/README.md) folder:
+
+| Start here | Reference | Advanced |
+| ---------- | --------- | -------- |
+| [Quick Start](docs/01-quick-start.md) | [Built-in Elements & Directives](docs/06-directives.md) | [Event Bus](docs/12-event-bus.md) |
+| [Installation](docs/02-installation.md) | [Event Modifiers (`$on:`)](docs/20-event-modifiers.md) | [Lazy Loading](docs/13-lazy-loading.md) |
+| [Components](docs/03-components.md) | [Conditionals & Loops](docs/07-conditionals.md) | [Shadow DOM](docs/14-shadow-dom.md) |
+| [Reactivity](docs/04-reactivity.md) | [Two-Way Binding](docs/09-two-way-binding.md) | [Design System Guide](docs/19-design-system.md) |
+
+Upgrading from v1? See the [Migration Guide](docs/17-migration-v1-to-v2.md).
+Using TypeScript? See the [TypeScript guide](docs/18-typescript.md).
+
+---
+
+## 🔒 Security & Trust Model
+
+**Component HTML is trusted code. Treat a `.html` component the same way you'd
+treat a `.js` file you `import`.**
+
+LadrillosJS runs the `<script>` in each component, evaluates your `{expression}`
+bindings, and compiles your inline event handlers as JavaScript with full access
+to the page (`window`, `document`, `fetch`, `localStorage`, …). This is by design
+— it's what lets components feel like plain HTML + JS with no build step, exactly
+like the template in a Vue single-file component or a Svelte `.svelte` file. It
+also means the framework is **not** a sandbox: you should only register and run
+component files that you wrote or otherwise trust.
+
+Practical guidance:
+
+- ✅ **Do** author your own components and load them from your own origin.
+- ❌ **Don't** fetch and register component HTML from untrusted third parties, or
+  build component files by concatenating user input into a template — that's
+  equivalent to running arbitrary code from that source.
+- ✅ **Dynamic *data* is fine.** Rendering untrusted **data** — API responses,
+  user comments, list items — through bindings and `<for>` loops is safe: values
+  are set via `textContent`/`setAttribute` and passed to event handlers as
+  arguments, never executed as code. (Interpolating into `innerHTML` yourself, or
+  into a `<script>`/handler you assemble by hand, is not — same rule as above.)
+
+In short: untrusted **data** through LadrillosJS's bindings is safe; untrusted
+**templates/scripts** are not, because those *are* your application code.
+
+---
+
+## 🤝 Contributing
+
+Contributions are welcome! Here's how you can help:
+
+1. **Fork** the repository
+2. **Create** a feature branch: `git checkout -b feature/amazing-feature`
+3. **Commit** your changes: `git commit -m 'Add amazing feature'`
+4. **Push** to the branch: `git push origin feature/amazing-feature`
+5. **Open** a Pull Request
+
+### Development Setup
+
+```bash
+git clone https://github.com/drubiodev/LadrillosJS.git
+cd LadrillosJS
+npm install
+npm run dev        # Watch mode for development
+npm run build      # Build for production
+npm test           # Unit tests (Vitest)
+```
+
+---
+
+## 📄 License
+
+MIT License — see [LICENSE](LICENSE) for details.
+
+---
+
+<p align="center">
+  <strong>Built with ❤️ by <a href="https://github.com/drubiodev">Daniel Rubio</a></strong>
+</p>
+
+<p align="center">
+  <a href="https://github.com/drubiodev/LadrillosJS">GitHub</a> •
+  <a href="https://www.npmjs.com/package/ladrillosjs">NPM</a> •
+  <a href="https://github.com/drubiodev/LadrillosJS/issues">Issues</a>
+</p>

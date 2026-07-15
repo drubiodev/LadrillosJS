@@ -1,0 +1,269 @@
+<div class="demo-card">
+  <h3>🏷️ Element References</h3>
+  <p class="description">
+    Use <code>$ref</code> to get direct access to DOM elements
+  </p>
+
+  <div class="demo-content">
+    <div class="input-section">
+      <input type="text" $ref="inputEl" placeholder="Click the button to focus me" class="ref-input" />
+      <button onclick="focusInput()" class="action-btn">🎯 Focus Input</button>
+    </div>
+
+    <div class="canvas-section">
+      <canvas $ref="canvas" width="200" height="100" class="drawing-canvas"></canvas>
+      <div class="canvas-controls">
+        <button onclick="drawRandom()" class="action-btn">
+          🎨 Draw Random
+        </button>
+        <button onclick="clearCanvas()" class="action-btn secondary">
+          🗑️ Clear
+        </button>
+      </div>
+    </div>
+
+    <div class="scroll-section">
+      <div $ref="scrollBox" class="scroll-box">
+        <for each="i in lineNumbers">
+          <p>Line {i} - Scroll to see more content</p>
+        </for>
+      </div>
+      <div class="scroll-controls">
+        <button onclick="scrollToTop()" class="action-btn">⬆️ Top</button>
+        <button onclick="scrollToBottom()" class="action-btn">⬇️ Bottom</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="code-hint">
+    <code>&lt;input $ref="inputEl"&gt;</code><br />
+    <code>$refs.inputEl.focus();</code>
+  </div>
+</div>
+
+<script>
+  let lineNumbers = [
+    1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
+  ];
+
+  function focusInput() {
+    $refs.inputEl.focus();
+    $refs.inputEl.select();
+  }
+
+  function drawRandom() {
+    // Random color
+    $refs.canvas.getContext("2d").fillStyle =
+      "hsl(" + Math.floor(Math.random() * 360) + ", 70%, 60%)";
+
+    // Random shape
+    $refs.canvas.getContext("2d").beginPath();
+    if (Math.random() > 0.5) {
+      $refs.canvas
+        .getContext("2d")
+        .arc(
+          Math.random() * 170 + 25,
+          Math.random() * 70 + 15,
+          15 + Math.random() * 15,
+          0,
+          Math.PI * 2
+        );
+    } else {
+      $refs.canvas
+        .getContext("2d")
+        .rect(
+          Math.random() * 170,
+          Math.random() * 70,
+          20 + Math.random() * 30,
+          20 + Math.random() * 30
+        );
+    }
+    $refs.canvas.getContext("2d").fill();
+  }
+
+  function clearCanvas() {
+    $refs.canvas
+      .getContext("2d")
+      .clearRect(0, 0, $refs.canvas.width, $refs.canvas.height);
+  }
+
+  function scrollToTop() {
+    $refs.scrollBox.scrollTop = 0;
+  }
+
+  function scrollToBottom() {
+    $refs.scrollBox.scrollTop = $refs.scrollBox.scrollHeight;
+  }
+</script>
+
+<style>
+  :host {
+    display: block;
+  }
+
+  .demo-card {
+    background: var(--bg-elevated, #fff);
+    border: 1px solid var(--border, #e4e4e7);
+    border-radius: 14px;
+    padding: 1.5rem;
+    color: var(--fg, #18181b);
+    box-shadow: var(--shadow-sm, 0 1px 2px rgba(0, 0, 0, 0.04));
+    transition: transform 180ms cubic-bezier(.4, 0, .2, 1),
+      box-shadow 180ms cubic-bezier(.4, 0, .2, 1),
+      border-color 180ms cubic-bezier(.4, 0, .2, 1);
+  }
+
+  .demo-card:hover {
+    transform: translateY(-1px);
+    border-color: var(--border-strong, #d4d4d8);
+    box-shadow: var(--shadow-md, 0 4px 12px rgba(0, 0, 0, 0.06));
+  }
+
+  h3 {
+    margin: 0 0 0.375rem;
+    font-size: 1rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+
+  .description {
+    color: var(--fg-muted, #52525b);
+    font-size: 0.875rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .description code {
+    background: var(--bg-code, #f4f4f6);
+    border: 1px solid var(--border, #e4e4e7);
+    color: var(--fg, #18181b);
+    padding: 0.0625rem 0.375rem;
+    border-radius: 6px;
+    font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+    font-size: 0.8125rem;
+  }
+
+  .demo-content {
+    background: var(--bg-subtle, #f4f4f6);
+    border: 1px solid var(--border, #e4e4e7);
+    border-radius: 10px;
+    padding: 1.25rem;
+    margin-bottom: 1rem;
+  }
+
+  .input-section {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--border, #e4e4e7);
+  }
+
+  .ref-input {
+    flex: 1;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--border, #e4e4e7);
+    border-radius: 8px;
+    background: var(--bg-elevated, #fff);
+    color: var(--fg, #18181b);
+    font-size: 0.875rem;
+    transition: border-color 150ms, box-shadow 150ms;
+  }
+
+  .ref-input:focus {
+    outline: none;
+    border-color: var(--accent, #18181b);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent, #18181b) 12%, transparent);
+  }
+
+  .action-btn {
+    padding: 0.5rem 0.875rem;
+    background: var(--accent, #18181b);
+    color: var(--accent-fg, #fff);
+    border: 1px solid var(--accent, #18181b);
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    white-space: nowrap;
+    transition: opacity 150ms, transform 80ms;
+  }
+
+  .action-btn:hover {
+    opacity: 0.88;
+  }
+
+  .action-btn:active {
+    transform: scale(0.97);
+  }
+
+  .action-btn.secondary {
+    background: var(--bg-elevated, #fff);
+    color: var(--fg, #18181b);
+    border-color: var(--border, #e4e4e7);
+  }
+
+  .action-btn.secondary:hover {
+    background: var(--bg-subtle, #f4f4f6);
+    opacity: 1;
+  }
+
+  .canvas-section {
+    margin-bottom: 1rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--border, #e4e4e7);
+  }
+
+  .drawing-canvas {
+    width: 100%;
+    height: 100px;
+    background: var(--bg-elevated, #fff);
+    border: 1px solid var(--border, #e4e4e7);
+    border-radius: 8px;
+    margin-bottom: 0.5rem;
+  }
+
+  .canvas-controls {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .scroll-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .scroll-box {
+    height: 100px;
+    overflow-y: auto;
+    background: var(--bg-elevated, #fff);
+    border: 1px solid var(--border, #e4e4e7);
+    border-radius: 8px;
+    padding: 0.5rem;
+    font-size: 0.8125rem;
+    color: var(--fg-muted, #52525b);
+  }
+
+  .scroll-box p {
+    margin: 0.25rem 0;
+    padding: 0.25rem 0.5rem;
+    background: var(--bg-subtle, #f4f4f6);
+    border-radius: 4px;
+  }
+
+  .scroll-controls {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .code-hint {
+    background: var(--bg-code, #f4f4f6);
+    border: 1px solid var(--border, #e4e4e7);
+    border-radius: 8px;
+    padding: 0.75rem 0.875rem;
+    font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+    font-size: 0.75rem;
+    color: var(--fg-muted, #52525b);
+    line-height: 1.7;
+  }
+</style>

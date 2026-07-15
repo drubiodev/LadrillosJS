@@ -1,0 +1,161 @@
+<style>
+  .search-input-wrapper {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 16px;
+  }
+
+  p {
+    width: 100%;
+    margin: 0 0 8px 0;
+    color: #9ca3af;
+    font-size: 14px;
+  }
+
+  .search-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .input-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+
+  input[type="search"] {
+    padding: 0.6rem 0.6rem;
+    font-size: 14px;
+    width: 350px;
+    background-color: #1a1a1a;
+    border: 1px solid #444;
+    border-radius: 4px;
+    color: #fff;
+    outline: none;
+  }
+
+  input[type="search"]::placeholder {
+    color: #6b7280;
+  }
+
+  button {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 16px;
+    font-size: 14px;
+    cursor: pointer;
+    background-color: #fff;
+    color: #000;
+    border: none;
+    border-radius: 4px;
+    font-weight: 500;
+  }
+
+  button:hover {
+    background-color: #e5e5e5;
+  }
+
+  button svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  .pagination-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: auto;
+    color: #9ca3af;
+    font-size: 14px;
+  }
+
+  select {
+    padding: 8px 12px;
+    font-size: 14px;
+    background-color: #2a2a2a;
+    border: 1px solid #444;
+    border-radius: 4px;
+    color: #fff;
+    cursor: pointer;
+    outline: none;
+  }
+
+  select:focus {
+    border-color: #a855f7;
+  }
+</style>
+
+<div class="search-input-wrapper">
+  <p>Search through your email archive</p>
+
+  <div class="search-container">
+    <div class="input-wrapper">
+      <input type="search" placeholder="Search emails..." $ref="searchInput" $on:keyup.enter="searchData()" />
+    </div>
+
+    <button onclick="searchData()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+        stroke-linejoin="round">
+        <circle cx="11" cy="11" r="8" />
+        <path d="M21 21l-4.35-4.35" />
+      </svg>
+      Search
+    </button>
+  </div>
+
+  <div class="pagination-controls">
+    <span>Show</span>
+    <select title="number of emails to display">
+      <option value="10">10</option>
+      <option value="25">25</option>
+      <option value="50">50</option>
+    </select>
+    <span>per page</span>
+  </div>
+</div>
+
+<div>
+  <if condition="loading">
+    <div>LOADING....</div>
+  </if>
+  <for each="item in data">
+    <search-card email="{item}"></search-card>
+  </for>
+</div>
+
+<script type="module">
+  await ladrillosjs.registerComponents([
+    {
+      name: "search-card",
+      path: "./card.html",
+    },
+  ]);
+</script>
+
+<script>
+  let data = [];
+  let loading = false;
+
+  const searchData = () => {
+    loading = true;
+    console.log($refs.searchInput.value);
+
+    fetch("/api/search?query=" + encodeURIComponent($refs.searchInput.value))
+      .then((response) => response.json())
+      .then((result) => {
+        console.log("Search results:", result);
+        data = result;
+      })
+      .catch((error) => {
+        console.error("Error fetching search results:", error);
+      })
+      .finally(() => {
+        setTimeout(() => {
+          loading = false;
+        }, 500);
+      });
+  };
+</script>

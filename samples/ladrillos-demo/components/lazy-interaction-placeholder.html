@@ -1,0 +1,139 @@
+<template>
+  <div class="demo-card placeholder">
+    <div class="demo-header">
+      <h3>👆 lazyOnInteraction</h3>
+      <span class="demo-badge pending">Click to Load</span>
+    </div>
+    <div class="demo-content">
+      <p class="demo-description">
+        👉 <strong>Click anywhere on this card</strong> to trigger lazy loading!
+      </p>
+      <div class="demo-info">
+        <div class="info-item">
+          <span class="label">Strategy:</span>
+          <code>lazyOnInteraction(['click', 'focusin'])</code>
+        </div>
+        <div class="info-item">
+          <span class="label">Status:</span>
+          <span class="waiting">⏳ Waiting for interaction...</span>
+        </div>
+      </div>
+      <div class="click-hint">
+        <div class="pulse-ring"></div>
+        <span>Click Me!</span>
+      </div>
+    </div>
+  </div>
+</template>
+
+<style>
+  .demo-card.placeholder {
+    background: var(--bg-elevated, #fff);
+    border: 1px solid var(--border, #e4e4e7);
+    border-radius: 14px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: border-color 180ms cubic-bezier(.4,0,.2,1),
+      background-color 180ms cubic-bezier(.4,0,.2,1);
+  }
+
+  .demo-card.placeholder:hover {
+    border-color: var(--border-strong, #d4d4d8);
+    background: var(--bg-subtle, #f4f4f6);
+  }
+
+  .demo-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.875rem 1.125rem;
+    background: var(--bg-subtle, #f4f4f6);
+    border-bottom: 1px solid var(--border, #e4e4e7);
+  }
+
+  .demo-header h3 {
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: var(--fg, #18181b);
+    margin: 0;
+  }
+
+  .demo-badge.pending {
+    background: var(--bg-elevated, #fff);
+    border: 1px solid var(--border, #e4e4e7);
+    color: var(--fg-muted, #52525b);
+    padding: 0.1875rem 0.625rem;
+    border-radius: 9999px;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+  }
+
+  .demo-content { padding: 1.25rem; }
+
+  .demo-description {
+    color: var(--fg-muted, #52525b);
+    margin-bottom: 1rem;
+    line-height: 1.6;
+    text-align: center;
+    font-size: 0.875rem;
+  }
+
+  .demo-info {
+    background: var(--bg-subtle, #f4f4f6);
+    border: 1px solid var(--border, #e4e4e7);
+    border-radius: 10px;
+    padding: 0.875rem 1rem;
+    margin-bottom: 1rem;
+  }
+
+  .info-item {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+    font-size: 0.8125rem;
+  }
+
+  .info-item:last-child { margin-bottom: 0; }
+
+  .info-item .label {
+    color: var(--fg-subtle, #71717a);
+    font-weight: 500;
+  }
+
+  .info-item code {
+    background: var(--bg-elevated, #fff);
+    border: 1px solid var(--border, #e4e4e7);
+    color: var(--fg, #18181b);
+    padding: 0.0625rem 0.375rem;
+    border-radius: 6px;
+    font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+    font-size: 0.75rem;
+  }
+
+  .waiting {
+    color: var(--fg-muted, #52525b);
+    font-style: italic;
+  }
+
+  .click-hint {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.5rem 0 0.25rem;
+  }
+
+  .click-hint span {
+    background: var(--accent, #18181b);
+    color: var(--accent-fg, #fff);
+    padding: 0.625rem 1.5rem;
+    border-radius: 10px;
+    font-weight: 500;
+    font-size: 0.9375rem;
+    transition: opacity 150ms;
+  }
+
+  .click-hint span:hover { opacity: 0.88; }
+</style>
