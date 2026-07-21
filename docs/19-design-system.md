@@ -14,6 +14,7 @@ This guide walks you through it from start to finish:
 5. [Add props and states](#step-5-add-props-and-states)
 6. [Add flexible content with slots](#step-6-add-content-with-slots)
 7. [Theme it (light/dark)](#step-7-theme-it-lightdark)
+8. [Share it with others (npm & CDN)](#sharing-your-design-system)
 
 By the end you'll have a themeable `Button` you can copy as a template for every
 other component.
@@ -204,6 +205,9 @@ Props come in as **attributes**. A couple of rules keep them predictable:
 - **Multi-word / boolean props use kebab-case attributes.** HTML lowercases
   attribute names, so `isDisabled` can never match. Write `is-disabled` in
   markup and LadrillosJS maps it to the `isDisabled` prop automatically.
+  (`isdisabled` without the hyphen matches nothing — see
+  [Naming multi-word props](./03-components.md#naming-multi-word-props) for
+  the exact matching rules.)
 - **Boolean attributes toggle by presence.** Binding a boolean to a real HTML
   boolean attribute (`disabled`) adds it when truthy and removes it when falsy.
 
@@ -388,6 +392,162 @@ A complete, themeable button in one file:
   }
 </style>
 ```
+
+---
+
+## Sharing your design system
+
+Everything above lives in plain files — `tokens.css` and a few component
+`.html` files — so sharing your design system does **not** mean bundling
+LadrillosJS with it. Ship the files plus a tiny register module, and declare
+`ladrillosjs` as a **peer dependency**: the consuming app provides the
+framework, so exactly one copy of it ever runs.
+
+A shareable package looks like this:
+
+```
+my-design-system/
+├── package.json
+├── index.js          # registers every component
+├── tokens.css        # the tokens from Step 1
+└── components/
+    ├── ds-button.html
+    ├── ds-card.html
+    └── ds-badge.html
+```
+
+### The register module
+
+`registerComponent` fetches `.html` files at runtime, and relative paths
+resolve against the **page** URL — not against your package. So the register
+module must build absolute URLs with `new URL(..., import.meta.url)`:
+
+```js
+// index.js
+import { registerComponents } from "ladrillosjs";
+
+const components = {
+  "ds-button": new URL("./components/ds-button.html", import.meta.url),
+  "ds-card": new URL("./components/ds-card.html", import.meta.url),
+  "ds-badge": new URL("./components/ds-badge.html", import.meta.url),
+};
+
+/** Register every design-system component. Call once at app startup. */
+export function defineDesignSystem() {
+  return registerComponents(
+    Object.entries(components).map(([name, url]) => ({
+      name,
+      path: url.href,
+    }))
+  );
+}
+```
+
+This one pattern makes the package work everywhere: bundlers like Vite
+statically detect `new URL(..., import.meta.url)` and emit the `.html` files
+as build assets with correct hashed URLs, while in a plain browser the URLs
+resolve against wherever the package is hosted (e.g. a CDN).
+
+### The package.json
+
+```json
+{
+  "name": "my-design-system",
+  "version": "1.0.0",
+  "type": "module",
+  "exports": {
+    ".": "./index.js",
+    "./tokens.css": "./tokens.css",
+    "./components/*": "./components/*"
+  },
+  "files": ["index.js", "tokens.css", "components"],
+  "peerDependencies": {
+    "ladrillosjs": "^2.0.0"
+  }
+}
+```
+
+> **Never bundle the framework into the package.** If your package shipped its
+> own copy of LadrillosJS, an app that also uses LadrillosJS would run two
+> registries side by side — duplicate-registration warnings at best, and the
+> browser's global `customElements` registry throwing on colliding tag names
+> at worst. A peer dependency guarantees a single shared copy.
+
+### Consuming it with npm + Vite
+
+Consumers install both packages (`npm install my-design-system ladrillosjs`),
+then:
+
+```js
+// main.js
+import "my-design-system/tokens.css";
+import { defineDesignSystem } from "my-design-system";
+
+defineDesignSystem();
+```
+
+One Vite-specific note: keep the package out of dependency pre-bundling so its
+`import.meta.url`-relative `.html` files keep resolving from the real package
+directory:
+
+```js
+// vite.config.js
+export default defineConfig({
+  optimizeDeps: {
+    exclude: ["my-design-system"],
+  },
+});
+```
+
+### Consuming it from a CDN (no build step)
+
+Publishing to npm gets you CDN hosting for free — jsDelivr serves every npm
+package with CORS headers, which matters because components are fetched over
+HTTP. An [import map](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/script/type/importmap)
+lets the exact same package (with its bare `import ... from "ladrillosjs"`)
+work directly in the browser:
+
+```html
+<link
+  rel="stylesheet"
+  href="https://cdn.jsdelivr.net/npm/my-design-system@1/tokens.css"
+/>
+
+<script type="importmap">
+  {
+    "imports": {
+      "ladrillosjs": "https://cdn.jsdelivr.net/npm/ladrillosjs@2/dist/index.js",
+      "my-design-system": "https://cdn.jsdelivr.net/npm/my-design-system@1/index.js"
+    }
+  }
+</script>
+
+<script type="module">
+  import { defineDesignSystem } from "my-design-system";
+  defineDesignSystem();
+</script>
+
+<ds-button label="Save" variant="primary"></ds-button>
+```
+
+### Rules of thumb for shared systems
+
+1. **Prefix your tag names** (`ds-button`, not `button-x`). Custom element
+   names are global to the page; a prefix keeps your system from colliding
+   with the consumer's own components.
+2. **Ship tokens as a plain CSS file** of `:root` custom properties. Consumers
+   theme your entire system by overriding variables — no component changes.
+3. **`ladrillosjs` is a peer dependency**, never a bundled dependency.
+4. **Serve with CORS** if you host the files yourself — components are fetched
+   with `fetch()`, so cross-origin hosting needs `Access-Control-Allow-Origin`.
+   (jsDelivr and friends already do this.)
+
+Two complete, runnable examples of this exact setup live in the repo:
+
+- [`samples/design-system-vite/`](../samples/design-system-vite/) — the design
+  system as a local npm package consumed by a Vite app.
+- [`samples/design-system-cdn/`](../samples/design-system-cdn/) — the same
+  package consumed with an import map and zero tooling.
 
 ---
 

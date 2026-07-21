@@ -1,0 +1,36 @@
+/* Design tokens — the single source of truth for the whole system.
+   Components never hard-code colors or spacing; they read these. */
+:root {
+  /* Color */
+  --ds-primary: #1877f2;
+  --ds-primary-hover: #166fe0;
+  --ds-surface: #e4e6eb;
+  --ds-surface-hover: #d8dade;
+  --ds-surface-raised: #ffffff;
+  --ds-page-bg: #f0f2f5;
+  --ds-border: #d0d3d8;
+  --ds-text: #1c1e21;
+  --ds-text-muted: #65676b;
+  --ds-text-on-primary: #ffffff;
+  --ds-success: #31a24c;
+  --ds-warning: #f7b928;
+
+  /* Shape, space, type */
+  --ds-radius: 8px;
+  --ds-pad-y: 0.5rem;
+  --ds-pad-x: 0.875rem;
+  --ds-font: 600 0.875rem/1 system-ui, -apple-system, sans-serif;
+}
+
+/* Theming = re-declaring tokens. No component changes needed. */
+[data-theme="dark"] {
+  --ds-primary: #4599ff;
+  --ds-primary-hover: #5ba7ff;
+  --ds-surface: #3a3b3c;
+  --ds-surface-hover: #4e4f50;
+  --ds-surface-raised: #242526;
+  --ds-page-bg: #18191a;
+  --ds-border: #3e4042;
+  --ds-text: #e4e6eb;
+  --ds-text-muted: #b0b3b8;
+}

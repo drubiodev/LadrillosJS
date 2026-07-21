@@ -1,0 +1,27 @@
+<span class="badge badge--{variant}">{label}</span>
+
+<script>
+  const label = "Badge";
+  const variant = "neutral"; // neutral | success | warning
+</script>
+
+<style>
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.1875rem 0.5625rem;
+    border-radius: 999px;
+    font: var(--ds-font);
+    font-size: 0.75rem;
+    background: var(--badge-bg, var(--ds-surface));
+    color: var(--badge-fg, var(--ds-text));
+  }
+  .badge--success {
+    --badge-bg: var(--ds-success);
+    --badge-fg: var(--ds-text-on-primary);
+  }
+  .badge--warning {
+    --badge-bg: var(--ds-warning);
+    --badge-fg: #1c1e21;
+  }
+</style>

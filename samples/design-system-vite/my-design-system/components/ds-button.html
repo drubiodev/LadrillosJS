@@ -1,0 +1,67 @@
+<button
+  class="btn btn--{variant} btn--{size}"
+  type="{type}"
+  disabled="{isDisabled}"
+  aria-label="{label}"
+>
+  <slot name="icon"></slot>
+  <span class="btn__label">{label}</span>
+</button>
+
+<script>
+  const label = "Button";
+  const variant = "primary"; // primary | secondary
+  const size = "md"; // sm | md | lg
+  const type = "button";
+  const isDisabled = false; // toggled via the `is-disabled` attribute
+</script>
+
+<style>
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font: var(--ds-font);
+    font-size: var(--btn-font-size, 0.875rem);
+    padding: var(--btn-pad-y, var(--ds-pad-y)) var(--btn-pad-x, var(--ds-pad-x));
+    border: none;
+    border-radius: var(--ds-radius);
+    background: var(--btn-bg);
+    color: var(--btn-fg);
+    cursor: pointer;
+  }
+  slot {
+    display: contents;
+  }
+  .btn:hover {
+    background: var(--btn-bg-hover, var(--btn-bg));
+  }
+  .btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  /* Variants: each re-points just a couple of tokens */
+  .btn--primary {
+    --btn-bg: var(--ds-primary);
+    --btn-bg-hover: var(--ds-primary-hover);
+    --btn-fg: var(--ds-text-on-primary);
+  }
+  .btn--secondary {
+    --btn-bg: var(--ds-surface);
+    --btn-bg-hover: var(--ds-surface-hover);
+    --btn-fg: var(--ds-text);
+  }
+
+  /* Sizes: re-point the size tokens */
+  .btn--sm {
+    --btn-pad-y: 0.375rem;
+    --btn-pad-x: 0.625rem;
+    --btn-font-size: 0.8125rem;
+  }
+  .btn--lg {
+    --btn-pad-y: 0.6875rem;
+    --btn-pad-x: 1.125rem;
+    --btn-font-size: 1rem;
+  }
+</style>

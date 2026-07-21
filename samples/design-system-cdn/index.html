@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Design System — CDN consumer (no build step)</title>
+
+    <!-- 1. The design system's tokens.
+         Published version: https://cdn.jsdelivr.net/npm/my-design-system@1/tokens.css -->
+    <link rel="stylesheet" href="./my-design-system/tokens.css" />
+
+    <!-- 2. An import map gives bare specifiers a URL, so the *same* package
+         that works with npm + Vite works straight from a CDN. Everyone —
+         this page and the design system — shares one copy of LadrillosJS.
+
+         This sample points at local files so it runs offline. A real page
+         consuming published packages would use:
+         {
+           "imports": {
+             "ladrillosjs": "https://cdn.jsdelivr.net/npm/ladrillosjs@2/dist/index.js",
+             "my-design-system": "https://cdn.jsdelivr.net/npm/my-design-system@1/index.js"
+           }
+         }
+    -->
+    <script type="importmap">
+      {
+        "imports": {
+          "ladrillosjs": "/dist/index.dev.js",
+          "my-design-system": "./my-design-system/index.js"
+        }
+      }
+    </script>
+
+    <!-- 3. Register the system. That's the whole integration. -->
+    <script type="module">
+      import { defineDesignSystem } from "my-design-system";
+      defineDesignSystem();
+    </script>
+
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      /* The page styles itself with the system's tokens too */
+      body {
+        font-family: system-ui, -apple-system, sans-serif;
+        background: var(--ds-page-bg);
+        color: var(--ds-text);
+        min-height: 100vh;
+        padding: 2.5rem 1.5rem;
+      }
+      main {
+        max-width: 720px;
+        margin: 0 auto;
+        display: flex;
+        flex-direction: column;
+        gap: 2rem;
+      }
+      .page-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+      }
+      h1 {
+        font-size: 1.5rem;
+      }
+      h2 {
+        font-size: 0.8125rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--ds-text-muted);
+        margin-bottom: 0.75rem;
+      }
+      .row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        align-items: center;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 1rem;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header class="page-header">
+        <h1>Acme Design System</h1>
+        <ds-button
+          label="Toggle theme"
+          variant="secondary"
+          onclick="
+            document.documentElement.dataset.theme =
+              document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'
+          "
+        ></ds-button>
+      </header>
+
+      <section>
+        <h2>Buttons</h2>
+        <div class="row">
+          <ds-button label="Primary" variant="primary"></ds-button>
+          <ds-button label="Secondary" variant="secondary"></ds-button>
+          <ds-button label="Small" variant="primary" size="sm"></ds-button>
+          <ds-button label="Large" variant="primary" size="lg"></ds-button>
+          <ds-button label="Disabled" variant="primary" is-disabled></ds-button>
+          <ds-button label="Save" variant="primary">
+            <span slot="icon">💾</span>
+          </ds-button>
+        </div>
+      </section>
+
+      <section>
+        <h2>Badges</h2>
+        <div class="row">
+          <ds-badge label="Neutral"></ds-badge>
+          <ds-badge label="Active" variant="success"></ds-badge>
+          <ds-badge label="Pending" variant="warning"></ds-badge>
+        </div>
+      </section>
+
+      <section>
+        <h2>Cards</h2>
+        <div class="grid">
+          <ds-card title="Analytics">
+            <ds-badge slot="badge" label="Live" variant="success"></ds-badge>
+            Traffic is up 12% week over week, driven by the new onboarding
+            flow.
+            <div slot="footer" class="row">
+              <ds-button label="View report" variant="primary" size="sm"></ds-button>
+              <ds-button label="Dismiss" variant="secondary" size="sm"></ds-button>
+            </div>
+          </ds-card>
+          <ds-card title="Billing">
+            <ds-badge slot="badge" label="Action needed" variant="warning"></ds-badge>
+            Your payment method expires this month. Update it to avoid any
+            interruption.
+            <div slot="footer" class="row">
+              <ds-button label="Update card" variant="primary" size="sm"></ds-button>
+            </div>
+          </ds-card>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>

@@ -67,6 +67,7 @@
     "watch:cdn": "vite build --config vite.cdn.dev.config.ts --watch",
     "serve:cdn": "npx serve dist-cdn -p 3000 --cors",
     "serve:cdn-sample": "npx serve samples/cdn-sample -p 8080 --cors",
+    "serve:design-system": "node scripts/cors-server.mjs samples/design-system-cdn 8080 .",
     "serve:repl": "node scripts/cors-server.mjs samples/repl 8080 .",
     "dev:cdn": "concurrently -n build,cdn,sample -c auto \"npm run watch:cdn\" \"npm run serve:cdn\" \"npm run serve:cdn-sample\"",
     "dev:repl": "concurrently -n build,sample -c auto \"npm run watch:cdn\" \"npm run serve:repl\"",

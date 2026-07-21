@@ -1,0 +1,20 @@
+{
+  "name": "my-design-system",
+  "version": "1.0.0",
+  "description": "Example shareable design system built on LadrillosJS.",
+  "type": "module",
+  "main": "./index.js",
+  "exports": {
+    ".": "./index.js",
+    "./tokens.css": "./tokens.css",
+    "./components/*": "./components/*"
+  },
+  "files": [
+    "index.js",
+    "tokens.css",
+    "components"
+  ],
+  "peerDependencies": {
+    "ladrillosjs": "^2.0.0"
+  }
+}

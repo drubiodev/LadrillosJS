@@ -1,0 +1,53 @@
+<article class="card">
+  <header class="card__header">
+    <h3 class="card__title">{title}</h3>
+    <slot name="badge"></slot>
+  </header>
+  <div class="card__body">
+    <slot></slot>
+  </div>
+  <footer class="card__footer">
+    <slot name="footer"></slot>
+  </footer>
+</article>
+
+<script>
+  const title = "Card";
+</script>
+
+<style>
+  slot {
+    display: contents;
+  }
+  .card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 1.25rem;
+    background: var(--ds-surface-raised);
+    color: var(--ds-text);
+    border: 1px solid var(--ds-border);
+    border-radius: var(--ds-radius);
+    font-family: system-ui, -apple-system, sans-serif;
+  }
+  .card__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
+  .card__title {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+  }
+  .card__body {
+    font-size: 0.875rem;
+    line-height: 1.5;
+    color: var(--ds-text-muted);
+  }
+  .card__footer {
+    display: flex;
+    gap: 0.5rem;
+  }
+</style>

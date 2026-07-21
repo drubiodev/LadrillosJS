@@ -139,6 +139,42 @@ Attributes on your component become available as variables in the script:
 
 **Important:** Attributes take precedence over script defaults. If you pass `name="Alice"`, the script's `let name = "Guest"` becomes `"Alice"`.
 
+### Naming multi-word props
+
+HTML lowercases every attribute name, so an attribute can never arrive as
+`isDisabled`. An attribute matches a script variable when the names are
+**identical** (after that lowercasing) — with one extra alias: a kebab-case
+attribute is also tried as its camelCase conversion, so `is-disabled` resolves
+a script's `isDisabled` (mirroring Vue's convention).
+
+There is **no** lowercase→camelCase fallback. Each attribute spelling matches
+exactly one script naming:
+
+| Script declares               | `isdisabled` in markup | `is-disabled` in markup |
+| ----------------------------- | ---------------------- | ----------------------- |
+| `let isDisabled` (camelCase)  | ✗ ignored              | ✓ works                 |
+| `let isdisabled` (lowercase)  | ✓ works                | ✗ ignored               |
+
+Pick one convention per component and document it for your consumers:
+
+```html
+<!-- camelCase script prop → kebab-case attribute -->
+<my-button is-disabled></my-button>
+<script>
+  let isDisabled = false;
+</script>
+
+<!-- lowercase script prop → lowercase attribute -->
+<my-button isdisabled></my-button>
+<script>
+  let isdisabled = false;
+</script>
+```
+
+A mismatched spelling isn't an error — the attribute is simply never applied
+and the script default silently stays in effect. If a boolean prop "doesn't
+work" (e.g. a button that won't disable), check this table first.
+
 ---
 
 ## Template Bindings

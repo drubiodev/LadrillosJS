@@ -632,6 +632,8 @@ See the [samples/](samples/) directory for complete examples:
 - `samples/vite-sample/` — Basic Vite setup
 - `samples/vite-basic-site/` — Multi-component site
 - `samples/ladrillos-demo/` — Full feature showcase
+- `samples/design-system-vite/` — Shareable design system as an npm package (peer dependency pattern)
+- `samples/design-system-cdn/` — The same design system consumed from a CDN via import map
 
 ---
 
