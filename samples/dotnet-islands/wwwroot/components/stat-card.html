@@ -1,0 +1,39 @@
+<div class="stat">
+  <span class="label">{label}</span>
+  <span class="value">{value}</span>
+  <span class="hint">{hint}</span>
+</div>
+
+<script>
+  // Filled from attributes by C# — see the <stat-card ...> tags in Program.cs.
+  let label = "";
+  let value = "";
+  let hint = "";
+</script>
+
+<style>
+  .stat {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 20px;
+    background: #1a1a1a;
+    border: 1px solid #333;
+    border-radius: 8px;
+  }
+  .label {
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #9ca3af;
+  }
+  .value {
+    font-size: 28px;
+    font-weight: 700;
+    color: #fff;
+  }
+  .hint {
+    font-size: 12px;
+    color: #6b7280;
+  }
+</style>

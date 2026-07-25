@@ -1,0 +1,109 @@
+<div class="order-table">
+  <div class="toolbar">
+    <button onclick="setFilter('all')" class="{filter === 'all' ? 'on' : ''}">All</button>
+    <button onclick="setFilter('shipped')" class="{filter === 'shipped' ? 'on' : ''}">Shipped</button>
+    <button onclick="setFilter('pending')" class="{filter === 'pending' ? 'on' : ''}">Pending</button>
+    <button onclick="refresh()" class="refresh">↻ Refresh from API</button>
+  </div>
+
+  <table>
+    <thead>
+      <tr><th>Order</th><th>Customer</th><th>Total</th><th>Status</th></tr>
+    </thead>
+    <tbody>
+      <for each="o in visible" key="o.id">
+        <tr>
+          <td>#{o.id}</td>
+          <td>{o.customer}</td>
+          <td>${o.total.toFixed(2)}</td>
+          <td><span class="badge {o.status}">{o.status}</span></td>
+        </tr>
+      </for>
+    </tbody>
+  </table>
+
+  <p class="count">{visible.length} of {all.length} orders</p>
+</div>
+
+<script>
+  // Seed from the server-injected JSON island — instant first render, no fetch,
+  // no flash. The island lives in the page's light DOM, reachable via document.
+  const island = document.getElementById("orders-data");
+  let all = island ? JSON.parse(island.textContent) : [];
+  let filter = "all";
+  let visible = all;
+
+  function setFilter(f) {
+    filter = f;
+    visible = f === "all" ? all : all.filter((o) => o.status === f);
+  }
+
+  // Live update straight from the .NET API — same data, refreshed on demand.
+  async function refresh() {
+    const res = await fetch("/api/orders");
+    all = await res.json();
+    setFilter(filter);
+  }
+</script>
+
+<style>
+  .order-table {
+    margin-top: 28px;
+  }
+  .toolbar {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  .order-table button {
+    padding: 8px 14px;
+    font-size: 14px;
+    background: #1a1a1a;
+    color: #e5e5e5;
+    border: 1px solid #333;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  .order-table button.on {
+    background: #fff;
+    color: #000;
+    border-color: #fff;
+  }
+  .order-table button.refresh {
+    margin-left: auto;
+  }
+  .order-table table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+  }
+  .order-table th,
+  .order-table td {
+    text-align: left;
+    padding: 10px 12px;
+    border-bottom: 1px solid #262626;
+  }
+  .order-table th {
+    color: #9ca3af;
+    font-weight: 600;
+  }
+  .order-table .badge {
+    padding: 2px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    text-transform: capitalize;
+  }
+  .order-table .badge.shipped {
+    background: #052e1b;
+    color: #4ade80;
+  }
+  .order-table .badge.pending {
+    background: #3a2a05;
+    color: #fbbf24;
+  }
+  .order-table .count {
+    margin-top: 12px;
+    color: #6b7280;
+    font-size: 13px;
+  }
+</style>

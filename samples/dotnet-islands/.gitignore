@@ -1,0 +1,6 @@
+# .NET build output
+[Bb]in/
+[Oo]bj/
+
+# macOS
+.DS_Store
