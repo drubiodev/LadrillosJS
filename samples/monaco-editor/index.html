@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>&lt;monaco-editor&gt; — embeddable LadrillosJS playground</title>
+
+    <script type="module">
+        import { registerComponent } from "https://cdn.jsdelivr.net/npm/ladrillosjs@2/dist/index.js";
+
+        // Light DOM: Monaco injects its stylesheets into document.head, so the
+        // editor must not live behind a shadow boundary.
+        await registerComponent("monaco-editor", "./components/monaco-editor", false);
+    </script>
+
+    <style>
+        body {
+            margin: 0 auto;
+            padding: 2rem 1.25rem 4rem;
+            max-width: 1100px;
+            background: #0d1117;
+            color: #e6edf3;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            line-height: 1.6;
+        }
+
+        h1 {
+            margin: 0 0 0.25rem;
+            font-size: 1.6rem;
+        }
+
+        h2 {
+            margin: 2.5rem 0 0.75rem;
+            font-size: 1.05rem;
+            color: #ff6b35;
+        }
+
+        p {
+            color: #9198a1;
+            margin: 0 0 1.25rem;
+        }
+
+        code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 0.85em;
+            color: #e6edf3;
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 5px;
+            padding: 0.1em 0.35em;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>&lt;monaco-editor&gt;</h1>
+    <p>
+        Drop the element anywhere, put your component source in a
+        <code>&lt;template&gt;</code>, and you get an editor, a live preview and a
+        draggable divider. <code>&lt;template&gt;</code> keeps the snippet inert so
+        its <code>&lt;script&gt;</code> and <code>&lt;style&gt;</code> never touch
+        the host page.
+    </p>
+
+    <h2>Single file</h2>
+    <monaco-editor height="460px">
+        <template data-tag="demo-counter">
+            <div class="counter">
+                <div class="count">{count}</div>
+                <div class="row">
+                    <button onclick="count--">-</button>
+                    <button onclick="count = 0">reset</button>
+                    <button onclick="count++">+</button>
+                </div>
+                <p>double: {count * 2} · squared: {count * count}</p>
+            </div>
+
+            <script>
+                let count = 0;
+            </script>
+
+            <style>
+                .counter {
+                    text-align: center;
+                    font-family: system-ui;
+                    padding: 2rem;
+                }
+
+                .count {
+                    font-size: 4rem;
+                    font-weight: 800;
+                    color: #ff6b35;
+                }
+
+                .row {
+                    display: flex;
+                    gap: .5rem;
+                    justify-content: center;
+                    margin: 1rem 0;
+                }
+
+                button {
+                    padding: .5rem 1rem;
+                    border-radius: 8px;
+                    border: 1px solid #ccc;
+                    background: #fff;
+                    color: #1a1a1a;
+                    cursor: pointer;
+                    font-size: 1rem;
+                }
+
+                button:hover {
+                    background: #f0f2f5;
+                }
+
+                p {
+                    color: #65676b;
+                }
+            </style>
+        </template>
+    </monaco-editor>
+
+    <h2>Multiple files</h2>
+    <p>
+        Add one <code>&lt;template&gt;</code> per component — the first one is
+        mounted as the root, the rest are registered so it can use them.
+    </p>
+    <monaco-editor height="460px" split="55">
+        <template data-tag="demo-app">
+            <div class="app">
+                <h3>Team</h3>
+                <for each="person in people" key="person.name">
+                    <demo-card name="{person.name}" role="{person.role}"></demo-card>
+                </for>
+            </div>
+
+            <script>
+                let people = [
+                    { name: "Ada", role: "Engineer" },
+                    { name: "Grace", role: "Admiral" },
+                ];
+            </script>
+
+            <style>
+                .app {
+                    font-family: system-ui;
+                    padding: 1rem;
+                }
+            </style>
+        </template>
+
+        <template data-tag="demo-card">
+            <div class="card">
+                <strong>{name}</strong>
+                <span>{role}</span>
+            </div>
+
+            <script>
+                let name = "";
+                let role = "";
+            </script>
+
+            <style>
+                .card {
+                    display: flex;
+                    justify-content: space-between;
+                    gap: 1rem;
+                    padding: .6rem .8rem;
+                    margin-bottom: .5rem;
+                    border: 1px solid #e3e5e8;
+                    border-radius: 8px;
+                    font-family: system-ui;
+                }
+
+                span {
+                    color: #65676b;
+                }
+            </style>
+        </template>
+    </monaco-editor>
+
+    <h2>Stacked layout</h2>
+    <monaco-editor height="520px" layout="vertical" theme="vs">
+        <template data-tag="demo-greeter">
+            <div class="greeter">
+                <input $bind="name" placeholder="Type your name" />
+                <p>Hello, {name || "stranger"}!</p>
+            </div>
+
+            <script>
+                let name = "";
+            </script>
+
+            <style>
+                .greeter {
+                    font-family: system-ui;
+                    padding: 1.5rem;
+                }
+
+                input {
+                    padding: .5rem .7rem;
+                    font-size: 1rem;
+                    border: 1px solid #ccc;
+                    border-radius: 8px;
+                }
+            </style>
+        </template>
+    </monaco-editor>
+</body>
+
+</html>

@@ -1,0 +1,34 @@
+<link rel="stylesheet" href="./monaco-editor.css" />
+
+<div class="lme" $ref="root">
+    <section class="lme__pane">
+        <div class="lme__head">
+            <span class="lme__dot"></span>
+            <div class="lme__tabs" $ref="tabs"></div>
+            <button class="lme__reset" type="button" $ref="resetBtn" title="Restore the original code">reset</button>
+        </div>
+        <div class="lme__editor" $ref="editorHost"></div>
+    </section>
+
+    <div class="lme__resizer" $ref="resizer" title="Drag to resize"></div>
+
+    <section class="lme__pane">
+        <div class="lme__head"><span class="lme__dot"></span> Preview</div>
+        <div class="lme__preview">
+            <iframe $ref="frame" title="preview"
+                sandbox="allow-scripts allow-same-origin allow-forms allow-modals"></iframe>
+            <pre class="lme__error" $ref="errorEl"></pre>
+        </div>
+    </section>
+</div>
+
+<!--
+  The heavy lifting lives in a plain ES module. This inline module script only
+  hands it `$host` (needed to read the original <template> children) and `$refs`.
+  Keeping it to an import + one call avoids the script-to-state transform
+  entirely, so the .js file is ordinary, untransformed JavaScript.
+-->
+<script type="module">
+    import { mount } from "./monaco-editor.js";
+    mount($host, $refs);
+</script>
