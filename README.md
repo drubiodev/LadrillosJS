@@ -785,6 +785,27 @@ Practical guidance:
 In short: untrusted **data** through LadrillosJS's bindings is safe; untrusted
 **templates/scripts** are not, because those *are* your application code.
 
+### Content Security Policy
+
+Because components are compiled in the browser (that's what "no build step"
+costs), a page using LadrillosJS needs `'unsafe-eval'`:
+
+```http
+Content-Security-Policy:
+  default-src 'self';
+  script-src 'self' 'unsafe-eval';
+  style-src 'self' 'unsafe-inline';
+  connect-src 'self';
+```
+
+Notably, `'unsafe-inline'` for **scripts** is *not* needed — inline `onclick`
+attributes are removed and reattached via `addEventListener()` — and neither is
+`blob:`. `require-trusted-types-for 'script'` is not yet supported.
+
+See [Content Security Policy](docs/22-csp-and-security.md) for the full
+breakdown, verification results, and the roadmap toward an opt-in eval-free
+build.
+
 ---
 
 ## 🤝 Contributing
