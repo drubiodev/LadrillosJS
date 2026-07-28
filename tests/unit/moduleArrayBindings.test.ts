@@ -1,16 +1,19 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import {
-    createReactiveState,
-    createReactiveArray,
-} from "../../src/core/js/reactivity";
-import {
-    transformImportsForReactivity,
-    generateHelperInjectionCode,
-} from "../../src/core/js/moduleExecutor";
+import
+    {
+        createReactiveState,
+        createReactiveArray,
+    } from "../../src/core/js/reactivity";
+import
+    {
+        transformImportsForReactivity,
+        generateHelperInjectionCode,
+    } from "../../src/core/js/moduleExecutor";
 import { getLadrillosGlobal } from "../../src/core/globals";
 import type { BindingDescriptor } from "../../src/types";
 
-const makeDescriptor = (raw: string): BindingDescriptor => {
+const makeDescriptor = (raw: string): BindingDescriptor =>
+{
     const node = document.createTextNode(`{${raw}}`);
     return {
         node,
@@ -20,12 +23,15 @@ const makeDescriptor = (raw: string): BindingDescriptor => {
     } as unknown as BindingDescriptor;
 };
 
-afterEach(() => {
+afterEach(() =>
+{
     getLadrillosGlobal().stateCallbacks.clear();
 });
 
-describe("__notifyKeyChanged external mutation channel", () => {
-    it("triggers per-key binding updates like a reassignment", () => {
+describe("__notifyKeyChanged external mutation channel", () =>
+{
+    it("triggers per-key binding updates like a reassignment", () =>
+    {
         const updateBinding = vi.fn();
         const onStateChange = vi.fn();
         const descriptor = makeDescriptor("items.length");
@@ -40,7 +46,8 @@ describe("__notifyKeyChanged external mutation channel", () => {
         expect(onStateChange).toHaveBeenCalled();
     });
 
-    it("is safe for keys with no registered bindings", () => {
+    it("is safe for keys with no registered bindings", () =>
+    {
         const updateBinding = vi.fn();
         const onStateChange = vi.fn();
         const state = createReactiveState(
@@ -54,7 +61,8 @@ describe("__notifyKeyChanged external mutation channel", () => {
         expect(onStateChange).toHaveBeenCalled();
     });
 
-    it("skips binding updates while reactivity is suspended", () => {
+    it("skips binding updates while reactivity is suspended", () =>
+    {
         const updateBinding = vi.fn();
         const onStateChange = vi.fn();
         const descriptor = makeDescriptor("items.length");
@@ -70,18 +78,21 @@ describe("__notifyKeyChanged external mutation channel", () => {
         expect(onStateChange).toHaveBeenCalled();
     });
 
-    it("does not appear in Object.keys(state)", () => {
+    it("does not appear in Object.keys(state)", () =>
+    {
         const state = createReactiveState({ items: [1] }, [], vi.fn());
         expect(Object.keys(state)).not.toContain("__notifyKeyChanged");
     });
 });
 
-describe("inline module scripts: imported arrays merged into state", () => {
+describe("inline module scripts: imported arrays merged into state", () =>
+{
     // executeModuleScriptWithReactivity wraps imported arrays with a
     // directives-only callback (resolveImports), then merges them into
     // reactive state via `reactiveState[key] = value`. That merge must
     // attach the per-key subscriber so pushes update text bindings too.
-    it("push on a merged imported array updates the key's bindings and keeps the original subscriber", () => {
+    it("push on a merged imported array updates the key's bindings and keeps the original subscriber", () =>
+    {
         const directivesOnly = vi.fn();
         const imported = createReactiveArray([1, 2], directivesOnly);
 
@@ -106,8 +117,10 @@ describe("inline module scripts: imported arrays merged into state", () => {
     });
 });
 
-describe("external module scripts: injected __wrapReactiveArray", () => {
-    it("import transform passes the local binding name as the state key", () => {
+describe("external module scripts: injected __wrapReactiveArray", () =>
+{
+    it("import transform passes the local binding name as the state key", () =>
+    {
         const code = `import { items, other as list } from "./data.js";\nitems.push(1);`;
         const transformed = transformImportsForReactivity(code);
         expect(transformed).toContain(
@@ -119,7 +132,8 @@ describe("external module scripts: injected __wrapReactiveArray", () => {
     });
 
     /** Evaluates the injected helper code and returns __wrapReactiveArray. */
-    const buildInjectedWrapper = (componentId: string) => {
+    const buildInjectedWrapper = (componentId: string) =>
+    {
         const helperCode = generateHelperInjectionCode(
             componentId,
             "http://localhost/component.html",
@@ -129,7 +143,8 @@ describe("external module scripts: injected __wrapReactiveArray", () => {
         )() as (arr: unknown, componentId: string, stateKey?: string) => unknown;
     };
 
-    it("mutations report the state key to the component callback", () => {
+    it("mutations report the state key to the component callback", () =>
+    {
         const wrap = buildInjectedWrapper("comp-1");
         const callback = vi.fn();
         getLadrillosGlobal().stateCallbacks.set("comp-1", callback);
@@ -143,7 +158,8 @@ describe("external module scripts: injected __wrapReactiveArray", () => {
         expect(callback).toHaveBeenCalledWith("items");
     });
 
-    it("module-internal push refreshes the key's bindings via the component callback", () => {
+    it("module-internal push refreshes the key's bindings via the component callback", () =>
+    {
         // End-to-end wiring minus the blob import: the injected wrapper's
         // callback routes through state.__notifyKeyChanged, exactly as
         // webcomponent.ts registers it.
@@ -156,7 +172,8 @@ describe("external module scripts: injected __wrapReactiveArray", () => {
             vi.fn(),
         );
 
-        getLadrillosGlobal().stateCallbacks.set("comp-2", (stateKey?: string) => {
+        getLadrillosGlobal().stateCallbacks.set("comp-2", (stateKey?: string) =>
+        {
             if (stateKey) (state as any).__notifyKeyChanged(stateKey);
         });
 

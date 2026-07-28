@@ -25,32 +25,32 @@ export type StateChangeCallback = (stateKey?: string) => void;
 /** Shape of the shared event bus storage. */
 export interface EventBusStore
 {
-  listeners: Map<string, Set<any>>;
-  componentListeners: Map<string, Set<any>>;
+    listeners: Map<string, Set<any>>;
+    componentListeners: Map<string, Set<any>>;
 }
 
 /** The consolidated LadrillosJS global namespace. */
 export interface LadrillosGlobal
 {
-  /** Shared event bus backing $emit/$listen across all components. */
-  bus: EventBusStore;
-  /** componentId -> callback used by module-script reactive array wrappers. */
-  stateCallbacks: Map<string, StateChangeCallback>;
-  /** componentId -> refs Map (or Proxy over one) for module-script $refs. */
-  refs: Map<string, unknown>;
+    /** Shared event bus backing $emit/$listen across all components. */
+    bus: EventBusStore;
+    /** componentId -> callback used by module-script reactive array wrappers. */
+    stateCallbacks: Map<string, StateChangeCallback>;
+    /** componentId -> refs Map (or Proxy over one) for module-script $refs. */
+    refs: Map<string, unknown>;
 }
 
 declare global
 {
-  // eslint-disable-next-line no-var
-  var __ladrillos: LadrillosGlobal | undefined;
-  // Legacy aliases (same object references as the grouped fields above).
-  // eslint-disable-next-line no-var
-  var __ladrillosEventBus: EventBusStore | undefined;
-  // eslint-disable-next-line no-var
-  var __ladrillosStateCallbacks: Map<string, StateChangeCallback> | undefined;
-  // eslint-disable-next-line no-var
-  var __ladrillosRefs: Map<string, unknown> | undefined;
+    // eslint-disable-next-line no-var
+    var __ladrillos: LadrillosGlobal | undefined;
+    // Legacy aliases (same object references as the grouped fields above).
+    // eslint-disable-next-line no-var
+    var __ladrillosEventBus: EventBusStore | undefined;
+    // eslint-disable-next-line no-var
+    var __ladrillosStateCallbacks: Map<string, StateChangeCallback> | undefined;
+    // eslint-disable-next-line no-var
+    var __ladrillosRefs: Map<string, unknown> | undefined;
 }
 
 /**
@@ -63,27 +63,27 @@ declare global
  */
 export function getLadrillosGlobal(): LadrillosGlobal
 {
-  let g = globalThis.__ladrillos;
+    let g = globalThis.__ladrillos;
 
-  if (!g)
-  {
-    // Adopt any pre-existing legacy objects rather than replacing them, so a
-    // page that somehow populated the old keys first doesn't lose listeners.
-    g = {
-      bus: globalThis.__ladrillosEventBus ?? {
-        listeners: new Map(),
-        componentListeners: new Map(),
-      },
-      stateCallbacks: globalThis.__ladrillosStateCallbacks ?? new Map(),
-      refs: globalThis.__ladrillosRefs ?? new Map(),
-    };
-    globalThis.__ladrillos = g;
-  }
+    if (!g)
+    {
+        // Adopt any pre-existing legacy objects rather than replacing them, so a
+        // page that somehow populated the old keys first doesn't lose listeners.
+        g = {
+            bus: globalThis.__ladrillosEventBus ?? {
+                listeners: new Map(),
+                componentListeners: new Map(),
+            },
+            stateCallbacks: globalThis.__ladrillosStateCallbacks ?? new Map(),
+            refs: globalThis.__ladrillosRefs ?? new Map(),
+        };
+        globalThis.__ladrillos = g;
+    }
 
-  // Keep legacy aliases pointing at the grouped objects.
-  globalThis.__ladrillosEventBus = g.bus;
-  globalThis.__ladrillosStateCallbacks = g.stateCallbacks;
-  globalThis.__ladrillosRefs = g.refs;
+    // Keep legacy aliases pointing at the grouped objects.
+    globalThis.__ladrillosEventBus = g.bus;
+    globalThis.__ladrillosStateCallbacks = g.stateCallbacks;
+    globalThis.__ladrillosRefs = g.refs;
 
-  return g;
+    return g;
 }

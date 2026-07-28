@@ -1,18 +1,20 @@
 import { ScriptElement, ExternalScriptElement } from "../../types";
-import {
-  frameworkHelperNames,
-  createFrameworkHelpers,
-} from "../helpers/frameworkHelpers";
+import
+  {
+    frameworkHelperNames,
+    createFrameworkHelpers,
+  } from "../helpers/frameworkHelpers";
 import { eventBusHelperNames, createEventBusHelpers } from "../events/eventBus";
 import { createReactiveArray } from "./reactivity";
 import { transformCodeToStateAccess } from "../../utils/stateTransform";
 import { importModule } from "../../utils/dynamicImport";
-import {
-  error,
-  scriptError,
-  getComponentContext,
-  ErrorCode,
-} from "../../utils/devWarnings";
+import
+  {
+    error,
+    scriptError,
+    getComponentContext,
+    ErrorCode,
+  } from "../../utils/devWarnings";
 
 /**
  * Executes module scripts at runtime with REACTIVITY support.
@@ -67,14 +69,16 @@ const TS_EXTENSIONS = [".ts", ".tsx", ".mts"];
 /**
  * Checks if a path is relative (starts with ./ or ../)
  */
-function isRelativePath(path: string): boolean {
+function isRelativePath(path: string): boolean
+{
   return path.startsWith("./") || path.startsWith("../");
 }
 
 /**
  * Checks if a path points to a TypeScript file
  */
-function isTypeScriptFile(path: string): boolean {
+function isTypeScriptFile(path: string): boolean
+{
   return TS_EXTENSIONS.some((ext) => path.endsWith(ext));
 }
 
@@ -82,7 +86,8 @@ function isTypeScriptFile(path: string): boolean {
  * Checks if a path is a bare specifier (npm package)
  * These need special handling - they won't work without a bundler or import map
  */
-function isBareSpecifier(path: string): boolean {
+function isBareSpecifier(path: string): boolean
+{
   return (
     !path.startsWith("/") &&
     !path.startsWith("./") &&
@@ -105,7 +110,8 @@ function isBareSpecifier(path: string): boolean {
  * @param baseUrl - The URL to resolve relative paths against (component's URL)
  * @returns The code with rewritten imports
  */
-export function rewriteImports(code: string, baseUrl: string): string {
+export function rewriteImports(code: string, baseUrl: string): string
+{
   let result = code;
 
   // Track issues for warnings
@@ -113,37 +119,46 @@ export function rewriteImports(code: string, baseUrl: string): string {
   const tsImports: string[] = [];
 
   // Rewrite static imports/exports
-  result = result.replace(STATIC_IMPORT_REGEX, (match, importPath) => {
-    if (isRelativePath(importPath)) {
+  result = result.replace(STATIC_IMPORT_REGEX, (match, importPath) =>
+  {
+    if (isRelativePath(importPath))
+    {
       const absoluteUrl = new URL(importPath, baseUrl).href;
-      if (isTypeScriptFile(importPath)) {
+      if (isTypeScriptFile(importPath))
+      {
         tsImports.push(importPath);
       }
       return match.replace(importPath, absoluteUrl);
     }
-    if (isBareSpecifier(importPath)) {
+    if (isBareSpecifier(importPath))
+    {
       bareSpecifiers.push(importPath);
     }
     return match;
   });
 
   // Rewrite dynamic imports
-  result = result.replace(DYNAMIC_IMPORT_REGEX, (match, importPath) => {
-    if (isRelativePath(importPath)) {
+  result = result.replace(DYNAMIC_IMPORT_REGEX, (match, importPath) =>
+  {
+    if (isRelativePath(importPath))
+    {
       const absoluteUrl = new URL(importPath, baseUrl).href;
-      if (isTypeScriptFile(importPath)) {
+      if (isTypeScriptFile(importPath))
+      {
         tsImports.push(importPath);
       }
       return `import("${absoluteUrl}")`;
     }
-    if (isBareSpecifier(importPath)) {
+    if (isBareSpecifier(importPath))
+    {
       bareSpecifiers.push(importPath);
     }
     return match;
   });
 
   // Warn about TypeScript imports (they work with dev servers like Vite, but not in plain browser)
-  if (tsImports.length > 0) {
+  if (tsImports.length > 0)
+  {
     console.info(
       `[LadrillosJS] TypeScript imports detected: ${tsImports.join(", ")}. ` +
       `These work with dev servers (Vite, etc.) that transpile on-the-fly. ` +
@@ -152,7 +167,8 @@ export function rewriteImports(code: string, baseUrl: string): string {
   }
 
   // Warn about bare specifiers
-  if (bareSpecifiers.length > 0) {
+  if (bareSpecifiers.length > 0)
+  {
     console.warn(
       `[LadrillosJS] Bare import specifiers found: ${bareSpecifiers.join(
         ", ",
@@ -168,7 +184,8 @@ export function rewriteImports(code: string, baseUrl: string): string {
  * Creates a blob URL from module code.
  * The blob URL can be dynamically imported.
  */
-function createModuleBlobUrl(code: string): string {
+function createModuleBlobUrl(code: string): string
+{
   const blob = new Blob([code], { type: "text/javascript" });
   return URL.createObjectURL(blob);
 }
@@ -185,8 +202,10 @@ export async function executeModuleScript(
   script: ScriptElement,
   componentUrl: string,
   componentId?: string,
-): Promise<unknown> {
-  if (script.type !== "module") {
+): Promise<unknown>
+{
+  if (script.type !== "module")
+  {
     throw new Error('executeModuleScript only handles type="module" scripts');
   }
 
@@ -197,18 +216,21 @@ export async function executeModuleScript(
   const blobUrl = createModuleBlobUrl(rewrittenCode);
 
   // Track for cleanup
-  if (componentId) {
+  if (componentId)
+  {
     const urls = blobUrlRegistry.get(componentId) || [];
     urls.push(blobUrl);
     blobUrlRegistry.set(componentId, urls);
   }
 
-  try {
+  try
+  {
     // Dynamically import the module. The specifier is a runtime blob: URL,
     // so bundlers are told to leave it alone (see importModule).
     const moduleExports = await importModule(blobUrl);
     return moduleExports;
-  } catch (err) {
+  } catch (err)
+  {
     scriptError(
       "Failed to execute module script",
       err as Error,
@@ -230,21 +252,25 @@ const TOP_LEVEL_VAR_REGEX =
  * Extracts top-level variable names from module code.
  * Used to auto-export all declarations
  */
-function extractTopLevelVariables(code: string): string[] {
+function extractTopLevelVariables(code: string): string[]
+{
   const variables: string[] = [];
   let match;
 
   // Reset regex state
   TOP_LEVEL_VAR_REGEX.lastIndex = 0;
 
-  while ((match = TOP_LEVEL_VAR_REGEX.exec(code)) !== null) {
+  while ((match = TOP_LEVEL_VAR_REGEX.exec(code)) !== null)
+  {
     variables.push(match[1]);
   }
 
   // Also extract function declarations: function foo() {}
   const funcRegex = /^(?:export\s+)?function\s+([a-zA-Z_$][a-zA-Z0-9_$]*)/gm;
-  while ((match = funcRegex.exec(code)) !== null) {
-    if (!variables.includes(match[1])) {
+  while ((match = funcRegex.exec(code)) !== null)
+  {
+    if (!variables.includes(match[1]))
+    {
       variables.push(match[1]);
     }
   }
@@ -262,7 +288,8 @@ function extractTopLevelVariables(code: string): string[] {
  *   const suggestionItems = ['a', 'b'];
  *   export { suggestionItems };  // Auto-added
  */
-function autoExportAllDeclarations(code: string): string {
+function autoExportAllDeclarations(code: string): string
+{
   const variables = extractTopLevelVariables(code);
 
   // Filter out variables that are already exported
@@ -270,13 +297,15 @@ function autoExportAllDeclarations(code: string): string {
   const exportRegex =
     /export\s+(?:let|const|var|function)\s+([a-zA-Z_$][a-zA-Z0-9_$]*)/g;
   let match;
-  while ((match = exportRegex.exec(code)) !== null) {
+  while ((match = exportRegex.exec(code)) !== null)
+  {
     alreadyExported.add(match[1]);
   }
 
   // Also check for `export { x, y }` style exports
   const namedExportRegex = /export\s*\{([^}]+)\}/g;
-  while ((match = namedExportRegex.exec(code)) !== null) {
+  while ((match = namedExportRegex.exec(code)) !== null)
+  {
     const names = match[1].split(",").map((n) =>
       n
         .trim()
@@ -288,7 +317,8 @@ function autoExportAllDeclarations(code: string): string {
 
   const toExport = variables.filter((v) => !alreadyExported.has(v));
 
-  if (toExport.length === 0) {
+  if (toExport.length === 0)
+  {
     return code;
   }
 
@@ -313,7 +343,8 @@ function autoExportAllDeclarations(code: string): string {
  *
  * Exported for tests (the blob-URL execution path can't run under Node).
  */
-export function transformImportsForReactivity(code: string): string {
+export function transformImportsForReactivity(code: string): string
+{
   // Match named imports: import { a, b as c } from "..."
   const namedImportRegex =
     /import\s*\{([^}]+)\}\s*from\s*(['"][^'"]+['"])\s*;?/g;
@@ -323,23 +354,27 @@ export function transformImportsForReactivity(code: string): string {
 
   transformedCode = transformedCode.replace(
     namedImportRegex,
-    (match, imports: string, specifier: string) => {
+    (match, imports: string, specifier: string) =>
+    {
       const importList = imports.split(",").map((s) => s.trim());
       const newImports: string[] = [];
 
-      for (const imp of importList) {
+      for (const imp of importList)
+      {
         if (!imp) continue;
 
         // Handle "foo as bar" syntax
         const asMatch = imp.match(/^(\w+)\s+as\s+(\w+)$/);
-        if (asMatch) {
+        if (asMatch)
+        {
           const [, imported, local] = asMatch;
           const rawName = `__raw_${local}`;
           newImports.push(`${imported} as ${rawName}`);
           wrapperStatements.push(
             `const ${local} = __wrapReactiveArray(${rawName}, __ladrillos_componentId, "${local}");`,
           );
-        } else {
+        } else
+        {
           // Simple import "foo"
           const rawName = `__raw_${imp}`;
           newImports.push(`${imp} as ${rawName}`);
@@ -354,19 +389,23 @@ export function transformImportsForReactivity(code: string): string {
   );
 
   // Insert wrapper statements after imports but before other code
-  if (wrapperStatements.length > 0) {
+  if (wrapperStatements.length > 0)
+  {
     // Find the end of import statements
     const lines = transformedCode.split("\n");
     let lastImportIndex = -1;
 
-    for (let i = 0; i < lines.length; i++) {
+    for (let i = 0; i < lines.length; i++)
+    {
       const line = lines[i].trim();
-      if (line.startsWith("import ") || line.startsWith("import{")) {
+      if (line.startsWith("import ") || line.startsWith("import{"))
+      {
         lastImportIndex = i;
       }
     }
 
-    if (lastImportIndex >= 0) {
+    if (lastImportIndex >= 0)
+    {
       lines.splice(
         lastImportIndex + 1,
         0,
@@ -406,9 +445,11 @@ const INJECTABLE_HELPER_NAMES = [
  * collide with framework helpers we plan to inject. Returns the set of
  * colliding names so the caller can skip those injected declarations.
  */
-function detectHelperCollisions(code: string): Set<string> {
+function detectHelperCollisions(code: string): Set<string>
+{
   const found = new Set<string>();
-  for (const name of INJECTABLE_HELPER_NAMES) {
+  for (const name of INJECTABLE_HELPER_NAMES)
+  {
     // Match: import { name } / import { name as x } / import name from
     //        let/const/var name / function name(
     const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -427,7 +468,8 @@ export function generateHelperInjectionCode(
   componentId?: string,
   componentUrl?: string,
   exclude: ReadonlySet<string> = new Set(),
-): string {
+): string
+{
   const id = componentId || "anonymous";
   const url = componentUrl || "unknown";
 
@@ -639,19 +681,23 @@ export async function executeExternalScript(
   script: ExternalScriptElement,
   componentId?: string,
   componentUrl?: string,
-): Promise<unknown> {
+): Promise<unknown>
+{
   // Scripts with 'external' attribute are loaded as plain scripts
   // without any framework processing (no helpers, no auto-exports, no reactivity)
   // This is useful for loading third-party libraries like highlight.js
-  if (script.external) {
+  if (script.external)
+  {
     // Check if this script is already loaded
     const existing = document.querySelector(`script[src="${script.src}"]`);
     if (existing) return Promise.resolve(undefined);
 
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve, reject) =>
+    {
       const scriptEl = document.createElement("script");
       scriptEl.src = script.src;
-      if (script.type) {
+      if (script.type)
+      {
         scriptEl.type = script.type;
       }
       scriptEl.onload = () => resolve(undefined);
@@ -661,16 +707,19 @@ export async function executeExternalScript(
     });
   }
 
-  if (script.type !== "module") {
+  if (script.type !== "module")
+  {
     // For non-module external scripts, create a script tag
     // Check if this script is already loaded
     const existing = document.querySelector(`script[src="${script.src}"]`);
     if (existing) return Promise.resolve(undefined);
 
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve, reject) =>
+    {
       const scriptEl = document.createElement("script");
       scriptEl.src = script.src;
-      if (script.type) {
+      if (script.type)
+      {
         scriptEl.type = script.type;
       }
       scriptEl.onload = () => resolve(undefined);
@@ -680,10 +729,12 @@ export async function executeExternalScript(
     });
   }
 
-  try {
+  try
+  {
     // Fetch the module content
     const response = await fetch(script.src);
-    if (!response.ok) {
+    if (!response.ok)
+    {
       throw new Error(`Failed to fetch module: ${script.src}`);
     }
     const code = await response.text();
@@ -713,14 +764,17 @@ export async function executeExternalScript(
     const blob = new Blob([finalCode], { type: "text/javascript" });
     const blobUrl = URL.createObjectURL(blob);
 
-    try {
+    try
+    {
       const moduleExports = await importModule(blobUrl);
       return moduleExports;
-    } finally {
+    } finally
+    {
       // Clean up blob URL
       URL.revokeObjectURL(blobUrl);
     }
-  } catch (error) {
+  } catch (error)
+  {
     console.error(
       `[LadrillosJS] Failed to load external module: ${script.src}`,
       error,
@@ -740,15 +794,19 @@ export async function executeExternalScript(
  */
 export async function loadPlainExternalScripts(
   externalScripts: ExternalScriptElement[],
-): Promise<void> {
+): Promise<void>
+{
   // Filter to only scripts with the 'external' attribute
   const plainExternalScripts = externalScripts.filter((s) => s.external);
 
   // Load them sequentially to maintain order (some may depend on others)
-  for (const script of plainExternalScripts) {
-    try {
+  for (const script of plainExternalScripts)
+  {
+    try
+    {
       await executeExternalScript(script);
-    } catch (error) {
+    } catch (error)
+    {
       console.error(
         `[LadrillosJS] Failed to load external script: ${script.src}`,
         error,
@@ -774,17 +832,23 @@ export async function loadExternalStyles(
   externalStyles: Array<{ href: string; rel: string }>,
   root?: ShadowRoot | HTMLElement,
   useShadowDOM?: boolean,
-): Promise<void> {
-  for (const style of externalStyles) {
-    if (useShadowDOM && root) {
+): Promise<void>
+{
+  for (const style of externalStyles)
+  {
+    if (useShadowDOM && root)
+    {
       // For Shadow DOM: fetch CSS and inject as <style> element
       // This ensures styles penetrate the shadow boundary
-      try {
+      try
+      {
         let cssText = externalCssCache.get(style.href);
 
-        if (!cssText) {
+        if (!cssText)
+        {
           const response = await fetch(style.href);
-          if (!response.ok) {
+          if (!response.ok)
+          {
             console.error(
               `[LadrillosJS] Failed to load stylesheet: ${style.href}`,
             );
@@ -799,23 +863,27 @@ export async function loadExternalStyles(
         styleEl.setAttribute("data-external-href", style.href);
         // Insert at the beginning so component styles can override if needed
         root.insertBefore(styleEl, root.firstChild);
-      } catch (error) {
+      } catch (error)
+      {
         console.error(
           `[LadrillosJS] Failed to load stylesheet: ${style.href}`,
           error,
         );
       }
-    } else {
+    } else
+    {
       // For light DOM: add <link> to document head (if not already present)
       const existing = document.querySelector(`link[href="${style.href}"]`);
       if (existing) continue;
 
-      await new Promise<void>((resolve) => {
+      await new Promise<void>((resolve) =>
+      {
         const link = document.createElement("link");
         link.rel = style.rel || "stylesheet";
         link.href = style.href;
         link.onload = () => resolve();
-        link.onerror = () => {
+        link.onerror = () =>
+        {
           console.error(
             `[LadrillosJS] Failed to load stylesheet: ${style.href}`,
           );
@@ -842,7 +910,8 @@ export async function executeAllModuleScripts(
   externalScripts: ExternalScriptElement[],
   componentUrl: string,
   componentId?: string,
-): Promise<Map<number, unknown>> {
+): Promise<Map<number, unknown>>
+{
   const results = new Map<number, unknown>();
 
   // Separate module scripts from regular scripts
@@ -855,19 +924,25 @@ export async function executeAllModuleScripts(
   );
 
   // Execute external NON-module scripts first (they may set up globals)
-  for (const script of externalRegularScripts) {
-    try {
+  for (const script of externalRegularScripts)
+  {
+    try
+    {
       await executeExternalScript(script, componentId, componentUrl);
-    } catch (error) {
+    } catch (error)
+    {
       console.error(`[LadrillosJS] External script failed:`, script.src, error);
     }
   }
 
   // Execute external module scripts (they may export things inline scripts need)
-  for (const script of externalModuleScripts) {
-    try {
+  for (const script of externalModuleScripts)
+  {
+    try
+    {
       await executeExternalScript(script, componentId, componentUrl);
-    } catch (error) {
+    } catch (error)
+    {
       console.error(
         `[LadrillosJS] External module script failed:`,
         script.src,
@@ -877,15 +952,18 @@ export async function executeAllModuleScripts(
   }
 
   // Execute inline module scripts
-  for (let i = 0; i < moduleScripts.length; i++) {
-    try {
+  for (let i = 0; i < moduleScripts.length; i++)
+  {
+    try
+    {
       const exports = await executeModuleScript(
         moduleScripts[i],
         componentUrl,
         componentId,
       );
       results.set(i, exports);
-    } catch (error) {
+    } catch (error)
+    {
       console.error(`[LadrillosJS] Module script ${i} failed:`, error);
     }
   }
@@ -899,10 +977,13 @@ export async function executeAllModuleScripts(
  *
  * @param componentId - The component's unique ID
  */
-export function cleanupModuleScripts(componentId: string): void {
+export function cleanupModuleScripts(componentId: string): void
+{
   const urls = blobUrlRegistry.get(componentId);
-  if (urls) {
-    for (const url of urls) {
+  if (urls)
+  {
+    for (const url of urls)
+    {
       URL.revokeObjectURL(url);
     }
     blobUrlRegistry.delete(componentId);
@@ -916,20 +997,23 @@ export function cleanupModuleScripts(componentId: string): void {
  * @param code - The module script content
  * @returns Array of import specifiers found in the code
  */
-export function extractImportSpecifiers(code: string): string[] {
+export function extractImportSpecifiers(code: string): string[]
+{
   const specifiers: string[] = [];
 
   // Static imports
   let match;
   const staticRegex =
     /(?:import|export)\s+(?:[\s\S]*?\s+from\s+)?['"]([^'"]+)['"]/g;
-  while ((match = staticRegex.exec(code)) !== null) {
+  while ((match = staticRegex.exec(code)) !== null)
+  {
     specifiers.push(match[1]);
   }
 
   // Dynamic imports
   const dynamicRegex = /import\s*\(\s*['"]([^'"]+)['"]\s*\)/g;
-  while ((match = dynamicRegex.exec(code)) !== null) {
+  while ((match = dynamicRegex.exec(code)) !== null)
+  {
     specifiers.push(match[1]);
   }
 
@@ -943,7 +1027,8 @@ export function extractImportSpecifiers(code: string): string[] {
 /**
  * Represents a parsed import statement
  */
-interface ParsedImport {
+interface ParsedImport
+{
   statement: string; // Full import statement
   specifier: string; // Module specifier (path)
   imports: ImportBinding[]; // What's being imported
@@ -952,7 +1037,8 @@ interface ParsedImport {
   isSideEffect: boolean; // Is this just import "module"?
 }
 
-interface ImportBinding {
+interface ImportBinding
+{
   imported: string; // Name in the source module
   local: string; // Name in the importing module
 }
@@ -961,7 +1047,8 @@ interface ImportBinding {
  * Parses import statements from module code.
  * Returns structured info about each import.
  */
-function parseImports(code: string): ParsedImport[] {
+function parseImports(code: string): ParsedImport[]
+{
   const imports: ParsedImport[] = [];
 
   // Match various import forms
@@ -969,7 +1056,8 @@ function parseImports(code: string): ParsedImport[] {
     /import\s+(?:(\{[^}]+\})|(\*\s+as\s+\w+)|(\w+)(?:\s*,\s*(\{[^}]+\}))?)?\s*(?:from\s+)?['"]([^'"]+)['"]/g;
 
   let match;
-  while ((match = importRegex.exec(code)) !== null) {
+  while ((match = importRegex.exec(code)) !== null)
+  {
     const [
       statement,
       namedImports,
@@ -989,18 +1077,21 @@ function parseImports(code: string): ParsedImport[] {
     };
 
     // Side effect import: import "module"
-    if (!namedImports && !namespaceImport && !defaultImport) {
+    if (!namedImports && !namespaceImport && !defaultImport)
+    {
       parsed.isSideEffect = true;
     }
 
     // Default import: import X from "module"
-    if (defaultImport) {
+    if (defaultImport)
+    {
       parsed.isDefault = true;
       parsed.imports.push({ imported: "default", local: defaultImport });
     }
 
     // Namespace import: import * as X from "module"
-    if (namespaceImport) {
+    if (namespaceImport)
+    {
       parsed.isNamespace = true;
       const localName = namespaceImport.replace(/\*\s+as\s+/, "").trim();
       parsed.imports.push({ imported: "*", local: localName });
@@ -1008,17 +1099,21 @@ function parseImports(code: string): ParsedImport[] {
 
     // Named imports: import { a, b as c } from "module"
     const namedPart = namedImports || additionalNamed;
-    if (namedPart) {
+    if (namedPart)
+    {
       const inner = namedPart.slice(1, -1); // Remove { }
       const parts = inner
         .split(",")
         .map((p) => p.trim())
         .filter(Boolean);
-      for (const part of parts) {
+      for (const part of parts)
+      {
         const asMatch = part.match(/(\w+)\s+as\s+(\w+)/);
-        if (asMatch) {
+        if (asMatch)
+        {
           parsed.imports.push({ imported: asMatch[1], local: asMatch[2] });
-        } else {
+        } else
+        {
           parsed.imports.push({ imported: part, local: part });
         }
       }
@@ -1034,18 +1129,23 @@ function parseImports(code: string): ParsedImport[] {
  * Fetches a module and returns its exports.
  * Uses dynamic import() for proper ES module loading.
  */
-async function fetchModule(url: string): Promise<Record<string, unknown>> {
+async function fetchModule(url: string): Promise<Record<string, unknown>>
+{
   // Check cache first
-  if (moduleCache.has(url)) {
+  if (moduleCache.has(url))
+  {
     return moduleCache.get(url)!;
   }
 
-  const promise = (async () => {
-    try {
+  const promise = (async () =>
+  {
+    try
+    {
       // Use dynamic import to load the module
       const module = await importModule(url);
       return module as Record<string, unknown>;
-    } catch (error) {
+    } catch (error)
+    {
       console.error(`[LadrillosJS] Failed to fetch module: ${url}`, error);
       throw error;
     }
@@ -1063,10 +1163,12 @@ async function fetchModule(url: string): Promise<Record<string, unknown>> {
  * @param onMutate - Callback when any array is mutated
  * @returns The value with arrays wrapped in reactive proxies
  */
-function wrapImportedValue(value: unknown, onMutate?: () => void): unknown {
+function wrapImportedValue(value: unknown, onMutate?: () => void): unknown
+{
   if (!onMutate) return value;
 
-  if (Array.isArray(value)) {
+  if (Array.isArray(value))
+  {
     return createReactiveArray(value, onMutate);
   }
 
@@ -1087,12 +1189,15 @@ async function resolveImports(
   code: string,
   baseUrl: string,
   onMutate?: () => void,
-): Promise<Record<string, unknown>> {
+): Promise<Record<string, unknown>>
+{
   const imports = parseImports(code);
   const resolved: Record<string, unknown> = {};
 
-  for (const imp of imports) {
-    if (imp.isSideEffect) {
+  for (const imp of imports)
+  {
+    if (imp.isSideEffect)
+    {
       // Just execute the side effect
       const url = isRelativePath(imp.specifier)
         ? new URL(imp.specifier, baseUrl).href
@@ -1106,19 +1211,24 @@ async function resolveImports(
       ? new URL(imp.specifier, baseUrl).href
       : imp.specifier;
 
-    try {
+    try
+    {
       const moduleExports = await fetchModule(url);
 
-      for (const binding of imp.imports) {
+      for (const binding of imp.imports)
+      {
         let importedValue: unknown;
 
-        if (binding.imported === "*") {
+        if (binding.imported === "*")
+        {
           // Namespace import
           importedValue = moduleExports;
-        } else if (binding.imported === "default") {
+        } else if (binding.imported === "default")
+        {
           // Default import
           importedValue = moduleExports.default;
-        } else {
+        } else
+        {
           // Named import
           importedValue = moduleExports[binding.imported];
         }
@@ -1126,7 +1236,8 @@ async function resolveImports(
         // Wrap arrays in reactive proxies if onMutate is provided
         resolved[binding.local] = wrapImportedValue(importedValue, onMutate);
       }
-    } catch (error) {
+    } catch (error)
+    {
       console.warn(
         `[LadrillosJS] Could not resolve import "${imp.specifier}":`,
         error,
@@ -1140,7 +1251,8 @@ async function resolveImports(
 /**
  * Removes import statements from code, leaving just the executable code.
  */
-function stripImports(code: string): string {
+function stripImports(code: string): string
+{
   // Remove all import statements
   return code
     .replace(
@@ -1158,10 +1270,12 @@ function stripImports(code: string): string {
  *
  * The approach: Track brace depth and only extract declarations at depth 0.
  */
-function extractDeclaredNames(code: string): {
-  variables: string[];
-  functions: string[];
-} {
+function extractDeclaredNames(code: string):
+  {
+    variables: string[];
+    functions: string[];
+  }
+{
   const variables: string[] = [];
   const functions: string[] = [];
 
@@ -1183,28 +1297,33 @@ function extractDeclaredNames(code: string): {
   let braceDepth = 0;
   let i = 0;
 
-  while (i < cleanedCode.length) {
+  while (i < cleanedCode.length)
+  {
     const char = cleanedCode[i];
 
     // Track brace depth
-    if (char === "{") {
+    if (char === "{")
+    {
       braceDepth++;
       i++;
       continue;
     }
-    if (char === "}") {
+    if (char === "}")
+    {
       braceDepth--;
       i++;
       continue;
     }
 
     // Only extract at top level (braceDepth === 0)
-    if (braceDepth === 0) {
+    if (braceDepth === 0)
+    {
       // Check for function declarations: function name( or async function name(
       const funcMatch = cleanedCode
         .slice(i)
         .match(/^(?:async\s+)?function\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*\(/);
-      if (funcMatch) {
+      if (funcMatch)
+      {
         functions.push(funcMatch[1]);
         i += funcMatch[0].length;
         continue;
@@ -1214,7 +1333,8 @@ function extractDeclaredNames(code: string): {
       const varMatch = cleanedCode
         .slice(i)
         .match(/^(?:let|const|var)\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*=/);
-      if (varMatch) {
+      if (varMatch)
+      {
         variables.push(varMatch[1]);
         i += varMatch[0].length;
         continue;
@@ -1255,8 +1375,10 @@ export async function executeModuleScriptWithReactivity(
   reactiveState?: Record<string, unknown>,
   onStateChange?: () => void,
   hostElement?: HTMLElement,
-): Promise<Record<string, unknown>> {
-  if (script.type !== "module") {
+): Promise<Record<string, unknown>>
+{
+  if (script.type !== "module")
+  {
     throw new Error(
       'executeModuleScriptWithReactivity only handles type="module" scripts',
     );
@@ -1276,7 +1398,8 @@ export async function executeModuleScriptWithReactivity(
   // Don't overwrite values that are already on state (attribute overrides win),
   // and skip framework helper names so they don't collide with the helpers
   // injected as function parameters when building event handlers.
-  if (reactiveState) {
+  if (reactiveState)
+  {
     const reservedNames = new Set<string>([
       ...frameworkHelperNames,
       ...eventBusHelperNames,
@@ -1286,9 +1409,11 @@ export async function executeModuleScriptWithReactivity(
       "event",
       "state",
     ]);
-    for (const [key, value] of Object.entries(importedValues)) {
+    for (const [key, value] of Object.entries(importedValues))
+    {
       if (reservedNames.has(key)) continue;
-      if (!(key in reactiveState)) {
+      if (!(key in reactiveState))
+      {
         reactiveState[key] = value;
       }
     }
@@ -1323,7 +1448,8 @@ export async function executeModuleScriptWithReactivity(
     })();
   `;
 
-  try {
+  try
+  {
     // Include console, alert, etc. as safe globals
     const safeGlobals = [
       "console",
@@ -1408,8 +1534,10 @@ export async function executeModuleScriptWithReactivity(
       name in helperOverrides ? helperOverrides[name] : importValues[i],
     );
 
-    const appendUnique = (names: readonly string[], values: readonly unknown[]) => {
-      for (let i = 0; i < names.length; i++) {
+    const appendUnique = (names: readonly string[], values: readonly unknown[]) =>
+    {
+      for (let i = 0; i < names.length; i++)
+      {
         const name = names[i];
         if (importNameSet.has(name)) continue;
         importNameSet.add(name);
@@ -1432,7 +1560,8 @@ export async function executeModuleScriptWithReactivity(
     // Return both the initial values (from __state__) and functions
     // The reactiveState object now contains all variables set by the module script
     return { ...(reactiveState || {}), ...(result || {}) };
-  } catch (error) {
+  } catch (error)
+  {
     console.error(`[LadrillosJS] Failed to execute module script:`, error);
     console.error("Original code:", executableCode);
     console.error("Transformed code:", transformedCode);
@@ -1460,7 +1589,8 @@ export async function executeModuleScriptsWithReactivity(
   reactiveState?: Record<string, unknown>,
   onStateChange?: () => void,
   hostElement?: HTMLElement,
-): Promise<Record<string, unknown>> {
+): Promise<Record<string, unknown>>
+{
   const mergedState: Record<string, unknown> = {};
 
   // Filter to only module scripts (inline)
@@ -1475,38 +1605,48 @@ export async function executeModuleScriptsWithReactivity(
   );
 
   // Execute external NON-module scripts first (they may set up globals needed by modules)
-  for (const script of externalRegularScripts) {
-    try {
+  for (const script of externalRegularScripts)
+  {
+    try
+    {
       await executeExternalScript(script, componentId, componentUrl);
-    } catch (error) {
+    } catch (error)
+    {
       console.error(`[LadrillosJS] External script failed:`, script.src, error);
     }
   }
 
   // Execute external module scripts and merge their exports into state
-  for (const script of externalModuleScripts) {
-    try {
+  for (const script of externalModuleScripts)
+  {
+    try
+    {
       const moduleExports = await executeExternalScript(
         script,
         componentId,
         componentUrl,
       );
       // Merge module exports into state (functions, variables, etc.)
-      if (moduleExports && typeof moduleExports === "object") {
+      if (moduleExports && typeof moduleExports === "object")
+      {
         for (const [key, value] of Object.entries(
           moduleExports as Record<string, unknown>,
-        )) {
+        ))
+        {
           // Skip default export key, merge named exports
-          if (key !== "default") {
+          if (key !== "default")
+          {
             mergedState[key] = value;
             // Also write to reactive state if provided
-            if (reactiveState) {
+            if (reactiveState)
+            {
               reactiveState[key] = value;
             }
           }
         }
       }
-    } catch (error) {
+    } catch (error)
+    {
       console.error(
         `[LadrillosJS] External module script failed:`,
         script.src,
@@ -1516,8 +1656,10 @@ export async function executeModuleScriptsWithReactivity(
   }
 
   // Execute inline module scripts and collect their state
-  for (const script of moduleScripts) {
-    try {
+  for (const script of moduleScripts)
+  {
+    try
+    {
       const state = await executeModuleScriptWithReactivity(
         script,
         componentUrl,
@@ -1528,7 +1670,8 @@ export async function executeModuleScriptsWithReactivity(
         hostElement,
       );
       Object.assign(mergedState, state);
-    } catch (error) {
+    } catch (error)
+    {
       console.error(`[LadrillosJS] Module script failed:`, error);
     }
   }

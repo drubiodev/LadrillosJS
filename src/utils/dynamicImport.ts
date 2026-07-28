@@ -16,8 +16,9 @@
  * NOTE: `blob:` URLs still require `script-src blob:` in a page's CSP. See
  * docs/22-csp-and-security.md.
  */
-export function importModule(url: string): Promise<Record<string, unknown>> {
-  return import(/* @vite-ignore */ /* webpackIgnore: true */ url) as Promise<
-    Record<string, unknown>
-  >;
+export function importModule(url: string): Promise<Record<string, unknown>>
+{
+    return import(/* @vite-ignore */ /* webpackIgnore: true */ url) as Promise<
+        Record<string, unknown>
+    >;
 }
