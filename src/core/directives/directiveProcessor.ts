@@ -2480,6 +2480,8 @@ function getLoopHandlerFn(
       fn = compileHandler(
         ["event", "context", "reactiveState", "$emit", "$listen"],
         fnBody,
+        false,
+        `handler:${code}`,
       );
       loopHandlerFnCache.set(fnBody, fn);
     } catch (e)

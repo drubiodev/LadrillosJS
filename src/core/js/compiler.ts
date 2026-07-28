@@ -61,18 +61,32 @@ export interface CodegenBackend {
   /**
    * Compiles an event handler body such as `count++`.
    * `isAsync` selects the `AsyncFunction` constructor so the body may `await`.
+   *
+   * `key` identifies the handler for a precompiled backend. It is the source
+   * the user actually wrote, because `body` is a runtime-built wrapper
+   * containing destructuring, sync-back and a `//# sourceURL` derived from the
+   * component URL — none of which a build-time compiler can reproduce.
    */
   compileHandler(
     params: readonly string[],
     body: string,
-    isAsync: boolean
+    isAsync: boolean,
+    key: string
   ): CompiledFn;
 
   /**
    * Compiles a component `<script>` body, already wrapped by the caller
    * (`"use strict"`, any `return` of declared members, `//# sourceURL`).
+   *
+   * `key` must be unique per (call site, authored source): the same script is
+   * compiled by several call sites with different wrappers and different
+   * parameter lists, so the authored source alone would collide.
    */
-  compileSetup(params: readonly string[], body: string): CompiledFn;
+  compileSetup(
+    params: readonly string[],
+    body: string,
+    key: string
+  ): CompiledFn;
 }
 
 /**
@@ -121,14 +135,16 @@ export function compileEvaluator(
 export function compileHandler(
   params: readonly string[],
   body: string,
-  isAsync = false
+  isAsync = false,
+  key: string = body
 ): CompiledFn {
-  return activeBackend.compileHandler(params, body, isAsync);
+  return activeBackend.compileHandler(params, body, isAsync, key);
 }
 
 export function compileSetup(
   params: readonly string[],
-  body: string
+  body: string,
+  key: string = body
 ): CompiledFn {
-  return activeBackend.compileSetup(params, body);
+  return activeBackend.compileSetup(params, body, key);
 }

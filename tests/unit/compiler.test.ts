@@ -35,6 +35,7 @@ describe("runtimeBackend", () =>
       ["state"],
       "state.count++;",
       false,
+      "count++",
     );
     const state = { count: 0 };
     fn(state);
@@ -47,6 +48,7 @@ describe("runtimeBackend", () =>
       ["value"],
       "return await Promise.resolve(value + 1);",
       true,
+      "await inc",
     );
     await expect(fn(1)).resolves.toBe(2);
   });
@@ -56,6 +58,7 @@ describe("runtimeBackend", () =>
     const fn = runtimeBackend.compileSetup(
       [],
       `"use strict"; let a = 1; function b() { return 2; } return { a, b };`,
+      "members:let a = 1;",
     );
     const result = fn() as { a: number; b: () => number; };
     expect(result.a).toBe(1);

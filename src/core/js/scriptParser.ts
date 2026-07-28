@@ -472,7 +472,7 @@ function createVanillaEventHandler(
       : `"use strict"; ${destructureVars} ${destructureFuncs} ${funcDefs} ${code}; ${syncBack}
 //# sourceURL=${sourceUrl}`;
 
-    const fn = compileHandler(allKeys, fnBody, isAsync);
+    const fn = compileHandler(allKeys, fnBody, isAsync, `handler:${code}`);
 
     return (event: Event) =>
     {
@@ -767,7 +767,7 @@ function extractScriptMembers(
       ...injected.values, // Inject convenience globals
     ];
 
-    const fn = compileSetup(allKeys, wrappedScript);
+    const fn = compileSetup(allKeys, wrappedScript, `members:${content}`);
     const result = fn(...allValues);
 
     for (const [key, value] of Object.entries(result))
@@ -837,7 +837,7 @@ function extractScriptMembersValuesOnly(content: string): Map<string, unknown>
     const allKeys = [...safeGlobals, "$listen", "$emit"];
     const allValues = [...safeGlobalValues, stubListen, stubEmit];
 
-    const fn = compileSetup(allKeys, wrappedScript);
+    const fn = compileSetup(allKeys, wrappedScript, `values:${content}`);
     const result = fn(...allValues);
 
     for (const [key, value] of Object.entries(result))
@@ -921,7 +921,7 @@ function executeScriptWithReactiveState(
       ...injected.values, // Inject convenience globals
     ];
 
-    const fn = compileSetup(allKeys, wrappedScript);
+    const fn = compileSetup(allKeys, wrappedScript, `state:${content}`);
     fn(...allValues);
   } catch (e)
   {

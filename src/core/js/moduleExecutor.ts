@@ -1553,7 +1553,7 @@ export async function executeModuleScriptWithReactivity(
     appendUnique(injectedVars, injectedValues);
     appendUnique(["ladrillosjs"], [contextAwareLadrillosjs]);
 
-    const fn = compileSetup(allParamNames, wrappedCode);
+    const fn = compileSetup(allParamNames, wrappedCode, `module:${code}`);
 
     // The function now returns a Promise due to the async IIFE wrapper
     const result = await fn(...allParamValues);
