@@ -442,17 +442,18 @@ export function generateHelperInjectionCode(
 const __ladrillos_componentId = "${id}";
 const __ladrillos_componentUrl = "${url}";
 
-// Global event bus (shared across all components)
-if (!globalThis.__ladrillosEventBus) {
-  globalThis.__ladrillosEventBus = {
-    listeners: new Map(),
-    componentListeners: new Map()
+// Shared framework namespace (see src/core/globals.ts). The framework always
+// initialises this before generating these helpers; the fallback below only
+// exists so this code is safe to run standalone.
+if (!globalThis.__ladrillos) {
+  globalThis.__ladrillos = {
+    bus: globalThis.__ladrillosEventBus || { listeners: new Map(), componentListeners: new Map() },
+    stateCallbacks: globalThis.__ladrillosStateCallbacks || new Map(),
+    refs: globalThis.__ladrillosRefs || new Map()
   };
-}
-
-// Global state change callbacks (for reactive array updates)
-if (!globalThis.__ladrillosStateCallbacks) {
-  globalThis.__ladrillosStateCallbacks = new Map();
+  globalThis.__ladrillosEventBus = globalThis.__ladrillos.bus;
+  globalThis.__ladrillosStateCallbacks = globalThis.__ladrillos.stateCallbacks;
+  globalThis.__ladrillosRefs = globalThis.__ladrillos.refs;
 }
 
 // Reactive array symbol
@@ -469,7 +470,7 @@ const __wrapReactiveArray = (arr, componentId, stateKey) => {
   if (!Array.isArray(arr) || arr[__REACTIVE_ARRAY]) return arr;
 
   const onMutate = () => {
-    const callback = globalThis.__ladrillosStateCallbacks?.get(componentId);
+    const callback = globalThis.__ladrillos.stateCallbacks.get(componentId);
     if (callback) callback(stateKey);
   };
 
@@ -499,7 +500,7 @@ const __wrapReactiveArray = (arr, componentId, stateKey) => {
 };
 
 const __ladrillos_emit = (eventName, data) => {
-  const listeners = globalThis.__ladrillosEventBus.listeners.get(eventName);
+  const listeners = globalThis.__ladrillos.bus.listeners.get(eventName);
   if (!listeners || listeners.size === 0) return;
   for (const registration of listeners) {
     try {
@@ -512,7 +513,7 @@ const __ladrillos_emit = (eventName, data) => {
 ${decl("$emit", "const $emit = __ladrillos_emit;")}
 
 const __ladrillos_listen = (eventName, callback) => {
-  const bus = globalThis.__ladrillosEventBus;
+  const bus = globalThis.__ladrillos.bus;
   let listeners = bus.listeners.get(eventName);
   if (!listeners) {
     listeners = new Set();
@@ -549,9 +550,6 @@ ${decl("$listen", "const $listen = __ladrillos_listen;")}
 
 // Global refs registry (shared across all components)
 // Each component gets its own Map, keyed by component ID
-if (!globalThis.__ladrillosRefs) {
-  globalThis.__ladrillosRefs = new Map();
-}
 
 // Helper to wrap refs Map in Proxy for cleaner dot notation access
 const __createRefsProxy = (map) => new Proxy(map, {
@@ -573,12 +571,12 @@ const __createRefsProxy = (map) => new Proxy(map, {
 });
 
 // Get or create refs Map for this component (wrapped in Proxy)
-if (!globalThis.__ladrillosRefs.has(__ladrillos_componentId)) {
-  globalThis.__ladrillosRefs.set(__ladrillos_componentId, __createRefsProxy(new Map()));
+if (!globalThis.__ladrillos.refs.has(__ladrillos_componentId)) {
+  globalThis.__ladrillos.refs.set(__ladrillos_componentId, __createRefsProxy(new Map()));
 }
 
 // $refs for this component - supports both $refs.inputEl and $refs.get("inputEl")
-const __ladrillos_refs = globalThis.__ladrillosRefs.get(__ladrillos_componentId);
+const __ladrillos_refs = globalThis.__ladrillos.refs.get(__ladrillos_componentId);
 ${decl("$refs", "const $refs = __ladrillos_refs;")}
 
 // Helper to resolve relative paths against component URL

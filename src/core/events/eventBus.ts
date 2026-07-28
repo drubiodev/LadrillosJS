@@ -29,6 +29,8 @@
  * ```
  */
 
+import { getLadrillosGlobal } from "../globals";
+
 // ============================================================================
 // Types
 // ============================================================================
@@ -72,24 +74,13 @@ interface GlobalEventBus {
 }
 
 /**
- * Extend globalThis to include our event bus
- */
-declare global {
-  var __ladrillosEventBus: GlobalEventBus | undefined;
-}
-
-/**
  * Initialize or get the global event bus.
  * This is shared with external module scripts that inject their own $emit/$listen.
+ * Storage lives under the single `globalThis.__ladrillos` namespace; see
+ * src/core/globals.ts for why a global is needed here at all.
  */
 function getEventBus(): GlobalEventBus {
-  if (!globalThis.__ladrillosEventBus) {
-    globalThis.__ladrillosEventBus = {
-      listeners: new Map(),
-      componentListeners: new Map(),
-    };
-  }
-  return globalThis.__ladrillosEventBus;
+  return getLadrillosGlobal().bus as unknown as GlobalEventBus;
 }
 
 /**

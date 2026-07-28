@@ -7,6 +7,7 @@ import {
     transformImportsForReactivity,
     generateHelperInjectionCode,
 } from "../../src/core/js/moduleExecutor";
+import { getLadrillosGlobal } from "../../src/core/globals";
 import type { BindingDescriptor } from "../../src/types";
 
 const makeDescriptor = (raw: string): BindingDescriptor => {
@@ -20,7 +21,7 @@ const makeDescriptor = (raw: string): BindingDescriptor => {
 };
 
 afterEach(() => {
-    delete (globalThis as any).__ladrillosStateCallbacks;
+    getLadrillosGlobal().stateCallbacks.clear();
 });
 
 describe("__notifyKeyChanged external mutation channel", () => {
@@ -131,9 +132,7 @@ describe("external module scripts: injected __wrapReactiveArray", () => {
     it("mutations report the state key to the component callback", () => {
         const wrap = buildInjectedWrapper("comp-1");
         const callback = vi.fn();
-        (globalThis as any).__ladrillosStateCallbacks = new Map([
-            ["comp-1", callback],
-        ]);
+        getLadrillosGlobal().stateCallbacks.set("comp-1", callback);
 
         const items = wrap([1, 2], "comp-1", "items") as number[];
         items.push(3);
@@ -157,14 +156,9 @@ describe("external module scripts: injected __wrapReactiveArray", () => {
             vi.fn(),
         );
 
-        (globalThis as any).__ladrillosStateCallbacks = new Map([
-            [
-                "comp-2",
-                (stateKey?: string) => {
-                    if (stateKey) (state as any).__notifyKeyChanged(stateKey);
-                },
-            ],
-        ]);
+        getLadrillosGlobal().stateCallbacks.set("comp-2", (stateKey?: string) => {
+            if (stateKey) (state as any).__notifyKeyChanged(stateKey);
+        });
 
         const wrap = buildInjectedWrapper("comp-2");
         // The blob module holds this inner proxy; its exports get merged
