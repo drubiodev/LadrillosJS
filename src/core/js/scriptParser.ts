@@ -23,6 +23,7 @@ import
   ErrorCode,
 } from "../../utils/devWarnings";
 import { createReactiveState } from "./reactivity";
+import { compileEvaluator, compileHandler, compileSetup } from "./compiler";
 import { transformCodeToStateAccess } from "../../utils/stateTransform";
 import
 {
@@ -471,13 +472,7 @@ function createVanillaEventHandler(
       : `"use strict"; ${destructureVars} ${destructureFuncs} ${funcDefs} ${code}; ${syncBack}
 //# sourceURL=${sourceUrl}`;
 
-    // Use AsyncFunction constructor for async handlers
-    const AsyncFunction = Object.getPrototypeOf(
-      async function () { },
-    ).constructor;
-    const fn = isAsync
-      ? new AsyncFunction(...allKeys, fnBody)
-      : new Function(...allKeys, fnBody);
+    const fn = compileHandler(allKeys, fnBody, isAsync);
 
     return (event: Event) =>
     {
@@ -772,7 +767,7 @@ function extractScriptMembers(
       ...injected.values, // Inject convenience globals
     ];
 
-    const fn = new Function(...allKeys, wrappedScript);
+    const fn = compileSetup(allKeys, wrappedScript);
     const result = fn(...allValues);
 
     for (const [key, value] of Object.entries(result))
@@ -842,7 +837,7 @@ function extractScriptMembersValuesOnly(content: string): Map<string, unknown>
     const allKeys = [...safeGlobals, "$listen", "$emit"];
     const allValues = [...safeGlobalValues, stubListen, stubEmit];
 
-    const fn = new Function(...allKeys, wrappedScript);
+    const fn = compileSetup(allKeys, wrappedScript);
     const result = fn(...allValues);
 
     for (const [key, value] of Object.entries(result))
@@ -926,7 +921,7 @@ function executeScriptWithReactiveState(
       ...injected.values, // Inject convenience globals
     ];
 
-    const fn = new Function(...allKeys, wrappedScript);
+    const fn = compileSetup(allKeys, wrappedScript);
     fn(...allValues);
   } catch (e)
   {
@@ -1459,11 +1454,7 @@ function getCompiledEvaluator(
       const oldest = exprMap.keys().next().value;
       if (oldest !== undefined) exprMap.delete(oldest);
     }
-    fn = new Function(
-      ...cachedShadowedGlobals!,
-      ...keys,
-      `"use strict"; return ${expression};`,
-    );
+    fn = compileEvaluator([...cachedShadowedGlobals!, ...keys], expression);
     exprMap.set(expression, fn);
   }
   return fn;

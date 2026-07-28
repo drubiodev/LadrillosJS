@@ -8,6 +8,7 @@ import { eventBusHelperNames, createEventBusHelpers } from "../events/eventBus";
 import { createReactiveArray } from "./reactivity";
 import { transformCodeToStateAccess } from "../../utils/stateTransform";
 import { importModule } from "../../utils/dynamicImport";
+import { compileSetup } from "./compiler";
 import
   {
     error,
@@ -1552,7 +1553,7 @@ export async function executeModuleScriptWithReactivity(
     appendUnique(injectedVars, injectedValues);
     appendUnique(["ladrillosjs"], [contextAwareLadrillosjs]);
 
-    const fn = new Function(...allParamNames, wrappedCode);
+    const fn = compileSetup(allParamNames, wrappedCode);
 
     // The function now returns a Promise due to the async IIFE wrapper
     const result = await fn(...allParamValues);

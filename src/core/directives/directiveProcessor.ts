@@ -49,6 +49,7 @@ import
   extractVariableNames,
 } from "../js/scriptParser";
 import { createEventBusHelpers } from "../events/eventBus";
+import { compileHandler } from "../js/compiler";
 import
 {
   createKeyGetter,
@@ -2476,12 +2477,8 @@ function getLoopHandlerFn(
         const oldest = loopHandlerFnCache.keys().next().value;
         if (oldest !== undefined) loopHandlerFnCache.delete(oldest);
       }
-      fn = new Function(
-        "event",
-        "context",
-        "reactiveState",
-        "$emit",
-        "$listen",
+      fn = compileHandler(
+        ["event", "context", "reactiveState", "$emit", "$listen"],
         fnBody,
       );
       loopHandlerFnCache.set(fnBody, fn);

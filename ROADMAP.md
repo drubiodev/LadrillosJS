@@ -66,12 +66,12 @@ Verified requirements: `script-src 'unsafe-eval'`, `style-src 'unsafe-inline'`,
 
 ---
 
-## Phase 1 — The compiler seam
+## Phase 1 — The compiler seam ✅ COMPLETE
 
-Pure refactor, zero behavior change.
+Branch `phase-1/compiler-seam`. Pure refactor, zero behavior change.
 
-New module `src/core/js/compiler.ts` becomes the **only** place `new Function`
-exists. Every current site delegates to it:
+[src/core/js/compiler.ts](src/core/js/compiler.ts) is now the **only** place
+`new Function` exists. All seven previous call sites delegate to it:
 
 - [scriptParser.ts](src/core/js/scriptParser.ts#L480) · [L775](src/core/js/scriptParser.ts#L775) · [L845](src/core/js/scriptParser.ts#L845) · [L929](src/core/js/scriptParser.ts#L929) · [L1459](src/core/js/scriptParser.ts#L1459)
 - [directiveProcessor.ts](src/core/directives/directiveProcessor.ts#L2479)
@@ -79,9 +79,10 @@ exists. Every current site delegates to it:
 
 ```ts
 export interface CodegenBackend {
-  resolveEvaluator(expr: string, shape: ContextShape): Evaluator | null;
-  resolveHandler(code: string, shape: ContextShape): Handler | null;
-  resolveSetup(source: string, shape: ContextShape): SetupFn | null;
+  readonly name: string;
+  compileEvaluator(params: readonly string[], expression: string): CompiledFn;
+  compileHandler(params: readonly string[], body: string, isAsync: boolean): CompiledFn;
+  compileSetup(params: readonly string[], body: string): CompiledFn;
 }
 ```
 
@@ -95,13 +96,33 @@ Default stays `runtimeBackend`.
 
 **Tasks**
 
-- [ ] Define `CodegenBackend` and `ContextShape`
-- [ ] Extract `runtimeBackend` from the seven call sites, verbatim
-- [ ] Add backend selection (default `runtimeBackend`)
-- [ ] Confirm caches still key identically
+- [x] Define `CodegenBackend`
+- [x] Extract `runtimeBackend` from the seven call sites, verbatim
+- [x] Add backend selection (default `runtimeBackend`)
+- [x] Confirm caches still key identically — `evaluatorCache` and
+      `loopHandlerFnCache` are untouched and still memoize by source text
+- [x] Tests proving the backend is swappable and that a backend which never
+      calls `Function` satisfies the interface
 
-**Acceptance gate:** all tests pass unchanged; benchmarks within noise of
-[benchmarks/results.md](benchmarks/results.md).
+**Acceptance results**
+
+| Gate | Result |
+|---|---|
+| Tests | 190 pass (181 existing unchanged + 9 new) |
+| Typecheck | clean |
+| Benchmarks | within noise — see below |
+| CDN bundle | 29.01 → 29.12 KB gzip (+0.11 KB) |
+
+Benchmark deltas were at or below the movement seen in React and Vanilla, whose
+code did not change and therefore establish the noise floor for the run
+(e.g. Ladrillos `create 1,000` 3.2 → 3.4 ms while unchanged Vanilla
+`partial update` moved 0.1 → 0.2 ms and React `replace 1,000` moved
+6.3 → 7.0 ms). Ladrillos `create 10,000` was slightly *faster* at 28.6 ms vs
+29.1 ms baseline.
+
+The committed [benchmarks/results.md](benchmarks/results.md) snapshot was
+deliberately left unmodified — re-recording it every run adds churn without
+signal.
 
 ---
 
