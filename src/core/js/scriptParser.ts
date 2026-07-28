@@ -23,7 +23,7 @@ import
   ErrorCode,
 } from "../../utils/devWarnings";
 import { createReactiveState } from "./reactivity";
-import { compileEvaluator, compileHandler, compileSetup } from "./compiler";
+import { compileEvaluator, compileHandler, compileSetup, onBackendChange } from "./compiler";
 import { transformCodeToStateAccess } from "../../utils/stateTransform";
 import
 {
@@ -1345,6 +1345,7 @@ function getInjectedGlobalsWithValues(
  * they don't need to participate in the key.
  */
 const evaluatorCache = new Map<string, Map<string, Function>>();
+onBackendChange(() => evaluatorCache.clear());
 const MAX_EVALUATOR_SIGNATURES = 100;
 const MAX_EVALUATOR_CACHE = 5000;
 

@@ -116,9 +116,23 @@ export const runtimeBackend: CodegenBackend = {
 
 let activeBackend: CodegenBackend = runtimeBackend;
 
+const invalidators = new Set<() => void>();
+
+/**
+ * Registers a cache to be dropped whenever the backend changes.
+ *
+ * Compiled functions are memoised across components, so without this a swap
+ * would keep serving functions built by the previous backend.
+ */
+export function onBackendChange(invalidate: () => void): void {
+  invalidators.add(invalidate);
+}
+
 /** Replaces the active backend. Used by the precompiled/CSP build. */
 export function setCodegenBackend(backend: CodegenBackend): void {
+  if (backend === activeBackend) return;
   activeBackend = backend;
+  for (const invalidate of invalidators) invalidate();
 }
 
 export function getCodegenBackend(): CodegenBackend {

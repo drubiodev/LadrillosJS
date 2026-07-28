@@ -193,11 +193,14 @@ Existing users pay nothing for it.
 - [x] Authored-source keys threaded through the seam at all 7 call sites
 - [x] Backend-interchangeability tests (8 tests: dep mapping, missing deps,
       high arity, missing-artifact error, runtime-vs-precompiled parity)
+- [x] Cache invalidation on backend swap (`onBackendChange`)
+- [x] **Conformance suite:** 5 fixtures mounted through both backends asserting
+      identical DOM, mutation-tested to confirm it fails when mapping breaks
 - [ ] Emit evaluators, handlers, setup, template bindings
 - [ ] Loop evaluator `(state, rowCtx)` signature
 - [ ] `defineCompiled` runtime helper
-- [ ] **Conformance suite:** run every fixture through both backends and assert
-      byte-identical DOM
+- [ ] Grow the fixture set toward full directive coverage (`$bind`, `$ref`,
+      `$on:` modifiers, nested loops, `<show>`)
 
 ### Open decision: packaging
 
@@ -206,15 +209,34 @@ separate `@ladrillosjs/compiler` package would mean less release infrastructure
 and a single version number to keep in sync; browsers never import it, so it
 costs runtime users nothing either way. **Not yet decided.**
 
-### Known constraint: DOM conformance needs a real browser
+### Conformance suite runs in vitest (no browser needed)
 
-[tests/integration/component-mount.test.ts](tests/integration/component-mount.test.ts)
-is skipped because the full mount pipeline (DOMParser + dynamic `<script>`
-execution) does not run reliably inside happy-dom's custom-element lifecycle.
-So the byte-identical-DOM conformance suite must run under Playwright, reusing
-the harness pattern from the Phase 0 CSP verification. It lands alongside the
-Phase 3 CSP entry point, since it needs a loadable eval-free build to test
-against.
+[tests/unit/conformance.test.ts](tests/unit/conformance.test.ts) mounts each
+fixture twice — once on the real runtime, once on artifacts only — and asserts
+identical rendered DOM.
+
+Ground truth comes from the runtime rather than a hand-written fixture list: a
+recording backend captures every `(kind, key, params)` the real pipeline asks
+for, and those recordings become the artifact table for the second mount. The
+emitter's job is then defined mechanically — produce exactly the keys the
+recorder observes.
+
+Two things this flushed out:
+
+- **`tests/integration/component-mount.test.ts` is skipped on an outdated
+  premise.** It claims happy-dom can't render reliably. It can: interpolation,
+  event handlers, reactive re-render, keyed loops and conditionals all work.
+  That test file should be revisited.
+- **Swapping backends without invalidating caches was a latent bug.**
+  `evaluatorCache` is module-level and keyed by state-key signature, so a second
+  component with the same expressions reused the *previous backend's* compiled
+  functions. `setCodegenBackend` now runs registered invalidators
+  (`onBackendChange`). Found because a deliberately broken index mapping still
+  let 3 of 5 fixtures pass — the suite was partly vacuous. It now fails all 5.
+
+**Note on `deps`:** an artifact's `deps` describes *that function's own*
+signature, not the runtime's parameter list. Emitted functions take only what
+they use; the backend maps names to the runtime's positions.
 
 The conformance suite is the mechanical guarantee that nothing breaks.
 
