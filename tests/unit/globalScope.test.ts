@@ -1,18 +1,18 @@
 import { describe, it, expect } from "vitest";
 import {
-  ALLOWED_GLOBALS,
-  BLOCKED_GLOBALS,
+  INJECTED_GLOBALS,
+  SHADOWED_GLOBALS,
   RESERVED_WORDS,
   FRAMEWORK_HELPERS,
-} from "../../src/utils/sandbox";
+} from "../../src/utils/globalScope";
 
-describe("sandbox constants", () => {
-  it("ALLOWED_GLOBALS is frozen", () => {
-    expect(Object.isFrozen(ALLOWED_GLOBALS)).toBe(true);
+describe("global scope constants", () => {
+  it("INJECTED_GLOBALS is frozen", () => {
+    expect(Object.isFrozen(INJECTED_GLOBALS)).toBe(true);
   });
 
-  it("ALLOWED_GLOBALS contains common runtime values", () => {
-    const arr = ALLOWED_GLOBALS as readonly string[];
+  it("INJECTED_GLOBALS contains common runtime values", () => {
+    const arr = INJECTED_GLOBALS as readonly string[];
     expect(arr).toContain("console");
     expect(arr).toContain("Math");
     expect(arr).toContain("JSON");
@@ -32,10 +32,10 @@ describe("sandbox constants", () => {
     expect(RESERVED_WORDS.has("user")).toBe(false);
   });
 
-  it("BLOCKED_GLOBALS is frozen and currently empty", () => {
-    expect(Object.isFrozen(BLOCKED_GLOBALS)).toBe(true);
+  it("SHADOWED_GLOBALS is frozen and currently empty", () => {
+    expect(Object.isFrozen(SHADOWED_GLOBALS)).toBe(true);
     // Intentionally empty per source note
-    expect(BLOCKED_GLOBALS.length).toBe(0);
+    expect(SHADOWED_GLOBALS.length).toBe(0);
   });
 
   it("FRAMEWORK_HELPERS exports the $-prefixed helper names", () => {

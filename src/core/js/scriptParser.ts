@@ -3,10 +3,10 @@ import { EVENT_ATTRIBUTES } from "../../utils/jsevents";
 import { syncBindBeforeHandler } from "../../utils/directives";
 import
 {
-  ALLOWED_GLOBALS,
-  BLOCKED_GLOBALS,
+  INJECTED_GLOBALS,
+  SHADOWED_GLOBALS,
   RESERVED_WORDS,
-} from "../../utils/sandbox";
+} from "../../utils/globalScope";
 import
 {
   isEventDirective,
@@ -367,13 +367,13 @@ function createVanillaEventHandler(
     const componentUrl = (componentHost as any)?.__componentUrl;
     const componentId = (componentHost as any)?.__componentId;
 
-    // Include safe globals like alert, console, Math, JSON, etc.
-    const allowed = getAllowedGlobalsWithValues(componentUrl, componentId);
+    // Inject convenience globals like alert, console, Math, JSON, etc.
+    const injected = getInjectedGlobalsWithValues(componentUrl, componentId);
 
-    // Block dangerous globals like window, document, fetch, etc.
-    const safeBlocked = getSafeBlockedGlobals();
+    // Names shadowed with undefined in component scope (currently none).
+    const shadowed = getShadowedGlobals();
 
-    // Build the function parameters: event + blocked + allowed + "state" reference + "$refs" + "$host"
+    // Build the function parameters: event + shadowed + injected + "state" reference + "$refs" + "$host"
     // The reactive-state param is named `__state__` (not `state`) so a user
     // variable named `state` doesn't collide with it (which would produce
     // `let { state } = state;` — a "already declared" SyntaxError).
@@ -385,8 +385,8 @@ function createVanillaEventHandler(
       "__state__",
       "$refs",
       "$host",
-      ...safeBlocked,
-      ...allowed.keys,
+      ...shadowed,
+      ...injected.keys,
     ];
 
     // Get ALL state keys (includes both script variables AND attribute values)
@@ -498,8 +498,8 @@ function createVanillaEventHandler(
           state, // Pass reactive state
           $refs, // Pass $refs Map
           componentHost, // Pass $host (the component element)
-          ...safeBlocked.map(() => undefined), // Shadow dangerous globals
-          ...allowed.values, // Inject safe globals
+          ...shadowed.map(() => undefined), // Shadow the listed names
+          ...injected.values, // Inject convenience globals
         ];
 
         // Handle both sync and async handlers
@@ -724,7 +724,7 @@ function extractBracedBlock(
 // ============================================================================
 
 /**
- * Executes script content in a sandboxed environment and extracts
+ * Executes script content in the component's global scope and extracts
  * all declared variables and functions.
  *
  * Example script:
@@ -762,14 +762,14 @@ function extractScriptMembers(
 //# sourceURL=${sourceUrl}
     `;
 
-    // Set up the sandboxed execution environment
-    const allowed = getAllowedGlobalsWithValues(componentUrl, componentId);
-    const safeBlocked = getSafeBlockedGlobals();
+    // Set up the component's global scope
+    const injected = getInjectedGlobalsWithValues(componentUrl, componentId);
+    const shadowed = getShadowedGlobals();
 
-    const allKeys = [...safeBlocked, ...allowed.keys];
+    const allKeys = [...shadowed, ...injected.keys];
     const allValues = [
-      ...safeBlocked.map(() => undefined), // Shadow dangerous globals
-      ...allowed.values, // Inject safe globals
+      ...shadowed.map(() => undefined), // Shadow the listed names
+      ...injected.values, // Inject convenience globals
     ];
 
     const fn = new Function(...allKeys, wrappedScript);
@@ -906,24 +906,24 @@ function executeScriptWithReactiveState(
 //# sourceURL=${sourceUrl}
     `;
 
-    // Set up the sandboxed execution environment
-    const allowed = getAllowedGlobalsWithValues(componentUrl, componentId);
-    const safeBlocked = getSafeBlockedGlobals();
+    // Set up the component's global scope
+    const injected = getInjectedGlobalsWithValues(componentUrl, componentId);
+    const shadowed = getShadowedGlobals();
 
     // Add __state__, $host, and $refs as parameters
     const allKeys = [
       "__state__",
       "$host",
       "$refs",
-      ...safeBlocked,
-      ...allowed.keys,
+      ...shadowed,
+      ...injected.keys,
     ];
     const allValues = [
       reactiveState, // __state__ points to reactive proxy
       hostElement, // $host points to the component's host element
       refs, // $refs points to the refs Map
-      ...safeBlocked.map(() => undefined), // Shadow dangerous globals
-      ...allowed.values, // Inject safe globals
+      ...shadowed.map(() => undefined), // Shadow the listed names
+      ...injected.values, // Inject convenience globals
     ];
 
     const fn = new Function(...allKeys, wrappedScript);
@@ -1265,27 +1265,30 @@ function extractFunctionNames(content: string): string[]
 // aware) to `__state__.x`.
 
 // ============================================================================
-// Security & Sandboxing Helpers
+// Global Scoping Helpers
 // ============================================================================
 
 /**
- * Returns blocked globals, excluding JS reserved words that can't be
- * used as function parameter names (like 'with', 'class', etc.)
+ * Returns the shadowed globals, excluding JS reserved words that can't be used
+ * as function parameter names (like 'with', 'class', etc.)
+ *
+ * NOTE: scoping, not security — see src/utils/globalScope.ts.
  */
-function getSafeBlockedGlobals(): readonly string[]
+function getShadowedGlobals(): readonly string[]
 {
-  return BLOCKED_GLOBALS.filter((name) => !RESERVED_WORDS.has(name));
+  return SHADOWED_GLOBALS.filter((name) => !RESERVED_WORDS.has(name));
 }
 
 /**
- * Gets safe globals (alert, console, Math, JSON, etc.) with their actual values.
- * Also includes framework helpers like registerComponent, $use, $emit, $listen.
- * These are passed into the sandbox so component code feels like vanilla JS.
+ * Gets the injected globals (alert, console, Math, JSON, etc.) with their
+ * actual values. Also includes framework helpers like registerComponent, $use,
+ * $emit, $listen. These are passed in as parameters so component code feels
+ * like vanilla JS.
  *
  * @param componentUrl - The component's URL for resolving relative paths in helpers
  * @param componentId - The component's unique ID for event bus cleanup
  */
-function getAllowedGlobalsWithValues(
+function getInjectedGlobalsWithValues(
   componentUrl?: string,
   componentId?: string,
 ):
@@ -1297,8 +1300,8 @@ function getAllowedGlobalsWithValues(
   const keys: string[] = [];
   const values: unknown[] = [];
 
-  // Add standard allowed globals (console, Math, JSON, etc.)
-  for (const name of ALLOWED_GLOBALS)
+  // Add standard injected globals (console, Math, JSON, etc.)
+  for (const name of INJECTED_GLOBALS)
   {
     if (name in globalThis)
     {
@@ -1343,7 +1346,7 @@ function getAllowedGlobalsWithValues(
  *
  * The cache key combines the positional parameter names (the current state
  * keys) with the expression source, since the compiled function's parameters
- * are positional. The blocked globals are constant for the page lifetime, so
+ * are positional. The shadowed globals are constant for the page lifetime, so
  * they don't need to participate in the key.
  */
 const evaluatorCache = new Map<string, Map<string, Function>>();
@@ -1353,10 +1356,10 @@ const MAX_EVALUATOR_CACHE = 5000;
 /** Matches strings usable as a JS function parameter name (no hyphens, etc.). */
 const IDENTIFIER_RE = /^[A-Za-z_$][\w$]*$/;
 
-// Blocked globals never change at runtime, so compute the param list and the
+// Shadowed globals never change at runtime, so compute the param list and the
 // matching `undefined` argument array once and reuse them.
-let cachedBlockedGlobals: readonly string[] | null = null;
-let cachedBlockedUndefined: undefined[] | null = null;
+let cachedShadowedGlobals: readonly string[] | null = null;
+let cachedShadowedUndefined: undefined[] | null = null;
 
 function evaluateExpression(
   expression: string,
@@ -1383,11 +1386,11 @@ function evaluateExpression(
       }
     }
 
-    ensureBlockedGlobals();
+    ensureShadowedGlobals();
 
     const exprMap = getEvaluatorMap(keys.join(","));
     const fn = getCompiledEvaluator(keys, exprMap, expression);
-    return fn(...cachedBlockedUndefined!, ...stateValues);
+    return fn(...cachedShadowedUndefined!, ...stateValues);
   } catch (e)
   {
     expressionError(expression, e as Error, {
@@ -1397,14 +1400,14 @@ function evaluateExpression(
   }
 }
 
-function ensureBlockedGlobals(): readonly string[]
+function ensureShadowedGlobals(): readonly string[]
 {
-  if (cachedBlockedGlobals === null)
+  if (cachedShadowedGlobals === null)
   {
-    cachedBlockedGlobals = getSafeBlockedGlobals();
-    cachedBlockedUndefined = cachedBlockedGlobals.map(() => undefined);
+    cachedShadowedGlobals = getShadowedGlobals();
+    cachedShadowedUndefined = cachedShadowedGlobals.map(() => undefined);
   }
-  return cachedBlockedGlobals;
+  return cachedShadowedGlobals;
 }
 
 /**
@@ -1437,7 +1440,7 @@ function getEvaluatorMap(keysSig: string): Map<string, Function>
  * Returns the compiled evaluator for `expression` against the given state
  * keys, compiling and caching it on first use.
  *
- * Positional params are [blocked globals..., state keys...]. Only the state
+ * Positional params are [shadowed globals..., state keys...]. Only the state
  * keys + expression distinguish one compiled evaluator from another.
  */
 function getCompiledEvaluator(
@@ -1457,7 +1460,7 @@ function getCompiledEvaluator(
       if (oldest !== undefined) exprMap.delete(oldest);
     }
     fn = new Function(
-      ...cachedBlockedGlobals!,
+      ...cachedShadowedGlobals!,
       ...keys,
       `"use strict"; return ${expression};`,
     );
@@ -1498,7 +1501,7 @@ function createContextEvaluator(
   volatileKeys?: readonly string[],
 ): BoundEvaluator
 {
-  const blocked = ensureBlockedGlobals();
+  const shadowed = ensureShadowedGlobals();
 
   const allKeys = Object.keys(context);
   const keys: string[] = [];
@@ -1511,14 +1514,14 @@ function createContextEvaluator(
   }
   const sig = keys.join(",");
   const exprMap = getEvaluatorMap(sig);
-  const nBlocked = blocked.length;
-  const args: unknown[] = new Array(nBlocked + keys.length).fill(undefined);
+  const nShadowed = shadowed.length;
+  const args: unknown[] = new Array(nShadowed + keys.length).fill(undefined);
 
   const fillAll = (): void =>
   {
     for (let i = 0; i < keys.length; i++)
     {
-      args[nBlocked + i] = context[keys[i]];
+      args[nShadowed + i] = context[keys[i]];
     }
   };
 
@@ -1535,7 +1538,7 @@ function createContextEvaluator(
       const idx = keys.indexOf(name);
       if (idx >= 0)
       {
-        volatileSlots.push(nBlocked + idx);
+        volatileSlots.push(nShadowed + idx);
         volatileNames.push(name);
       }
     }
