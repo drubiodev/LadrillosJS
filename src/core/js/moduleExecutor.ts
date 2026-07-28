@@ -6,6 +6,7 @@ import {
 import { eventBusHelperNames, createEventBusHelpers } from "../events/eventBus";
 import { createReactiveArray } from "./reactivity";
 import { transformCodeToStateAccess } from "../../utils/stateTransform";
+import { importModule } from "../../utils/dynamicImport";
 import {
   error,
   scriptError,
@@ -203,9 +204,9 @@ export async function executeModuleScript(
   }
 
   try {
-    // Dynamically import the module
-    // Using a comment to prevent bundlers from trying to resolve this
-    const moduleExports = await (0, eval)(`import("${blobUrl}")`);
+    // Dynamically import the module. The specifier is a runtime blob: URL,
+    // so bundlers are told to leave it alone (see importModule).
+    const moduleExports = await importModule(blobUrl);
     return moduleExports;
   } catch (err) {
     scriptError(
@@ -715,7 +716,7 @@ export async function executeExternalScript(
     const blobUrl = URL.createObjectURL(blob);
 
     try {
-      const moduleExports = await (0, eval)(`import("${blobUrl}")`);
+      const moduleExports = await importModule(blobUrl);
       return moduleExports;
     } finally {
       // Clean up blob URL
@@ -1044,7 +1045,7 @@ async function fetchModule(url: string): Promise<Record<string, unknown>> {
   const promise = (async () => {
     try {
       // Use dynamic import to load the module
-      const module = await (0, eval)(`import("${url}")`);
+      const module = await importModule(url);
       return module as Record<string, unknown>;
     } catch (error) {
       console.error(`[LadrillosJS] Failed to fetch module: ${url}`, error);
