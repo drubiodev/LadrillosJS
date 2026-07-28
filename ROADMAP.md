@@ -194,13 +194,53 @@ Existing users pay nothing for it.
 - [x] Backend-interchangeability tests (8 tests: dep mapping, missing deps,
       high arity, missing-artifact error, runtime-vs-precompiled parity)
 - [x] Cache invalidation on backend swap (`onBackendChange`)
-- [x] **Conformance suite:** 5 fixtures mounted through both backends asserting
-      identical DOM, mutation-tested to confirm it fails when mapping breaks
-- [ ] Emit evaluators, handlers, setup, template bindings
-- [ ] Loop evaluator `(state, rowCtx)` signature
+- [x] **Conformance suite:** 12 fixtures mounted through both backends asserting
+      identical DOM, mutation-tested so none pass vacuously
+- [x] Emitter ([src/compiler/emit.ts](src/compiler/emit.ts)) for evaluators,
+      handlers and the reactive-state setup
+- [ ] Emit template/styles so the runtime can skip fetch + parse (bundling win,
+      not needed for CSP)
 - [ ] `defineCompiled` runtime helper
-- [ ] Grow the fixture set toward full directive coverage (`$bind`, `$ref`,
-      `$on:` modifiers, nested loops, `<show>`)
+- [ ] Extend emitter coverage to module scripts and the `members:` / `values:`
+      setup variants
+
+### Emitter status
+
+[tests/unit/emitter.test.ts](tests/unit/emitter.test.ts) writes the generated
+module to disk and loads it with a plain dynamic `import()` — if the output were
+not valid standalone JavaScript the import itself would fail. For each fixture it
+asserts two things: emitted keys cover **every** key the recorder observed, and
+the component renders identically when driven only by those artifacts.
+
+Generated output is minimal-arity static JS:
+
+```js
+export default {
+  evaluators: {
+    "item.id":   { deps: ["item"],  fn: (item) => (item.id) },
+    "item.name": { deps: ["item"],  fn: (item) => (item.name) },
+  },
+  handlers: {
+    "handler:count++": { deps: ["__state__","$refs","$host","event"],
+                         fn: (__state__, $refs, $host, event) => { __state__.count++; } },
+  },
+  setups: {
+    "state:let count = 0;": { deps: ["__state__"],
+                             fn: (__state__) => { __state__.count ??= 0; } },
+  },
+};
+```
+
+The emitter reuses `extractVariableNames`, `extractFunctionDefinitions` and
+`transformCodeToStateAccess`, so user code is rewritten by exactly the same
+helpers the runtime uses. It is build-time only and is absent from every shipped
+bundle (verified).
+
+**Deps must exclude real globals.** An emitted `fn` declares its deps as
+parameters, so declaring `Math` as a dep would shadow the real `Math` with
+`undefined` whenever the runtime doesn't supply it. Deps are therefore
+restricted to names the runtime is known to provide: declared script variables,
+`templateBindings`, and in-scope loop variables.
 
 ### Open decision: packaging
 

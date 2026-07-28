@@ -39,4 +39,4 @@ samples/dotnet-sample/bin/
 samples/dotnet-sample/obj/
 
 # Playground Folder
-playground/*
+playground/*tests/.generated/
