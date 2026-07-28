@@ -126,7 +126,7 @@ signal.
 
 ---
 
-## Phase 2 — `@ladrillosjs/compiler`
+## Phase 2 — `@ladrillosjs/compiler` *(in progress)*
 
 Build-time package that turns `counter.html` into a `.js` module:
 
@@ -151,13 +151,70 @@ a devDependency, so the Node story is proven.
 Loop evaluators get a `(state, rowCtx)` signature — the compiler knows the loop
 variable names because it parses the `<for>` expression at build time.
 
+### What's built (commit `121dc96`)
+
+The artifact format and calling convention were built and validated *before*
+the emitter, so the design meets the runtime's real constraints rather than an
+assumed one. Two constraints reshaped the sketch above:
+
+**1. Artifacts cannot hardcode parameter positions.** The sketch assumes
+`s => s.count`. The runtime actually calls evaluators positionally with
+`[...shadowedGlobals, ...Object.keys(state)]`, and state keys vary per mount
+because attributes add keys — which is why the runtime caches per key-signature
+and caps at `MAX_EVALUATOR_SIGNATURES = 100`. So an artifact declares its
+dependencies **by name**:
+
+```js
+"count * 2": { deps: ["count"], fn: count => count * 2 }
+```
+
+`bind()` in [precompiled.ts](src/core/js/precompiled.ts) resolves names to
+positions **once, at compile time**, then returns an arity-specialised closure.
+Per call: a fixed number of indexed reads, no rest-parameter array, no scope
+object — so the hot path stays comparable to the runtime backend.
+
+**2. Handlers and setups cannot be keyed by the seam's `body` string.** That
+string is a wrapper the runtime builds at call time (`destructureVars`,
+`funcDefs`, sync-back, `//# sourceURL`), which a build-time compiler cannot
+reproduce. They are keyed by **authored source** instead, which required
+threading a `key` parameter through the seam. Because the same script content
+reaches three different setup call sites with different wrappers, keys are
+namespaced per site (`members:`, `values:`, `state:`, `module:`) or they
+collide.
+
+The default runtime backend is unchanged — `key` defaults to `body`.
+`precompiled.ts` is imported by nothing, so it **tree-shakes out of every
+shipped bundle** (verified: zero occurrences in `dist/` and `dist-cdn/`).
+Existing users pay nothing for it.
+
 **Tasks**
 
-- [ ] Package scaffold + `defineCompiled` runtime helper
+- [x] Artifact format (`deps` by name) + `precompiledBackend`
+- [x] Authored-source keys threaded through the seam at all 7 call sites
+- [x] Backend-interchangeability tests (8 tests: dep mapping, missing deps,
+      high arity, missing-artifact error, runtime-vs-precompiled parity)
 - [ ] Emit evaluators, handlers, setup, template bindings
 - [ ] Loop evaluator `(state, rowCtx)` signature
+- [ ] `defineCompiled` runtime helper
 - [ ] **Conformance suite:** run every fixture through both backends and assert
       byte-identical DOM
+
+### Open decision: packaging
+
+Shipping the compiler as a subpath export (`ladrillosjs/compiler`) rather than a
+separate `@ladrillosjs/compiler` package would mean less release infrastructure
+and a single version number to keep in sync; browsers never import it, so it
+costs runtime users nothing either way. **Not yet decided.**
+
+### Known constraint: DOM conformance needs a real browser
+
+[tests/integration/component-mount.test.ts](tests/integration/component-mount.test.ts)
+is skipped because the full mount pipeline (DOMParser + dynamic `<script>`
+execution) does not run reliably inside happy-dom's custom-element lifecycle.
+So the byte-identical-DOM conformance suite must run under Playwright, reusing
+the harness pattern from the Phase 0 CSP verification. It lands alongside the
+Phase 3 CSP entry point, since it needs a loadable eval-free build to test
+against.
 
 The conformance suite is the mechanical guarantee that nothing breaks.
 
