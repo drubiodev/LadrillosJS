@@ -1,0 +1,73 @@
+<div class="card">
+  <h2>Counter</h2>
+
+  <p class="value">Count: {count} &middot; Double: {count * 2}</p>
+
+  <div class="row">
+    <button onclick="count--">−</button>
+    <button onclick="count++">+</button>
+  </div>
+
+  <p class="note">
+    A template expression and two inline handlers. Under the default build all
+    three are compiled in the browser with <code>Function()</code>. Here they
+    were compiled at build time, which is why this page needs no
+    <code>'unsafe-eval'</code>.
+  </p>
+</div>
+
+<script>
+  let start = 0;
+  let count = Number(start);
+</script>
+
+<style>
+  .card {
+    background: #171b26;
+    border: 1px solid #262c3a;
+    border-radius: 10px;
+    padding: 1.25rem 1.5rem;
+  }
+
+  h2 {
+    margin: 0 0 0.5rem;
+    font-size: 1.1rem;
+  }
+
+  .value {
+    margin: 0 0 1rem;
+    font-size: 1.5rem;
+    font-variant-numeric: tabular-nums;
+    color: #6ee7b7;
+  }
+
+  .row {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  button {
+    font: inherit;
+    min-width: 3rem;
+    padding: 0.4rem 0.9rem;
+    border-radius: 6px;
+    border: 1px solid #2f3648;
+    background: #212736;
+    color: #e2e8f0;
+    cursor: pointer;
+  }
+
+  button:hover {
+    border-color: #6ee7b7;
+  }
+
+  .note {
+    margin: 1rem 0 0;
+    font-size: 0.85rem;
+    color: #94a3b8;
+  }
+
+  code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+</style>

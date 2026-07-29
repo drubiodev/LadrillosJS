@@ -106,7 +106,7 @@ drop. Those components fall back to a real `<style>` element and do still need
 `'unsafe-inline'`. Prefer a `<link>` in the component, which is fetched
 normally and only needs its origin in `style-src`.
 
-### One harmless violation report remains
+### One harmless violation report remains (default build)
 
 Under `style-src 'self'` you will still see exactly one report per component
 *type*:
@@ -125,6 +125,12 @@ and reactivity works. It is report noise, not a block. It fires once per
 component type, not once per instance, because parsed sources are cached. If
 your CSP reporting endpoint needs to be clean, this is currently unavoidable
 without `'unsafe-inline'`.
+
+The [eval-free build](#eval-free-builds) does not produce this report at all:
+parsing happens on the build machine, so `DOMParser` never runs in the browser.
+Measured in Chrome on [samples/csp-vite](../samples/csp-vite), which registers
+three component types that each carry a `<style>` block: zero
+`securitypolicyviolation` events.
 
 ### Components using `<script external>`
 
@@ -292,6 +298,10 @@ If you use Vite, you can drop `'unsafe-eval'` entirely. Two pieces do it:
 - **`@ladrillosjs/vite-plugin`** — generates those artifacts and rewrites your
   registration calls to use them.
 
+A complete working project is in [samples/csp-vite](../samples/csp-vite): the
+policy below, a `verify` script that greps the bundles, and a component that
+reports the page's own CSP violations back to you.
+
 ### Setup
 
 ```bash
@@ -400,14 +410,45 @@ for the default entry: if `dist/index.js` ever stops containing code
 generation, the runtime build is broken and the CSP check would be passing for
 the wrong reason.
 
+### If components render `{like this}` after bundling
+
+A component that shows its bindings as literal text, with `LJS201` in the
+console and `No codegen backend installed` as the cause, means the bundler
+deleted the line that wires the compiler up.
+
+Every entry point installs its backend with a bare top-level call whose result
+nothing uses:
+
+```js
+setCodegenBackend(precompiledBackend);
+```
+
+A bundler that has been told the package is side-effect free is entitled to
+delete that statement. `ladrillosjs` therefore lists its entry points in the
+`sideEffects` field of `package.json`, and
+[scripts/verify-treeshaking.js](../scripts/verify-treeshaking.js) fails the
+build if a new entry point is added without being listed.
+
+This was a real defect: it shipped in 2.0.0 and broke *any* consumer who ran a
+production bundle, on the default entry as well as the CSP one. It is fixed in
+2.1.0. If you hit it on an older version, add this to your own `package.json`
+as a workaround:
+
+```json
+{
+  "sideEffects": ["./node_modules/ladrillosjs/dist/*.js"]
+}
+```
+
 ### What is still missing
 
 - **`'unsafe-inline'` is still needed for CSS containing `@import`.** Constructed
   stylesheets drop `@import`, so that CSS falls back to a `<style>` element.
   Use a `<link>` instead and the exception goes away.
-- **One spurious `style-src-elem` report per component type**, from the
-  `DOMParser` pass that reads the component source. Harmless but noisy — see
-  [above](#one-harmless-violation-report-remains).
+- **One spurious `style-src-elem` report per component type** on the *default*
+  build, from the `DOMParser` pass that reads the component source. Harmless but
+  noisy — see [above](#one-harmless-violation-report-remains-default-build). The
+  precompiled build does not produce it.
 - **Trusted Types work on the CSP build only.** The default build's
   `new Function` needs a default policy, which a library must not install for
   you — see above.
