@@ -81,6 +81,11 @@ Why each piece is needed:
 | `script-src 'unsafe-eval'` | Expressions, handlers, and scripts are compiled with `Function()` | Component renders raw `{count}`, handlers dead |
 | `connect-src 'self'` | Component `.html` files are fetched with `fetch()` | Component never loads at all (error `LJS505`) |
 
+[samples/cdn-csp](../samples/cdn-csp) is a working page under exactly this
+policy, with no build step. It reports its own violations, and its README walks
+through what happens when you drop `'unsafe-eval'` — both rows of that table are
+measured rather than asserted.
+
 Add every origin you load components from to `connect-src`, and the CDN origin
 to `script-src` if you load the framework from a CDN:
 
@@ -130,7 +135,8 @@ The [eval-free build](#eval-free-builds) does not produce this report at all:
 parsing happens on the build machine, so `DOMParser` never runs in the browser.
 Measured in Chrome on [samples/csp-vite](../samples/csp-vite), which registers
 three component types that each carry a `<style>` block: zero
-`securitypolicyviolation` events.
+`securitypolicyviolation` events. The same three components on the default
+build, in [samples/cdn-csp](../samples/cdn-csp), report exactly three.
 
 ### Components using `<script external>`
 

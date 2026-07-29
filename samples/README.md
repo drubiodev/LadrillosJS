@@ -16,6 +16,7 @@ compare LadrillosJS with what you already know.
 | [repl](./repl) | An in-browser playground — edit a component and see it render live. | No build step, live preview, four starter examples |
 | [cdn-sample](./cdn-sample) | A no-build app loaded straight from the CDN. | Zero build step, `registerComponents`, Shadow DOM off |
 | [csp-vite](./csp-vite) | The same components under a strict CSP, with no `unsafe-eval`. | Build-time compilation, `ladrillosjs/csp`, Trusted Types |
+| [cdn-csp](./cdn-csp) | How strict a policy the no-build path can run under. | Strict CSP with no build step, adopted stylesheets, measured trade-offs |
 | [dotnet-sample](./dotnet-sample) | LadrillosJS components inside an ASP.NET (.NET) app. | Server framework integration, progressive enhancement |
 | [ladrillos-demo](./ladrillos-demo) | A minimal demo project. | Getting started, component basics |
 | [vite-basic-site](./vite-basic-site) | A basic site scaffolded with Vite. | Build tooling, module imports |
@@ -54,6 +55,8 @@ Most samples include their own instructions. In general:
 - **csp-vite** — `npm install`, then `npm run build && npm run preview`. The CSP
   is applied at build time, so `npm run dev` will not show the sample under its
   policy.
+- **cdn-csp** — `npm run dev:cdn-csp` from the repo root, then open
+  <http://127.0.0.1:8081>.
 - **.NET sample** — run with `dotnet run` from the sample folder.
 
 ---
