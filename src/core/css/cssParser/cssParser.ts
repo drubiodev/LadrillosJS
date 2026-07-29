@@ -9,11 +9,15 @@ const sheetCache = new Map<string, CSSStyleSheet>();
 
 let adoptable: boolean | undefined;
 
-const canAdopt = (): boolean => {
-  if (adoptable === undefined) {
-    try {
+const canAdopt = (): boolean =>
+{
+  if (adoptable === undefined)
+  {
+    try
+    {
       adoptable = typeof new CSSStyleSheet().replaceSync === "function";
-    } catch {
+    } catch
+    {
       adoptable = false;
     }
   }
@@ -26,14 +30,17 @@ const canAdopt = (): boolean => {
  */
 const hasImport = (cssText: string): boolean => cssText.includes("@import");
 
-const getSheet = (cssText: string): CSSStyleSheet | null => {
+const getSheet = (cssText: string): CSSStyleSheet | null =>
+{
   let sheet = sheetCache.get(cssText);
   if (sheet) return sheet;
 
-  try {
+  try
+  {
     sheet = new CSSStyleSheet();
     sheet.replaceSync(cssText);
-  } catch {
+  } catch
+  {
     return null;
   }
 
@@ -45,7 +52,8 @@ const adopt = (
   root: DocumentOrShadowRoot,
   sheet: CSSStyleSheet,
   first: boolean,
-): void => {
+): void =>
+{
   const current = root.adoptedStyleSheets;
   if (current.includes(sheet)) return;
   // Assignment rather than push(): the mutable-array form of
@@ -64,12 +72,15 @@ export const loadStyles = (
   target: StyleTarget,
   cssText: string | undefined,
   useShadowDOM: boolean,
-): void => {
+): void =>
+{
   if (!cssText) return;
 
-  if (canAdopt() && !hasImport(cssText)) {
+  if (canAdopt() && !hasImport(cssText))
+  {
     const sheet = getSheet(cssText);
-    if (sheet) {
+    if (sheet)
+    {
       adopt(useShadowDOM ? (target as ShadowRoot) : document, sheet, false);
       return;
     }
@@ -78,9 +89,11 @@ export const loadStyles = (
   const styleEl = document.createElement("style");
   styleEl.textContent = cssText;
 
-  if (useShadowDOM) {
+  if (useShadowDOM)
+  {
     target.appendChild(styleEl);
-  } else {
+  } else
+  {
     document.head.appendChild(styleEl);
   }
 };
@@ -94,10 +107,13 @@ export const loadExternalStyleText = (
   root: ShadowRoot,
   cssText: string,
   href: string,
-): void => {
-  if (canAdopt() && !hasImport(cssText)) {
+): void =>
+{
+  if (canAdopt() && !hasImport(cssText))
+  {
     const sheet = getSheet(cssText);
-    if (sheet) {
+    if (sheet)
+    {
       adopt(root, sheet, true);
       return;
     }

@@ -23,7 +23,7 @@ import { warn } from "../../utils/devWarnings";
  */
 export interface TrustedTypesPolicyLike
 {
-  createHTML(input: string): unknown;
+    createHTML(input: string): unknown;
 }
 
 /** Must be listed in the `trusted-types` CSP directive to be creatable. */
@@ -34,48 +34,48 @@ let builtinPolicy: TrustedTypesPolicyLike | null | undefined;
 
 /** Backs `configure({ trustedTypesPolicy })`. */
 export function setTrustedTypesPolicy(
-  policy: TrustedTypesPolicyLike | null,
+    policy: TrustedTypesPolicyLike | null,
 ): void
 {
-  configuredPolicy = policy;
+    configuredPolicy = policy;
 }
 
 function getPolicy(): TrustedTypesPolicyLike | null
 {
-  if (configuredPolicy) return configuredPolicy;
-  if (builtinPolicy !== undefined) return builtinPolicy;
+    if (configuredPolicy) return configuredPolicy;
+    if (builtinPolicy !== undefined) return builtinPolicy;
 
-  const factory = (globalThis as { trustedTypes?: { createPolicy?: unknown } })
-    .trustedTypes;
+    const factory = (globalThis as { trustedTypes?: { createPolicy?: unknown } })
+        .trustedTypes;
 
-  if (typeof factory?.createPolicy !== "function")
-  {
-    // No Trusted Types in this browser: sinks accept strings, nothing to do.
-    builtinPolicy = null;
-    return null;
-  }
+    if (typeof factory?.createPolicy !== "function")
+    {
+        // No Trusted Types in this browser: sinks accept strings, nothing to do.
+        builtinPolicy = null;
+        return null;
+    }
 
-  try
-  {
-    builtinPolicy = (
-      factory.createPolicy as (
-        name: string,
-        rules: { createHTML: (input: string) => string },
-      ) => TrustedTypesPolicyLike
-    )(POLICY_NAME, { createHTML: (input) => input });
-  } catch
-  {
-    // Rejected by the `trusted-types` allowlist, or the name is taken.
-    builtinPolicy = null;
-    warn(
-      `Could not create the "${POLICY_NAME}" Trusted Types policy. Add it to ` +
-      `the trusted-types CSP directive, or pass an existing policy to ` +
-      `configure({ trustedTypesPolicy }). Templates will be assigned as ` +
-      `plain strings, which throws under require-trusted-types-for.`,
-    );
-  }
+    try
+    {
+        builtinPolicy = (
+            factory.createPolicy as (
+                name: string,
+                rules: { createHTML: (input: string) => string },
+            ) => TrustedTypesPolicyLike
+        )(POLICY_NAME, { createHTML: (input) => input });
+    } catch
+    {
+        // Rejected by the `trusted-types` allowlist, or the name is taken.
+        builtinPolicy = null;
+        warn(
+            `Could not create the "${POLICY_NAME}" Trusted Types policy. Add it to ` +
+            `the trusted-types CSP directive, or pass an existing policy to ` +
+            `configure({ trustedTypesPolicy }). Templates will be assigned as ` +
+            `plain strings, which throws under require-trusted-types-for.`,
+        );
+    }
 
-  return builtinPolicy;
+    return builtinPolicy;
 }
 
 /**
@@ -87,14 +87,14 @@ function getPolicy(): TrustedTypesPolicyLike | null
  */
 export function trustedHTML(html: string): string
 {
-  const policy = getPolicy();
-  // TrustedHTML is not a string, but every sink that demands one accepts it.
-  return policy ? (policy.createHTML(html) as string) : html;
+    const policy = getPolicy();
+    // TrustedHTML is not a string, but every sink that demands one accepts it.
+    return policy ? (policy.createHTML(html) as string) : html;
 }
 
 /** Test seam: forget the cached built-in policy. */
 export function resetTrustedTypesPolicy(): void
 {
-  configuredPolicy = null;
-  builtinPolicy = undefined;
+    configuredPolicy = null;
+    builtinPolicy = undefined;
 }

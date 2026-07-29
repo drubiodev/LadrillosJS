@@ -2,11 +2,11 @@ import { LadrillosComponent } from "../../types";
 import { REGEX_PATTERNS } from "../../utils/regex";
 import { rewriteImports } from "../js/moduleExecutor";
 import
-  {
-    escapeControlTags,
-    restoreControlTags,
-    isControlElement,
-  } from "../html/controlTagEscape";
+{
+  escapeControlTags,
+  restoreControlTags,
+  isControlElement,
+} from "../html/controlTagEscape";
 import { trustedHTML } from "../html/trustedTypes";
 
 // Built on first parse, not at import time: build tools import this module to

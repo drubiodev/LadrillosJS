@@ -4,12 +4,12 @@ import { join } from "node:path";
 import { setCodegenBackend } from "../../src/core/js/compiler";
 import { runtimeBackend } from "../../src/core/js/runtimeBackend";
 import
-    {
-        precompiledBackend,
-        registerArtifacts,
-        clearArtifacts,
-        type ArtifactTable,
-    } from "../../src/core/js/precompiled";
+{
+    precompiledBackend,
+    registerArtifacts,
+    clearArtifacts,
+    type ArtifactTable,
+} from "../../src/core/js/precompiled";
 import { emitComponent } from "../../src/compiler/emit";
 import { defineCompiled } from "../../src/core/component/defineCompiled";
 import { parseComponent } from "../../src/core/component/extract";

@@ -1,14 +1,16 @@
 import { BindingDescriptor } from "../../types";
 import { REGEX_PATTERNS } from "../../utils/regex";
 import { analyzeBinding } from "../component/bindingParser";
-import {
-  scanLazyElements,
-  getPendingLazyContent,
-} from "../builtins/lazyElement";
-import {
-  escapeControlTags,
-  restoreControlTags,
-} from "./controlTagEscape";
+import
+  {
+    scanLazyElements,
+    getPendingLazyContent,
+  } from "../builtins/lazyElement";
+import
+  {
+    escapeControlTags,
+    restoreControlTags,
+  } from "./controlTagEscape";
 import { trustedHTML } from "./trustedTypes";
 
 type TemplateLoadResult = {
@@ -31,7 +33,8 @@ type TemplateLoadResult = {
 export const loadTemplate = (
   host: HTMLElement | ShadowRoot,
   template: string,
-): TemplateLoadResult => {
+): TemplateLoadResult =>
+{
   // Parse into a detached <template> first. Its .content is a DocumentFragment
   // that is NOT connected to the document, so custom-element connectedCallback
   // will not fire for any children inside.
@@ -56,22 +59,26 @@ export const loadTemplate = (
   // node references that survive the later DOM move into the host tree, so
   // {} text and attribute bindings inside <lazy> work the same as inline.
   const bindings = getBindings(host);
-  for (const frag of getPendingLazyContent(host)) {
+  for (const frag of getPendingLazyContent(host))
+  {
     bindings.push(...getBindings(frag));
   }
   return { bindings };
 };
 
-function getBindings(host: HTMLElement | ShadowRoot | DocumentFragment) {
+function getBindings(host: HTMLElement | ShadowRoot | DocumentFragment)
+{
   const bindings: BindingDescriptor[] = [];
 
   // 1. Find text nodes with {} bindings
   const walker = document.createTreeWalker(host, NodeFilter.SHOW_TEXT, null);
   let node: Text | null;
 
-  while ((node = walker.nextNode() as Text | null)) {
+  while ((node = walker.nextNode() as Text | null))
+  {
     // Skip nodes that are inside loop elements or $no:bind elements
-    if (isInsideLoopElement(node) || isInsideNoBind(node)) {
+    if (isInsideLoopElement(node) || isInsideNoBind(node))
+    {
       continue;
     }
 
@@ -79,10 +86,12 @@ function getBindings(host: HTMLElement | ShadowRoot | DocumentFragment) {
     if (!textContent) continue;
     const matches = [...textContent.matchAll(REGEX_PATTERNS.bindings)];
 
-    if (matches.length > 0) {
+    if (matches.length > 0)
+    {
       const original = textContent;
 
-      const nodeBindings = matches.map((match) => {
+      const nodeBindings = matches.map((match) =>
+      {
         const raw = match[1].trim();
         return analyzeBinding(raw);
       });
@@ -107,7 +116,8 @@ function getBindings(host: HTMLElement | ShadowRoot | DocumentFragment) {
  */
 function getAttributeBindings(
   host: HTMLElement | ShadowRoot | DocumentFragment,
-): BindingDescriptor[] {
+): BindingDescriptor[]
+{
   const bindings: BindingDescriptor[] = [];
 
   // Directive attributes that should NOT be treated as regular bindings
@@ -127,33 +137,40 @@ function getAttributeBindings(
   // Get all elements in the host
   const elements = Array.from(host.querySelectorAll("*"));
 
-  for (const element of elements) {
+  for (const element of elements)
+  {
     // Skip elements inside <for> templates – the loop renderer handles their
     // bindings per-iteration.
-    if (element.tagName === "FOR" || isInsideLoopElement(element)) {
+    if (element.tagName === "FOR" || isInsideLoopElement(element))
+    {
       continue;
     }
 
     // Skip elements with $no:bind or inside $no:bind elements
-    if (element.hasAttribute("$no:bind") || isInsideNoBind(element)) {
+    if (element.hasAttribute("$no:bind") || isInsideNoBind(element))
+    {
       continue;
     }
 
     // Check each attribute
-    for (const attr of Array.from(element.attributes) as Attr[]) {
+    for (const attr of Array.from(element.attributes) as Attr[])
+    {
       // Skip directive attributes - they're handled separately
-      if (directiveAttributes.includes(attr.name)) {
+      if (directiveAttributes.includes(attr.name))
+      {
         continue;
       }
 
       const matches = [...attr.value.matchAll(REGEX_PATTERNS.bindings)];
 
-      if (matches.length > 0) {
+      if (matches.length > 0)
+      {
         // Create a placeholder text node to store binding info
         // (We need a Text node for the BindingDescriptor structure)
         const placeholderNode = document.createTextNode(attr.value);
 
-        const attrBindings = matches.map((match) => {
+        const attrBindings = matches.map((match) =>
+        {
           const raw = match[1].trim();
           return analyzeBinding(raw);
         });
@@ -174,13 +191,16 @@ function getAttributeBindings(
   return bindings;
 }
 
-function isInsideLoopElement(node: Node): boolean {
+function isInsideLoopElement(node: Node): boolean
+{
   let current: Element | null =
     node.nodeType === Node.ELEMENT_NODE
       ? (node as Element).parentElement
       : node.parentElement;
-  while (current) {
-    if (current.tagName === "FOR") {
+  while (current)
+  {
+    if (current.tagName === "FOR")
+    {
       return true;
     }
     current = current.parentElement;
@@ -196,10 +216,13 @@ function isInsideLoopElement(node: Node): boolean {
  * @example
  * <code $no:bind>{name}</code>  <!-- Renders literally as "{name}" -->
  */
-function isInsideNoBind(node: Node): boolean {
+function isInsideNoBind(node: Node): boolean
+{
   let current = node.parentElement;
-  while (current) {
-    if (current.hasAttribute && current.hasAttribute("$no:bind")) {
+  while (current)
+  {
+    if (current.hasAttribute && current.hasAttribute("$no:bind"))
+    {
       return true;
     }
     current = current.parentElement;
