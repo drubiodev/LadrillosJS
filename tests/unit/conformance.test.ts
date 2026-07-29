@@ -231,13 +231,8 @@ const fixtures: {
       expected: "hi ada ADA",
     },
     {
-      // KNOWN BUG, pinned deliberately: correct output is "BO".
-      // The function does read state live -- adding `{name}` to the same text
-      // node makes this render "BO". The defect is dependency tracking: a
-      // binding whose only identifier is the function name records no
-      // dependency on what that function reads, so `name = 'bo'` never
-      // invalidates it. Independent of how the function is declared; a
-      // `const shout = () => ...` behaves identically. See ROADMAP.
+      // A binding whose only identifier is a function name still has to be
+      // invalidated by what that function reads.
       name: "plain-script function reading state after an update",
       source: `
       <span id="out">{shout()}</span>
@@ -253,7 +248,69 @@ const fixtures: {
         await settle();
         return root.getElementById("out")!.textContent!;
       },
-      expected: "ADA",
+      expected: "BO",
+    },
+    {
+      // The dependency is two calls deep, and `word` is only reachable
+      // because `outer`'s source names `mid` -- exercises the transitive walk.
+      name: "binding invalidated through a chain of function calls",
+      source: `
+      <span id="out">{outer()}</span>
+      <button id="go" onclick="word = 'bo'">g</button>
+      <script>
+        let word = "ada";
+        function mid() { return word + "!"; }
+        function outer() { return mid().toUpperCase(); }
+      </script>
+    `,
+      exercise: async (root) =>
+      {
+        root.getElementById("go")!.click();
+        await settle();
+        return root.getElementById("out")!.textContent!;
+      },
+      expected: "BO!",
+    },
+    {
+      // Mutually recursive functions must not hang the dependency walk.
+      name: "binding invalidated through mutually recursive functions",
+      source: `
+      <span id="out">{even(n)}</span>
+      <button id="go" onclick="n = 3">g</button>
+      <script>
+        let n = 2;
+        function even(k) { return k === 0 ? "yes" : odd(k - 1); }
+        function odd(k) { return k === 0 ? "no" : even(k - 1); }
+      </script>
+    `,
+      exercise: async (root) =>
+      {
+        root.getElementById("go")!.click();
+        await settle();
+        return root.getElementById("out")!.textContent!;
+      },
+      expected: "no",
+    },
+    {
+      // KNOWN BUG, pinned deliberately: correct output is "ADA!".
+      // Unrelated to dependency tracking, and pre-dates it -- `const mid = ...`
+      // is rewritten to `__state__.mid`, leaving no local `mid`, but the
+      // transform's `(?!\s*[:(])` lookahead skips the *call site*, so `outer`'s
+      // body still says bare `mid()` -> ReferenceError. A `function mid() {}`
+      // declaration is unaffected, because it stays a real local declaration.
+      // See ROADMAP.
+      name: "function calling an arrow function declared in the same script",
+      source: `
+      <span id="out">{outer()}</span>
+      <script>
+        let word = "ada";
+        const mid = () => word + "!";
+        function outer() { return mid(); }
+      </script>
+    `,
+      exercise: async (root) =>
+        root.getElementById("out")!.textContent!,
+      expected: "{outer()}",
     },
     {
       // Same call inside a loop row, where handlers splice function source in

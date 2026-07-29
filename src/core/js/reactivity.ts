@@ -270,7 +270,7 @@ export function createReactiveState(
 ): Record<string, unknown>
 {
   // Build dependency map: which bindings depend on which state keys
-  const registry = buildBindingRegistry(bindings, Object.keys(initialState));
+  const registry = buildBindingRegistry(bindings, initialState);
 
   // Helper to trigger all updates for a key
   const triggerUpdate = (key: string, target: Record<string, unknown>) =>
@@ -453,7 +453,7 @@ export function createReactiveState(
       // If new key, register bindings that depend on it
       if (isNewKey)
       {
-        registerNewKey(key, bindings, registry);
+        registerNewKey(key, bindings, registry, target);
       }
 
       // Skip binding updates while reactivity is suspended (e.g. during
@@ -491,10 +491,11 @@ export function createReactiveState(
  */
 function buildBindingRegistry(
   bindings: BindingDescriptor[],
-  stateKeys: string[]
+  state: Record<string, unknown>
 ): BindingRegistry
 {
   const registry: BindingRegistry = new Map();
+  const stateKeys = Object.keys(state);
 
   // Initialize empty sets for each state key
   for (const key of stateKeys)
@@ -518,7 +519,111 @@ function buildBindingRegistry(
     }
   }
 
+  linkCallDependencies(bindings, registry, state);
+
   return registry;
+}
+
+/**
+ * Source text of a state function, cached. Empty for natives.
+ */
+const functionSourceCache = new WeakMap<Function, string>();
+
+function functionSource(fn: Function): string
+{
+  let source = functionSourceCache.get(fn);
+  if (source === undefined)
+  {
+    try
+    {
+      source = Function.prototype.toString.call(fn);
+    } catch
+    {
+      source = "";
+    }
+    if (source.includes("[native code]")) source = "";
+    functionSourceCache.set(fn, source);
+  }
+  return source;
+}
+
+/**
+ * State keys an expression reaches by *calling into* a state function.
+ *
+ * The registry matches key names against expression text, so `{shout()}` looks
+ * independent of everything `shout` reads and would never be invalidated.
+ * Script transformation rewrites those reads to `__state__.name`, so the
+ * function's own source names them — follow calls to other state functions too.
+ *
+ * Static, like the rest of the dependency model: dynamic access such as
+ * `state[key]` is invisible here, exactly as it is in a template expression.
+ */
+function keysReachedThroughCalls(
+  expression: string,
+  state: Record<string, unknown>,
+  stateKeys: string[]
+): Set<string>
+{
+  const reached = new Set<string>();
+  const pending: string[] = [];
+  const visited = new Set<string>();
+
+  for (const key of stateKeys)
+  {
+    if (
+      typeof state[key] === "function" &&
+      expressionDependsOn(expression, key)
+    )
+    {
+      pending.push(key);
+    }
+  }
+
+  while (pending.length > 0)
+  {
+    const fnKey = pending.pop()!;
+    if (visited.has(fnKey)) continue;
+    visited.add(fnKey);
+
+    const source = functionSource(state[fnKey] as Function);
+    if (!source) continue;
+
+    for (const key of stateKeys)
+    {
+      if (key === fnKey || !expressionDependsOn(source, key)) continue;
+      reached.add(key);
+      if (typeof state[key] === "function") pending.push(key);
+    }
+  }
+
+  return reached;
+}
+
+/**
+ * Adds each binding to the key sets it reaches only by calling a function.
+ *
+ * Re-run whenever a key is added, because a function can be registered after
+ * the state it reads, or before it.
+ */
+function linkCallDependencies(
+  bindings: BindingDescriptor[],
+  registry: BindingRegistry,
+  state: Record<string, unknown>
+): void
+{
+  const stateKeys = Object.keys(state);
+  if (!stateKeys.some((key) => typeof state[key] === "function")) return;
+
+  for (const descriptor of bindings)
+  {
+    for (const binding of descriptor.bindings)
+    {
+      for (const key of keysReachedThroughCalls(binding.raw, state, stateKeys))
+      {
+        registry.get(key)?.add(descriptor);
+      }
+    }
+  }
 }
 
 /**
@@ -529,7 +634,8 @@ function buildBindingRegistry(
 function registerNewKey(
   key: string,
   bindings: BindingDescriptor[],
-  registry: BindingRegistry
+  registry: BindingRegistry,
+  state: Record<string, unknown>
 ): void
 {
   // Create a new set for this key
@@ -546,6 +652,8 @@ function registerNewKey(
       }
     }
   }
+
+  linkCallDependencies(bindings, registry, state);
 }
 
 /**

@@ -622,7 +622,62 @@ used when registering a component. Under
       function reads, so a later `name = 'bo'` never invalidates it. The
       function does read state live — adding `{name}` to the same text node
       makes it update — so this is dependency tracking, not resolution, and it
-      is independent of how the function is declared.
+      is independent of how the function is declared. *Fixed below.*
+
+- [x] **A binding that only calls a function never updated.** `{shout()}`
+      rendered once and went stale: assigning `name = 'bo'` re-ran every
+      binding that mentions `name`, and `"shout()"` does not mention it. Since
+      [docs/05-template-bindings.md](docs/05-template-bindings.md) documents
+      function calls in bindings, a documented feature that silently serves
+      stale output is a bug rather than a limitation.
+
+      The dependency model is static: `buildBindingRegistry` tests each state
+      key against each expression's text with `\bkey\b`. The obvious fix — a
+      Proxy `get` trap plus an active-effect stack, the way Vue does it — does
+      not fit this architecture at all. `evaluateExpression` passes state into
+      compiled evaluators as **named parameters**, reading the values *before*
+      the call, so no trap ever fires during evaluation; and the precompiled
+      CSP backend depends on that fixed-parameter shape. Making the trap fire
+      would mean handing evaluators the proxy and giving up the artifact model.
+
+      What does fit is to follow the calls statically. Script transformation
+      already rewrites a function's own state reads to `__state__.name`, so
+      `shout.toString()` names its dependencies, and calls to sibling
+      functions stay bare (`mid(`) — which the same `\bkey\b` test finds, so
+      the walk is transitive. Now that plain-script `function` declarations are
+      published onto state (previous entry), those callees are state keys too.
+
+      `keysReachedThroughCalls` in
+      [reactivity.ts](src/core/js/reactivity.ts) does that walk, with a
+      `WeakMap` cache of `Function.prototype.toString` and a `visited` set for
+      recursive functions. `linkCallDependencies` applies the result and runs
+      from both `buildBindingRegistry` and `registerNewKey` — both, because a
+      function can be registered either before or after the state it reads, and
+      the plain-script epilogue registers functions last. It costs one pass per
+      binding at registry-construction time and nothing on the update path.
+
+      **Limits, deliberately:** dynamic access (`state[key]`) is invisible, as
+      it already is in a template expression; functions imported from outside
+      the component script have no rewritten source to scan; and a function
+      that mentions many keys makes its callers re-run more often than
+      strictly necessary — correct, just not minimal.
+
+- [x] **`{outer()}` fails when `outer` calls an arrow function declared in the
+      same script.** Found while testing the entry above, pre-existing and
+      unrelated to it. `const mid = () => ...` is rewritten to
+      `__state__.mid ??= ...`, so no local `mid` remains — but
+      `transformCodeToStateAccess`'s `(?!\s*[:(])` lookahead deliberately skips
+      *call sites*, so `outer`'s body still says bare `mid()` and throws
+      `mid is not defined`. A `function mid() {}` declaration is unaffected,
+      because it stays a real local declaration.
+
+      Not fixed here. Dropping `(` from that lookahead would rewrite call sites
+      correctly, but it would also rewrite object method shorthand
+      (`{ foo() {} }` → `{ __state__.foo() {} }`, a `SyntaxError` that rolls
+      back the whole script), so it needs its own change with its own tests.
+      Pinned as a known-bad fixture in
+      [conformance.test.ts](tests/unit/conformance.test.ts) so a future fix
+      trips the test rather than passing silently.
 
 - [x] **Nested `<for>` does not expand the inner loop.** The inner `<for>`
       rendered its template exactly once, with its loop variable left as
