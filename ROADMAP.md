@@ -531,21 +531,57 @@ import reproduces the original `TypeError`.
 
 ---
 
-## Phase 4 — Trusted Types (optional)
+## Phase 4 — Trusted Types ✅ COMPLETE
 
-Add an optional policy behind `configure({ trustedTypesPolicy })`.
-
-Note the corrected target: the blocking sink is **`DOMParser.parseFromString`**,
-used when registering a component. Under
-`require-trusted-types-for 'script'` the component fails to register with
-`LJS505`. [htmlparser.ts](src/core/html/htmlparser.ts#L47) also assigns
-`innerHTML` and needs the same treatment.
+Trusted Types reached Baseline "newly available" (Chrome 83, Firefox 148,
+Safari 26), so this stopped being a Chrome-only nicety.
 
 **Tasks**
 
-- [ ] `configure({ trustedTypesPolicy })`
-- [ ] Route `parseFromString` and `innerHTML` through the policy
-- [ ] Verify under `require-trusted-types-for 'script'`
+- [x] `configure({ trustedTypesPolicy })`
+- [x] Route `parseFromString` and `innerHTML` through the policy
+- [x] Verify under `require-trusted-types-for 'script'`
+
+### How it works
+
+[trustedTypes.ts](src/core/html/trustedTypes.ts) lazily creates one **named**
+policy, `ladrillosjs`, and `trustedHTML()` funnels every HTML sink through it:
+[htmlparser.ts](src/core/html/htmlparser.ts#L48),
+[extract.ts](src/core/component/extract.ts#L506), and
+[emit.ts](src/compiler/emit.ts#L161) for an in-browser compiler.
+
+A *named* policy, not a default one — MDN calls the default policy a
+transitional measure for legacy code, and web.dev says to prefer regular
+policies. A default policy also applies to every uncontrolled sink on the page,
+so a library installing one would silently weaken enforcement for the whole
+host application.
+
+When `trustedTypes` is absent the string is returned unchanged, which is what
+the sinks have always received; that is also the path all existing tests take,
+since happy-dom implements none of this.
+
+### The default policy is a pass-through, and that is honest
+
+`createHTML: (s) => s` sanitizes nothing. The input is the component file the
+developer authored, and sanitizing it would strip the markup the framework
+exists to render. What it buys is that the framework stops *blocking* an app
+that enforces Trusted Types. `configure({ trustedTypesPolicy })` is the escape
+valve for apps whose templates come from untrusted input — and lets them reuse
+a policy name their CSP already allows.
+
+### Only the CSP build is actually compatible
+
+`require-trusted-types-for 'script'` guards `new Function` too, and that sink
+consults the **default** policy specifically. A named policy cannot satisfy it.
+So the default build stays blocked, and this only lands fully on
+`ladrillosjs/csp`, which emits no code at runtime. That is a point in favour of
+the whole branch rather than a gap.
+
+### Incidental fix
+
+`host.innerHTML = ""` in `loadTemplate` became `host.replaceChildren()`. It was
+an empty-string write, so whether Trusted Types exempts it was a question worth
+not having; `replaceChildren` is not a sink at all, and is faster.
 
 ---
 

@@ -15,6 +15,7 @@ policies:
 | `script-src 'unsafe-eval'` | **Required** | Not required |
 | `.html` fetched at runtime | Yes | No |
 | `style-src 'unsafe-inline'` | Required | Required |
+| `require-trusted-types-for 'script'` | Not supported | Supported |
 
 Pick your path: [the default policy](#the-policy-you-need), or
 [eval-free builds](#eval-free-builds).
@@ -146,18 +147,59 @@ Stated explicitly, because these are commonly assumed:
 
 ## Trusted Types
 
-LadrillosJS does **not** work under `require-trusted-types-for 'script'`.
+LadrillosJS works under `require-trusted-types-for 'script'` **on the CSP
+build**. Its two HTML sinks — `DOMParser.parseFromString` and the `innerHTML`
+of the detached parse template — go through a Trusted Types policy.
 
-The blocked sink is `DOMParser.parseFromString`, which the framework uses to
-turn component markup into DOM:
+By default the framework creates its own policy, so you must allow its name:
 
+```http
+Content-Security-Policy:
+  require-trusted-types-for 'script';
+  trusted-types ladrillosjs;
+  default-src 'self';
+  script-src 'self';
+  style-src 'self' 'unsafe-inline';
 ```
-TypeError: Failed to execute 'parseFromString' on 'DOMParser':
-This document requires 'TrustedHTML' assignment.
+
+Trusted Types only exists in secure contexts (HTTPS or localhost). In browsers
+without it, nothing changes: the sinks take plain strings, as they always have.
+
+### The default policy does not sanitize
+
+Be clear-eyed about what this buys you. The built-in policy is a **pass-through**
+— `createHTML: (s) => s`. Its input is the component file you authored, and
+sanitizing it would strip the markup the framework exists to render. What it
+gives you is compatibility: the framework stops *blocking* an app that enforces
+Trusted Types, and every other sink in your app stays guarded.
+
+If your templates are assembled from untrusted input, supply a policy that
+actually sanitizes:
+
+```js
+import { configure } from "ladrillosjs";
+
+configure({
+  trustedTypesPolicy: trustedTypes.createPolicy("app", {
+    createHTML: (s) => DOMPurify.sanitize(s),
+  }),
+});
 ```
 
-The component fails to register (`LJS505`). Shipping an opt-in Trusted Types
-policy is on the roadmap.
+That also lets you reuse a policy name your CSP already allows, in which case
+`ladrillosjs` does not need to be in the `trusted-types` list. Call `configure`
+before the first component mounts.
+
+### Why only the CSP build
+
+`require-trusted-types-for 'script'` guards `new Function` too, and that sink
+consults the **default** policy — the one named `default`, which applies to
+every uncontrolled sink on the page. A library must not install one on your
+behalf; doing so would silently weaken enforcement for your whole application.
+
+So the default build, which compiles component scripts with `new Function`, is
+still blocked. Use `ladrillosjs/csp` plus the build plugin (below), which emits
+no code at runtime and therefore hits no script sinks at all.
 
 ---
 
@@ -201,7 +243,7 @@ block, and module scripts. Results:
 | `script-src 'self'` (no eval) | 4 × `script-src :: eval`; renders literal `{count} Double: {count * 2}` |
 | `style-src 'self'` (no inline) | 2 × `style-src-elem :: inline`; JS fine, color falls back to black |
 | `connect-src 'none'` | `connect-src` violation on the component URL; nothing renders |
-| `require-trusted-types-for 'script'` | `require-trusted-types-for :: trusted-types-sink :: DOMParser parseFromString` |
+| `require-trusted-types-for 'script'` | Default build: `require-trusted-types-for :: trusted-types-sink :: eval`. CSP build with `trusted-types ladrillosjs`: no violations |
 | Inline `<script>`, inline `<script type="module">`, and module with `import` | `URL.createObjectURL` called **0 times** in all three — `blob:` unnecessary |
 | After mount | `getAttribute("onclick")` → `null`, `el.onclick` → falsy; handler is an `addEventListener` listener |
 
@@ -333,7 +375,9 @@ the wrong reason.
   inline styles, and there is no nonce option yet. A nonce- or hash-based
   `style-src` will silently drop your component styles. This is a much smaller
   exposure than `'unsafe-inline'` for scripts, but it is not nothing.
-- **Trusted Types are still unsupported** on both paths — see above.
+- **Trusted Types work on the CSP build only.** The default build's
+  `new Function` needs a default policy, which a library must not install for
+  you — see above.
 - **The precompiled build is not yet smaller.** It removes code generation, not
   bytes; the two are within about 1 KB gzipped of each other.
 

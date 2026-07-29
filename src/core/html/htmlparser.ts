@@ -9,6 +9,7 @@ import {
   escapeControlTags,
   restoreControlTags,
 } from "./controlTagEscape";
+import { trustedHTML } from "./trustedTypes";
 
 type TemplateLoadResult = {
   bindings: BindingDescriptor[];
@@ -44,10 +45,10 @@ export const loadTemplate = (
   // Escape control elements (<for>, <if>, …) to <template> placeholders
   // before parsing so table insertion modes cannot foster-parent them out
   // of <table>/<tbody>/<tr>, then rebuild them with DOM APIs.
-  tpl.innerHTML = escapeControlTags(template);
+  tpl.innerHTML = trustedHTML(escapeControlTags(template));
   restoreControlTags(tpl.content);
   scanLazyElements(tpl.content);
-  host.innerHTML = "";
+  host.replaceChildren();
   host.appendChild(tpl.content);
 
   // Scan bindings on host AND on each pending <lazy> content fragment.

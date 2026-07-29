@@ -17,6 +17,7 @@ import
   extractFunctionDefinitions,
   buildStateSetupBody,
 } from "../core/js/scriptParser";
+import { trustedHTML } from "../core/html/trustedTypes";
 import
 {
   stripImports,
@@ -157,7 +158,7 @@ function collect(
   const handlers = new Map<string, { code: string; deps: string[] }>();
 
   const tpl = document.createElement("template");
-  tpl.innerHTML = component.template;
+  tpl.innerHTML = trustedHTML(component.template);
 
   const addEvaluator = (raw: string, extra: ReadonlySet<string>): void =>
   {

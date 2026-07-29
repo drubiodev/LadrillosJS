@@ -7,6 +7,7 @@ import
     restoreControlTags,
     isControlElement,
   } from "../html/controlTagEscape";
+import { trustedHTML } from "../html/trustedTypes";
 
 // Built on first parse, not at import time: build tools import this module to
 // reach parseComponent and install their DOM shim (happy-dom, jsdom) afterwards.
@@ -502,7 +503,10 @@ function parseHTML(source: string): Document
   // modes cannot foster-parent them out of <table>/<tbody>/<tr>, then
   // restored with DOM APIs — which parser content rules cannot touch.
   parser ??= new DOMParser();
-  const doc = parser.parseFromString(escapeControlTags(source), "text/html");
+  const doc = parser.parseFromString(
+    trustedHTML(escapeControlTags(source)),
+    "text/html",
+  );
   restoreControlTags(doc.head);
   restoreControlTags(doc.body);
 
