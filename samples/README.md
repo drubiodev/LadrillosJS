@@ -21,6 +21,7 @@ compare LadrillosJS with what you already know.
 | [cdn-sample](./cdn-sample) | A no-build app loaded straight from the CDN. | Zero build step, `registerComponents`, Shadow DOM off |
 | [csp-vite](./csp-vite) | The same components under a strict CSP, with no `unsafe-eval`. | Build-time compilation, `ladrillosjs/csp`, Trusted Types |
 | [cdn-csp](./cdn-csp) | How strict a policy the no-build path can run under. | Strict CSP with no build step, adopted stylesheets, measured trade-offs |
+| [embed-widget](./embed-widget) | A pricing widget embedded on a hostile page it does not control. | One-script-tag install, Shadow DOM isolation, per-instance state |
 | [dotnet-sample](./dotnet-sample) | LadrillosJS components inside an ASP.NET (.NET) app. | Server framework integration, progressive enhancement |
 | [ladrillos-demo](./ladrillos-demo) | A minimal demo project. | Getting started, component basics |
 | [vite-basic-site](./vite-basic-site) | A basic site scaffolded with Vite. | Build tooling, module imports |
@@ -61,6 +62,8 @@ Most samples include their own instructions. In general:
   policy.
 - **cdn-csp** — `npm run dev:cdn-csp` from the repo root, then open
   <http://127.0.0.1:8081>.
+- **embed-widget** — `npm run serve:widget` from the repo root, then open
+  <http://127.0.0.1:8145>.
 - **.NET sample** — run with `dotnet run` from the sample folder.
 
 ---
