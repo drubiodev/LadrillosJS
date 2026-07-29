@@ -257,13 +257,20 @@ export function replaceVarWithStateAccess(
   //   but IS allowed after spread (...varName)
   // - NOT preceded by __state__. (already transformed)
   // - a word boundary on both sides
-  // - NOT followed by : (object key) or ( (function call/declaration)
+  // - NOT followed by ( (function call/declaration)
+  //
+  // A following `:` is NOT excluded here. It only means "leave alone" for an
+  // object key (`{ name: 1 }`) or a label (`name:`); a ternary consequent
+  // (`flag ? name : 0`) has the exact same shape and DOES need rewriting.
+  // classifyColonSlot below tells them apart.
   const pattern = new RegExp(
-    `(?<![^.]\\.)(?<!__state__\\.)\\b${escapeRegex(varName)}\\b(?!\\s*[:(])`,
+    `(?<![^.]\\.)(?<!__state__\\.)\\b${escapeRegex(varName)}\\b(?!\\s*\\()`,
     "g",
   );
 
   return code.replace(pattern, (match: string, offset: number) => {
+    if (classifyColonSlot(code, offset, match.length) === "key") return match;
+
     switch (classifyShorthandSlot(code, offset, match.length)) {
       case "object":
         // Object-literal shorthand: expand to an explicit key so the
@@ -276,6 +283,46 @@ export function replaceVarWithStateAccess(
         return `__state__.${varName}`;
     }
   });
+}
+
+/**
+ * Decides whether an identifier immediately followed by `:` occupies a slot
+ * where it is a NAME rather than a VALUE.
+ *
+ * Three constructs put an identifier before a colon:
+ *   `{ name: 1 }`   object key      → name, leave alone
+ *   `name: while(…)` label          → name, leave alone
+ *   `flag ? name : 0` ternary       → VALUE, must be rewritten
+ *   `case name:`     switch case    → VALUE, must be rewritten
+ *
+ * They are separated by the token that PRECEDES the identifier: an object key
+ * can only follow `{` or `,`, and a label can only start a statement.
+ */
+function classifyColonSlot(
+  code: string,
+  start: number,
+  length: number,
+): "key" | "value" {
+  if (firstNonSpaceChar(code, start + length) !== ":") return "value";
+
+  const prev = lastNonSpaceChar(code, start - 1);
+
+  // Statement position → labeled statement (`name: for (…)`).
+  // `{` is ambiguous: it opens either a block (label) or an object literal
+  // (key). Either way the identifier is a name, not a value.
+  if (prev === "" || prev === ";" || prev === "}" || prev === "{") return "key";
+
+  // `,` is only a key separator inside an object literal. Inside a call or
+  // array (`f(a, b ? c : d)`) the identifier before `:` is a ternary value,
+  // but there the preceding token is `?`, not `,` — so a bare `,` here means
+  // an object literal.
+  if (prev === ",") {
+    const opener = findEnclosingOpener(code, start);
+    return opener !== -1 && code[opener] === "{" ? "key" : "value";
+  }
+
+  // `?`, `case`, operators, `(` … → the identifier is a value.
+  return "value";
 }
 
 /**

@@ -2990,6 +2990,12 @@ function setElementValue(
     if (type === "checkbox")
     {
       element.checked = Boolean(value);
+    } else if (type === "radio")
+    {
+      // A radio group binds ONE state value across several inputs. Writing
+      // `element.value = state` would rewrite each radio's own value and
+      // collapse the group; the bound value selects a member instead.
+      element.checked = element.value === String(value ?? "");
     } else
     {
       element.value = String(value ?? "");
