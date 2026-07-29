@@ -398,6 +398,16 @@ function buildLoopTemplate(forEl: Element): Element | null
   return wrap;
 }
 
+/**
+ * The leading identifier of a `<for>`'s source expression — "todos" for
+ * `todos`, `todos.filter(...)` or `todos[0].children`.
+ */
+function rootStateKeyOf(arrayExpression: string): string | null
+{
+  const match = arrayExpression.match(/^\s*([A-Za-z_$][\w$]*)/);
+  return match ? match[1] : null;
+}
+
 /** Walk up the tree checking for an ancestor <for>. */
 function hasForAncestor(el: Element): boolean
 {
@@ -830,12 +840,22 @@ function renderLoop(
   const getSetup = (): LoopHandlerSetup =>
     (handlerSetup ??= createLoopHandlerSetup(state, scopedVarNames));
 
+  // The state key a `$bind` write inside a row must announce. A nested loop
+  // iterates something reached through its parent's item (`group.items`), so
+  // it inherits the enclosing loop's key rather than naming a state key.
+  const ownRoot = rootStateKeyOf(loop.arrayName);
+  const bindRootKey =
+    ownRoot !== null && Object.prototype.hasOwnProperty.call(state, ownRoot)
+      ? ownRoot
+      : ((scope?.[LOOP_BIND_ROOT] as string | undefined) ?? ownRoot);
+
   /** The loop variables visible to anything rendered inside one row. */
   const scopeForRow = (item: unknown, index: number): Record<string, unknown> =>
   {
     const inner: Record<string, unknown> = scope ? { ...scope } : {};
     inner[loop.itemName] = item;
     if (loop.indexName) inner[loop.indexName] = index;
+    if (bindRootKey) inner[LOOP_BIND_ROOT] = bindRootKey;
     return inner;
   };
 
@@ -885,6 +905,7 @@ function renderLoop(
     if (scope) Object.assign(rowCtx, scope);
     rowCtx[loop.itemName] = item;
     if (loop.indexName) rowCtx[loop.indexName] = index;
+    if (bindRootKey) rowCtx[LOOP_BIND_ROOT] = bindRootKey;
     (clone as any)[LOOP_ROW_CTX] = rowCtx;
     // Extract nested <for> elements before anything walks the clone, so the
     // generic binding pass never sees their templates and cannot bind them
@@ -1202,6 +1223,14 @@ type LoopBindingCache = {
   texts: { node: Text; parsed: ParsedBinding }[];
   attrs: { attr: Attr; parsed: ParsedBinding }[];
   conds: Comment[];
+  binds: LoopBindEntry[];
+};
+
+/** A `$bind` wired on an element inside a `<for>` row. */
+type LoopBindEntry = {
+  element: HTMLElement;
+  expr: string;
+  isContentEditable: boolean;
 };
 
 const BINDING_CACHE = "__ladrillosBindingCache" as const;
@@ -1213,6 +1242,20 @@ const BINDING_CACHE = "__ladrillosBindingCache" as const;
  * different row, so handlers read current data at event time.
  */
 const LOOP_ROW_CTX = "__ladrillosLoopCtx" as const;
+
+/**
+ * Per-element key holding the element's wired `$bind`. The directive
+ * attribute is stripped once wired, so a rebuilt binding cache needs this to
+ * rediscover the binding.
+ */
+const LOOP_BIND_META = "__ladrillosLoopBind" as const;
+
+/**
+ * Row-context key naming the top-level state key that owns the loop's source
+ * array. Row items are raw objects, so a `$bind` write into one is invisible
+ * to reactivity until that key is announced.
+ */
+const LOOP_BIND_ROOT = "__ladrillosLoopRoot" as const;
 
 /**
  * Per-row key holding the loop descriptors extracted from that row's clone.
@@ -1264,10 +1307,14 @@ function collectBindingCache(element: Element): LoopBindingCache
 {
   const texts: LoopBindingCache["texts"] = [];
   const attrs: LoopBindingCache["attrs"] = [];
+  const binds: LoopBindEntry[] = [];
   const conds: Comment[] = [];
 
   const collectAttrs = (el: Element): void =>
   {
+    const bindEntry = (el as any)[LOOP_BIND_META] as LoopBindEntry | undefined;
+    if (bindEntry) binds.push(bindEntry);
+
     const list = el.attributes;
     for (let i = 0; i < list.length; i++)
     {
@@ -1308,7 +1355,7 @@ function collectBindingCache(element: Element): LoopBindingCache
     }
   }
 
-  return { texts, attrs, conds };
+  return { texts, attrs, conds, binds };
 }
 
 // ============================================================================
@@ -1328,6 +1375,7 @@ function collectBindingCache(element: Element): LoopBindingCache
 
 type PlanTextEntry = { path: number[]; parsed: ParsedBinding };
 type PlanAttrEntry = { path: number[]; name: string; parsed: ParsedBinding };
+type PlanBindEntry = { path: number[]; expr: string };
 type PlanHandlerEntry = {
   path: number[];
   /** Attribute to strip from the clone. */
@@ -1355,6 +1403,7 @@ type PlanDelegatedGroup = {
 type LoopCreationPlan = {
   texts: PlanTextEntry[];
   attrs: PlanAttrEntry[];
+  binds: PlanBindEntry[];
   /** Handlers attached per element (delegation off or ineligible). */
   handlers: PlanHandlerEntry[];
   /** Handlers served by one container listener per event type (or null). */
@@ -1601,6 +1650,7 @@ function buildCreationPlan(loop: LoopDescriptor): LoopCreationPlan | null
 
   const texts: PlanTextEntry[] = [];
   const attrs: PlanAttrEntry[] = [];
+  const binds: PlanBindEntry[] = [];
   const handlers: PlanHandlerEntry[] = [];
   const path: number[] = [];
 
@@ -1635,6 +1685,9 @@ function buildCreationPlan(loop: LoopDescriptor): LoopCreationPlan | null
               options: getListenerOptions(parsedDirective.eventModifiers),
             });
           }
+        } else if (attr.name === BIND_DIRECTIVE)
+        {
+          binds.push({ path: path.slice(), expr: attr.value });
         } else if (attr.value.includes("{"))
         {
           attrs.push({
@@ -1697,7 +1750,7 @@ function buildCreationPlan(loop: LoopDescriptor): LoopCreationPlan | null
     if (byPath.size > 0) delegated = [...byPath.values()];
   }
 
-  return { texts, attrs, handlers: direct, delegated, delegatedEvents };
+  return { texts, attrs, binds, handlers: direct, delegated, delegatedEvents };
 }
 
 /**
@@ -1770,6 +1823,21 @@ function applyCreationPlan(
     cacheAttrs[a] = { attr, parsed };
   }
 
+  // After the attributes: a bound radio/select reads its own interpolated
+  // value to decide whether the row's value selects it.
+  const cacheBinds: LoopBindEntry[] = [];
+  if (plan.binds.length > 0)
+  {
+    const setup = getSetup();
+    for (const b of plan.binds)
+    {
+      const el = resolve(b.path) as Element;
+      el.removeAttribute(BIND_DIRECTIVE);
+      const entry = setupLoopBind(el, b.expr, rowCtx, setup, evalOne);
+      if (entry) cacheBinds.push(entry);
+    }
+  }
+
   if (plan.handlers.length > 0 || plan.delegated !== null)
   {
     const setup = getSetup();
@@ -1814,6 +1882,7 @@ function applyCreationPlan(
     texts: cacheTexts,
     attrs: cacheAttrs,
     conds: [],
+    binds: cacheBinds,
   };
 }
 
@@ -1907,6 +1976,13 @@ function updateElementBindings(
           : String(result ?? "")) + statics[j + 1];
     }
     if (attr.value !== next) attr.value = next;
+  }
+
+  const binds = cache.binds;
+  for (let i = 0; i < binds.length; i++)
+  {
+    const { element: el, expr, isContentEditable } = binds[i];
+    setElementValue(el, evalOne(expr), isContentEditable);
   }
 }
 
@@ -2176,6 +2252,7 @@ function processElementBindings(
 {
   const texts: LoopBindingCache["texts"] = [];
   const boundAttrs: LoopBindingCache["attrs"] = [];
+  const binds: LoopBindEntry[] = [];
   const conds: Comment[] = [];
 
   // Pass-scoped fast evaluator: reuse the caller's when provided (renderLoop
@@ -2249,6 +2326,16 @@ function processElementBindings(
       }
     }
 
+    // After the attributes: a bound radio/select reads its own interpolated
+    // value to decide whether the row's value selects it.
+    const bindExpr = el.getAttribute(BIND_DIRECTIVE);
+    if (bindExpr !== null)
+    {
+      el.removeAttribute(BIND_DIRECTIVE);
+      const entry = setupLoopBind(el, bindExpr, hCtx, getSetup(), evalOne);
+      if (entry) binds.push(entry);
+    }
+
     // Transform inline event handlers (onclick, etc.) into proper event listeners.
     transformLoopEventHandlers(el, hCtx, getSetup);
   };
@@ -2289,7 +2376,12 @@ function processElementBindings(
     }
   }
 
-  (element as any)[BINDING_CACHE] = { texts, attrs: boundAttrs, conds };
+  (element as any)[BINDING_CACHE] = {
+    texts,
+    attrs: boundAttrs,
+    conds,
+    binds,
+  };
 }
 
 /**
@@ -2855,6 +2947,84 @@ function setupTwoWayBinding(
 }
 
 /**
+ * Wires `$bind` on an element rendered inside a `<for>` row.
+ *
+ * The target must be an lvalue that outlives the row: a property of the row's
+ * item (`todo.done`) or a component state variable. The row alias itself
+ * (`$bind="todo"`) is a per-row binding with nowhere to write back to, so it
+ * is rejected rather than silently swallowing the user's input.
+ *
+ * The returned entry is cached on the row so `updateElementBindings` can push
+ * new state into the input when the row is reused for a different item.
+ */
+function setupLoopBind(
+  element: Element,
+  expression: string,
+  rowCtx: Record<string, unknown>,
+  setup: LoopHandlerSetup,
+  evalOne: BoundEvaluator,
+): LoopBindEntry | null
+{
+  const expr = expression.trim();
+  if (!expr) return null;
+
+  const path = expr.split(".").map((part) => part.trim());
+  const rootName = path[0];
+  const state = setup.reactiveState;
+  const hasOwn = Object.prototype.hasOwnProperty;
+
+  // A same-named state variable shadows the row variable, matching how the
+  // handler compiler resolves the collision.
+  const isRowVar =
+    !hasOwn.call(state, rootName) && hasOwn.call(rowCtx, rootName);
+
+  if (isRowVar && path.length === 1)
+  {
+    error(
+      `$bind="${expr}" targets the <for> row variable itself, which has ` +
+      `nowhere to write back to. Bind one of its properties instead, ` +
+      `e.g. $bind="${rootName}.value".`,
+    );
+    return null;
+  }
+
+  const el = element as HTMLElement;
+  const isContentEditable = el.hasAttribute("contenteditable");
+  const rootKey = rowCtx[LOOP_BIND_ROOT] as string | undefined;
+  const eventType = getInputEventType(el);
+
+  setElementValue(el, evalOne(expr), isContentEditable);
+
+  const sync = (): void =>
+  {
+    const value = getElementValue(el, isContentEditable);
+    if (!isRowVar)
+    {
+      setNestedValue(state, path, value);
+      return;
+    }
+
+    // rowCtx is refreshed in place when a row is reused, so this reads the
+    // item the row currently holds rather than the one it was created with.
+    const item = rowCtx[rootName];
+    if (item === null || typeof item !== "object") return;
+    setNestedValue(item as Record<string, unknown>, path.slice(1), value);
+
+    // Row items come off the array unproxied, so the write is invisible to
+    // reactivity until the key that owns the array is announced.
+    const notify = (state as any).__notifyKeyChanged;
+    if (rootKey && typeof notify === "function") notify(rootKey);
+  };
+
+  (el as any).__ladrillosBindSync = { eventType, sync };
+  el.addEventListener(eventType, sync);
+
+  const entry: LoopBindEntry = { element: el, expr, isContentEditable };
+  (el as any)[LOOP_BIND_META] = entry;
+  return entry;
+}
+
+/**
  * Updates all bound input elements when state changes.
  * Called by the reactivity system when a state property is modified.
  *
@@ -2971,6 +3141,10 @@ function getElementValue(
 
 /**
  * Sets the value on an input element.
+ *
+ * Writes are skipped when the element already shows the value: re-assigning
+ * `.value` resets the caret, and a bound input inside a loop is refreshed on
+ * every render — including the one its own keystroke triggered.
  */
 function setElementValue(
   element: HTMLElement,
@@ -2980,7 +3154,8 @@ function setElementValue(
 {
   if (isContentEditable)
   {
-    element.textContent = String(value ?? "");
+    const next = String(value ?? "");
+    if (element.textContent !== next) element.textContent = next;
     return;
   }
 
@@ -2989,23 +3164,27 @@ function setElementValue(
     const type = element.type.toLowerCase();
     if (type === "checkbox")
     {
-      element.checked = Boolean(value);
+      const next = Boolean(value);
+      if (element.checked !== next) element.checked = next;
     } else if (type === "radio")
     {
       // A radio group binds ONE state value across several inputs. Writing
       // `element.value = state` would rewrite each radio's own value and
       // collapse the group; the bound value selects a member instead.
-      element.checked = element.value === String(value ?? "");
+      const next = element.value === String(value ?? "");
+      if (element.checked !== next) element.checked = next;
     } else
     {
-      element.value = String(value ?? "");
+      const next = String(value ?? "");
+      if (element.value !== next) element.value = next;
     }
     return;
   }
 
   if (element instanceof HTMLSelectElement)
   {
-    element.value = String(value ?? "");
+    const next = String(value ?? "");
+    if (element.value !== next) element.value = next;
     return;
   }
 
