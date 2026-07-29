@@ -25,6 +25,15 @@
       "types": "./dist/core.d.ts",
       "default": "./dist/core.dev.js"
     },
+    "./csp": {
+      "types": "./dist/csp.d.ts",
+      "development": "./dist/csp.dev.js",
+      "default": "./dist/csp.js"
+    },
+    "./csp/dev": {
+      "types": "./dist/csp.d.ts",
+      "default": "./dist/csp.dev.js"
+    },
     "./lazy": {
       "types": "./dist/lazy.d.ts",
       "development": "./dist/lazy.dev.js",
@@ -75,13 +84,14 @@
     "dev:vite": "npm run build && concurrently -n lib,vite -c auto \"npm run dev\" \"npm --prefix samples/vite-sample run dev\"",
     "dev:dotnet": "concurrently \"npm run dev:cdn\" \"cd samples/dotnet-sample && dotnet watch run\"",
     "verify:build": "node scripts/verify-treeshaking.js",
-    "build:all": "npm run build && npm run build:cdn && npm run verify:build",
+    "verify:no-eval": "node scripts/verify-no-eval.js",
+    "build:all": "npm run build && npm run build:cdn && npm run verify:build && npm run verify:no-eval",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:ci": "vitest run --coverage --reporter=verbose",
-    "prepublishOnly": "npm run clean && npm run typecheck && npm run build && npm run build:cdn && npm run verify:build && npm run test"
+    "prepublishOnly": "npm run clean && npm run typecheck && npm run build && npm run build:cdn && npm run verify:build && npm run verify:no-eval && npm run test"
   },
   "repository": {
     "type": "git",

@@ -83,7 +83,7 @@ export function hasArtifact(
   return table.has(key);
 }
 
-class MissingArtifactError extends Error {
+export class MissingArtifactError extends Error {
   constructor(kind: string, key: string) {
     super(
       `[LadrillosJS] No precompiled ${kind} for ${JSON.stringify(key)}. ` +

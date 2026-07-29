@@ -43,7 +43,11 @@ const BUILDS_TO_CHECK = [
   {
     name: "CDN IIFE Bundle",
     path: "dist-cdn/ladrillos.iife.js",
-    maxSizeKB: 85,
+    // Raised from 85 KB when the codegen backend became an installable seam
+    // (Phase 3). That added ~330 bytes to this bundle — the uninstalled
+    // backend and the entry-point install call — in exchange for letting
+    // `ladrillosjs/csp` ship with no `Function` constructor at all.
+    maxSizeKB: 88,
   },
 ];
 

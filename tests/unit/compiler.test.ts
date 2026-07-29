@@ -1,7 +1,6 @@
 import { describe, it, expect, afterEach } from "vitest";
 import
   {
-    runtimeBackend,
     compileEvaluator,
     compileHandler,
     compileSetup,
@@ -9,6 +8,7 @@ import
     getCodegenBackend,
     type CodegenBackend,
   } from "../../src/core/js/compiler";
+import { runtimeBackend } from "../../src/core/js/runtimeBackend";
 
 afterEach(() =>
 {

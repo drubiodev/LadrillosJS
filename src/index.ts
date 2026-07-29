@@ -4,6 +4,8 @@ import
     ComponentConfig,
     RegisterComponentsResult,
   } from "./core/ladrillos";
+import { setCodegenBackend } from "./core/js/compiler";
+import { runtimeBackend } from "./core/js/runtimeBackend";
 import
   {
     registerComponent,
@@ -29,6 +31,11 @@ import
     lazyOnInteraction,
     lazyOnDelay,
   } from "./core/lazy";
+
+// This build compiles component code in the browser, so it needs the
+// `Function` constructor and therefore `script-src 'unsafe-eval'`.
+// `ladrillosjs/csp` installs the precompiled backend instead.
+setCodegenBackend(runtimeBackend);
 
 // Export public types
 export type {

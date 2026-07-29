@@ -17,21 +17,16 @@
  * all. That property is verifiable by grepping the bundle rather than being a
  * promise in a README.
  *
- * This module changes no behavior on its own. `runtimeBackend` is the default
- * and is the previous code, moved verbatim.
+ * This module holds only the seam: it deliberately does NOT import a backend,
+ * or every bundle would inherit `Function` through it. Entry points install
+ * one — `runtimeBackend` for the normal builds, `precompiledBackend` for
+ * `ladrillosjs/csp`.
  *
  * @see docs/22-csp-and-security.md
  */
 
 /** A function produced by a codegen backend. Arguments are positional. */
 export type CompiledFn = (...args: any[]) => any;
-
-/**
- * `AsyncFunction` is not a global binding, so it has to be reached through the
- * prototype of an async function.
- */
-const AsyncFunction = Object.getPrototypeOf(async function () {})
-  .constructor as new (...args: string[]) => CompiledFn;
 
 /**
  * Turns component source into callable functions.
@@ -90,31 +85,39 @@ export interface CodegenBackend {
 }
 
 /**
- * Compiles in the browser with the `Function` constructor. Requires
- * `script-src 'unsafe-eval'`.
+ * Compiling before an entry point has installed a backend is a wiring bug, not
+ * a user error, so it fails loudly rather than silently falling back to
+ * `Function` — a silent fallback would reintroduce `eval` into a CSP build.
  */
-export const runtimeBackend: CodegenBackend = {
-  name: "runtime",
-
-  compileEvaluator(params, expression) {
-    return new Function(
-      ...params,
-      `"use strict"; return ${expression};`
-    ) as CompiledFn;
+const uninstalledBackend: CodegenBackend = {
+  name: "uninstalled",
+  compileEvaluator: () => {
+    throw new Error(noBackend());
   },
-
-  compileHandler(params, body, isAsync) {
-    return isAsync
-      ? new AsyncFunction(...params, body)
-      : (new Function(...params, body) as CompiledFn);
+  compileHandler: () => {
+    throw new Error(noBackend());
   },
-
-  compileSetup(params, body) {
-    return new Function(...params, body) as CompiledFn;
+  compileSetup: () => {
+    throw new Error(noBackend());
   },
 };
 
-let activeBackend: CodegenBackend = runtimeBackend;
+function noBackend(): string {
+  // The guidance is worth ~250 bytes of the CDN bundle and is only actionable
+  // while developing, so production ships the short form.
+  if (typeof __DEV__ !== "undefined" && __DEV__) {
+    return (
+      "[LadrillosJS] No codegen backend installed. Import the framework from " +
+      "'ladrillosjs', 'ladrillosjs/core' or 'ladrillosjs/csp' rather than " +
+      "from a deep internal path such as 'ladrillosjs/dist/core/...'. " +
+      "('ladrillosjs/lazy' only adds loading strategies and does not install " +
+      "a backend on its own.)"
+    );
+  }
+  return "[LadrillosJS] No codegen backend installed.";
+}
+
+let activeBackend: CodegenBackend = uninstalledBackend;
 
 const invalidators = new Set<() => void>();
 

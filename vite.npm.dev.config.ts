@@ -10,6 +10,7 @@ export default defineConfig({
             entry: {
                 index: resolve(__dirname, "src/index.ts"),
                 core: resolve(__dirname, "src/core.ts"),
+                csp: resolve(__dirname, "src/csp.ts"),
                 lazy: resolve(__dirname, "src/lazy.ts"),
                 events: resolve(__dirname, "src/events.ts"),
             },

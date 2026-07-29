@@ -1,11 +1,11 @@
 import { describe, it, expect, afterEach } from "vitest";
 import
   {
-    runtimeBackend,
     setCodegenBackend,
     type CodegenBackend,
     type CompiledFn,
   } from "../../src/core/js/compiler";
+import { runtimeBackend } from "../../src/core/js/runtimeBackend";
 import
   {
     precompiledBackend,

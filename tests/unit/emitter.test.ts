@@ -4,10 +4,10 @@ import { pathToFileURL } from "node:url";
 import { join } from "node:path";
 import
   {
-    runtimeBackend,
     setCodegenBackend,
     type CodegenBackend,
   } from "../../src/core/js/compiler";
+import { runtimeBackend } from "../../src/core/js/runtimeBackend";
 import
   {
     precompiledBackend,

@@ -329,12 +329,13 @@ The conformance suite is the mechanical guarantee that nothing breaks.
 
 ---
 
-## Phase 3 — Vite plugin + the CSP build
+## Phase 3 — Vite plugin + the CSP build *(entry point done)*
 
 `ladrillosjs/csp` is a new entry point in
 [vite.npm.config.ts](vite.npm.config.ts#L36) that **never imports
-`runtimeBackend`**. Terser drops every `new Function` site from the bundle — so
-CSP compliance is structurally verifiable, not a promise.
+`runtimeBackend`**. Rollup isolates the `Function` constructor into a chunk that
+only `index` and `core` load — so CSP compliance is structurally verifiable, not
+a promise.
 
 `@ladrillosjs/vite-plugin` in prod mode rewrites
 `registerComponent('my-counter', './counter.html')` into an import of the
@@ -346,12 +347,63 @@ Bonus: precompiling the binding descriptors also eliminates the template scan on
 every mount, so the CSP build should be both *smaller and faster to boot* than
 the CDN build.
 
+### How the guarantee is made structural
+
+The seam in [src/core/js/compiler.ts](src/core/js/compiler.ts) no longer ships a
+default backend. `runtimeBackend` moved to its own module
+([src/core/js/runtimeBackend.ts](src/core/js/runtimeBackend.ts)) — the only file
+in the project that names the `Function` constructor — and each entry point
+installs one at module scope:
+
+| Entry | Installs |
+| --- | --- |
+| `ladrillosjs` | `runtimeBackend` |
+| `ladrillosjs/core` | `runtimeBackend` |
+| `ladrillosjs/csp` | `precompiledBackend` |
+| `ladrillosjs/lazy` | *nothing* — it only adds loading strategies and cannot mount a component on its own |
+
+Compiling with no backend installed throws rather than falling back to
+`Function`; a silent fallback would put `eval` back into a CSP build without
+anyone noticing.
+
+**Measured, not assumed:** Rollup emits `runtimeBackend` as a standalone 307-byte
+chunk. `dist/index.js` and `dist/core.js` import it; `dist/csp.js` and its whole
+transitive graph do not.
+
+**Two ordering hazards worth knowing:**
+
+- Importing both `ladrillosjs` and `ladrillosjs/csp` into one bundle installs
+  both backends — last module evaluated wins.
+- Detection cannot grep for `new Function` alone: minified, the async variant
+  reads `new n(...)`, where `n` came from
+  `Object.getPrototypeOf(async function(){}).constructor`.
+  `scripts/verify-no-eval.js` matches that construction too.
+
 **Tasks**
 
-- [ ] `ladrillosjs/csp` entry point
-- [ ] `scripts/verify-no-eval.js`, wired into `prepublishOnly`
+- [x] `ladrillosjs/csp` entry point
+- [x] `scripts/verify-no-eval.js`, wired into `build:all` and `prepublishOnly`
+- [x] Test that each entry installs the backend it should
+      ([tests/unit/entrypoints.test.ts](tests/unit/entrypoints.test.ts))
 - [ ] Vite plugin: prod rewrite, dev passthrough
 - [ ] Document the eval-free policy in [docs/22-csp-and-security.md](docs/22-csp-and-security.md)
+
+### Cost
+
+The CDN bundle grew **+329 bytes** (86,740 → 87,069). That pushed it past the
+85 KB budget in [scripts/verify-treeshaking.js](scripts/verify-treeshaking.js),
+which was raised to 88 KB — the growth is understood and intentional, and that
+budget exists to catch *unexpected* regressions. The verbose "no backend
+installed" guidance is gated behind `__DEV__`, which recovered ~750 bytes of an
+initial +1,076.
+
+### Tracked bug found here (pre-existing, not caused by this work)
+
+Importing `src/lazy.ts` as the **first** module of a fresh graph throws
+`TypeError: initLazyLoader is not a function` — a circular dependency between
+`core/lazy` and `core/ladrillos`. It reproduces with this branch's changes
+stashed. `tests/unit/entrypoints.test.ts` therefore asserts lazy's behaviour by
+reading the source rather than importing it.
 
 ---
 
