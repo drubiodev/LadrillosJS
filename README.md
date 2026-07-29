@@ -111,6 +111,11 @@ npx serve          # or: python -m http.server 8080
 
 That's it! Your reactive component is ready. 🎉
 
+> 🧱 **Starting a real project?** Copy a template instead:
+> [`templates/cdn-starter`](templates/cdn-starter) (no build step) or
+> [`templates/vite-starter`](templates/vite-starter) (Vite). Both come with a
+> page shell, CSP, error reporting, and two example components.
+
 > 📚 **Want more?** The [full documentation](docs/README.md) covers every
 > feature step by step, from your first component to building a design system.
 
@@ -647,16 +652,16 @@ Medians of 10 runs, headless Chromium on an Apple M5 Pro,
 
 | Operation | LadrillosJS | React 18.3 (keyed, memoized rows) | Vanilla JS (hand-optimized) |
 |---|---:|---:|---:|
-| create 1,000 rows | **3.7 ms** | 4.1 ms | 1.8 ms |
-| replace all 1,000 rows | **4.1 ms** | 7 ms | 2 ms |
-| partial update (every 10th of 1,000) | 1.1 ms | 1.2 ms | 0.2 ms |
-| select row | 0.7 ms | 0.4 ms | 0 ms |
-| swap 2 rows | **1.1 ms** | 3.3 ms | 0.1 ms |
-| remove row | 1 ms | 1 ms | 0 ms |
-| append 1,000 to 1,000 rows | **3.8 ms** | 4.3 ms | 1.3 ms |
-| clear 1,000 rows | **1.3 ms** | 5.1 ms | 0.8 ms |
-| create 10,000 rows | **28.9 ms** | 218.3 ms | 13 ms |
-| **JS payload (min+gzip)** | **25.9 KB** | **47 KB** | ~1 KB |
+| create 1,000 rows | **3.2 ms** | 4.2 ms | 1.7 ms |
+| replace all 1,000 rows | **3.8 ms** | 6.3 ms | 2 ms |
+| partial update (every 10th of 1,000) | 1 ms | 1.2 ms | 0.1 ms |
+| select row | 0.6 ms | 0.3 ms | 0 ms |
+| swap 2 rows | **0.9 ms** | 3 ms | 0 ms |
+| remove row | 0.8 ms | 0.9 ms | 0.1 ms |
+| append 1,000 to 1,000 rows | **3.6 ms** | 3.9 ms | 1.2 ms |
+| clear 1,000 rows | **1.1 ms** | 4 ms | 0.8 ms |
+| create 10,000 rows | **29.1 ms** | 228.3 ms | 11.3 ms |
+| **JS payload (min+gzip)** | **27.7 KB** | **47 KB** | ~1 KB |
 | JS heap after 1,000 rows | 2.4 MB | 6.2 MB | 1.3 MB |
 
 **How to read this honestly:**
@@ -664,12 +669,12 @@ Medians of 10 runs, headless Chromium on an Apple M5 Pro,
 - Every operation lands well within a single 60 fps frame (16.7 ms):
   updates on a 1,000-row list take about a millisecond, and bulk creation
   of 1,000 rows is under 5 ms.
-- LadrillosJS beats React on bulk creation (and by 7× on 10,000 rows),
-  full replaces, row swaps, and clearing, while shipping **half the JS**
+- LadrillosJS beats React on bulk creation (and by nearly 8× on 10,000 rows),
+  full replaces, row swaps, and clearing, while shipping **~40% less JS**
   and using **~60% less memory** for the same UI.
 - React 18 remains faster on single-row selection, and partial updates
-  are a tie. We publish these numbers to track and improve them — not to
-  claim LadrillosJS wins everything.
+  are effectively a tie. We publish these numbers to track and improve them —
+  not to claim LadrillosJS wins everything.
 - Vanilla JS is the baseline.
 
 Reproduce it yourself (no benchmark numbers should be trusted otherwise):
@@ -784,6 +789,40 @@ Practical guidance:
 
 In short: untrusted **data** through LadrillosJS's bindings is safe; untrusted
 **templates/scripts** are not, because those *are* your application code.
+
+### Content Security Policy
+
+By default components are compiled in the browser (that's what "no build step"
+costs), so a page using LadrillosJS needs `'unsafe-eval'`:
+
+```http
+Content-Security-Policy:
+  default-src 'self';
+  script-src 'self' 'unsafe-eval';
+  style-src 'self';
+  connect-src 'self';
+```
+
+Notably, `'unsafe-inline'` for **scripts** is *not* needed — inline `onclick`
+attributes are removed and reattached via `addEventListener()` — and neither is
+`blob:`. `'unsafe-inline'` for **styles** is not needed either: component CSS is
+adopted as a constructed stylesheet rather than injected as `<style>`.
+`require-trusted-types-for 'script'` is supported on the build below.
+
+**If you use Vite, you can drop `'unsafe-eval'`.** Add
+[`@ladrillosjs/vite-plugin`](packages/vite-plugin) and import from
+`ladrillosjs/csp`; components are compiled at build time instead, with no
+change to your components or your code:
+
+```js
+// vite.config.js
+import ladrillos from "@ladrillosjs/vite-plugin";
+
+export default { plugins: [ladrillos()] };
+```
+
+See [Content Security Policy](docs/22-csp-and-security.md) for the full
+breakdown, both policies, and the verification results.
 
 ---
 

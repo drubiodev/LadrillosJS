@@ -10,68 +10,34 @@
  * - createRefsProxy(map) - Wrap a Map in a Proxy for cleaner dot notation access
  */
 
-import {
-  ladrillos,
+import type {
   ComponentConfig,
   RegisterComponentsResult,
 } from "../ladrillos";
 import type { LazyStrategy } from "../lazy";
+import { createRefsProxy } from "./refsProxy";
 
-/**
- * Wraps a Map in a Proxy to allow cleaner dot notation access.
- * Supports both $refs.inputEl and $refs.get("inputEl") syntax.
- *
- * @example
- * const $refs = createRefsProxy(new Map());
- * $refs.set("input", document.querySelector("input"));
- * $refs.input.focus();  // Works!
- * $refs.get("input").focus();  // Also works!
- */
-export function createRefsProxy<T extends HTMLElement = HTMLElement>(
-  map: Map<string, T>,
-): Map<string, T> & Record<string, T> {
-  return new Proxy(map, {
-    get(target, prop, receiver) {
-      // If the property exists on Map (get, set, has, etc.), use it
-      if (prop in target) {
-        const value = Reflect.get(target, prop, receiver);
-        // Bind methods to the target Map
-        return typeof value === "function" ? value.bind(target) : value;
-      }
-      // Otherwise, treat it as a ref name lookup
-      if (typeof prop === "string") {
-        return target.get(prop);
-      }
-      return undefined;
-    },
-    set(target, prop, value) {
-      // Allow setting refs via dot notation: $refs.myEl = element
-      if (typeof prop === "string") {
-        target.set(prop, value);
-        return true;
-      }
-      return false;
-    },
-    has(target, prop) {
-      if (typeof prop === "string") {
-        return target.has(prop) || prop in target;
-      }
-      return prop in target;
-    },
-  }) as Map<string, T> & Record<string, T>;
-}
+export { createRefsProxy };
+
+// Loaded on demand. A static import closes a cycle — ladrillos imports the lazy
+// loader, which reaches back here via webcomponent -> scriptParser — and under
+// transforms that evaluate modules in dependency order (Vite's SSR transform,
+// so Vitest) the singleton's constructor then sees `initLazyLoader` undefined.
+const framework = () => import("../ladrillos").then((m) => m.ladrillos);
 
 /**
  * Resolves a relative path against a base URL.
  * Used to resolve "./buttons.html" relative to the parent component's URL.
  */
-function resolvePath(path: string, baseUrl: string): string {
+function resolvePath(path: string, baseUrl: string): string
+{
   // If path is already absolute, return as-is
   if (
     path.startsWith("http://") ||
     path.startsWith("https://") ||
     path.startsWith("/")
-  ) {
+  )
+  {
     return path.startsWith("/")
       ? new URL(path, window.location.origin).href
       : path;
@@ -85,7 +51,8 @@ function resolvePath(path: string, baseUrl: string): string {
  * Converts a filename to a kebab-case tag name.
  * "./HeaderButtons.html" → "header-buttons"
  */
-function filenameToTagName(path: string): string {
+function filenameToTagName(path: string): string
+{
   const filename =
     path
       .split("/")
@@ -106,7 +73,8 @@ function filenameToTagName(path: string): string {
  * @param componentUrl - The absolute URL of the component (e.g., "http://localhost/header/header.html")
  * @returns Object containing bound helper functions
  */
-export function createFrameworkHelpers(componentUrl: string) {
+export function createFrameworkHelpers(componentUrl: string)
+{
   /**
    * Registers a child component from within a component's script.
    * Paths are resolved relative to the calling component's location.
@@ -125,9 +93,12 @@ export function createFrameworkHelpers(componentUrl: string) {
     path: string,
     useShadowDOM: boolean = true,
     lazy: boolean | LazyStrategy = false,
-  ): Promise<void> {
+  ): Promise<void>
+  {
     const resolvedPath = resolvePath(path, componentUrl);
-    return ladrillos.registerComponent(name, resolvedPath, useShadowDOM, lazy);
+    return framework().then((l) =>
+      l.registerComponent(name, resolvedPath, useShadowDOM, lazy),
+    );
   }
 
   /**
@@ -159,7 +130,8 @@ export function createFrameworkHelpers(componentUrl: string) {
     configs:
       | ComponentConfig[]
       | Record<string, string | Omit<ComponentConfig, "name">>,
-  ): Promise<RegisterComponentsResult> {
+  ): Promise<RegisterComponentsResult>
+  {
     // Normalize and resolve paths relative to component
     const normalizedConfigs: ComponentConfig[] = Array.isArray(configs)
       ? configs.map((config) => ({
@@ -172,7 +144,7 @@ export function createFrameworkHelpers(componentUrl: string) {
           : { name, ...value, path: resolvePath(value.path, componentUrl) },
       );
 
-    return ladrillos.registerComponents(normalizedConfigs);
+    return framework().then((l) => l.registerComponents(normalizedConfigs));
   }
 
   /**
@@ -183,10 +155,13 @@ export function createFrameworkHelpers(componentUrl: string) {
     path: string,
     useShadowDOM: boolean = true,
     lazy: boolean | LazyStrategy = false,
-  ): Promise<void> {
+  ): Promise<void>
+  {
     const tagName = filenameToTagName(path);
     const resolvedPath = resolvePath(path, componentUrl);
-    return ladrillos.registerComponent(tagName, resolvedPath, useShadowDOM, lazy);
+    return framework().then((l) =>
+      l.registerComponent(tagName, resolvedPath, useShadowDOM, lazy),
+    );
   }
 
   return { registerComponent, registerComponents, $use };
@@ -205,13 +180,25 @@ export const frameworkHelperNames = [
  * Default helpers for entry point usage (resolve relative to page URL).
  * Inside components, use createFrameworkHelpers(componentUrl) instead.
  */
-export function getFrameworkHelperValues(): ((...args: any[]) => any)[] {
+export function getFrameworkHelperValues(): ((...args: any[]) => any)[]
+{
   const helpers = createFrameworkHelpers(window.location.href);
   return [helpers.registerComponent, helpers.registerComponents, helpers.$use];
 }
 
-// For entry point / CDN usage - resolve relative to current page
-const defaultHelpers = createFrameworkHelpers(window.location.href);
-export const registerComponent = defaultHelpers.registerComponent;
-export const registerComponents = defaultHelpers.registerComponents;
-export const $use = defaultHelpers.$use;
+// For entry point / CDN usage - resolve relative to current page.
+// Built on first call rather than at import time: build tools pull this module
+// into Node, where `window` only exists once a DOM shim has been installed.
+let defaultHelpers: ReturnType<typeof createFrameworkHelpers> | undefined;
+const page = () =>
+  (defaultHelpers ??= createFrameworkHelpers(window.location.href));
+
+type Helpers = ReturnType<typeof createFrameworkHelpers>;
+
+export const registerComponent = (...args: Parameters<Helpers["registerComponent"]>) =>
+  page().registerComponent(...args);
+
+export const registerComponents = (...args: Parameters<Helpers["registerComponents"]>) =>
+  page().registerComponents(...args);
+
+export const $use = (...args: Parameters<Helpers["$use"]>) => page().$use(...args);

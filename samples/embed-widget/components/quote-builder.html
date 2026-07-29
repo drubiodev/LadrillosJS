@@ -1,0 +1,420 @@
+<div class="widget">
+  <header class="head">
+    <p class="eyebrow">Estimate</p>
+    <h2>Build your plan</h2>
+  </header>
+
+  <fieldset class="plans">
+    <legend class="sr-only">Plan</legend>
+
+    <for each="p in plans" key="p.id">
+      <label class="tile {plan === p.id ? 'is-on' : ''}">
+        <input type="radio" name="plan" value="{p.id}" $bind="plan" />
+        <span class="tile-name">{p.name}</span>
+        <span class="tile-price">{money(p.price)}<i>/seat</i></span>
+        <span class="tile-blurb">{p.blurb}</span>
+      </label>
+    </for>
+  </fieldset>
+
+  <div class="row">
+    <label for="seats">Seats</label>
+
+    <div class="stepper">
+      <button type="button" onclick="seats = Math.max(1, Number(seats) - 1)" aria-label="Remove a seat">
+        &minus;
+      </button>
+      <input id="seats" type="number" min="1" max="500" $bind="seats" />
+      <button type="button" onclick="seats = Math.min(500, Number(seats) + 1)" aria-label="Add a seat">
+        +
+      </button>
+    </div>
+  </div>
+
+  <div class="row">
+    <span class="row-label">Billing</span>
+
+    <div class="segmented" role="group" aria-label="Billing period">
+      <button type="button" class="{annual ? '' : 'is-on'}" aria-pressed="{!annual}" onclick="annual = false">
+        Monthly
+      </button>
+      <button type="button" class="{annual ? 'is-on' : ''}" aria-pressed="{annual}" onclick="annual = true">
+        Annual
+      </button>
+    </div>
+  </div>
+
+  <fieldset class="addons">
+    <legend class="row-label">Add-ons</legend>
+
+    <label class="check">
+      <input type="checkbox" $bind="support" />
+      <span>Priority support <i>{money(supportPrice)}/mo</i></span>
+    </label>
+
+    <label class="check">
+      <input type="checkbox" $bind="onboarding" />
+      <span>Guided onboarding <i>{money(onboardingPrice)}/mo</i></span>
+    </label>
+  </fieldset>
+
+  <div class="total">
+    <div>
+      <span class="total-label">Your estimate</span>
+      <show condition="annual">
+        <span class="save">Saves {money(monthly() * 2)} a year</span>
+      </show>
+    </div>
+
+    <p class="amount">
+      {money(total())}<i>{annual ? "/yr" : "/mo"}</i>
+    </p>
+  </div>
+
+  <button type="button" class="cta" onclick="submitted = true">
+    <if condition="submitted">Thanks — we'll be in touch</if>
+    <else>Get this quote</else>
+  </button>
+
+  <p class="fine">No card required. Cancel any time.</p>
+</div>
+
+<script>
+  // Attributes configure an instance: <quote-builder plan="scale" seats="25">
+  let plan = "pro";
+  let seats = 5;
+  let annual = true;
+  let support = false;
+  let onboarding = false;
+  let submitted = false;
+
+  const supportPrice = 99;
+  const onboardingPrice = 49;
+
+  const plans = [
+    { id: "starter", name: "Starter", price: 12, blurb: "For small teams finding their feet" },
+    { id: "pro", name: "Pro", price: 24, blurb: "Everything most teams need" },
+    { id: "scale", name: "Scale", price: 48, blurb: "Controls, audit logs, and SSO" },
+  ];
+
+  function seatPrice() {
+    const found = plans.find((p) => p.id === plan);
+    return found ? found.price : plans[0].price;
+  }
+
+  function monthly() {
+    const addons = (support ? supportPrice : 0) + (onboarding ? onboardingPrice : 0);
+    return seatPrice() * Number(seats) + addons;
+  }
+
+  // Annual is billed at ten months.
+  function total() {
+    return annual ? monthly() * 10 : monthly();
+  }
+
+  function money(value) {
+    return value.toLocaleString("en-US", {
+      style: "currency",
+      currency: "USD",
+      maximumFractionDigits: 0,
+    });
+  }
+</script>
+
+<style>
+  /* Inherited properties cross the shadow boundary, so type is set here
+     rather than left to whatever the host page happens to use. */
+  .widget {
+    --ink: #16181d;
+    --muted: #6b7280;
+    --line: #e5e7eb;
+    --accent: #4f46e5;
+    --surface: #ffffff;
+
+    box-sizing: border-box;
+    max-width: 26rem;
+    padding: 1.5rem;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    box-shadow: 0 1px 2px rgb(16 24 40 / 0.04), 0 12px 32px -12px rgb(16 24 40 / 0.18);
+    color: var(--ink);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    font-size: 15px;
+    line-height: 1.5;
+    text-align: left;
+    letter-spacing: normal;
+    text-transform: none;
+  }
+
+  .widget *,
+  .widget *::before,
+  .widget *::after {
+    box-sizing: inherit;
+  }
+
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .head {
+    margin-bottom: 1.25rem;
+  }
+
+  .eyebrow {
+    margin: 0;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+
+  h2 {
+    margin: 0.15rem 0 0;
+    font-size: 1.375rem;
+    font-weight: 650;
+    letter-spacing: -0.01em;
+  }
+
+  fieldset {
+    margin: 0 0 1.25rem;
+    padding: 0;
+    border: 0;
+  }
+
+  legend {
+    padding: 0;
+  }
+
+  .plans {
+    display: grid;
+    gap: 0.5rem;
+  }
+
+  .tile {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 0 0.75rem;
+    padding: 0.85rem 1rem;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+  }
+
+  .tile:hover {
+    border-color: #c7d2fe;
+  }
+
+  .tile.is-on {
+    border-color: var(--accent);
+    background: #eef2ff;
+  }
+
+  .tile input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .tile:focus-within {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  .tile-name {
+    font-weight: 600;
+  }
+
+  .tile-price {
+    font-weight: 600;
+    text-align: right;
+  }
+
+  .tile-price i,
+  .amount i,
+  .check i {
+    font-style: normal;
+    font-weight: 500;
+    color: var(--muted);
+  }
+
+  .tile-blurb {
+    grid-column: 1 / -1;
+    font-size: 0.85rem;
+    color: var(--muted);
+  }
+
+  .row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1rem;
+  }
+
+  .row label,
+  .row-label,
+  legend.row-label {
+    font-weight: 550;
+    color: var(--ink);
+  }
+
+  .stepper {
+    display: flex;
+    align-items: center;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+
+  .stepper button {
+    width: 2.25rem;
+    height: 2.25rem;
+    background: #f9fafb;
+    border: 0;
+    color: var(--ink);
+    font-size: 1rem;
+    cursor: pointer;
+  }
+
+  .stepper button:hover {
+    background: #f3f4f6;
+  }
+
+  .stepper input {
+    width: 3.5rem;
+    height: 2.25rem;
+    border: 0;
+    border-inline: 1px solid var(--line);
+    text-align: center;
+    font: inherit;
+    font-weight: 600;
+    color: inherit;
+    background: var(--surface);
+    -moz-appearance: textfield;
+  }
+
+  .stepper input::-webkit-outer-spin-button,
+  .stepper input::-webkit-inner-spin-button {
+    appearance: none;
+    margin: 0;
+  }
+
+  .segmented {
+    display: flex;
+    padding: 3px;
+    background: #f3f4f6;
+    border-radius: 10px;
+  }
+
+  .segmented button {
+    padding: 0.35rem 0.85rem;
+    background: transparent;
+    border: 0;
+    border-radius: 7px;
+    font: inherit;
+    font-weight: 550;
+    color: var(--muted);
+    cursor: pointer;
+  }
+
+  .segmented button.is-on {
+    background: var(--surface);
+    color: var(--ink);
+    box-shadow: 0 1px 2px rgb(16 24 40 / 0.1);
+  }
+
+  .addons {
+    display: grid;
+    gap: 0.6rem;
+  }
+
+  .addons legend {
+    margin-bottom: 0.6rem;
+  }
+
+  .check {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    cursor: pointer;
+  }
+
+  .check input {
+    width: 1.05rem;
+    height: 1.05rem;
+    accent-color: var(--accent);
+    margin: 0;
+    flex: none;
+  }
+
+  .total {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--line);
+  }
+
+  .total-label {
+    display: block;
+    font-size: 0.9rem;
+    color: var(--muted);
+  }
+
+  .save {
+    display: inline-block;
+    margin-top: 0.15rem;
+    padding: 0.1rem 0.45rem;
+    background: #ecfdf5;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #047857;
+  }
+
+  .amount {
+    margin: 0;
+    font-size: 1.75rem;
+    font-weight: 680;
+    letter-spacing: -0.02em;
+    white-space: nowrap;
+  }
+
+  .amount i {
+    font-size: 0.95rem;
+  }
+
+  .cta {
+    width: 100%;
+    margin-top: 1.25rem;
+    padding: 0.75rem 1rem;
+    background: var(--accent);
+    border: 0;
+    border-radius: 10px;
+    color: #fff;
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+
+  .cta:hover {
+    background: #4338ca;
+  }
+
+  .fine {
+    margin: 0.65rem 0 0;
+    font-size: 0.8rem;
+    color: var(--muted);
+    text-align: center;
+  }
+</style>

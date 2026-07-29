@@ -1,12 +1,14 @@
 # Dependencies
 /node_modules
 samples/*/node_modules
+packages/*/node_modules
 benchmarks/node_modules
 
 # Build output
 /dist
 /dist-cdn
 samples/*/dist
+packages/*/dist
 *.tsbuildinfo
 
 # Test & coverage
@@ -40,3 +42,6 @@ samples/dotnet-sample/obj/
 
 # Playground Folder
 playground/*
+
+# Generated test fixtures
+tests/.generated/

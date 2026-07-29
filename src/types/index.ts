@@ -102,6 +102,17 @@ export type LoopDescriptor = {
    * entirely for the common conditional-free template.
    */
   hasConditionals?: boolean;
+  /**
+   * Whether the template contains a nested <for>. Those are extracted and
+   * rendered per row, because their array expression usually depends on the
+   * enclosing row's item.
+   */
+  hasNestedLoops?: boolean;
+  /**
+   * Loop variable names contributed by enclosing loops, outermost first.
+   * Empty for a top-level loop; `["group"]` for a <for> nested one deep.
+   */
+  scopeNames?: readonly string[];
 };
 
 /**

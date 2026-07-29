@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>LadrillosJS starter</title>
+    <meta name="description" content="A LadrillosJS app with no build step." />
+    <meta name="color-scheme" content="dark light" />
+    <meta name="theme-color" content="#0b0e14" />
+
+    <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="./app.css" />
+
+    <!--
+      Ship this as a response header in production; the meta tag is here so the
+      template works on any static host.
+
+      'unsafe-eval' is required because there is no build step: component
+      expressions and handlers are compiled in the browser. If you need to drop
+      it, move to the vite-starter template and add @ladrillosjs/vite-plugin.
+
+      The jsdelivr origin appears in script-src because that is where the
+      framework is loaded from. Component .html files are fetched at runtime,
+      so their origin must be in connect-src.
+    -->
+    <meta http-equiv="Content-Security-Policy" content="
+        default-src 'self';
+        script-src 'self' 'unsafe-eval' https://cdn.jsdelivr.net;
+        style-src 'self';
+        connect-src 'self';
+        img-src 'self' data:;
+        object-src 'none';
+        base-uri 'none'
+      " />
+
+    <script type="module" src="./app.js"></script>
+</head>
+
+<body>
+    <app-header></app-header>
+
+    <main>
+        <hello-card name="world"></hello-card>
+    </main>
+
+    <noscript>This app needs JavaScript enabled.</noscript>
+</body>
+
+</html>

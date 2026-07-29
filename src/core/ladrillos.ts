@@ -1,22 +1,21 @@
 import { LadrillosComponent } from "../types";
-import { parseComponent } from "./component/extract";
 import { fetchComponentSource } from "./component/loader";
 import { createWebComponent } from "./component/webcomponent";
 import
-  {
-    LazyStrategy,
-    defaultLazyStrategy,
-    initLazyLoader,
-    registerLazyComponent,
-    forceLoadLazyComponent,
-  } from "./lazy";
+{
+  LazyStrategy,
+  defaultLazyStrategy,
+  initLazyLoader,
+  registerLazyComponent,
+  forceLoadLazyComponent,
+} from "./lazy";
 import
-  {
-    warn,
-    error,
-    ErrorCode,
-    LadrillosError,
-  } from "../utils/devWarnings";
+{
+  warn,
+  error,
+  ErrorCode,
+  LadrillosError,
+} from "../utils/devWarnings";
 
 /**
  * Component registration configuration
@@ -119,6 +118,9 @@ class Ladrillos
       }
 
       const fetchResult = await fetchComponentSource(absolutePath);
+      // Loaded on demand so builds that only use precompiled components never
+      // pull the HTML parser into their bundle.
+      const { parseComponent } = await import("./component/extract");
       // Use the resolved path (e.g., /components/search/index.html instead of /components/search)
       const component = await parseComponent(
         fetchResult.source,
@@ -271,6 +273,7 @@ class Ladrillos
 
         const { config, result } = fetchResult.value;
 
+        const { parseComponent } = await import("./component/extract");
         // Use the resolved path for correct relative path resolution in child components
         const component = await parseComponent(
           result.source,

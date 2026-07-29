@@ -6,15 +6,22 @@
  */
 
 import { setCacheSize } from "./component/cache";
-import {
-  setErrorHandler,
-  type LadrillosErrorHandler,
-} from "../utils/devWarnings";
+import
+  {
+    setTrustedTypesPolicy,
+    type TrustedTypesPolicyLike,
+  } from "./html/trustedTypes";
+import
+  {
+    setErrorHandler,
+    type LadrillosErrorHandler,
+  } from "../utils/devWarnings";
 
 /**
  * Options accepted by `configure()`.
  */
-export interface LadrillosConfig {
+export interface LadrillosConfig
+{
   /**
    * Maximum number of component source files retained in the LRU cache.
    * Defaults to 25. Must be a positive integer.
@@ -54,12 +61,37 @@ export interface LadrillosConfig {
    * mode they were created with. Defaults to false.
    */
   delegateLoopEvents?: boolean;
+
+  /**
+   * Trusted Types policy used for the framework's HTML sinks (`innerHTML` on
+   * the parse template, and `DOMParser.parseFromString`).
+   *
+   * Only needed under a `require-trusted-types-for 'script'` CSP. Left unset,
+   * the framework creates its own pass-through policy named `ladrillosjs`,
+   * which must then be listed in the `trusted-types` directive. Supply a
+   * policy here to reuse an existing one, or to sanitize templates that come
+   * from untrusted sources.
+   *
+   * Note that enforcement also applies to `new Function`, which only the
+   * *default* policy can satisfy — a library cannot install one on your
+   * behalf. Use the CSP build (`ladrillosjs/csp`), which compiles nothing at
+   * runtime.
+   *
+   * @example
+   * configure({
+   *   trustedTypesPolicy: trustedTypes.createPolicy('app', {
+   *     createHTML: (s) => DOMPurify.sanitize(s),
+   *   }),
+   * });
+   */
+  trustedTypesPolicy?: TrustedTypesPolicyLike | null;
 }
 
 let loopDelegationEnabled = false;
 
 /** Whether opt-in loop event delegation is active (see LadrillosConfig). */
-export function isLoopDelegationEnabled(): boolean {
+export function isLoopDelegationEnabled(): boolean
+{
   return loopDelegationEnabled;
 }
 
@@ -69,14 +101,22 @@ export function isLoopDelegationEnabled(): boolean {
  * Safe to call at any time; subsequent calls override prior values. Pass
  * `onError: null` to clear a previously registered handler.
  */
-export function configure(config: LadrillosConfig): void {
-  if (config.cacheSize !== undefined) {
+export function configure(config: LadrillosConfig): void
+{
+  if (config.cacheSize !== undefined)
+  {
     setCacheSize(config.cacheSize);
   }
-  if (config.onError !== undefined) {
+  if (config.onError !== undefined)
+  {
     setErrorHandler(config.onError);
   }
-  if (config.delegateLoopEvents !== undefined) {
+  if (config.delegateLoopEvents !== undefined)
+  {
     loopDelegationEnabled = config.delegateLoopEvents;
+  }
+  if (config.trustedTypesPolicy !== undefined)
+  {
+    setTrustedTypesPolicy(config.trustedTypesPolicy);
   }
 }

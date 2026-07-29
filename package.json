@@ -1,11 +1,21 @@
 {
   "name": "ladrillosjs",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "A lightweight, zero-dependency web component framework for building modular web applications.",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "sideEffects": false,
+  "sideEffects": [
+    "./src/index.ts",
+    "./src/core.ts",
+    "./src/csp.ts",
+    "./dist/index.js",
+    "./dist/index.dev.js",
+    "./dist/core.js",
+    "./dist/core.dev.js",
+    "./dist/csp.js",
+    "./dist/csp.dev.js"
+  ],
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -25,6 +35,15 @@
       "types": "./dist/core.d.ts",
       "default": "./dist/core.dev.js"
     },
+    "./csp": {
+      "types": "./dist/csp.d.ts",
+      "development": "./dist/csp.dev.js",
+      "default": "./dist/csp.js"
+    },
+    "./csp/dev": {
+      "types": "./dist/csp.d.ts",
+      "default": "./dist/csp.dev.js"
+    },
     "./lazy": {
       "types": "./dist/lazy.d.ts",
       "development": "./dist/lazy.dev.js",
@@ -34,6 +53,10 @@
       "types": "./dist/events.d.ts",
       "development": "./dist/events.dev.js",
       "default": "./dist/events.js"
+    },
+    "./compiler": {
+      "types": "./dist/compiler/index.d.ts",
+      "default": "./dist/compiler.js"
     }
   },
   "files": [
@@ -68,6 +91,8 @@
     "serve:cdn": "npx serve dist-cdn -p 3000 --cors",
     "serve:cdn-sample": "npx serve samples/cdn-sample -p 8080 --cors",
     "serve:repl": "node scripts/cors-server.mjs samples/repl 8080 .",
+    "dev:cdn-csp": "npm run build:cdn && node scripts/cors-server.mjs samples/cdn-csp 8081 .",
+    "serve:widget": "npm run build && node scripts/cors-server.mjs samples/embed-widget 8145 .",
     "dev:cdn": "concurrently -n build,cdn,sample -c auto \"npm run watch:cdn\" \"npm run serve:cdn\" \"npm run serve:cdn-sample\"",
     "dev:repl": "concurrently -n build,sample -c auto \"npm run watch:cdn\" \"npm run serve:repl\"",
     "dev:demo": "npm run build && concurrently -n lib,demo -c auto \"npm run dev\" \"npm --prefix samples/ladrillos-demo run dev\"",
@@ -75,13 +100,16 @@
     "dev:vite": "npm run build && concurrently -n lib,vite -c auto \"npm run dev\" \"npm --prefix samples/vite-sample run dev\"",
     "dev:dotnet": "concurrently \"npm run dev:cdn\" \"cd samples/dotnet-sample && dotnet watch run\"",
     "verify:build": "node scripts/verify-treeshaking.js",
-    "build:all": "npm run build && npm run build:cdn && npm run verify:build",
+    "verify:no-eval": "node scripts/verify-no-eval.js",
+    "build:all": "npm run build && npm run build:cdn && npm run verify:build && npm run verify:no-eval",
     "typecheck": "tsc --noEmit -p tsconfig.json",
+    "typecheck:plugin": "tsc --noEmit -p packages/vite-plugin/tsconfig.json",
+    "postinstall": "node scripts/link-self.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:ci": "vitest run --coverage --reporter=verbose",
-    "prepublishOnly": "npm run clean && npm run typecheck && npm run build && npm run build:cdn && npm run verify:build && npm run test"
+    "prepublishOnly": "npm run clean && npm run typecheck && npm run build && npm run build:cdn && npm run verify:build && npm run verify:no-eval && npm run test"
   },
   "repository": {
     "type": "git",
@@ -100,6 +128,7 @@
     "@vitest/coverage-v8": "^4.1.4",
     "concurrently": "^10.0.3",
     "happy-dom": "^20.9.0",
+    "magic-string": "^0.30.21",
     "rimraf": "^6.0.1",
     "terser": "^5.44.1",
     "@typescript/native": "npm:typescript@^7.0.2",

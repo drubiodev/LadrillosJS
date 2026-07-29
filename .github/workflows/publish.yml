@@ -1,0 +1,84 @@
+name: Publish
+
+# Publishes ladrillosjs and @ladrillosjs/vite-plugin together, in that order.
+# Authentication is npm trusted publishing (OIDC) — no NPM_TOKEN secret. Both
+# packages must name this file, publish.yml, as their trusted publisher on
+# npmjs.com before this will authenticate.
+
+on:
+  workflow_dispatch:
+    inputs:
+      dist_tag:
+        description: npm dist-tag to publish under
+        required: true
+        default: beta
+        type: choice
+        options:
+          - beta
+          - rc
+          - next
+          - latest
+      dry_run:
+        description: Run every step except the actual publish
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+  id-token: write # mints the OIDC token that replaces a publish token
+
+jobs:
+  publish:
+    # Trusted publishing does not work on self-hosted runners.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          # Trusted publishing needs Node >=22.14 and npm >=11.5.1.
+          node-version: "24"
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+
+      # Also links the repo into its own node_modules as "ladrillosjs", which is
+      # how the plugin resolves ladrillosjs/compiler.
+      - name: Install
+        run: npm ci
+
+      - name: Refuse to tag a prerelease as latest
+        run: |
+          version=$(node -p "require('./package.json').version")
+          echo "ladrillosjs@$version -> dist-tag '${{ inputs.dist_tag }}'"
+          case "$version" in
+            *-*)
+              if [ "${{ inputs.dist_tag }}" = latest ]; then
+                echo "::error::$version is a prerelease. Tagging it 'latest' would make it the default install for every user, and the version can never be reused."
+                exit 1
+              fi
+              ;;
+          esac
+
+      - name: Typecheck
+        run: |
+          npm run typecheck
+          npm run typecheck:plugin
+
+      - name: Test
+        run: npm run test
+
+      - name: Build core
+        run: npm run build:all
+
+      - name: Build plugin
+        run: npm run build
+        working-directory: packages/vite-plugin
+
+      - name: Publish ladrillosjs
+        run: npm publish --tag "${{ inputs.dist_tag }}" ${{ inputs.dry_run && '--dry-run' || '' }}
+
+      # Second, so the peer dependency it declares already exists on the registry.
+      - name: Publish @ladrillosjs/vite-plugin
+        run: npm publish --tag "${{ inputs.dist_tag }}" ${{ inputs.dry_run && '--dry-run' || '' }}
+        working-directory: packages/vite-plugin

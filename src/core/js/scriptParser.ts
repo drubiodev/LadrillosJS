@@ -3,10 +3,10 @@ import { EVENT_ATTRIBUTES } from "../../utils/jsevents";
 import { syncBindBeforeHandler } from "../../utils/directives";
 import
 {
-  ALLOWED_GLOBALS,
-  BLOCKED_GLOBALS,
+  INJECTED_GLOBALS,
+  SHADOWED_GLOBALS,
   RESERVED_WORDS,
-} from "../../utils/sandbox";
+} from "../../utils/globalScope";
 import
 {
   isEventDirective,
@@ -23,6 +23,7 @@ import
   ErrorCode,
 } from "../../utils/devWarnings";
 import { createReactiveState } from "./reactivity";
+import { compileEvaluator, compileHandler, compileSetup, onBackendChange } from "./compiler";
 import { transformCodeToStateAccess } from "../../utils/stateTransform";
 import
 {
@@ -367,13 +368,13 @@ function createVanillaEventHandler(
     const componentUrl = (componentHost as any)?.__componentUrl;
     const componentId = (componentHost as any)?.__componentId;
 
-    // Include safe globals like alert, console, Math, JSON, etc.
-    const allowed = getAllowedGlobalsWithValues(componentUrl, componentId);
+    // Inject convenience globals like alert, console, Math, JSON, etc.
+    const injected = getInjectedGlobalsWithValues(componentUrl, componentId);
 
-    // Block dangerous globals like window, document, fetch, etc.
-    const safeBlocked = getSafeBlockedGlobals();
+    // Names shadowed with undefined in component scope (currently none).
+    const shadowed = getShadowedGlobals();
 
-    // Build the function parameters: event + blocked + allowed + "state" reference + "$refs" + "$host"
+    // Build the function parameters: event + shadowed + injected + "state" reference + "$refs" + "$host"
     // The reactive-state param is named `__state__` (not `state`) so a user
     // variable named `state` doesn't collide with it (which would produce
     // `let { state } = state;` — a "already declared" SyntaxError).
@@ -385,8 +386,8 @@ function createVanillaEventHandler(
       "__state__",
       "$refs",
       "$host",
-      ...safeBlocked,
-      ...allowed.keys,
+      ...shadowed,
+      ...injected.keys,
     ];
 
     // Get ALL state keys (includes both script variables AND attribute values)
@@ -471,13 +472,7 @@ function createVanillaEventHandler(
       : `"use strict"; ${destructureVars} ${destructureFuncs} ${funcDefs} ${code}; ${syncBack}
 //# sourceURL=${sourceUrl}`;
 
-    // Use AsyncFunction constructor for async handlers
-    const AsyncFunction = Object.getPrototypeOf(
-      async function () { },
-    ).constructor;
-    const fn = isAsync
-      ? new AsyncFunction(...allKeys, fnBody)
-      : new Function(...allKeys, fnBody);
+    const fn = compileHandler(allKeys, fnBody, isAsync, `handler:${code}`);
 
     return (event: Event) =>
     {
@@ -498,8 +493,8 @@ function createVanillaEventHandler(
           state, // Pass reactive state
           $refs, // Pass $refs Map
           componentHost, // Pass $host (the component element)
-          ...safeBlocked.map(() => undefined), // Shadow dangerous globals
-          ...allowed.values, // Inject safe globals
+          ...shadowed.map(() => undefined), // Shadow the listed names
+          ...injected.values, // Inject convenience globals
         ];
 
         // Handle both sync and async handlers
@@ -724,140 +719,6 @@ function extractBracedBlock(
 // ============================================================================
 
 /**
- * Executes script content in a sandboxed environment and extracts
- * all declared variables and functions.
- *
- * Example script:
- *   let name = 'LadrillosJS';
- *   function greet() { return `Hello ${name}`; }
- *
- * Returns: Map { 'name' => 'LadrillosJS', 'greet' => [Function] }
- *
- * @param content - The script content to execute
- * @param componentUrl - The component's URL for resolving relative paths in helpers
- * @param componentId - The component's unique ID for event bus cleanup
- */
-function extractScriptMembers(
-  content: string,
-  componentUrl?: string,
-  componentId?: string,
-): Map<string, unknown>
-{
-  const members = new Map<string, unknown>();
-
-  try
-  {
-    const variableNames = extractVariableNames(content);
-    const functionNames = extractFunctionNames(content);
-    const allNames = [...variableNames, ...functionNames];
-
-    // Always execute the script content (for side effects like console.log)
-    // Only return members if there are any to extract
-    // Add sourceURL so DevTools shows the component name instead of VM123:5
-    const sourceUrl = componentUrl || "ladrillos-component";
-    const wrappedScript = `
-      "use strict";
-      ${content}
-      return { ${allNames.join(", ")} };
-//# sourceURL=${sourceUrl}
-    `;
-
-    // Set up the sandboxed execution environment
-    const allowed = getAllowedGlobalsWithValues(componentUrl, componentId);
-    const safeBlocked = getSafeBlockedGlobals();
-
-    const allKeys = [...safeBlocked, ...allowed.keys];
-    const allValues = [
-      ...safeBlocked.map(() => undefined), // Shadow dangerous globals
-      ...allowed.values, // Inject safe globals
-    ];
-
-    const fn = new Function(...allKeys, wrappedScript);
-    const result = fn(...allValues);
-
-    for (const [key, value] of Object.entries(result))
-    {
-      members.set(key, value);
-    }
-  } catch (e)
-  {
-    scriptError("Error extracting script members", e as Error);
-  }
-
-  return members;
-}
-
-/**
- * Extracts ONLY variable values from script content, without running side effects.
- * This is used in Phase 1 to get default values before reactive state is created.
- *
- * Unlike extractScriptMembers, this function:
- * - Only extracts variable declarations and their values
- * - Stubs out $listen and $emit to prevent side effects
- * - Does NOT extract functions (they'll be handled in Phase 2)
- *
- * @param content - The script content to parse
- */
-function extractScriptMembersValuesOnly(content: string): Map<string, unknown>
-{
-  const members = new Map<string, unknown>();
-
-  try
-  {
-    const variableNames = extractVariableNames(content);
-    const functionNames = extractFunctionNames(content);
-    const allNames = [...variableNames, ...functionNames];
-
-    if (allNames.length === 0)
-    {
-      return members;
-    }
-
-    const wrappedScript = `
-      "use strict";
-      ${content}
-      return { ${allNames.join(", ")} };
-    `;
-
-    // Stub out $listen and $emit to prevent side effects during value extraction
-    const stubListen = () => () => { }; // Returns unsubscribe function
-    const stubEmit = () => { };
-
-    // Minimal globals needed for value extraction
-    const safeGlobals = [
-      "console",
-      "Math",
-      "JSON",
-      "Date",
-      "Array",
-      "Object",
-      "String",
-      "Number",
-      "Boolean",
-    ];
-    const safeGlobalValues = safeGlobals.map(
-      (name) => (globalThis as any)[name],
-    );
-
-    const allKeys = [...safeGlobals, "$listen", "$emit"];
-    const allValues = [...safeGlobalValues, stubListen, stubEmit];
-
-    const fn = new Function(...allKeys, wrappedScript);
-    const result = fn(...allValues);
-
-    for (const [key, value] of Object.entries(result))
-    {
-      members.set(key, value);
-    }
-  } catch (e)
-  {
-    // Silently handle errors - Phase 2 will re-execute with proper error handling
-  }
-
-  return members;
-}
-
-/**
  * Executes script content with __state__ transformation for reactivity.
  * This is Phase 2: runs after reactive state is created, so $listen callbacks
  * and other side effects can access the reactive state.
@@ -875,6 +736,37 @@ function extractScriptMembersValuesOnly(content: string): Map<string, unknown>
  * @param refs - Optional refs Map (for $refs access)
  * @param templateBindings - Variable names from template bindings (auto-props)
  */
+/**
+ * Builds the body of a plain `<script>`'s setup function.
+ *
+ * Exported because the build-time emitter has to produce a byte-identical
+ * body; the two used to construct it separately and silently drifted.
+ */
+export function buildStateSetupBody(
+  content: string,
+  templateBindings: readonly string[] = [],
+): string
+{
+  // Template evaluators resolve identifiers against state keys only, so a
+  // `function greet() {}` has to be published there or `{greet(name)}` renders
+  // literally. Module scripts already do this by returning their declarations;
+  // plain scripts had no equivalent. `??=` so an attribute of the same name
+  // still wins, matching how `let` declarations behave.
+  const functionNames = extractFunctionNames(content);
+  const exposeFunctions = functionNames
+    .map((name) => `__state__.${name} ??= ${name};`)
+    .join("\n");
+
+  // A template binding of the same name must not drag a function-valued
+  // declaration back into the rewritten set; it stays local and is published
+  // by the epilogue instead.
+  const variables = [
+    ...new Set([...extractVariableNames(content), ...templateBindings]),
+  ].filter((name) => !functionNames.includes(name));
+
+  return `${transformCodeToStateAccess(content, variables)}\n${exposeFunctions}`;
+}
+
 function executeScriptWithReactiveState(
   content: string,
   reactiveState: Record<string, unknown>,
@@ -887,46 +779,34 @@ function executeScriptWithReactiveState(
 {
   try
   {
-    const variableNames = extractVariableNames(content);
-
-    // Combine script variables with template bindings for transformation
-    // This allows scripts to reference auto-bound props like {title} -> title
-    const allVariables = [...new Set([...variableNames, ...templateBindings])];
-
-    // Transform the script to use __state__ for variable access
-    const transformedContent = transformCodeToStateAccess(
-      content,
-      allVariables,
-    );
-
     const sourceUrl = componentUrl || "ladrillos-component";
     const wrappedScript = `
       "use strict";
-      ${transformedContent}
+      ${buildStateSetupBody(content, templateBindings)}
 //# sourceURL=${sourceUrl}
     `;
 
-    // Set up the sandboxed execution environment
-    const allowed = getAllowedGlobalsWithValues(componentUrl, componentId);
-    const safeBlocked = getSafeBlockedGlobals();
+    // Set up the component's global scope
+    const injected = getInjectedGlobalsWithValues(componentUrl, componentId);
+    const shadowed = getShadowedGlobals();
 
     // Add __state__, $host, and $refs as parameters
     const allKeys = [
       "__state__",
       "$host",
       "$refs",
-      ...safeBlocked,
-      ...allowed.keys,
+      ...shadowed,
+      ...injected.keys,
     ];
     const allValues = [
       reactiveState, // __state__ points to reactive proxy
       hostElement, // $host points to the component's host element
       refs, // $refs points to the refs Map
-      ...safeBlocked.map(() => undefined), // Shadow dangerous globals
-      ...allowed.values, // Inject safe globals
+      ...shadowed.map(() => undefined), // Shadow the listed names
+      ...injected.values, // Inject convenience globals
     ];
 
-    const fn = new Function(...allKeys, wrappedScript);
+    const fn = compileSetup(allKeys, wrappedScript, `state:${content}`);
     fn(...allValues);
   } catch (e)
   {
@@ -1235,10 +1115,38 @@ export function extractVariableNames(content: string): string[]
 }
 
 /**
+ * Finds declarations whose initializer is syntactically a function:
+ * `const f = () => {}`, `let g = function () {}`, `var h = async x => x`.
+ *
+ * These must not be rewritten to `__state__.f ??= ...`, because that leaves no
+ * local `f` while the transform deliberately skips call sites — so a sibling
+ * function calling `f()` would throw. Keeping the declaration local and
+ * publishing it afterwards makes these behave exactly like `function f() {}`.
+ *
+ * A parenthesised parameter list must be free of nested parens to match, so
+ * `const f = (a = g(1)) => a` falls back to being treated as a plain variable.
+ */
+function extractFunctionValuedNames(content: string): string[]
+{
+  const masked = maskFunctionBodies(content);
+  const names: string[] = [];
+  const regex =
+    /(?:let|const|var)\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*=\s*(?:async\s*)?(?:function\b|\([^()]*\)\s*=>|[a-zA-Z_$][a-zA-Z0-9_$]*\s*=>)/g;
+  let match;
+
+  while ((match = regex.exec(masked)) !== null)
+  {
+    names.push(match[1]);
+  }
+
+  return names;
+}
+
+/**
  * Finds function declarations: function foo() {}, async function bar() {}
  * Only returns top-level declarations (consistent with extractVariableNames).
  */
-function extractFunctionNames(content: string): string[]
+export function extractFunctionNames(content: string): string[]
 {
   const masked = maskFunctionBodies(content);
   const names: string[] = [];
@@ -1250,7 +1158,7 @@ function extractFunctionNames(content: string): string[]
     names.push(match[1]);
   }
 
-  return names;
+  return [...names, ...extractFunctionValuedNames(content)];
 }
 
 // ============================================================================
@@ -1265,27 +1173,30 @@ function extractFunctionNames(content: string): string[]
 // aware) to `__state__.x`.
 
 // ============================================================================
-// Security & Sandboxing Helpers
+// Global Scoping Helpers
 // ============================================================================
 
 /**
- * Returns blocked globals, excluding JS reserved words that can't be
- * used as function parameter names (like 'with', 'class', etc.)
+ * Returns the shadowed globals, excluding JS reserved words that can't be used
+ * as function parameter names (like 'with', 'class', etc.)
+ *
+ * NOTE: scoping, not security — see src/utils/globalScope.ts.
  */
-function getSafeBlockedGlobals(): readonly string[]
+function getShadowedGlobals(): readonly string[]
 {
-  return BLOCKED_GLOBALS.filter((name) => !RESERVED_WORDS.has(name));
+  return SHADOWED_GLOBALS.filter((name) => !RESERVED_WORDS.has(name));
 }
 
 /**
- * Gets safe globals (alert, console, Math, JSON, etc.) with their actual values.
- * Also includes framework helpers like registerComponent, $use, $emit, $listen.
- * These are passed into the sandbox so component code feels like vanilla JS.
+ * Gets the injected globals (alert, console, Math, JSON, etc.) with their
+ * actual values. Also includes framework helpers like registerComponent, $use,
+ * $emit, $listen. These are passed in as parameters so component code feels
+ * like vanilla JS.
  *
  * @param componentUrl - The component's URL for resolving relative paths in helpers
  * @param componentId - The component's unique ID for event bus cleanup
  */
-function getAllowedGlobalsWithValues(
+function getInjectedGlobalsWithValues(
   componentUrl?: string,
   componentId?: string,
 ):
@@ -1297,8 +1208,8 @@ function getAllowedGlobalsWithValues(
   const keys: string[] = [];
   const values: unknown[] = [];
 
-  // Add standard allowed globals (console, Math, JSON, etc.)
-  for (const name of ALLOWED_GLOBALS)
+  // Add standard injected globals (console, Math, JSON, etc.)
+  for (const name of INJECTED_GLOBALS)
   {
     if (name in globalThis)
     {
@@ -1343,20 +1254,21 @@ function getAllowedGlobalsWithValues(
  *
  * The cache key combines the positional parameter names (the current state
  * keys) with the expression source, since the compiled function's parameters
- * are positional. The blocked globals are constant for the page lifetime, so
+ * are positional. The shadowed globals are constant for the page lifetime, so
  * they don't need to participate in the key.
  */
 const evaluatorCache = new Map<string, Map<string, Function>>();
+onBackendChange(() => evaluatorCache.clear());
 const MAX_EVALUATOR_SIGNATURES = 100;
 const MAX_EVALUATOR_CACHE = 5000;
 
 /** Matches strings usable as a JS function parameter name (no hyphens, etc.). */
 const IDENTIFIER_RE = /^[A-Za-z_$][\w$]*$/;
 
-// Blocked globals never change at runtime, so compute the param list and the
+// Shadowed globals never change at runtime, so compute the param list and the
 // matching `undefined` argument array once and reuse them.
-let cachedBlockedGlobals: readonly string[] | null = null;
-let cachedBlockedUndefined: undefined[] | null = null;
+let cachedShadowedGlobals: readonly string[] | null = null;
+let cachedShadowedUndefined: undefined[] | null = null;
 
 function evaluateExpression(
   expression: string,
@@ -1383,11 +1295,11 @@ function evaluateExpression(
       }
     }
 
-    ensureBlockedGlobals();
+    ensureShadowedGlobals();
 
     const exprMap = getEvaluatorMap(keys.join(","));
     const fn = getCompiledEvaluator(keys, exprMap, expression);
-    return fn(...cachedBlockedUndefined!, ...stateValues);
+    return fn(...cachedShadowedUndefined!, ...stateValues);
   } catch (e)
   {
     expressionError(expression, e as Error, {
@@ -1397,14 +1309,14 @@ function evaluateExpression(
   }
 }
 
-function ensureBlockedGlobals(): readonly string[]
+function ensureShadowedGlobals(): readonly string[]
 {
-  if (cachedBlockedGlobals === null)
+  if (cachedShadowedGlobals === null)
   {
-    cachedBlockedGlobals = getSafeBlockedGlobals();
-    cachedBlockedUndefined = cachedBlockedGlobals.map(() => undefined);
+    cachedShadowedGlobals = getShadowedGlobals();
+    cachedShadowedUndefined = cachedShadowedGlobals.map(() => undefined);
   }
-  return cachedBlockedGlobals;
+  return cachedShadowedGlobals;
 }
 
 /**
@@ -1437,7 +1349,7 @@ function getEvaluatorMap(keysSig: string): Map<string, Function>
  * Returns the compiled evaluator for `expression` against the given state
  * keys, compiling and caching it on first use.
  *
- * Positional params are [blocked globals..., state keys...]. Only the state
+ * Positional params are [shadowed globals..., state keys...]. Only the state
  * keys + expression distinguish one compiled evaluator from another.
  */
 function getCompiledEvaluator(
@@ -1456,11 +1368,7 @@ function getCompiledEvaluator(
       const oldest = exprMap.keys().next().value;
       if (oldest !== undefined) exprMap.delete(oldest);
     }
-    fn = new Function(
-      ...cachedBlockedGlobals!,
-      ...keys,
-      `"use strict"; return ${expression};`,
-    );
+    fn = compileEvaluator([...cachedShadowedGlobals!, ...keys], expression);
     exprMap.set(expression, fn);
   }
   return fn;
@@ -1498,7 +1406,7 @@ function createContextEvaluator(
   volatileKeys?: readonly string[],
 ): BoundEvaluator
 {
-  const blocked = ensureBlockedGlobals();
+  const shadowed = ensureShadowedGlobals();
 
   const allKeys = Object.keys(context);
   const keys: string[] = [];
@@ -1511,14 +1419,14 @@ function createContextEvaluator(
   }
   const sig = keys.join(",");
   const exprMap = getEvaluatorMap(sig);
-  const nBlocked = blocked.length;
-  const args: unknown[] = new Array(nBlocked + keys.length).fill(undefined);
+  const nShadowed = shadowed.length;
+  const args: unknown[] = new Array(nShadowed + keys.length).fill(undefined);
 
   const fillAll = (): void =>
   {
     for (let i = 0; i < keys.length; i++)
     {
-      args[nBlocked + i] = context[keys[i]];
+      args[nShadowed + i] = context[keys[i]];
     }
   };
 
@@ -1535,7 +1443,7 @@ function createContextEvaluator(
       const idx = keys.indexOf(name);
       if (idx >= 0)
       {
-        volatileSlots.push(nBlocked + idx);
+        volatileSlots.push(nShadowed + idx);
         volatileNames.push(name);
       }
     }

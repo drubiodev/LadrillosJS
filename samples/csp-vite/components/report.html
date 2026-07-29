@@ -1,0 +1,96 @@
+<div class="card">
+    <h2>CSP violations on this page</h2>
+
+    <show condition="count === 0">
+        <p class="clean">None. Every directive above is being satisfied.</p>
+    </show>
+
+    <show condition="count > 0">
+        <ul>
+            <for each="row in rows" key="row.id">
+                <li>
+                    <span class="directive">{row.directive}</span>
+                    <span class="blocked">{row.blocked}</span>
+                </li>
+            </for>
+        </ul>
+    </show>
+
+    <p class="note">
+        Counted live from the <code>securitypolicyviolation</code> event, so this
+        is the browser's own verdict rather than a claim in a README. Try deleting
+        <code>trusted-types ladrillosjs</code> from the policy in
+        <code>vite.config.js</code> and rebuilding — the page stops rendering and
+        the violation shows up here.
+    </p>
+</div>
+
+<script>
+    let rows = [];
+    let count = 0;
+
+    function add(directive, blocked) {
+        rows = [...rows, { id: rows.length + 1, directive, blocked }];
+        count = rows.length;
+    }
+
+    // Violations fired before this component mounted are buffered in main.js.
+    const buffered = globalThis.__cspViolations || [];
+    for (const entry of buffered) add(entry.directive, entry.blocked);
+
+    globalThis.addEventListener("securitypolicyviolation", (event) => {
+        add(event.effectiveDirective, event.blockedURI || "inline");
+    });
+</script>
+
+<style>
+    .card {
+        background: #171b26;
+        border: 1px solid #262c3a;
+        border-radius: 10px;
+        padding: 1.25rem 1.5rem;
+    }
+
+    h2 {
+        margin: 0 0 0.75rem;
+        font-size: 1.1rem;
+    }
+
+    .clean {
+        margin: 0;
+        color: #6ee7b7;
+    }
+
+    ul {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        display: grid;
+        gap: 0.4rem;
+    }
+
+    li {
+        display: flex;
+        gap: 0.75rem;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 0.85rem;
+    }
+
+    .directive {
+        color: #f87171;
+    }
+
+    .blocked {
+        color: #94a3b8;
+    }
+
+    .note {
+        margin: 1rem 0 0;
+        font-size: 0.85rem;
+        color: #94a3b8;
+    }
+
+    code {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+</style>

@@ -14,10 +14,10 @@ Shadow DOM creates an isolated DOM tree inside your component. Styles and DOM qu
 │  │    ┌─────────────────────────────────────────────────────┐  ││
 │  │    │  Shadow Root (Shadow DOM)                           │  ││
 │  │    │  ┌─────────────────────────────────────────────────┐│  ││
-│  │    │  │  <style>                                        ││  ││
+│  │    │  │  [adopted stylesheet]                           ││  ││
 │  │    │  │    /* These styles ONLY affect this component */││  ││
 │  │    │  │    button { background: red; }                  ││  ││
-│  │    │  │  </style>                                       ││  ││
+│  │    │  │                                                 ││  ││
 │  │    │  │  <div class="content">...</div>                 ││  ││
 │  │    │  │  <button>Click me</button>                      ││  ││
 │  │    │  └─────────────────────────────────────────────────┘│  ││
@@ -25,6 +25,19 @@ Shadow DOM creates an isolated DOM tree inside your component. Styles and DOM qu
 │  └─────────────────────────────────────────────────────────────┘│
 └─────────────────────────────────────────────────────────────────┘
 ```
+
+You still *write* a `<style>` block in your component file, but the framework
+does not put one in the shadow root. It builds a `CSSStyleSheet` and adopts it
+via `adoptedStyleSheets`, so devtools shows the rules under the shadow root's
+adopted sheets rather than as a `<style>` element. Two consequences worth
+knowing:
+
+- Every instance of a component shares **one** stylesheet, so the browser parses
+  that CSS once no matter how many instances you mount.
+- No inline `<style>` means no need for `style-src 'unsafe-inline'`. The one
+  exception is CSS containing `@import`, which constructed stylesheets drop —
+  that case falls back to a real `<style>` element. See
+  [CSP and Security](22-csp-and-security.md).
 
 ---
 

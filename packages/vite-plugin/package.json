@@ -1,0 +1,51 @@
+{
+    "name": "@ladrillosjs/vite-plugin",
+    "version": "0.1.0",
+    "description": "Precompiles LadrillosJS components at build time so the page never needs script-src 'unsafe-eval'.",
+    "type": "module",
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "default": "./dist/index.js"
+        }
+    },
+    "files": [
+        "dist/**/*.js",
+        "dist/**/*.js.map",
+        "dist/**/*.d.ts",
+        "README.md"
+    ],
+    "scripts": {
+        "build": "vite build",
+        "typecheck": "tsc --noEmit -p tsconfig.json",
+        "prepublishOnly": "npm run typecheck && npm run build"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/drubiodev/LadrillosJS.git",
+        "directory": "packages/vite-plugin"
+    },
+    "publishConfig": {
+        "access": "public"
+    },
+    "peerDependencies": {
+        "ladrillosjs": "^2.0.0 || >=2.1.0-0 <3.0.0",
+        "vite": "^5.0.0 || ^6.0.0 || ^7.0.0 || ^8.0.0"
+    },
+    "dependencies": {
+        "happy-dom": "^20.0.0"
+    },
+    "engines": {
+        "node": ">=18"
+    },
+    "keywords": [
+        "vite-plugin",
+        "ladrillosjs",
+        "web-components",
+        "csp",
+        "unsafe-eval"
+    ],
+    "license": "MIT"
+}

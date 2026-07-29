@@ -42,6 +42,7 @@ Welcome to the LadrillosJS documentation! This guide will help you understand ho
 - [**Migrating from v1 to v2**](./17-migration-v1-to-v2.md) - Breaking changes and upgrade checklist
 - [**TypeScript**](./18-typescript.md) - Types, entry points, and tsconfig settings
 - [**Error Handling**](./21-error-handling.md) - Diagnostic codes, fixes, and error reporting
+- [**Content Security Policy**](./22-csp-and-security.md) - Which CSP directives LadrillosJS needs, and how to drop `'unsafe-eval'` with a build step
 
 ---
 
