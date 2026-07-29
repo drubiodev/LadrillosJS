@@ -12,8 +12,14 @@
  */
 import {
   extractVariableNames,
+  extractFunctionNames,
   extractFunctionDefinitions,
 } from "../core/js/scriptParser";
+import {
+  stripImports,
+  extractDeclaredNames,
+  parseImports,
+} from "../core/js/moduleExecutor";
 import { transformCodeToStateAccess } from "../utils/stateTransform";
 import { EVENT_ATTRIBUTE_SET } from "../utils/jsevents";
 import type { LadrillosComponent } from "../types";
@@ -48,6 +54,39 @@ const RESERVED = new Set([
 ]);
 
 const IDENTIFIER_G = /[A-Za-z_$][\w$]*/g;
+
+/**
+ * Names a module script receives as parameters that are *not* real globals, so
+ * an artifact must declare them as deps or they would not resolve at all.
+ *
+ * Ordinary globals the runtime also injects (`console`, `Math`, `fetch`, …) are
+ * deliberately omitted: leaving them undeclared lets them resolve through the
+ * normal scope chain to the very same object. This is only safe because
+ * SHADOWED_GLOBALS is empty — if the framework ever shadows a global again,
+ * those names must be added here or emitted code will diverge from the runtime.
+ */
+const MODULE_INJECTED = new Set([
+  "__state__",
+  "$host",
+  "$refs",
+  "$emit",
+  "$listen",
+  "$use",
+  "registerComponent",
+  "registerComponents",
+  "ladrillosjs",
+]);
+
+/** Local binding names introduced by a module script's import statements. */
+function importNamesFor(code: string): string[] {
+  const names: string[] = [];
+  for (const parsed of parseImports(code)) {
+    for (const binding of parsed.imports) {
+      if (binding.local && !names.includes(binding.local)) names.push(binding.local);
+    }
+  }
+  return names;
+}
 
 /** Identifiers the expression mentions that the runtime will actually supply. */
 function depsFor(
@@ -201,10 +240,27 @@ export function emitComponent(
   const runtimeImport = options.runtimeImport ?? "ladrillosjs/csp";
   const format = options.format ?? "module";
 
-  const scriptContent = component.scripts.map((s) => s.content).join("\n");
-  const declared = extractVariableNames(scriptContent);
+  const regularScripts = component.scripts.filter((s) => s.type !== "module");
+  const moduleScripts = component.scripts.filter((s) => s.type === "module");
+  const hasModuleScripts = moduleScripts.length > 0;
+
+  const regularContent = regularScripts.map((s) => s.content).join("\n");
+
+  // Module scripts contribute state too: their top-level bindings are written
+  // into __state__ before any binding is evaluated, so expressions can name them.
+  const moduleVars: string[] = [];
+  const moduleFuncs: string[] = [];
+  for (const script of moduleScripts) {
+    const declared = extractDeclaredNames(stripImports(script.content));
+    moduleVars.push(...declared.variables);
+    moduleFuncs.push(...declared.functions);
+  }
+
   const stateNames = new Set<string>([
-    ...declared,
+    ...extractVariableNames(regularContent),
+    ...extractFunctionNames(regularContent),
+    ...moduleVars,
+    ...moduleFuncs,
     ...(component.templateBindings ?? []),
   ]);
 
@@ -217,15 +273,25 @@ export function emitComponent(
     )}, fn: (${params}) => (${expression}) },`;
   });
 
-  // Handlers mirror the runtime wrapper: script functions are re-declared so
-  // the handler sees current values, then the body is rewritten to write
-  // straight through to reactive state instead of destructured copies.
+  // Handlers mirror the runtime wrapper. For regular scripts the runtime
+  // re-creates the component's functions so they see current values; for module
+  // scripts it destructures them off __state__ instead, because those functions
+  // close over the module's imports and must not be rebuilt. The state
+  // transform deliberately leaves call expressions alone, so `addItem()` only
+  // resolves if the name is bound — hence the destructure rather than a rewrite.
   const allVariables = [...stateNames];
-  const funcDefs = transformCodeToStateAccess(
-    extractFunctionDefinitions(scriptContent, []),
-    allVariables,
-    { rewriteDeclarations: false }
-  );
+  const stateFunctions = [
+    ...new Set([...extractFunctionNames(regularContent), ...moduleFuncs]),
+  ];
+  const funcDefs = hasModuleScripts
+    ? stateFunctions.length
+      ? `const { ${stateFunctions.join(", ")} } = __state__;`
+      : ""
+    : transformCodeToStateAccess(
+        extractFunctionDefinitions(regularContent, []),
+        allVariables,
+        { rewriteDeclarations: false }
+      );
 
   const handlerEntries = [...handlers].map(([key, { code, deps }]) => {
     const body = transformCodeToStateAccess(code, allVariables, {
@@ -236,16 +302,55 @@ export function emitComponent(
     )}, fn: (${deps.join(", ")}) => { ${funcDefs}\n${body}; } },`;
   });
 
+  // The runtime runs each <script> separately, so each one is its own artifact
+  // keyed by its own source — joining them would produce a key nothing requests.
   const setupEntries: string[] = [];
-  if (scriptContent.trim()) {
-    const transformed = transformCodeToStateAccess(
-      scriptContent,
-      allVariables
-    );
+  const setupKeys: string[] = [];
+
+  for (const script of regularScripts) {
+    const content = script.content;
+    if (!content.trim()) continue;
+    const vars = [
+      ...new Set([
+        ...extractVariableNames(content),
+        ...(component.templateBindings ?? []),
+      ]),
+    ];
+    const transformed = transformCodeToStateAccess(content, vars);
+    const key = `state:${content}`;
+    setupKeys.push(key);
     setupEntries.push(
       `  ${JSON.stringify(
-        `state:${scriptContent}`
+        key
       )}: { deps: ["__state__"], fn: (__state__) => { ${transformed} } },`
+    );
+  }
+
+  for (const script of moduleScripts) {
+    const content = script.content;
+    if (!content.trim()) continue;
+
+    const executable = stripImports(content);
+    const { variables, functions } = extractDeclaredNames(executable);
+    const transformed = transformCodeToStateAccess(executable, variables);
+    const returnStatement = functions.length
+      ? `return { ${functions.join(", ")} };`
+      : `return {};`;
+
+    // Imports stay resolved by the runtime and arrive as parameters, so the
+    // component URL still anchors relative specifiers exactly as before.
+    const available = new Set([...MODULE_INJECTED, ...importNamesFor(content)]);
+    const deps = depsFor(`${transformed}\n${returnStatement}`, available);
+    if (!deps.includes("__state__")) deps.unshift("__state__");
+
+    const key = `module:${content}`;
+    setupKeys.push(key);
+    setupEntries.push(
+      `  ${JSON.stringify(key)}: { deps: ${JSON.stringify(
+        deps
+      )}, fn: async (${deps.join(
+        ", "
+      )}) => { ${transformed}\n${returnStatement} } },`
     );
   }
 
@@ -278,7 +383,7 @@ registerArtifacts(${table});
     keys: {
       evaluators: [...evaluators.keys()],
       handlers: [...handlers.keys()],
-      setups: scriptContent.trim() ? [`state:${scriptContent}`] : [],
+      setups: setupKeys,
     },
   };
 }

@@ -198,19 +198,21 @@ Existing users pay nothing for it.
       identical DOM, mutation-tested so none pass vacuously
 - [x] Emitter ([src/compiler/emit.ts](src/compiler/emit.ts)) for evaluators,
       handlers and the reactive-state setup
+- [x] Module scripts (`<script type="module">`), including imports
+- [x] ~~`members:` / `values:` setup variants~~ — **unreachable, see below**
 - [ ] Emit template/styles so the runtime can skip fetch + parse (bundling win,
       not needed for CSP)
 - [ ] `defineCompiled` runtime helper
-- [ ] Extend emitter coverage to module scripts and the `members:` / `values:`
-      setup variants
 
 ### Emitter status
 
 [tests/unit/emitter.test.ts](tests/unit/emitter.test.ts) writes the generated
 module to disk and loads it with a plain dynamic `import()` — if the output were
 not valid standalone JavaScript the import itself would fail. For each fixture it
-asserts two things: emitted keys cover **every** key the recorder observed, and
-the component renders identically when driven only by those artifacts.
+asserts three things: the rendered output matches a **pinned** expected string
+(so "both paths agree" can never mean "both paths are broken"), emitted keys
+cover **every** key the recorder observed, and the component renders identically
+when driven only by those artifacts.
 
 Generated output is minimal-arity static JS:
 
@@ -241,6 +243,51 @@ parameters, so declaring `Math` as a dep would shadow the real `Math` with
 `undefined` whenever the runtime doesn't supply it. Deps are therefore
 restricted to names the runtime is known to provide: declared script variables,
 `templateBindings`, and in-scope loop variables.
+
+This is only safe because `SHADOWED_GLOBALS` is empty — an undeclared name
+resolves through the normal scope chain to the very same object the runtime
+would have injected. **If the framework ever shadows a global again, those names
+must be added to `MODULE_INJECTED` or emitted code will silently diverge from
+the runtime.**
+
+### Module scripts
+
+`<script type="module">` is emitted as a `module:` setup: the async IIFE the
+runtime builds, with `stripImports` / `extractDeclaredNames` / the state
+transform applied by the *same* functions the runtime calls.
+
+Import bindings become artifact **deps**, so the runtime still resolves
+specifiers against the component URL and passes the values in as parameters:
+
+```js
+"module:import { TAX } from \"./rates.js\";\nlet price = 100 + TAX;":
+  { deps: ["__state__", "TAX"],
+    fn: async (__state__, TAX) => { __state__.price ??= 100 + TAX; return {}; } },
+```
+
+Relative-path semantics are therefore unchanged, and no `eval` is involved —
+`importModule` has been a plain dynamic `import()` since Phase 0.
+
+Two behaviours had to be mirrored exactly:
+
+- **Handlers in module components must not re-declare functions.** The runtime
+  emits `const { addItem } = __state__;` instead of rebuilding them, because
+  module functions close over the module's imports. Rewriting references was not
+  a substitute: `replaceVarWithStateAccess` deliberately skips identifiers
+  followed by `(`, so `addItem()` is left alone and only resolves if bound.
+- **Setups are per `<script>`, not per component.** The runtime calls
+  `executeScriptWithReactiveState` once per script, so each tag is its own
+  artifact keyed by its own source. The emitter previously joined them, which
+  would have produced a key nothing ever requests.
+
+### `members:` / `values:` are unreachable
+
+`extractScriptMembers` and `extractScriptMembersValuesOnly`
+([scriptParser.ts](src/core/js/scriptParser.ts#L735)) are neither exported nor
+called anywhere in the repo, so those two setup keys can never be requested and
+nothing needs to emit them. Both are already tree-shaken out of every shipped
+bundle (verified: `"Error extracting script members"` appears in none of them).
+Worth deleting at some point, but it is not a CSP concern.
 
 ### Open decision: packaging
 

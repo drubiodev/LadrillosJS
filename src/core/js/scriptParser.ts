@@ -1233,7 +1233,7 @@ export function extractVariableNames(content: string): string[]
  * Finds function declarations: function foo() {}, async function bar() {}
  * Only returns top-level declarations (consistent with extractVariableNames).
  */
-function extractFunctionNames(content: string): string[]
+export function extractFunctionNames(content: string): string[]
 {
   const masked = maskFunctionBodies(content);
   const names: string[] = [];

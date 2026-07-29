@@ -1028,7 +1028,7 @@ export function extractImportSpecifiers(code: string): string[]
 /**
  * Represents a parsed import statement
  */
-interface ParsedImport
+export interface ParsedImport
 {
   statement: string; // Full import statement
   specifier: string; // Module specifier (path)
@@ -1038,7 +1038,7 @@ interface ParsedImport
   isSideEffect: boolean; // Is this just import "module"?
 }
 
-interface ImportBinding
+export interface ImportBinding
 {
   imported: string; // Name in the source module
   local: string; // Name in the importing module
@@ -1048,7 +1048,7 @@ interface ImportBinding
  * Parses import statements from module code.
  * Returns structured info about each import.
  */
-function parseImports(code: string): ParsedImport[]
+export function parseImports(code: string): ParsedImport[]
 {
   const imports: ParsedImport[] = [];
 
@@ -1252,7 +1252,7 @@ async function resolveImports(
 /**
  * Removes import statements from code, leaving just the executable code.
  */
-function stripImports(code: string): string
+export function stripImports(code: string): string
 {
   // Remove all import statements
   return code
@@ -1271,7 +1271,7 @@ function stripImports(code: string): string
  *
  * The approach: Track brace depth and only extract declarations at depth 0.
  */
-function extractDeclaredNames(code: string):
+export function extractDeclaredNames(code: string):
   {
     variables: string[];
     functions: string[];

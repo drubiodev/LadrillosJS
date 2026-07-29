@@ -31,11 +31,16 @@ import { parseComponent } from "../../src/core/component/extract";
 let outDir: string;
 let tag = 0;
 
+/** A real module the fixture below imports, to prove import bindings survive. */
+const depPath = join(process.cwd(), "tests", ".generated", "dep.mjs");
+const depUrl = pathToFileURL(depPath).href;
+
 beforeAll(() =>
 {
   // Inside the project root: Vite's resolver will not load modules from $TMPDIR.
   outDir = join(process.cwd(), "tests", ".generated");
   mkdirSync(outDir, { recursive: true });
+  writeFileSync(depPath, "export const TAX = 7;\n", "utf8");
 });
 
 afterAll(() =>
@@ -60,10 +65,13 @@ function whenReady(el: HTMLElement): Promise<void>
 const settle = (): Promise<void> =>
   new Promise((r) => setTimeout(r as () => void, 50));
 
+/** Module scripts only execute when the component has a source URL. */
+const COMPONENT_URL = "http://localhost/emit-fixture.html";
+
 async function mount(source: string, base: string): Promise<ShadowRoot>
 {
   const tagName = `${base}-${++tag}`;
-  const component = await parseComponent(source, tagName);
+  const component = await parseComponent(source, tagName, COMPONENT_URL);
   customElements.define(tagName, createWebComponentClass(component, true));
 
   const el = document.createElement(tagName);
@@ -77,6 +85,8 @@ interface Fixture
   name: string;
   source: string;
   exercise: (root: ShadowRoot) => Promise<string>;
+  /** Pinned so "both paths agree" can never mean "both paths are broken". */
+  expected: string;
 }
 
 const fixtures: Fixture[] = [
@@ -87,6 +97,7 @@ const fixtures: Fixture[] = [
       <script>let count = 21;</script>
     `,
     exercise: async (root) => root.getElementById("out")!.textContent!,
+    expected: "21 / 42",
   },
   {
     name: "handler mutating state",
@@ -102,6 +113,7 @@ const fixtures: Fixture[] = [
       await settle();
       return root.getElementById("out")!.textContent!;
     },
+    expected: "2",
   },
   {
     name: "conditional",
@@ -120,6 +132,7 @@ const fixtures: Fixture[] = [
       await settle();
       return `${before}|${root.getElementById("out")!.textContent!.trim()}`;
     },
+    expected: "yes|no",
   },
   {
     name: "keyed loop",
@@ -133,6 +146,67 @@ const fixtures: Fixture[] = [
     `,
     exercise: async (root) =>
       root.getElementById("list")!.textContent!.replace(/\s+/g, " ").trim(),
+    expected: "0:a1:b",
+  },
+  {
+    name: "module script",
+    source: `
+      <span id="out">{count} {label}</span>
+      <button id="inc" onclick="count++">+</button>
+      <script type="module">
+        let count = 5;
+        let label = "hi";
+      </script>
+    `,
+    exercise: async (root) =>
+    {
+      const before = root.getElementById("out")!.textContent!;
+      root.getElementById("inc")!.click();
+      await settle();
+      return `${before}|${root.getElementById("out")!.textContent!}`;
+    },
+    expected: "5 hi|6 hi",
+  },
+  {
+    name: "module script calling its own function",
+    source: `
+      <span id="out">{total}</span>
+      <button id="add" onclick="addItem()">add</button>
+      <script type="module">
+        let total = 0;
+        function addItem() { total += 2; }
+      </script>
+    `,
+    exercise: async (root) =>
+    {
+      root.getElementById("add")!.click();
+      root.getElementById("add")!.click();
+      await settle();
+      return root.getElementById("out")!.textContent!;
+    },
+    expected: "4",
+  },
+  {
+    name: "module and regular script together",
+    source: `
+      <span id="out">{a} {b}</span>
+      <script>let a = 1;</script>
+      <script type="module">let b = 2;</script>
+    `,
+    exercise: async (root) => root.getElementById("out")!.textContent!,
+    expected: "1 2",
+  },
+  {
+    name: "module script with a real import",
+    source: `
+      <span id="out">{price}</span>
+      <script type="module">
+        import { TAX } from "${depUrl}";
+        let price = 100 + TAX;
+      </script>
+    `,
+    exercise: async (root) => root.getElementById("out")!.textContent!,
+    expected: "107",
   },
 ];
 
@@ -172,7 +246,7 @@ describe("emitter", () =>
   {
     it(`emits static JS covering every request: ${fixture.name}`, async () =>
     {
-      const component = await parseComponent(fixture.source, "emit-src");
+      const component = await parseComponent(fixture.source, "emit-src", COMPONENT_URL);
       const emitted = emitComponent(component, { format: "table" });
 
       const file = join(outDir, `${fixture.name.replace(/\W+/g, "-")}.mjs`);
@@ -197,7 +271,7 @@ describe("emitter", () =>
 
     it(`renders identically from emitted artifacts: ${fixture.name}`, async () =>
     {
-      const component = await parseComponent(fixture.source, "emit-src2");
+      const component = await parseComponent(fixture.source, "emit-src2", COMPONENT_URL);
       const emitted = emitComponent(component, { format: "table" });
 
       const file = join(outDir, `${fixture.name.replace(/\W+/g, "-")}-run.mjs`);
@@ -208,6 +282,10 @@ describe("emitter", () =>
 
       const runtimeRoot = await mount(fixture.source, "rt");
       const expected = await fixture.exercise(runtimeRoot);
+
+      // Guards against the whole comparison being vacuous: if the runtime
+      // itself silently rendered nothing, both paths would "agree" on garbage.
+      expect(expected).toBe(fixture.expected);
 
       registerArtifacts(mod.default);
 
