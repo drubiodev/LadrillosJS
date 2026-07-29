@@ -11,19 +11,19 @@
  * @see src/core/js/precompiled.ts for the calling convention.
  */
 import
-  {
-    extractVariableNames,
-    extractFunctionNames,
-    extractFunctionDefinitions,
-    buildStateSetupBody,
-  } from "../core/js/scriptParser";
+{
+  extractVariableNames,
+  extractFunctionNames,
+  extractFunctionDefinitions,
+  buildStateSetupBody,
+} from "../core/js/scriptParser";
 import
-  {
-    stripImports,
-    stripExports,
-    extractDeclaredNames,
-    parseImports,
-  } from "../core/js/moduleExecutor";
+{
+  stripImports,
+  stripExports,
+  extractDeclaredNames,
+  parseImports,
+} from "../core/js/moduleExecutor";
 import { transformCodeToStateAccess } from "../utils/stateTransform";
 import { EVENT_ATTRIBUTE_SET } from "../utils/jsevents";
 import type { LadrillosComponent } from "../types";
