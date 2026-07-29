@@ -8,6 +8,7 @@ import { eventBusHelperNames, createEventBusHelpers } from "../events/eventBus";
 import { createReactiveArray } from "./reactivity";
 import { transformCodeToStateAccess } from "../../utils/stateTransform";
 import { importModule } from "../../utils/dynamicImport";
+import { loadExternalStyleText } from "../css/cssParser/cssParser";
 import { compileSetup } from "./compiler";
 import
 {
@@ -859,11 +860,7 @@ export async function loadExternalStyles(
           externalCssCache.set(style.href, cssText);
         }
 
-        const styleEl = document.createElement("style");
-        styleEl.textContent = cssText;
-        styleEl.setAttribute("data-external-href", style.href);
-        // Insert at the beginning so component styles can override if needed
-        root.insertBefore(styleEl, root.firstChild);
+        loadExternalStyleText(root as ShadowRoot, cssText, style.href);
       } catch (error)
       {
         console.error(

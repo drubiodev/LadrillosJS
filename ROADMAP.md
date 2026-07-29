@@ -585,6 +585,55 @@ not having; `replaceChildren` is not a sink at all, and is faster.
 
 ---
 
+## Phase 5 — `style-src 'unsafe-inline'` ✅ COMPLETE
+
+The plan here was a nonce option for injected `<style>` elements. Research
+turned up a better answer that needs no configuration at all.
+
+MDN's `style-src` violation list covers `<style>`, `<link>`, `@import`, `style`
+attributes and `cssText` — **constructed stylesheets are not on it**, and the
+same page notes that the CSSOM string-parsing methods are not blocked by any
+browser. `adoptedStyleSheets` is Baseline widely available (Chrome 73,
+Firefox 101, Safari 16.4).
+
+So [cssParser.ts](src/core/css/cssParser/cssParser.ts) now builds a
+`CSSStyleSheet` and adopts it into the shadow root — or the document, for
+light-DOM components — instead of appending `<style>`. No nonce, no hash, no
+`configure()` option, and one less thing for an embedder to wire up.
+
+### It is also faster
+
+Sheets are cached by CSS text, so every instance of a component adopts the
+*same* `CSSStyleSheet`. The browser parses that CSS once per component type
+instead of once per instance. Verified in Chrome: two instances,
+`adoptedStyleSheets[0] === adoptedStyleSheets[0]`, zero `<style>` elements.
+
+### Measured, not assumed
+
+Served the built `dist/` under
+`script-src 'self' 'unsafe-eval'; style-src 'self'` — no `'unsafe-inline'` —
+and loaded a component with a `<style>` block, a binding and a handler:
+
+- text renders (`hello 1`), click increments (`hello 2`)
+- `getComputedStyle(...).color` → `rgb(255, 0, 0)`
+- `querySelectorAll("style").length` → 0, `adoptedStyleSheets.length` → 1
+
+### Honest remainders
+
+- **`@import` is dropped by constructed stylesheets**, so CSS containing it
+  falls back to a `<style>` element and still needs `'unsafe-inline'`. Detected
+  with a substring check rather than silently losing the import.
+- **One spurious `style-src-elem` report per component type.** The `DOMParser`
+  pass that reads component source trips CSP on the `<style>` element inside
+  the parsed document, even though that document is never rendered and the
+  element is discarded right after its text is read. Nothing breaks; it is
+  report noise. Fixing it means not letting `<style>` reach the parser, and the
+  obvious string-level strip is wrong — `<style>` inside a `<template>` is
+  deliberately *not* extracted today (the `<monaco-editor>` sample carries
+  component sources that way), so stripping globally would break it.
+
+---
+
 ## Known limitations to document
 
 1. `$use()` / `registerComponent()` with a runtime-variable path can't be

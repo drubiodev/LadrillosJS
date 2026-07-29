@@ -14,7 +14,7 @@ policies:
 | Component code compiled | In the browser, at mount | At build time |
 | `script-src 'unsafe-eval'` | **Required** | Not required |
 | `.html` fetched at runtime | Yes | No |
-| `style-src 'unsafe-inline'` | Required | Required |
+| `style-src 'unsafe-inline'` | Not required | Not required |
 | `require-trusted-types-for 'script'` | Not supported | Supported |
 
 Pick your path: [the default policy](#the-policy-you-need), or
@@ -70,7 +70,7 @@ For a page using same-origin components, on the **default** build:
 Content-Security-Policy:
   default-src 'self';
   script-src 'self' 'unsafe-eval';
-  style-src 'self' 'unsafe-inline';
+  style-src 'self';
   connect-src 'self';
 ```
 
@@ -79,7 +79,6 @@ Why each piece is needed:
 | Directive | Reason | If you omit it |
 | --- | --- | --- |
 | `script-src 'unsafe-eval'` | Expressions, handlers, and scripts are compiled with `Function()` | Component renders raw `{count}`, handlers dead |
-| `style-src 'unsafe-inline'` | A component's `<style>` block is injected as a `<style>` element | Markup and JS work, all component styles dropped |
 | `connect-src 'self'` | Component `.html` files are fetched with `fetch()` | Component never loads at all (error `LJS505`) |
 
 Add every origin you load components from to `connect-src`, and the CDN origin
@@ -89,9 +88,43 @@ to `script-src` if you load the framework from a CDN:
 Content-Security-Policy:
   default-src 'self';
   script-src 'self' 'unsafe-eval' https://cdn.jsdelivr.net;
-  style-src 'self' 'unsafe-inline';
+  style-src 'self';
   connect-src 'self' https://cdn.jsdelivr.net;
 ```
+
+### Why styles need no `'unsafe-inline'`
+
+A component's `<style>` block is applied as a [constructed
+stylesheet](https://developer.mozilla.org/en-US/docs/Web/API/CSSStyleSheet/CSSStyleSheet)
+adopted into the shadow root (or the document, for light-DOM components), not
+as an injected `<style>` element. `style-src` governs `<style>`, `<link>`,
+`@import`, and `style` attributes — constructed stylesheets are none of those,
+so they are not subject to it.
+
+The one exception is CSS containing `@import`, which constructed stylesheets
+drop. Those components fall back to a real `<style>` element and do still need
+`'unsafe-inline'`. Prefer a `<link>` in the component, which is fetched
+normally and only needs its origin in `style-src`.
+
+### One harmless violation report remains
+
+Under `style-src 'self'` you will still see exactly one report per component
+*type*:
+
+```
+style-src-elem :: inline   (from DOMParser)
+```
+
+Registering a component parses its source with `DOMParser.parseFromString`, and
+a `<style>` element in that parsed document trips `style-src-elem` even though
+the document is never rendered and the element is discarded immediately after
+its text is read.
+
+Nothing breaks — measured in Chrome, the component renders, the styles apply,
+and reactivity works. It is report noise, not a block. It fires once per
+component type, not once per instance, because parsed sources are cached. If
+your CSP reporting endpoint needs to be clean, this is currently unavoidable
+without `'unsafe-inline'`.
 
 ### Components using `<script external>`
 
@@ -159,7 +192,7 @@ Content-Security-Policy:
   trusted-types ladrillosjs;
   default-src 'self';
   script-src 'self';
-  style-src 'self' 'unsafe-inline';
+  style-src 'self';
 ```
 
 Trusted Types only exists in secure contexts (HTTPS or localhost). In browsers
@@ -241,7 +274,7 @@ block, and module scripts. Results:
 | --- | --- |
 | `script-src 'self' 'unsafe-eval'` | No violations; `Count: 0 Double: 0`, click increments correctly |
 | `script-src 'self'` (no eval) | 4 × `script-src :: eval`; renders literal `{count} Double: {count * 2}` |
-| `style-src 'self'` (no inline) | 2 × `style-src-elem :: inline`; JS fine, color falls back to black |
+| `style-src 'self'` (no inline) | Styles apply (`rgb(255, 0, 0)`), 0 `<style>` elements, 1 adopted stylesheet, reactivity fine. 1 × `style-src-elem :: inline` report from `DOMParser` — see below |
 | `connect-src 'none'` | `connect-src` violation on the component URL; nothing renders |
 | `require-trusted-types-for 'script'` | Default build: `require-trusted-types-for :: trusted-types-sink :: eval`. CSP build with `trusted-types ladrillosjs`: no violations |
 | Inline `<script>`, inline `<script type="module">`, and module with `import` | `URL.createObjectURL` called **0 times** in all three — `blob:` unnecessary |
@@ -300,12 +333,11 @@ Then tighten the policy:
 Content-Security-Policy:
   default-src 'self';
   script-src 'self';
-  style-src 'self' 'unsafe-inline';
+  style-src 'self';
 ```
 
 `connect-src` no longer needs an entry for components — they are in the bundle.
-`style-src 'unsafe-inline'` is still required; see
-[what is still missing](#what-is-still-missing).
+No `'unsafe-eval'`, and no `'unsafe-inline'` for styles either.
 
 ### What the plugin will not precompile
 
@@ -370,11 +402,12 @@ the wrong reason.
 
 ### What is still missing
 
-- **`style-src 'unsafe-inline'` is still required, on both paths.** Component
-  `<style>` blocks are injected as `<style>` elements, which CSP treats as
-  inline styles, and there is no nonce option yet. A nonce- or hash-based
-  `style-src` will silently drop your component styles. This is a much smaller
-  exposure than `'unsafe-inline'` for scripts, but it is not nothing.
+- **`'unsafe-inline'` is still needed for CSS containing `@import`.** Constructed
+  stylesheets drop `@import`, so that CSS falls back to a `<style>` element.
+  Use a `<link>` instead and the exception goes away.
+- **One spurious `style-src-elem` report per component type**, from the
+  `DOMParser` pass that reads the component source. Harmless but noisy — see
+  [above](#one-harmless-violation-report-remains).
 - **Trusted Types work on the CSP build only.** The default build's
   `new Function` needs a default policy, which a library must not install for
   you — see above.

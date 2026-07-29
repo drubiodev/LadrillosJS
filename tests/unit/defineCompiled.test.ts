@@ -148,7 +148,9 @@ describe("defineCompiled", () =>
 
         const root = await mountFromDescriptor(component, tagName);
 
-        expect(root.innerHTML).toContain("color: red");
+        // Asserted through the cascade, not the mechanism: styles arrive as an
+        // adopted stylesheet, so there is no <style> element to inspect.
+        expect(getComputedStyle(root.querySelector("p")!).color).toBe("red");
     });
 
     it("refuses a descriptor whose tag name is not a valid custom element", () =>
