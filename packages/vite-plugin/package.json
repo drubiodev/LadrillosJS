@@ -19,7 +19,16 @@
     ],
     "scripts": {
         "build": "vite build",
-        "typecheck": "tsc --noEmit -p tsconfig.json"
+        "typecheck": "tsc --noEmit -p tsconfig.json",
+        "prepublishOnly": "npm run typecheck && npm run build"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/drubiodev/LadrillosJS.git",
+        "directory": "packages/vite-plugin"
+    },
+    "publishConfig": {
+        "access": "public"
     },
     "peerDependencies": {
         "ladrillosjs": "^2.0.0 || >=2.1.0-0 <3.0.0",
