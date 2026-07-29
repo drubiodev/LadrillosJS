@@ -1,18 +1,18 @@
 import { describe, it, expect, afterEach } from "vitest";
 import
-  {
-    setCodegenBackend,
-    type CodegenBackend,
-    type CompiledFn,
-  } from "../../src/core/js/compiler";
+{
+  setCodegenBackend,
+  type CodegenBackend,
+  type CompiledFn,
+} from "../../src/core/js/compiler";
 import { runtimeBackend } from "../../src/core/js/runtimeBackend";
 import
-  {
-    precompiledBackend,
-    registerArtifacts,
-    clearArtifacts,
-    type ArtifactTable,
-  } from "../../src/core/js/precompiled";
+{
+  precompiledBackend,
+  registerArtifacts,
+  clearArtifacts,
+  type ArtifactTable,
+} from "../../src/core/js/precompiled";
 import { createWebComponentClass } from "../../src/core/component/webcomponent";
 import { parseComponent } from "../../src/core/component/extract";
 

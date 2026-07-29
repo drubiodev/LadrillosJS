@@ -828,7 +828,7 @@ function renderLoop(
     : rowVarNames;
   let handlerSetup: LoopHandlerSetup | null = null;
   const getSetup = (): LoopHandlerSetup =>
-  (handlerSetup ??= createLoopHandlerSetup(state, scopedVarNames));
+    (handlerSetup ??= createLoopHandlerSetup(state, scopedVarNames));
 
   /** The loop variables visible to anything rendered inside one row. */
   const scopeForRow = (item: unknown, index: number): Record<string, unknown> =>
