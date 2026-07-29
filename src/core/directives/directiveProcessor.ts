@@ -761,7 +761,7 @@ function renderLoop(
     : [loop.itemName];
   const evalOne: BoundEvaluator =
     typeof (evaluateExpression as Partial<DirectiveEvaluator>).forContext ===
-    "function"
+      "function"
       ? (evaluateExpression as DirectiveEvaluator).forContext(
         updateContext,
         volatileKeys,
@@ -781,10 +781,10 @@ function renderLoop(
   // most once per pass, and only if a handler attribute is actually seen.
   let handlerSetup: LoopHandlerSetup | null = null;
   const getSetup = (): LoopHandlerSetup =>
-    (handlerSetup ??= createLoopHandlerSetup(
-      state,
-      loop.indexName ? [loop.itemName, loop.indexName] : [loop.itemName],
-    ));
+  (handlerSetup ??= createLoopHandlerSetup(
+    state,
+    loop.indexName ? [loop.itemName, loop.indexName] : [loop.itemName],
+  ));
 
   // Refresh the small per-row context captured by an element's handlers so a
   // reused row's handlers read the CURRENT item/index at event time, not the
@@ -2053,7 +2053,7 @@ function processElementBindings(
   const evalOne: BoundEvaluator =
     evalOnePass ??
     (typeof (evaluateExpression as Partial<DirectiveEvaluator>).forContext ===
-    "function"
+      "function"
       ? (evaluateExpression as DirectiveEvaluator).forContext(context)
       : (expr) => evaluateExpression(expr, context));
 

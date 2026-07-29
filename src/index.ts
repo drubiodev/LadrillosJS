@@ -1,36 +1,36 @@
 import
-  {
-    ladrillos,
-    ComponentConfig,
-    RegisterComponentsResult,
-  } from "./core/ladrillos";
+{
+  ladrillos,
+  ComponentConfig,
+  RegisterComponentsResult,
+} from "./core/ladrillos";
 import { setCodegenBackend } from "./core/js/compiler";
 import { runtimeBackend } from "./core/js/runtimeBackend";
 import
-  {
-    registerComponent,
-    registerComponents,
-    $use,
-  } from "./core/helpers/frameworkHelpers";
+{
+  registerComponent,
+  registerComponents,
+  $use,
+} from "./core/helpers/frameworkHelpers";
 import { $emit, $listen, EventCallback } from "./core/events/eventBus";
 import { configure, LadrillosConfig } from "./core/configure";
 import
-  {
-    ErrorCode,
-    LadrillosError,
-    type LadrillosErrorHandler,
-  } from "./utils/devWarnings";
+{
+  ErrorCode,
+  LadrillosError,
+  type LadrillosErrorHandler,
+} from "./utils/devWarnings";
 
 // Import lazy loading strategies
 import
-  {
-    LazyStrategy,
-    lazyOnIdle,
-    lazyOnVisible,
-    lazyOnMedia,
-    lazyOnInteraction,
-    lazyOnDelay,
-  } from "./core/lazy";
+{
+  LazyStrategy,
+  lazyOnIdle,
+  lazyOnVisible,
+  lazyOnMedia,
+  lazyOnInteraction,
+  lazyOnDelay,
+} from "./core/lazy";
 
 // This build compiles component code in the browser, so it needs the
 // `Function` constructor and therefore `script-src 'unsafe-eval'`.

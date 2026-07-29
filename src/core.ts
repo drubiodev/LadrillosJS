@@ -18,18 +18,18 @@ import { ComponentConfig, RegisterComponentsResult } from "./core/ladrillos";
 import { setCodegenBackend } from "./core/js/compiler";
 import { runtimeBackend } from "./core/js/runtimeBackend";
 import
-  {
-    registerComponent,
-    registerComponents,
-    $use,
-  } from "./core/helpers/frameworkHelpers";
+{
+  registerComponent,
+  registerComponents,
+  $use,
+} from "./core/helpers/frameworkHelpers";
 import { configure, LadrillosConfig } from "./core/configure";
 import
-  {
-    ErrorCode,
-    LadrillosError,
-    type LadrillosErrorHandler,
-  } from "./utils/devWarnings";
+{
+  ErrorCode,
+  LadrillosError,
+  type LadrillosErrorHandler,
+} from "./utils/devWarnings";
 
 // This build compiles component code in the browser, so it needs the
 // `Function` constructor and therefore `script-src 'unsafe-eval'`.

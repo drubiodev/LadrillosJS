@@ -40,7 +40,8 @@ export type CompiledFn = (...args: any[]) => any;
  * Callers cache the results, keyed by source text. A backend does not need to
  * memoize.
  */
-export interface CodegenBackend {
+export interface CodegenBackend
+{
   /** Identifies the backend in diagnostics. */
   readonly name: string;
 
@@ -91,21 +92,26 @@ export interface CodegenBackend {
  */
 const uninstalledBackend: CodegenBackend = {
   name: "uninstalled",
-  compileEvaluator: () => {
+  compileEvaluator: () =>
+  {
     throw new Error(noBackend());
   },
-  compileHandler: () => {
+  compileHandler: () =>
+  {
     throw new Error(noBackend());
   },
-  compileSetup: () => {
+  compileSetup: () =>
+  {
     throw new Error(noBackend());
   },
 };
 
-function noBackend(): string {
+function noBackend(): string
+{
   // The guidance is worth ~250 bytes of the CDN bundle and is only actionable
   // while developing, so production ships the short form.
-  if (typeof __DEV__ !== "undefined" && __DEV__) {
+  if (typeof __DEV__ !== "undefined" && __DEV__)
+  {
     return (
       "[LadrillosJS] No codegen backend installed. Import the framework from " +
       "'ladrillosjs', 'ladrillosjs/core' or 'ladrillosjs/csp' rather than " +
@@ -127,25 +133,29 @@ const invalidators = new Set<() => void>();
  * Compiled functions are memoised across components, so without this a swap
  * would keep serving functions built by the previous backend.
  */
-export function onBackendChange(invalidate: () => void): void {
+export function onBackendChange(invalidate: () => void): void
+{
   invalidators.add(invalidate);
 }
 
 /** Replaces the active backend. Used by the precompiled/CSP build. */
-export function setCodegenBackend(backend: CodegenBackend): void {
+export function setCodegenBackend(backend: CodegenBackend): void
+{
   if (backend === activeBackend) return;
   activeBackend = backend;
   for (const invalidate of invalidators) invalidate();
 }
 
-export function getCodegenBackend(): CodegenBackend {
+export function getCodegenBackend(): CodegenBackend
+{
   return activeBackend;
 }
 
 export function compileEvaluator(
   params: readonly string[],
   expression: string
-): CompiledFn {
+): CompiledFn
+{
   return activeBackend.compileEvaluator(params, expression);
 }
 
@@ -154,7 +164,8 @@ export function compileHandler(
   body: string,
   isAsync = false,
   key: string = body
-): CompiledFn {
+): CompiledFn
+{
   return activeBackend.compileHandler(params, body, isAsync, key);
 }
 
@@ -162,6 +173,7 @@ export function compileSetup(
   params: readonly string[],
   body: string,
   key: string = body
-): CompiledFn {
+): CompiledFn
+{
   return activeBackend.compileSetup(params, body, key);
 }

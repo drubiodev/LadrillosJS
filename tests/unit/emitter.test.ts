@@ -3,18 +3,18 @@ import { mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 import { join } from "node:path";
 import
-  {
-    setCodegenBackend,
-    type CodegenBackend,
-  } from "../../src/core/js/compiler";
+{
+  setCodegenBackend,
+  type CodegenBackend,
+} from "../../src/core/js/compiler";
 import { runtimeBackend } from "../../src/core/js/runtimeBackend";
 import
-  {
-    precompiledBackend,
-    registerArtifacts,
-    clearArtifacts,
-    type ArtifactTable,
-  } from "../../src/core/js/precompiled";
+{
+  precompiledBackend,
+  registerArtifacts,
+  clearArtifacts,
+  type ArtifactTable,
+} from "../../src/core/js/precompiled";
 import { emitComponent } from "../../src/compiler/emit";
 import { createWebComponentClass } from "../../src/core/component/webcomponent";
 import { parseComponent } from "../../src/core/component/extract";

@@ -28,18 +28,21 @@ import type { CodegenBackend, CompiledFn } from "./compiler";
  * does not supply arrives as `undefined`, which matches how the runtime
  * shadows globals.
  */
-export interface EvaluatorArtifact {
+export interface EvaluatorArtifact
+{
   deps: readonly string[];
   fn: CompiledFn;
 }
 
 /** A precompiled event handler or script body. Same convention as above. */
-export interface FunctionArtifact {
+export interface FunctionArtifact
+{
   deps: readonly string[];
   fn: CompiledFn;
 }
 
-export interface ArtifactTable {
+export interface ArtifactTable
+{
   evaluators?: Record<string, EvaluatorArtifact>;
   handlers?: Record<string, FunctionArtifact>;
   setups?: Record<string, FunctionArtifact>;
@@ -50,25 +53,33 @@ const handlers = new Map<string, FunctionArtifact>();
 const setups = new Map<string, FunctionArtifact>();
 
 /** Registers artifacts emitted for one component. */
-export function registerArtifacts(table: ArtifactTable): void {
-  if (table.evaluators) {
-    for (const [key, artifact] of Object.entries(table.evaluators)) {
+export function registerArtifacts(table: ArtifactTable): void
+{
+  if (table.evaluators)
+  {
+    for (const [key, artifact] of Object.entries(table.evaluators))
+    {
       evaluators.set(key, artifact);
     }
   }
-  if (table.handlers) {
-    for (const [key, artifact] of Object.entries(table.handlers)) {
+  if (table.handlers)
+  {
+    for (const [key, artifact] of Object.entries(table.handlers))
+    {
       handlers.set(key, artifact);
     }
   }
-  if (table.setups) {
-    for (const [key, artifact] of Object.entries(table.setups)) {
+  if (table.setups)
+  {
+    for (const [key, artifact] of Object.entries(table.setups))
+    {
       setups.set(key, artifact);
     }
   }
 }
 
-export function clearArtifacts(): void {
+export function clearArtifacts(): void
+{
   evaluators.clear();
   handlers.clear();
   setups.clear();
@@ -77,19 +88,22 @@ export function clearArtifacts(): void {
 export function hasArtifact(
   kind: "evaluator" | "handler" | "setup",
   key: string
-): boolean {
+): boolean
+{
   const table =
     kind === "evaluator" ? evaluators : kind === "handler" ? handlers : setups;
   return table.has(key);
 }
 
-export class MissingArtifactError extends Error {
-  constructor(kind: string, key: string) {
+export class MissingArtifactError extends Error
+{
+  constructor(kind: string, key: string)
+  {
     super(
       `[LadrillosJS] No precompiled ${kind} for ${JSON.stringify(key)}. ` +
-        `This build cannot compile at runtime. Either the component was not ` +
-        `processed by @ladrillosjs/compiler, or it is loaded from a path the ` +
-        `compiler could not resolve statically.`
+      `This build cannot compile at runtime. Either the component was not ` +
+      `processed by @ladrillosjs/compiler, or it is loaded from a path the ` +
+      `compiler could not resolve statically.`
     );
     this.name = "MissingArtifactError";
   }
@@ -101,43 +115,52 @@ export class MissingArtifactError extends Error {
  * Specialised for the common small arities so the hot path performs indexed
  * reads off `arguments` with no rest-parameter array and no scope object.
  */
-function bind(artifact: FunctionArtifact, params: readonly string[]): CompiledFn {
+function bind(artifact: FunctionArtifact, params: readonly string[]): CompiledFn
+{
   const { deps, fn } = artifact;
   const idx: number[] = [];
-  for (let i = 0; i < deps.length; i++) {
+  for (let i = 0; i < deps.length; i++)
+  {
     idx.push(params.indexOf(deps[i]));
   }
 
   const read = (args: IArguments, at: number): unknown =>
     at < 0 ? undefined : args[at];
 
-  switch (idx.length) {
+  switch (idx.length)
+  {
     case 0:
-      return function () {
+      return function ()
+      {
         return fn();
       };
     case 1: {
       const [a] = idx;
-      return function () {
+      return function ()
+      {
         return fn(read(arguments, a));
       };
     }
     case 2: {
       const [a, b] = idx;
-      return function () {
+      return function ()
+      {
         return fn(read(arguments, a), read(arguments, b));
       };
     }
     case 3: {
       const [a, b, c] = idx;
-      return function () {
+      return function ()
+      {
         return fn(read(arguments, a), read(arguments, b), read(arguments, c));
       };
     }
     default:
-      return function () {
+      return function ()
+      {
         const values = new Array(idx.length);
-        for (let i = 0; i < idx.length; i++) {
+        for (let i = 0; i < idx.length; i++)
+        {
           values[i] = read(arguments, idx[i]);
         }
         return fn.apply(null, values);
@@ -148,19 +171,22 @@ function bind(artifact: FunctionArtifact, params: readonly string[]): CompiledFn
 export const precompiledBackend: CodegenBackend = {
   name: "precompiled",
 
-  compileEvaluator(params, expression) {
+  compileEvaluator(params, expression)
+  {
     const artifact = evaluators.get(expression);
     if (!artifact) throw new MissingArtifactError("evaluator", expression);
     return bind(artifact, params);
   },
 
-  compileHandler(params, _body, _isAsync, key) {
+  compileHandler(params, _body, _isAsync, key)
+  {
     const artifact = handlers.get(key);
     if (!artifact) throw new MissingArtifactError("handler", key);
     return bind(artifact, params);
   },
 
-  compileSetup(params, _body, key) {
+  compileSetup(params, _body, key)
+  {
     const artifact = setups.get(key);
     if (!artifact) throw new MissingArtifactError("setup", key);
     return bind(artifact, params);

@@ -343,9 +343,47 @@ compiled artifact. **Zero source changes for existing users** — that's what
 makes this satisfy "doesn't break how it currently works." Dev mode keeps
 runtime compilation for fast HMR.
 
-Bonus: precompiling the binding descriptors also eliminates the template scan on
-every mount, so the CSP build should be both *smaller and faster to boot* than
-the CDN build.
+### Correction: the CSP build is not smaller *yet*
+
+An earlier draft of this section claimed the CSP build "should be both smaller
+and faster to boot." Measured, that was wrong — it was **larger**. The
+precompiled backend replaced the *codegen* step but not the *pipeline*: the
+entry still fetched the .html file, ran it through `DOMParser`, and scanned the
+template for bindings on every load.
+
+`defineCompiled` closes the first half of that gap. The compiler now emits the
+parsed component — template, scripts, styles, bindings — as data, and
+`defineCompiled(component)` registers it with no fetch and no parse.
+
+Initial download, following **static** imports only (what a browser must have
+before the entry runs):
+
+| Entry | Before | After | Change |
+| --- | --- | --- | --- |
+| `ladrillosjs` | 28.3 KB gz | **27.3 KB gz** | −1.0 KB |
+| `ladrillosjs/core` | 28.2 KB gz | **27.2 KB gz** | −1.0 KB |
+| `ladrillosjs/csp` | 28.7 KB gz | **27.7 KB gz** | −1.0 KB |
+
+The HTML parser moved into a 4.2 KB chunk loaded only when something actually
+calls `registerComponent`. That required making `parseComponent` a dynamic
+import in [ladrillos.ts](src/core/ladrillos.ts) and
+[lazyLoader.ts](src/core/lazy/lazyLoader.ts) — safe because all three call sites
+were already `async`, and the CDN IIFE build simply inlines it (+192 bytes).
+
+It also required moving `createRefsProxy` into
+[refsProxy.ts](src/core/helpers/refsProxy.ts). `webcomponent.ts` imported it from
+`frameworkHelpers`, which instantiates the framework singleton at module scope —
+so mounting any component pinned the whole registration path.
+
+**`ladrillosjs/csp` is still ~0.4 KB gz larger than `ladrillosjs`**, because the
+artifact table costs more than `runtimeBackend`'s 307 bytes. It gets smaller
+than the default build only once binding descriptors are precompiled too, which
+would let the template scanner drop out. That is not scheduled.
+
+**Why the parser cannot simply be dropped from the CSP entry:** component
+scripts may call `registerComponent`/`$use` to register children, so
+`scriptParser` imports `frameworkHelpers` by design. The coupling is semantic,
+not accidental — which is why the fix is on-demand loading rather than removal.
 
 ### How the guarantee is made structural
 
@@ -385,6 +423,9 @@ transitive graph do not.
 - [x] `scripts/verify-no-eval.js`, wired into `build:all` and `prepublishOnly`
 - [x] Test that each entry installs the backend it should
       ([tests/unit/entrypoints.test.ts](tests/unit/entrypoints.test.ts))
+- [x] Emit the parsed component descriptor (template, scripts, styles)
+- [x] `defineCompiled` — register without fetch or parse
+      ([tests/unit/defineCompiled.test.ts](tests/unit/defineCompiled.test.ts))
 - [ ] Vite plugin: prod rewrite, dev passthrough
 - [ ] Document the eval-free policy in [docs/22-csp-and-security.md](docs/22-csp-and-security.md)
 

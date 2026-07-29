@@ -28,7 +28,7 @@ import
   setupTwoWayBindings,
   DirectiveContext,
 } from "../directives/directiveProcessor";
-import { createRefsProxy } from "../helpers/frameworkHelpers";
+import { createRefsProxy } from "../helpers/refsProxy";
 import { setComponentContext, warn } from "../../utils/devWarnings";
 import
 {

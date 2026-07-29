@@ -34,6 +34,10 @@ import
     $use,
   } from "./core/helpers/frameworkHelpers";
 import { configure, LadrillosConfig } from "./core/configure";
+import {
+  defineCompiled,
+  type DefineCompiledOptions,
+} from "./core/component/defineCompiled";
 import
   {
     ErrorCode,
@@ -49,6 +53,7 @@ export type {
   RegisterComponentsResult,
   LadrillosConfig,
   LadrillosErrorHandler,
+  DefineCompiledOptions,
 };
 export type { LadrillosComponent } from "./types";
 export type {
@@ -69,11 +74,12 @@ export {
 } from "./core/js/precompiled";
 
 // Public exports
-export { registerComponent, registerComponents, $use, configure };
+export { registerComponent, registerComponents, $use, configure, defineCompiled };
 
 export default {
   registerComponent,
   registerComponents,
+  defineCompiled,
   $use,
   configure,
 };

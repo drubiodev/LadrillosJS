@@ -1,21 +1,21 @@
 import { ScriptElement, ExternalScriptElement } from "../../types";
 import
-  {
-    frameworkHelperNames,
-    createFrameworkHelpers,
-  } from "../helpers/frameworkHelpers";
+{
+  frameworkHelperNames,
+  createFrameworkHelpers,
+} from "../helpers/frameworkHelpers";
 import { eventBusHelperNames, createEventBusHelpers } from "../events/eventBus";
 import { createReactiveArray } from "./reactivity";
 import { transformCodeToStateAccess } from "../../utils/stateTransform";
 import { importModule } from "../../utils/dynamicImport";
 import { compileSetup } from "./compiler";
 import
-  {
-    error,
-    scriptError,
-    getComponentContext,
-    ErrorCode,
-  } from "../../utils/devWarnings";
+{
+  error,
+  scriptError,
+  getComponentContext,
+  ErrorCode,
+} from "../../utils/devWarnings";
 
 /**
  * Executes module scripts at runtime with REACTIVITY support.
