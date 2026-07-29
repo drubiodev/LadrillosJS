@@ -19,6 +19,7 @@ import
 import
   {
     stripImports,
+    stripExports,
     extractDeclaredNames,
     parseImports,
   } from "../core/js/moduleExecutor";
@@ -284,7 +285,7 @@ export function emitComponent(
   const moduleFuncs: string[] = [];
   for (const script of moduleScripts)
   {
-    const declared = extractDeclaredNames(stripImports(script.content));
+    const declared = extractDeclaredNames(stripExports(stripImports(script.content)));
     moduleVars.push(...declared.variables);
     moduleFuncs.push(...declared.functions);
   }
@@ -367,7 +368,7 @@ export function emitComponent(
     const content = script.content;
     if (!content.trim()) continue;
 
-    const executable = stripImports(content);
+    const executable = stripExports(stripImports(content));
     const { variables, functions } = extractDeclaredNames(executable);
     const transformed = transformCodeToStateAccess(executable, variables);
     const returnStatement = functions.length

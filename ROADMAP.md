@@ -525,12 +525,27 @@ used when registering a component. Under
 
 ## Unrelated bugs found along the way
 
-- [ ] **External module `src` breaks.** A component with
-      `<script type="module" src="./x.js">` (no `external` attribute) has its
-      fetched content run through the reactive state transform, producing
-      `export __state__.label ??= …` → `SyntaxError: Unexpected token 'export'`.
-      The inlining path in [extract.ts](src/core/component/extract.ts#L372)
-      needs to strip `export` keywords the way the inline module path does.
+- [x] **Module scripts with `export` break — *fixed*.** A component whose module
+      script uses `export` — either inline, or fetched from
+      `<script type="module" src="./x.js">` without the `external` attribute —
+      died with `SyntaxError: Unexpected token 'export'`.
+
+      The diagnosis in the original note was wrong. `parseComponent` preserves
+      `type: "module"` correctly and the state transform is not the culprit; the
+      real cause is one layer down. A module script is inlined into a function
+      body rather than evaluated as a module, and
+      [executeModuleScriptWithReactivity](src/core/js/moduleExecutor.ts) stripped
+      `import` but not `export` before handing the source to `compileSetup`.
+
+      Fixed with a `stripExports` beside `stripImports`, applied on both sides of
+      the seam — the runtime executor and
+      [the emitter](src/compiler/emit.ts) — so the two paths cannot drift.
+      Nothing is lost by dropping the keyword: every top-level declaration
+      already becomes reactive state, which is what the export was signalling.
+
+      Covered by the `module script with export statements` fixture in
+      `emitter.test.ts`, which mounts through both paths and pins the output.
+      Mutation-tested: restoring the old call fails the artifact-path assertion.
 
 ---
 

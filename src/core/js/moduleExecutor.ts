@@ -1264,6 +1264,30 @@ export function stripImports(code: string): string
 }
 
 /**
+ * Removes export syntax, leaving the declarations behind.
+ *
+ * A component's module script is inlined into a function body rather than
+ * evaluated as a module, so `export` is a syntax error there. Nothing is lost:
+ * every top-level declaration already becomes reactive state, which is what the
+ * export was signalling.
+ */
+export function stripExports(code: string): string
+{
+  return code
+    // `export { a, b as c };` and `export { x } from "./m";` — the names are
+    // already in scope, and re-exports have no meaning inside a component.
+    .replace(/export\s*\{[^}]*\}\s*(?:from\s*['"][^'"]+['"])?\s*;?/g, "")
+    // `export * from "./m";` / `export * as ns from "./m";`
+    .replace(/export\s+\*(?:\s+as\s+\w+)?\s+from\s*['"][^'"]+['"]\s*;?/g, "")
+    // `export default function foo() {}` keeps the declaration; a bare
+    // `export default expr;` becomes an expression statement.
+    .replace(/export\s+default\s+/g, "")
+    // `export const x = 1;` -> `const x = 1;`
+    .replace(/export\s+(?=(?:const|let|var|function|class|async)\b)/g, "")
+    .trim();
+}
+
+/**
  * Extracts ONLY top-level variable and function names from code.
  *
  * This is critical for reactive state - we must NOT extract variables
@@ -1421,7 +1445,7 @@ export async function executeModuleScriptWithReactivity(
   }
 
   // 2. Strip import statements from the code
-  const executableCode = stripImports(code);
+  const executableCode = stripExports(stripImports(code));
 
   // 3. Extract names of declared variables/functions
   const { variables, functions } = extractDeclaredNames(executableCode);

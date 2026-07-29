@@ -208,6 +208,32 @@ const fixtures: Fixture[] = [
     exercise: async (root) => root.getElementById("out")!.textContent!,
     expected: "107",
   },
+  {
+    name: "module script with export statements",
+    // A module script is inlined into a function body rather than evaluated as
+    // a module, so `export` has to be stripped by both paths or it is a syntax
+    // error. Exporting is redundant here -- top-level declarations already
+    // become reactive state -- but it is what people write in a .js file they
+    // later point a <script type="module" src> at.
+    source: `
+      <span id="out">{price} {label}</span>
+      <button id="up" onclick="bump()">+</button>
+      <script type="module">
+        export const label = "external";
+        export let price = 10;
+        export function bump() { price += 5; }
+        export { label as alias };
+      </script>
+    `,
+    exercise: async (root) =>
+    {
+      const before = root.getElementById("out")!.textContent!;
+      root.getElementById("up")!.click();
+      await settle();
+      return `${before}|${root.getElementById("out")!.textContent!}`;
+    },
+    expected: "10 external|15 external",
+  },
 ];
 
 /** Records every artifact the real runtime asks for while rendering. */
