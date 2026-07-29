@@ -1,9 +1,10 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { loadScripts } from "../../src/core/js/scriptParser";
-import {
-    scanDirectives,
-    renderLoops,
-} from "../../src/core/directives/directiveProcessor";
+import
+    {
+        scanDirectives,
+        renderLoops,
+    } from "../../src/core/directives/directiveProcessor";
 
 /**
  * Regression tests for `$bind` inside a `<for>` row.
@@ -18,25 +19,31 @@ import {
  * the row's item, or a component state variable. The row alias itself has
  * nowhere to write back to and is rejected instead of corrupting the item.
  */
-describe("$bind inside <for>", () => {
+describe("$bind inside <for>", () =>
+{
     let host: HTMLDivElement;
 
-    beforeEach(() => {
+    beforeEach(() =>
+    {
         host = document.createElement("div");
         document.body.appendChild(host);
     });
 
-    const evalFn = (expr: string, c: Record<string, unknown>) => {
-        try {
+    const evalFn = (expr: string, c: Record<string, unknown>) =>
+    {
+        try
+        {
             return new Function(...Object.keys(c), `return (${expr});`)(
                 ...Object.values(c),
             );
-        } catch {
+        } catch
+        {
             return undefined;
         }
     };
 
-    const mount = async (markup: string, script: string) => {
+    const mount = async (markup: string, script: string) =>
+    {
         host.innerHTML = markup;
         const changes: number[] = [];
         const state = await loadScripts(
@@ -75,14 +82,16 @@ describe("$bind inside <for>", () => {
     const texts = () =>
         Array.from(host.querySelectorAll<HTMLInputElement>("input[type=text]"));
 
-    it("gives each row's inputs their initial value from the item", async () => {
+    it("gives each row's inputs their initial value from the item", async () =>
+    {
         await mount(ROWS, TODOS);
 
         expect(boxes().map((b) => b.checked)).toEqual([false, true]);
         expect(texts().map((t) => t.value)).toEqual(["alpha", "beta"]);
     });
 
-    it("writes a checkbox change back to that row's item", async () => {
+    it("writes a checkbox change back to that row's item", async () =>
+    {
         const { state } = await mount(ROWS, TODOS);
 
         boxes()[0].click();
@@ -91,7 +100,8 @@ describe("$bind inside <for>", () => {
         expect((state as any).todos[1].done).toBe(true);
     });
 
-    it("writes a text edit back to that row's item", async () => {
+    it("writes a text edit back to that row's item", async () =>
+    {
         const { state } = await mount(ROWS, TODOS);
 
         const input = texts()[1];
@@ -102,7 +112,8 @@ describe("$bind inside <for>", () => {
         expect((state as any).todos[0].text).toBe("alpha");
     });
 
-    it("announces the owning state key so dependents re-render", async () => {
+    it("announces the owning state key so dependents re-render", async () =>
+    {
         const { state, changes } = await mount(ROWS, TODOS);
         const before = changes.length;
 
@@ -112,7 +123,8 @@ describe("$bind inside <for>", () => {
         expect(changes.length).toBeGreaterThan(before);
     });
 
-    it("pushes a programmatic item change into the input on re-render", async () => {
+    it("pushes a programmatic item change into the input on re-render", async () =>
+    {
         const { state, render } = await mount(ROWS, TODOS);
 
         (state as any).todos[0].done = true;
@@ -123,7 +135,8 @@ describe("$bind inside <for>", () => {
         expect(texts().map((t) => t.value)).toEqual(["alpha", "BETA"]);
     });
 
-    it("binds rows rendered through the generic walk (row has an <if>)", async () => {
+    it("binds rows rendered through the generic walk (row has an <if>)", async () =>
+    {
         const { state } = await mount(
             `
             <for each="todo in todos" key="todo.id">
@@ -144,7 +157,8 @@ describe("$bind inside <for>", () => {
         expect((state as any).todos[1].done).toBe(true);
     });
 
-    it("writes to the item a reused row currently holds, not the original", async () => {
+    it("writes to the item a reused row currently holds, not the original", async () =>
+    {
         const { state, render } = await mount(ROWS, TODOS);
         const firstRowBox = boxes()[0];
 
@@ -166,10 +180,12 @@ describe("$bind inside <for>", () => {
         expect((state as any).todos[1].done).toBe(false);
     });
 
-    it("rejects binding the row alias instead of corrupting the item", async () => {
-        const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    it("rejects binding the row alias instead of corrupting the item", async () =>
+    {
+        const spy = vi.spyOn(console, "error").mockImplementation(() => { });
 
-        try {
+        try
+        {
             const { state } = await mount(
                 `
                 <for each="todo in todos" key="todo.id">
@@ -191,15 +207,18 @@ describe("$bind inside <for>", () => {
             expect((state as any).todos[0].text).toBe("alpha");
             expect(spy).toHaveBeenCalled();
             expect(String(spy.mock.calls[0].join(" "))).toContain("$bind");
-        } finally {
+        } finally
+        {
             spy.mockRestore();
         }
     });
 
-    it("rejects a row alias over primitives too", async () => {
-        const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    it("rejects a row alias over primitives too", async () =>
+    {
+        const spy = vi.spyOn(console, "error").mockImplementation(() => { });
 
-        try {
+        try
+        {
             const { state } = await mount(
                 `
                 <for each="name in names">
@@ -215,12 +234,14 @@ describe("$bind inside <for>", () => {
 
             expect((state as any).names).toEqual(["ada", "grace"]);
             expect(spy).toHaveBeenCalled();
-        } finally {
+        } finally
+        {
             spy.mockRestore();
         }
     });
 
-    it("still binds a component state variable used inside a row", async () => {
+    it("still binds a component state variable used inside a row", async () =>
+    {
         const { state } = await mount(
             `
             <for each="todo in todos" key="todo.id">

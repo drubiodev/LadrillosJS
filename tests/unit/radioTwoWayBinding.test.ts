@@ -1,9 +1,10 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { loadScripts } from "../../src/core/js/scriptParser";
-import {
-    scanDirectives,
-    setupTwoWayBindings,
-} from "../../src/core/directives/directiveProcessor";
+import
+    {
+        scanDirectives,
+        setupTwoWayBindings,
+    } from "../../src/core/directives/directiveProcessor";
 
 /**
  * Regression tests for `$bind` on radio inputs — a documented feature
@@ -19,25 +20,31 @@ import {
  * A radio group binds ONE value across SEVERAL inputs: the bound value
  * selects a member, it does not overwrite each member's value.
  */
-describe("$bind on radio inputs", () => {
+describe("$bind on radio inputs", () =>
+{
     let host: HTMLDivElement;
 
-    beforeEach(() => {
+    beforeEach(() =>
+    {
         host = document.createElement("div");
         document.body.appendChild(host);
     });
 
-    const evalFn = (expr: string, c: Record<string, unknown>) => {
-        try {
+    const evalFn = (expr: string, c: Record<string, unknown>) =>
+    {
+        try
+        {
             return new Function(...Object.keys(c), `return (${expr});`)(
                 ...Object.values(c),
             );
-        } catch {
+        } catch
+        {
             return undefined;
         }
     };
 
-    const mount = async (initial: string) => {
+    const mount = async (initial: string) =>
+    {
         host.innerHTML = `
             <label><input type="radio" name="size" value="small" $bind="size" /></label>
             <label><input type="radio" name="size" value="medium" $bind="size" /></label>
@@ -67,17 +74,20 @@ describe("$bind on radio inputs", () => {
         };
     };
 
-    it("checks the radio matching the initial state value", async () => {
+    it("checks the radio matching the initial state value", async () =>
+    {
         const { radios } = await mount("medium");
         expect(radios.map((r) => r.checked)).toEqual([false, true, false]);
     });
 
-    it("never rewrites the individual radio values", async () => {
+    it("never rewrites the individual radio values", async () =>
+    {
         const { radios } = await mount("medium");
         expect(radios.map((r) => r.value)).toEqual(["small", "medium", "large"]);
     });
 
-    it("writes the picked value back to state", async () => {
+    it("writes the picked value back to state", async () =>
+    {
         const { state, radios } = await mount("medium");
 
         radios[2].checked = true;

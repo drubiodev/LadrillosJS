@@ -12,9 +12,9 @@
 import { configure, registerComponents } from "/dist/index.js";
 
 configure({
-  onError: (error) => console.error("[quote-widget]", error.message),
+    onError: (error) => console.error("[quote-widget]", error.message),
 });
 
 await registerComponents({
-  "quote-builder": "./components/quote-builder.html",
+    "quote-builder": "./components/quote-builder.html",
 });

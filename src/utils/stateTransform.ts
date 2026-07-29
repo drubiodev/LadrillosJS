@@ -53,7 +53,8 @@ export function transformCodeToStateAccess(
   code: string,
   variables: string[],
   options?: { rewriteDeclarations?: boolean },
-): string {
+): string
+{
   if (variables.length === 0) return code;
   const rewriteDeclarations = options?.rewriteDeclarations !== false;
 
@@ -63,18 +64,21 @@ export function transformCodeToStateAccess(
   // inside ${...} are recursively transformed so identifier references
   // (e.g. `${count}`) still get rewritten.
   const strings: string[] = [];
-  const protect = (literal: string): string => {
+  const protect = (literal: string): string =>
+  {
     strings.push(literal);
     return `__STRING_PLACEHOLDER_${strings.length - 1}__`;
   };
 
   let protected_code = "";
   let i = 0;
-  while (i < code.length) {
+  while (i < code.length)
+  {
     const ch = code[i];
 
     // Single-line comment
-    if (ch === "/" && code[i + 1] === "/") {
+    if (ch === "/" && code[i + 1] === "/")
+    {
       const nl = code.indexOf("\n", i);
       const end = nl === -1 ? code.length : nl;
       protected_code += code.slice(i, end);
@@ -82,7 +86,8 @@ export function transformCodeToStateAccess(
       continue;
     }
     // Block comment
-    if (ch === "/" && code[i + 1] === "*") {
+    if (ch === "/" && code[i + 1] === "*")
+    {
       const close = code.indexOf("*/", i + 2);
       const end = close === -1 ? code.length : close + 2;
       protected_code += code.slice(i, end);
@@ -91,9 +96,11 @@ export function transformCodeToStateAccess(
     }
 
     // Single/double quote: protect whole literal
-    if (ch === '"' || ch === "'") {
+    if (ch === '"' || ch === "'")
+    {
       let j = i + 1;
-      while (j < code.length && code[j] !== ch) {
+      while (j < code.length && code[j] !== ch)
+      {
         if (code[j] === "\\") j += 2;
         else j++;
       }
@@ -103,17 +110,22 @@ export function transformCodeToStateAccess(
     }
 
     // Template literal: protect text segments, recurse into ${...}
-    if (ch === "`") {
+    if (ch === "`")
+    {
       protected_code += "`";
       i++;
       let textStart = i;
-      while (i < code.length && code[i] !== "`") {
-        if (code[i] === "\\") {
+      while (i < code.length && code[i] !== "`")
+      {
+        if (code[i] === "\\")
+        {
           i += 2;
           continue;
         }
-        if (code[i] === "$" && code[i + 1] === "{") {
-          if (i > textStart) {
+        if (code[i] === "$" && code[i + 1] === "{")
+        {
+          if (i > textStart)
+          {
             protected_code += protect(code.slice(textStart, i));
           }
           // Copy ${...} with brace nesting; nested strings/templates handled
@@ -122,36 +134,45 @@ export function transformCodeToStateAccess(
           i += 2;
           const exprStart = i;
           let depth = 1;
-          while (i < code.length && depth > 0) {
+          while (i < code.length && depth > 0)
+          {
             const c = code[i];
-            if (c === '"' || c === "'") {
+            if (c === '"' || c === "'")
+            {
               i++;
-              while (i < code.length && code[i] !== c) {
+              while (i < code.length && code[i] !== c)
+              {
                 if (code[i] === "\\") i += 2;
                 else i++;
               }
               i++;
               continue;
             }
-            if (c === "`") {
+            if (c === "`")
+            {
               // skip nested template literal
               i++;
               let nestedDepth = 0;
-              while (i < code.length) {
-                if (code[i] === "\\") {
+              while (i < code.length)
+              {
+                if (code[i] === "\\")
+                {
                   i += 2;
                   continue;
                 }
-                if (code[i] === "`" && nestedDepth === 0) {
+                if (code[i] === "`" && nestedDepth === 0)
+                {
                   i++;
                   break;
                 }
-                if (code[i] === "$" && code[i + 1] === "{") {
+                if (code[i] === "$" && code[i + 1] === "{")
+                {
                   nestedDepth++;
                   i += 2;
                   continue;
                 }
-                if (code[i] === "}" && nestedDepth > 0) {
+                if (code[i] === "}" && nestedDepth > 0)
+                {
                   nestedDepth--;
                 }
                 i++;
@@ -159,7 +180,8 @@ export function transformCodeToStateAccess(
               continue;
             }
             if (c === "{") depth++;
-            else if (c === "}") {
+            else if (c === "}")
+            {
               depth--;
               if (depth === 0) break;
             }
@@ -180,7 +202,8 @@ export function transformCodeToStateAccess(
         }
         i++;
       }
-      if (i > textStart) {
+      if (i > textStart)
+      {
         protected_code += protect(code.slice(textStart, i));
       }
       protected_code += "`";
@@ -195,8 +218,10 @@ export function transformCodeToStateAccess(
   // Step 2: Transform top-level variable declarations
   // `let x = value;` → `__state__.x ??= value;`
   // Use ??= so attribute overrides (already in __state__) win over script defaults.
-  if (rewriteDeclarations) {
-    for (const varName of variables) {
+  if (rewriteDeclarations)
+  {
+    for (const varName of variables)
+    {
       const declRegex = new RegExp(
         `\\b(let|const|var)\\s+(${escapeRegex(varName)})\\s*=`,
         "g",
@@ -210,14 +235,16 @@ export function transformCodeToStateAccess(
 
   // Step 3: Replace standalone variable references with __state__.varName
   // (shorthand-aware — see replaceVarWithStateAccess below)
-  for (const varName of variables) {
+  for (const varName of variables)
+  {
     protected_code = replaceVarWithStateAccess(protected_code, varName);
   }
 
   // Step 4: Restore string literals. Use a replacer FUNCTION so literals
   // containing replacement patterns ("$&", "$'", "$1", …) stay literal.
   let transformed = protected_code;
-  for (let idx = 0; idx < strings.length; idx++) {
+  for (let idx = 0; idx < strings.length; idx++)
+  {
     transformed = transformed.replace(
       `__STRING_PLACEHOLDER_${idx}__`,
       () => strings[idx],
@@ -251,7 +278,8 @@ const OBJECT_POSITION_KEYWORDS = new Set([
 export function replaceVarWithStateAccess(
   code: string,
   varName: string,
-): string {
+): string
+{
   // Matches the variable name that is:
   // - NOT preceded by a single dot (property access like foo.bar),
   //   but IS allowed after spread (...varName)
@@ -268,10 +296,12 @@ export function replaceVarWithStateAccess(
     "g",
   );
 
-  return code.replace(pattern, (match: string, offset: number) => {
+  return code.replace(pattern, (match: string, offset: number) =>
+  {
     if (classifyColonSlot(code, offset, match.length) === "key") return match;
 
-    switch (classifyShorthandSlot(code, offset, match.length)) {
+    switch (classifyShorthandSlot(code, offset, match.length))
+    {
       case "object":
         // Object-literal shorthand: expand to an explicit key so the
         // member expression is legal ({ name } → { name: __state__.name })
@@ -302,7 +332,8 @@ function classifyColonSlot(
   code: string,
   start: number,
   length: number,
-): "key" | "value" {
+): "key" | "value"
+{
   if (firstNonSpaceChar(code, start + length) !== ":") return "value";
 
   const prev = lastNonSpaceChar(code, start - 1);
@@ -316,7 +347,8 @@ function classifyColonSlot(
   // array (`f(a, b ? c : d)`) the identifier before `:` is a ternary value,
   // but there the preceding token is `?`, not `,` — so a bare `,` here means
   // an object literal.
-  if (prev === ",") {
+  if (prev === ",")
+  {
     const opener = findEnclosingOpener(code, start);
     return opener !== -1 && code[opener] === "{" ? "key" : "value";
   }
@@ -333,12 +365,14 @@ function classifyShorthandSlot(
   code: string,
   start: number,
   length: number,
-): ShorthandSlot {
+): ShorthandSlot
+{
   const prev = lastNonSpaceChar(code, start - 1);
   const next = firstNonSpaceChar(code, start + length);
 
   // Shorthand can only sit between `{` or `,` and `,` or `}`.
-  if ((prev !== "{" && prev !== ",") || (next !== "," && next !== "}")) {
+  if ((prev !== "{" && prev !== ",") || (next !== "," && next !== "}"))
+  {
     return "none";
   }
 
@@ -356,7 +390,8 @@ function classifyShorthandSlot(
  * (expression position), destructuring declaration pattern, or statement
  * block. Same token-lookbehind spirit as isRegexContext in scriptParser.
  */
-function classifyOpenBrace(code: string, braceIdx: number): ShorthandSlot {
+function classifyOpenBrace(code: string, braceIdx: number): ShorthandSlot
+{
   let j = braceIdx - 1;
   while (j >= 0 && /\s/.test(code[j])) j--;
   // Nothing before the brace: happens for recursed `${{ a, name }}`
@@ -372,11 +407,13 @@ function classifyOpenBrace(code: string, braceIdx: number): ShorthandSlot {
   // Punctuation that puts the brace in expression position → object literal
   if ("=([,:?!&|^~+-*/%<>".includes(c)) return "object";
 
-  if (/[A-Za-z0-9_$]/.test(c)) {
+  if (/[A-Za-z0-9_$]/.test(c))
+  {
     let k = j;
     while (k >= 0 && /[A-Za-z0-9_$]/.test(code[k])) k--;
     const word = code.slice(k + 1, j + 1);
-    if (word === "let" || word === "const" || word === "var") {
+    if (word === "let" || word === "const" || word === "var")
+    {
       return "destructuring";
     }
     if (OBJECT_POSITION_KEYWORDS.has(word)) return "object";
@@ -387,13 +424,17 @@ function classifyOpenBrace(code: string, braceIdx: number): ShorthandSlot {
 }
 
 /** Nearest unmatched opening bracket ( ( [ { ) scanning backwards from `from`. */
-function findEnclosingOpener(code: string, from: number): number {
+function findEnclosingOpener(code: string, from: number): number
+{
   let depth = 0;
-  for (let i = from - 1; i >= 0; i--) {
+  for (let i = from - 1; i >= 0; i--)
+  {
     const c = code[i];
-    if (c === ")" || c === "]" || c === "}") {
+    if (c === ")" || c === "]" || c === "}")
+    {
       depth++;
-    } else if (c === "(" || c === "[" || c === "{") {
+    } else if (c === "(" || c === "[" || c === "{")
+    {
       if (depth === 0) return i;
       depth--;
     }
@@ -401,20 +442,25 @@ function findEnclosingOpener(code: string, from: number): number {
   return -1;
 }
 
-function lastNonSpaceChar(code: string, from: number): string {
-  for (let i = from; i >= 0; i--) {
+function lastNonSpaceChar(code: string, from: number): string
+{
+  for (let i = from; i >= 0; i--)
+  {
     if (!/\s/.test(code[i])) return code[i];
   }
   return "";
 }
 
-function firstNonSpaceChar(code: string, from: number): string {
-  for (let i = from; i < code.length; i++) {
+function firstNonSpaceChar(code: string, from: number): string
+{
+  for (let i = from; i < code.length; i++)
+  {
     if (!/\s/.test(code[i])) return code[i];
   }
   return "";
 }
 
-function escapeRegex(str: string): string {
+function escapeRegex(str: string): string
+{
   return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }

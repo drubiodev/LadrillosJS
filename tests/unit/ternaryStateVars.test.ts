@@ -1,8 +1,9 @@
 import { describe, it, expect } from "vitest";
-import {
-    replaceVarWithStateAccess,
-    transformCodeToStateAccess,
-} from "../../src/utils/stateTransform";
+import
+    {
+        replaceVarWithStateAccess,
+        transformCodeToStateAccess,
+    } from "../../src/utils/stateTransform";
 
 /**
  * Regression tests for reactive variables used as a TERNARY CONSEQUENT.
@@ -22,14 +23,17 @@ import {
  * the component renders correctly at first and breaks on a later update —
  * and the failed binding renders its raw `{expr}` source into the page.
  */
-describe("ternary consequents", () => {
-    it("rewrites a state variable used as the true-branch", () => {
+describe("ternary consequents", () =>
+{
+    it("rewrites a state variable used as the true-branch", () =>
+    {
         expect(replaceVarWithStateAccess("flag ? price : 0", "price")).toBe(
             "flag ? __state__.price : 0",
         );
     });
 
-    it("rewrites both branches of a ternary", () => {
+    it("rewrites both branches of a ternary", () =>
+    {
         expect(
             transformCodeToStateAccess("x = flag ? a : b", ["a", "b"], {
                 rewriteDeclarations: false,
@@ -37,7 +41,8 @@ describe("ternary consequents", () => {
         ).toBe("x = flag ? __state__.a : __state__.b");
     });
 
-    it("rewrites a ternary consequent inside a function body", () => {
+    it("rewrites a ternary consequent inside a function body", () =>
+    {
         const code = "function total() { return 100 + (support ? price : 0); }";
         expect(
             transformCodeToStateAccess(code, ["support", "price"], {
@@ -48,19 +53,22 @@ describe("ternary consequents", () => {
         );
     });
 
-    it("rewrites a ternary consequent nested in an object value", () => {
+    it("rewrites a ternary consequent nested in an object value", () =>
+    {
         expect(
             replaceVarWithStateAccess("x = { total: flag ? price : 0 }", "price"),
         ).toBe("x = { total: flag ? __state__.price : 0 }");
     });
 
-    it("rewrites a ternary consequent among call arguments", () => {
+    it("rewrites a ternary consequent among call arguments", () =>
+    {
         expect(
             replaceVarWithStateAccess("money(a, flag ? price : 0)", "price"),
         ).toBe("money(a, flag ? __state__.price : 0)");
     });
 
-    it("rewrites a switch case value", () => {
+    it("rewrites a switch case value", () =>
+    {
         expect(
             replaceVarWithStateAccess("switch (x) { case price: break; }", "price"),
         ).toBe("switch (x) { case __state__.price: break; }");
@@ -68,31 +76,36 @@ describe("ternary consequents", () => {
 
     // --- the behaviour the `:` skip was protecting must still hold ---
 
-    it("leaves an explicit object key alone", () => {
+    it("leaves an explicit object key alone", () =>
+    {
         expect(replaceVarWithStateAccess("x = { price: 1 }", "price")).toBe(
             "x = { price: 1 }",
         );
     });
 
-    it("leaves a non-first explicit object key alone", () => {
+    it("leaves a non-first explicit object key alone", () =>
+    {
         expect(replaceVarWithStateAccess("x = { a: 1, price: 2 }", "price")).toBe(
             "x = { a: 1, price: 2 }",
         );
     });
 
-    it("rewrites the VALUE but not the KEY when both are the variable", () => {
+    it("rewrites the VALUE but not the KEY when both are the variable", () =>
+    {
         expect(replaceVarWithStateAccess("x = { price: price }", "price")).toBe(
             "x = { price: __state__.price }",
         );
     });
 
-    it("still expands object-literal shorthand", () => {
+    it("still expands object-literal shorthand", () =>
+    {
         expect(replaceVarWithStateAccess("x = { a, price }", "price")).toBe(
             "x = { a, price: __state__.price }",
         );
     });
 
-    it("leaves a labeled statement alone", () => {
+    it("leaves a labeled statement alone", () =>
+    {
         expect(
             replaceVarWithStateAccess("price: for (;;) { break; }", "price"),
         ).toBe("price: for (;;) { break; }");

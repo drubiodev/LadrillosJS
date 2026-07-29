@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="en">
-  <head>
+
+<head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Northwind Logistics — a site you do not control</title>
@@ -8,58 +9,59 @@
 
     <!-- The entire install. Nothing else on this page knows about LadrillosJS. -->
     <script type="module" src="./widget.js"></script>
-  </head>
+</head>
 
-  <body>
+<body>
     <div class="banner">
-      <label class="chaos-toggle">
-        <input type="checkbox" id="chaos" />
-        Break this page's CSS
-      </label>
-      <span class="banner-hint">
-        The host styles go feral. The widget does not move.
-      </span>
+        <label class="chaos-toggle">
+            <input type="checkbox" id="chaos" />
+            Break this page's CSS
+        </label>
+        <span class="banner-hint">
+            The host styles go feral. The widget does not move.
+        </span>
     </div>
 
     <table class="layout" cellpadding="0" cellspacing="0">
-      <tr>
-        <td class="col-main">
-          <h1>Northwind Logistics</h1>
-          <p class="lede">
-            A perfectly ordinary marketing page, with a table for layout, global
-            styles that assume they own every element, and no build tooling in
-            sight.
-          </p>
+        <tr>
+            <td class="col-main">
+                <h1>Northwind Logistics</h1>
+                <p class="lede">
+                    A perfectly ordinary marketing page, with a table for layout, global
+                    styles that assume they own every element, and no build tooling in
+                    sight.
+                </p>
 
-          <p>
-            Somewhere below, a pricing widget from a completely different team
-            is embedded with one script tag.
-          </p>
+                <p>
+                    Somewhere below, a pricing widget from a completely different team
+                    is embedded with one script tag.
+                </p>
 
-          <div class="box">
-            <p><strong>Why this page is ugly on purpose</strong></p>
-            <p>
-              It styles bare <code>div</code>, <code>button</code>,
-              <code>input</code> and <code>label</code> selectors, the way real
-              legacy sites do. Tick the box above to make it hostile.
-            </p>
-          </div>
+                <div class="box">
+                    <p><strong>Why this page is ugly on purpose</strong></p>
+                    <p>
+                        It styles bare <code>div</code>, <code>button</code>,
+                        <code>input</code> and <code>label</code> selectors, the way real
+                        legacy sites do. Tick the box above to make it hostile.
+                    </p>
+                </div>
 
-          <button class="host-button">A button styled by the host</button>
-          <label>A label styled by the host</label>
-          <input type="text" value="An input styled by the host" />
-        </td>
+                <button class="host-button">A button styled by the host</button>
+                <label>A label styled by the host</label>
+                <input type="text" value="An input styled by the host" />
+            </td>
 
-        <td class="col-side">
-          <quote-builder plan="pro" seats="5"></quote-builder>
-        </td>
-      </tr>
+            <td class="col-side">
+                <quote-builder plan="pro" seats="5"></quote-builder>
+            </td>
+        </tr>
     </table>
 
     <div class="second-instance">
-      <h2>A second instance, configured differently</h2>
-      <p>Same element, different attributes, independent state.</p>
-      <quote-builder plan="scale" seats="25"></quote-builder>
+        <h2>A second instance, configured differently</h2>
+        <p>Same element, different attributes, independent state.</p>
+        <quote-builder plan="scale" seats="25"></quote-builder>
     </div>
-  </body>
+</body>
+
 </html>

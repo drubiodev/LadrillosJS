@@ -2,106 +2,106 @@
    bare element selectors, global assumptions, a table for layout. */
 
 body {
-  margin: 0;
-  padding: 0 0 4rem;
-  background: #f6f5f1;
-  color: #2b2b2b;
-  font-family: Georgia, "Times New Roman", serif;
+    margin: 0;
+    padding: 0 0 4rem;
+    background: #f6f5f1;
+    color: #2b2b2b;
+    font-family: Georgia, "Times New Roman", serif;
 }
 
 .banner {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 0.75rem 1.5rem;
-  background: #1f2933;
-  color: #fff;
-  font-family: system-ui, sans-serif;
-  font-size: 0.9rem;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1.5rem;
+    background: #1f2933;
+    color: #fff;
+    font-family: system-ui, sans-serif;
+    font-size: 0.9rem;
 }
 
 .chaos-toggle {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  cursor: pointer;
-  font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    font-weight: 600;
 }
 
 .banner-hint {
-  opacity: 0.7;
+    opacity: 0.7;
 }
 
 .layout {
-  width: 100%;
-  max-width: 62rem;
-  margin: 2.5rem auto 0;
-  border-collapse: collapse;
+    width: 100%;
+    max-width: 62rem;
+    margin: 2.5rem auto 0;
+    border-collapse: collapse;
 }
 
 .col-main {
-  width: 55%;
-  padding: 0 2rem;
-  vertical-align: top;
+    width: 55%;
+    padding: 0 2rem;
+    vertical-align: top;
 }
 
 .col-side {
-  width: 45%;
-  padding: 0 2rem;
-  vertical-align: top;
+    width: 45%;
+    padding: 0 2rem;
+    vertical-align: top;
 }
 
 h1 {
-  margin: 0 0 0.5rem;
-  font-size: 2rem;
+    margin: 0 0 0.5rem;
+    font-size: 2rem;
 }
 
 .lede {
-  font-size: 1.05rem;
+    font-size: 1.05rem;
 }
 
 .box {
-  margin: 1.5rem 0;
-  padding: 1rem 1.25rem;
-  background: #fffdf5;
-  border: 1px solid #ded8c4;
+    margin: 1.5rem 0;
+    padding: 1rem 1.25rem;
+    background: #fffdf5;
+    border: 1px solid #ded8c4;
 }
 
 .box p {
-  margin: 0 0 0.5rem;
+    margin: 0 0 0.5rem;
 }
 
 .box p:last-child {
-  margin-bottom: 0;
+    margin-bottom: 0;
 }
 
 button {
-  padding: 0.5rem 1rem;
-  background: #3d5a80;
-  border: 1px solid #2b4162;
-  color: #fff;
-  font-family: inherit;
-  font-size: 1rem;
-  cursor: pointer;
+    padding: 0.5rem 1rem;
+    background: #3d5a80;
+    border: 1px solid #2b4162;
+    color: #fff;
+    font-family: inherit;
+    font-size: 1rem;
+    cursor: pointer;
 }
 
 label {
-  display: inline-block;
-  margin: 0 0.75rem;
-  font-style: italic;
+    display: inline-block;
+    margin: 0 0.75rem;
+    font-style: italic;
 }
 
 input {
-  padding: 0.4rem 0.6rem;
-  border: 1px solid #b9b4a3;
-  font-family: inherit;
+    padding: 0.4rem 0.6rem;
+    border: 1px solid #b9b4a3;
+    font-family: inherit;
 }
 
 .second-instance {
-  max-width: 62rem;
-  margin: 3rem auto 0;
-  padding: 0 2rem;
+    max-width: 62rem;
+    margin: 3rem auto 0;
+    padding: 0 2rem;
 }
 
 /* ---------------------------------------------------------------------------
@@ -110,45 +110,45 @@ input {
    --------------------------------------------------------------------------- */
 
 body:has(#chaos:checked) * {
-  font-family: "Comic Sans MS", "Chalkboard SE", cursive !important;
+    font-family: "Comic Sans MS", "Chalkboard SE", cursive !important;
 }
 
 body:has(#chaos:checked) div {
-  border: 3px dashed #d92b2b !important;
-  padding: 6px !important;
+    border: 3px dashed #d92b2b !important;
+    padding: 6px !important;
 }
 
 body:has(#chaos:checked) button {
-  background: #ffe600 !important;
-  border: 3px double #d92b2b !important;
-  color: #d92b2b !important;
-  text-transform: uppercase !important;
-  transform: rotate(-1.5deg);
+    background: #ffe600 !important;
+    border: 3px double #d92b2b !important;
+    color: #d92b2b !important;
+    text-transform: uppercase !important;
+    transform: rotate(-1.5deg);
 }
 
 body:has(#chaos:checked) input {
-  width: 100% !important;
-  border: 4px double #10b981 !important;
-  background: #fff9c4 !important;
+    width: 100% !important;
+    border: 4px double #10b981 !important;
+    background: #fff9c4 !important;
 }
 
 body:has(#chaos:checked) label {
-  display: block !important;
-  letter-spacing: 0.35em !important;
-  text-transform: uppercase !important;
-  color: #7c3aed !important;
+    display: block !important;
+    letter-spacing: 0.35em !important;
+    text-transform: uppercase !important;
+    color: #7c3aed !important;
 }
 
 body:has(#chaos:checked) p,
 body:has(#chaos:checked) span {
-  color: #d926aa !important;
+    color: #d926aa !important;
 }
 
 body:has(#chaos:checked) h1,
 body:has(#chaos:checked) h2 {
-  text-decoration: underline wavy #d92b2b !important;
+    text-decoration: underline wavy #d92b2b !important;
 }
 
 body:has(#chaos:checked) .layout {
-  transform: skewY(-0.6deg);
+    transform: skewY(-0.6deg);
 }
