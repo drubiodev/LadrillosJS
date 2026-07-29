@@ -151,6 +151,12 @@ const fixtures: {
   source: string;
   /** Drives the component, then returns the DOM state to compare. */
   exercise: (root: ShadowRoot) => Promise<string>;
+  /**
+   * Pinned so "both backends agree" can never quietly mean "both backends are
+   * broken". Adding these caught two real defects that this suite had been
+   * reporting as conformant -- see the KNOWN BUG notes below.
+   */
+  expected: string;
 }[] = [
     {
       name: "interpolation and arithmetic",
@@ -159,6 +165,7 @@ const fixtures: {
       <script>let count = 21;</script>
     `,
       exercise: async (root) => root.getElementById("out")!.textContent!,
+      expected: "21 / 42",
     },
     {
       name: "event handler mutating state",
@@ -174,6 +181,7 @@ const fixtures: {
         await settle();
         return root.getElementById("out")!.textContent!;
       },
+      expected: "2",
     },
     {
       name: "keyed loop",
@@ -187,6 +195,7 @@ const fixtures: {
     `,
       exercise: async (root) =>
         root.getElementById("list")!.textContent!.replace(/\s+/g, " ").trim(),
+      expected: "0:a1:b",
     },
     {
       name: "conditional",
@@ -206,8 +215,12 @@ const fixtures: {
         const after = root.getElementById("out")!.textContent!.trim();
         return `${before}|${after}`;
       },
+      expected: "yes|no",
     },
     {
+      // KNOWN BUG, pinned deliberately: `{greet(name)}` renders literally,
+      // because a `function` declaration in a plain <script> never becomes
+      // state and so is not among an evaluator's params. See ROADMAP.
       name: "method call and derived expression",
       source: `
       <span id="out">{greet(name)} {name.toUpperCase()}</span>
@@ -217,6 +230,7 @@ const fixtures: {
       </script>
     `,
       exercise: async (root) => root.getElementById("out")!.textContent!,
+      expected: "{greet(name)} ADA",
     },
     {
       name: "else-if chain",
@@ -240,6 +254,7 @@ const fixtures: {
         await settle();
         return `${a}|${b}|${read()}`;
       },
+      expected: "loading|error|done",
     },
     {
       name: "show directive",
@@ -259,6 +274,9 @@ const fixtures: {
         await settle();
         return `${before}|${display()}`;
       },
+      // `contents`, not `` -- a visible <show> wrapper is explicitly taken out
+      // of the layout so it cannot affect its children's box model.
+      expected: "contents|none",
     },
     {
       name: "two-way binding",
@@ -276,6 +294,7 @@ const fixtures: {
         await settle();
         return `${initial}|${root.getElementById("out")!.textContent}`;
       },
+      expected: "start|typed",
     },
     {
       name: "ref accessed from a handler",
@@ -291,6 +310,7 @@ const fixtures: {
         await settle();
         return root.getElementById("out")!.textContent!;
       },
+      expected: "hello",
     },
     {
       name: "$on directive with modifiers",
@@ -307,8 +327,12 @@ const fixtures: {
         await settle();
         return root.getElementById("out")!.textContent!;
       },
+      expected: "1",
     },
     {
+      // KNOWN BUG, pinned deliberately: correct output is "a-1a-2 b-3".
+      // An inner <for> is never expanded -- it renders its template once with
+      // the inner variable left as literal text. See ROADMAP.
       name: "nested loops",
       source: `
       <div id="out">
@@ -325,6 +349,7 @@ const fixtures: {
     `,
       exercise: async (root) =>
         root.getElementById("out")!.textContent!.replace(/\s+/g, " ").trim(),
+      expected: "a-{item}b-{item}",
     },
     {
       name: "loop with an event handler using the row item",
@@ -347,6 +372,7 @@ const fixtures: {
         await settle();
         return root.getElementById("out")!.textContent!;
       },
+      expected: "b",
     },
   ];
 
@@ -363,6 +389,10 @@ describe("runtime vs precompiled conformance", () =>
       const runtimeResult = await fixture.exercise(runtimeRoot);
 
       expect(recordings.length).toBeGreaterThan(0);
+
+      // Guards against the whole comparison being vacuous: without this, a
+      // fixture that both backends render wrongly still "conforms".
+      expect(runtimeResult).toBe(fixture.expected);
 
       // Pass 2: same source, artifacts only. A fresh tag avoids per-component
       // caches serving pass 1's functions and making this vacuous.

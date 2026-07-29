@@ -585,6 +585,43 @@ used when registering a component. Under
       `emitter.test.ts`, which mounts through both paths and pins the output.
       Mutation-tested: restoring the old call fails the artifact-path assertion.
 
+- [ ] **`{fn(x)}` does not work when `fn` is a `function` declaration in a plain
+      `<script>`.** It renders as the literal text `{greet(name)}`, and the
+      framework reports LJS103 `greet is not defined`.
+
+      Interpolations are compiled with the component's *state keys* as
+      parameters. A plain `<script>`'s `function` declarations are collected
+      separately, as source text spliced into event-handler bodies, so they are
+      reachable from `onclick` but invisible to an evaluator. Confirmed by
+      probing the surrounding cases: `const greet = (n) => …` works, the same
+      `function greet` inside `<script type="module">` works, and only the plain
+      `<script>` + `function` combination fails.
+
+      This is a documented feature —
+      [docs/05-template-bindings.md](docs/05-template-bindings.md) has a
+      "Function Calls" section whose example is literally `{greet(user.name)}`.
+      Fixing it means registering plain-script function declarations as state,
+      which risks colliding with the existing handler-splicing path, so it is
+      left for its own change rather than smuggled into the CSP branch.
+
+- [ ] **Nested `<for>` does not expand the inner loop.** The inner `<for>`
+      renders its template exactly once, with its loop variable left as literal
+      text: `{group.name}-{item}` yields `a-{item}` instead of `a-1a-2`.
+
+      The outer variable resolves correctly inside the inner loop, and a single
+      `<for>` is correct, so the defect is specific to nesting.
+      [docs/08-loops.md](docs/08-loops.md) documents nested loops as supported.
+
+      **Both of the above were being reported as *conformant*.** The conformance
+      suite only asserted that the two backends agree, and they agree perfectly
+      on rendering these wrong. Every fixture in
+      [conformance.test.ts](tests/unit/conformance.test.ts) and
+      [emitter.test.ts](tests/unit/emitter.test.ts) now pins its expected
+      output, so "both paths agree" can no longer mean "both paths are broken".
+      The two known-bad fixtures are pinned to their current output with a
+      `KNOWN BUG` comment, so fixing either one trips the test rather than
+      passing quietly.
+
 ---
 
 ## What this buys in the argument

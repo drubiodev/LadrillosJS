@@ -234,6 +234,170 @@ const fixtures: Fixture[] = [
     },
     expected: "10 external|15 external",
   },
+  {
+    // KNOWN BUG, pinned deliberately: `{greet(name)}` renders literally.
+    // A `function` declaration in a plain <script> never becomes state, so it
+    // is not among an evaluator's params -- the framework itself reports
+    // LJS103 "greet is not defined". A `const greet = () => {}` or the same
+    // declaration in a <script type="module"> both work. Docs advertise this
+    // (docs/05-template-bindings.md, "Function Calls"), so it is a real
+    // defect; see ROADMAP. Pinned so a fix trips this test instead of
+    // silently passing, and so the two backends are still compared.
+    name: "method call and derived expression",
+    source: `
+      <span id="out">{greet(name)} {name.toUpperCase()}</span>
+      <script>
+        let name = "ada";
+        function greet(n) { return "hi " + n; }
+      </script>
+    `,
+    exercise: async (root) => root.getElementById("out")!.textContent!,
+    expected: "{greet(name)} ADA",
+  },
+  {
+    name: "else-if chain",
+    source: `
+      <div id="out">
+        <if condition="status === 'loading'">loading</if>
+        <else-if condition="status === 'error'">error</else-if>
+        <else>done</else>
+      </div>
+      <button id="next" onclick="status = status === 'loading' ? 'error' : 'ok'">n</button>
+      <script>let status = "loading";</script>
+    `,
+    exercise: async (root) =>
+    {
+      const read = () => root.getElementById("out")!.textContent!.trim();
+      const a = read();
+      root.getElementById("next")!.click();
+      await settle();
+      const b = read();
+      root.getElementById("next")!.click();
+      await settle();
+      return `${a}|${b}|${read()}`;
+    },
+    expected: "loading|error|done",
+  },
+  {
+    name: "show directive",
+    source: `
+      <show condition="visible"><span id="box">here</span></show>
+      <button id="t" onclick="visible = !visible">t</button>
+      <script>let visible = true;</script>
+    `,
+    exercise: async (root) =>
+    {
+      // `<show>` flips display on the wrapper itself, not on its children.
+      const display = () =>
+        (root.querySelector("show") as HTMLElement | null)?.style.display ??
+        "no-element";
+      const before = display();
+      root.getElementById("t")!.click();
+      await settle();
+      return `${before}|${display()}`;
+    },
+    // `contents`, not `` -- a visible <show> wrapper is explicitly taken out
+    // of the layout so it cannot affect its children's box model.
+    expected: "contents|none",
+  },
+  {
+    name: "two-way binding",
+    source: `
+      <input id="field" $bind="text" />
+      <span id="out">{text}</span>
+      <script>let text = "start";</script>
+    `,
+    exercise: async (root) =>
+    {
+      const input = root.getElementById("field") as HTMLInputElement;
+      const initial = input.value;
+      input.value = "typed";
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      await settle();
+      return `${initial}|${root.getElementById("out")!.textContent}`;
+    },
+    expected: "start|typed",
+  },
+  {
+    name: "ref accessed from a handler",
+    source: `
+      <input id="field" $ref="fieldEl" value="hello" />
+      <span id="out">{seen}</span>
+      <button id="read" onclick="seen = $refs.fieldEl.value">r</button>
+      <script>let seen = "none";</script>
+    `,
+    exercise: async (root) =>
+    {
+      root.getElementById("read")!.click();
+      await settle();
+      return root.getElementById("out")!.textContent!;
+    },
+    expected: "hello",
+  },
+  {
+    name: "$on directive with modifiers",
+    source: `
+      <span id="out">{count}</span>
+      <button id="once" $on:click.once="count++">once</button>
+      <script>let count = 0;</script>
+    `,
+    exercise: async (root) =>
+    {
+      const btn = root.getElementById("once")!;
+      btn.click();
+      btn.click();
+      await settle();
+      return root.getElementById("out")!.textContent!;
+    },
+    expected: "1",
+  },
+  {
+    // KNOWN BUG, pinned deliberately: correct output is "a-1a-2 b-3".
+    // An inner <for> is never expanded -- it renders its template once with
+    // the inner variable left as literal text. The outer variable resolves
+    // fine, and a single <for> is correct, so only nesting is broken.
+    // See ROADMAP. Pinned so a fix trips this test rather than passing quietly.
+    name: "nested loops",
+    source: `
+      <div id="out">
+        <for each="group in groups">
+          <for each="item in group.items"><span>{group.name}-{item}</span></for>
+        </for>
+      </div>
+      <script>
+        let groups = [
+          { name: "a", items: [1, 2] },
+          { name: "b", items: [3] },
+        ];
+      </script>
+    `,
+    exercise: async (root) =>
+      root.getElementById("out")!.textContent!.replace(/\s+/g, " ").trim(),
+    expected: "a-{item}b-{item}",
+  },
+  {
+    name: "loop with an event handler using the row item",
+    source: `
+      <div id="out">{picked}</div>
+      <ul id="list">
+        <for each="item in items" key="item.id">
+          <li><button class="pick" onclick="picked = item.name">{item.name}</button></li>
+        </for>
+      </ul>
+      <script>
+        let picked = "none";
+        let items = [{ id: 1, name: "a" }, { id: 2, name: "b" }];
+      </script>
+    `,
+    exercise: async (root) =>
+    {
+      const buttons = root.querySelectorAll<HTMLElement>("button.pick");
+      buttons[1]?.click();
+      await settle();
+      return root.getElementById("out")!.textContent!;
+    },
+    expected: "b",
+  },
 ];
 
 /** Records every artifact the real runtime asks for while rendering. */
