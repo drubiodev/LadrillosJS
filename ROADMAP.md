@@ -585,24 +585,44 @@ used when registering a component. Under
       `emitter.test.ts`, which mounts through both paths and pins the output.
       Mutation-tested: restoring the old call fails the artifact-path assertion.
 
-- [ ] **`{fn(x)}` does not work when `fn` is a `function` declaration in a plain
-      `<script>`.** It renders as the literal text `{greet(name)}`, and the
-      framework reports LJS103 `greet is not defined`.
+- [x] **`{fn(x)}` did not work when `fn` was a `function` declaration in a plain
+      `<script>`.** It rendered as the literal text `{greet(name)}`, and the
+      framework reported LJS103 `greet is not defined`.
 
       Interpolations are compiled with the component's *state keys* as
-      parameters. A plain `<script>`'s `function` declarations are collected
-      separately, as source text spliced into event-handler bodies, so they are
+      parameters. A plain `<script>`'s `function` declarations were collected
+      separately, as source text spliced into event-handler bodies, so they were
       reachable from `onclick` but invisible to an evaluator. Confirmed by
-      probing the surrounding cases: `const greet = (n) => …` works, the same
-      `function greet` inside `<script type="module">` works, and only the plain
-      `<script>` + `function` combination fails.
+      probing the surrounding cases: `const greet = (n) => …` worked, the same
+      `function greet` inside `<script type="module">` worked, and only the
+      plain `<script>` + `function` combination failed. It is a documented
+      feature — [docs/05-template-bindings.md](docs/05-template-bindings.md) has
+      a "Function Calls" section whose example is literally
+      `{greet(user.name)}`.
 
-      This is a documented feature —
-      [docs/05-template-bindings.md](docs/05-template-bindings.md) has a
-      "Function Calls" section whose example is literally `{greet(user.name)}`.
-      Fixing it means registering plain-script function declarations as state,
-      which risks colliding with the existing handler-splicing path, so it is
-      left for its own change rather than smuggled into the CSP branch.
+      Fixed by publishing plain-script function declarations onto the state, the
+      way module scripts already did by returning their declarations. The setup
+      body now ends with `__state__.greet ??= greet;` per declaration — `??=` so
+      an attribute of the same name still wins, matching `let` semantics.
+
+      The feared collision with the handler-splicing path does not happen:
+      handlers destructure only the state keys whose values are *not* functions
+      (`varNames` in [scriptParser.ts](src/core/js/scriptParser.ts)), so the
+      spliced `function greet() {}` has nothing to clash with.
+
+      This one also surfaced a **latent duplication**. The runtime and the
+      build-time emitter each built the setup body themselves, so fixing the
+      runtime left [emit.ts](src/compiler/emit.ts) behind and the artifact path
+      failed with `greet is not a function` — caught immediately by the pinned
+      emitter fixture. Rather than copy the fix, the construction moved into a
+      shared `buildStateSetupBody`, which both paths now call.
+
+      **Still broken, and pinned separately:** a binding whose only identifier
+      is a function name (`{shout()}`) records no dependency on what the
+      function reads, so a later `name = 'bo'` never invalidates it. The
+      function does read state live — adding `{name}` to the same text node
+      makes it update — so this is dependency tracking, not resolution, and it
+      is independent of how the function is declared.
 
 - [x] **Nested `<for>` does not expand the inner loop.** The inner `<for>`
       rendered its template exactly once, with its loop variable left as

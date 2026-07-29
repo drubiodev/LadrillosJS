@@ -736,6 +736,35 @@ function extractBracedBlock(
  * @param refs - Optional refs Map (for $refs access)
  * @param templateBindings - Variable names from template bindings (auto-props)
  */
+/**
+ * Builds the body of a plain `<script>`'s setup function.
+ *
+ * Exported because the build-time emitter has to produce a byte-identical
+ * body; the two used to construct it separately and silently drifted.
+ */
+export function buildStateSetupBody(
+  content: string,
+  templateBindings: readonly string[] = [],
+): string
+{
+  // Template bindings join the script's own variables so scripts can
+  // reference auto-bound props like {title} -> title.
+  const variables = [
+    ...new Set([...extractVariableNames(content), ...templateBindings]),
+  ];
+
+  // Template evaluators resolve identifiers against state keys only, so a
+  // `function greet() {}` has to be published there or `{greet(name)}` renders
+  // literally. Module scripts already do this by returning their declarations;
+  // plain scripts had no equivalent. `??=` so an attribute of the same name
+  // still wins, matching how `let` declarations behave.
+  const exposeFunctions = extractFunctionNames(content)
+    .map((name) => `__state__.${name} ??= ${name};`)
+    .join("\n");
+
+  return `${transformCodeToStateAccess(content, variables)}\n${exposeFunctions}`;
+}
+
 function executeScriptWithReactiveState(
   content: string,
   reactiveState: Record<string, unknown>,
@@ -748,22 +777,10 @@ function executeScriptWithReactiveState(
 {
   try
   {
-    const variableNames = extractVariableNames(content);
-
-    // Combine script variables with template bindings for transformation
-    // This allows scripts to reference auto-bound props like {title} -> title
-    const allVariables = [...new Set([...variableNames, ...templateBindings])];
-
-    // Transform the script to use __state__ for variable access
-    const transformedContent = transformCodeToStateAccess(
-      content,
-      allVariables,
-    );
-
     const sourceUrl = componentUrl || "ladrillos-component";
     const wrappedScript = `
       "use strict";
-      ${transformedContent}
+      ${buildStateSetupBody(content, templateBindings)}
 //# sourceURL=${sourceUrl}
     `;
 

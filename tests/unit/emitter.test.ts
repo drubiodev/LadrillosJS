@@ -235,14 +235,6 @@ const fixtures: Fixture[] = [
     expected: "10 external|15 external",
   },
   {
-    // KNOWN BUG, pinned deliberately: `{greet(name)}` renders literally.
-    // A `function` declaration in a plain <script> never becomes state, so it
-    // is not among an evaluator's params -- the framework itself reports
-    // LJS103 "greet is not defined". A `const greet = () => {}` or the same
-    // declaration in a <script type="module"> both work. Docs advertise this
-    // (docs/05-template-bindings.md, "Function Calls"), so it is a real
-    // defect; see ROADMAP. Pinned so a fix trips this test instead of
-    // silently passing, and so the two backends are still compared.
     name: "method call and derived expression",
     source: `
       <span id="out">{greet(name)} {name.toUpperCase()}</span>
@@ -252,7 +244,7 @@ const fixtures: Fixture[] = [
       </script>
     `,
     exercise: async (root) => root.getElementById("out")!.textContent!,
-    expected: "{greet(name)} ADA",
+    expected: "hi ada ADA",
   },
   {
     name: "else-if chain",

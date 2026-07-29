@@ -154,7 +154,8 @@ const fixtures: {
   /**
    * Pinned so "both backends agree" can never quietly mean "both backends are
    * broken". Adding these caught two real defects that this suite had been
-   * reporting as conformant -- see the KNOWN BUG notes below.
+   * reporting as conformant: `{fn(x)}` against a plain-<script> function
+   * declaration, and nested `<for>`.
    */
   expected: string;
 }[] = [
@@ -218,9 +219,6 @@ const fixtures: {
       expected: "yes|no",
     },
     {
-      // KNOWN BUG, pinned deliberately: `{greet(name)}` renders literally,
-      // because a `function` declaration in a plain <script> never becomes
-      // state and so is not among an evaluator's params. See ROADMAP.
       name: "method call and derived expression",
       source: `
       <span id="out">{greet(name)} {name.toUpperCase()}</span>
@@ -230,7 +228,51 @@ const fixtures: {
       </script>
     `,
       exercise: async (root) => root.getElementById("out")!.textContent!,
-      expected: "{greet(name)} ADA",
+      expected: "hi ada ADA",
+    },
+    {
+      // KNOWN BUG, pinned deliberately: correct output is "BO".
+      // The function does read state live -- adding `{name}` to the same text
+      // node makes this render "BO". The defect is dependency tracking: a
+      // binding whose only identifier is the function name records no
+      // dependency on what that function reads, so `name = 'bo'` never
+      // invalidates it. Independent of how the function is declared; a
+      // `const shout = () => ...` behaves identically. See ROADMAP.
+      name: "plain-script function reading state after an update",
+      source: `
+      <span id="out">{shout()}</span>
+      <button id="go" onclick="name = 'bo'">g</button>
+      <script>
+        let name = "ada";
+        function shout() { return name.toUpperCase(); }
+      </script>
+    `,
+      exercise: async (root) =>
+      {
+        root.getElementById("go")!.click();
+        await settle();
+        return root.getElementById("out")!.textContent!;
+      },
+      expected: "ADA",
+    },
+    {
+      // Same call inside a loop row, where handlers splice function source in
+      // alongside the state copy -- the two must not collide.
+      name: "plain-script function called from a loop row",
+      source: `
+      <ul id="list">
+        <for each="item in items">
+          <li>{label(item)}</li>
+        </for>
+      </ul>
+      <script>
+        let items = [1, 2];
+        function label(n) { return "#" + n; }
+      </script>
+    `,
+      exercise: async (root) =>
+        root.getElementById("list")!.textContent!.replace(/\s+/g, " ").trim(),
+      expected: "#1#2",
     },
     {
       name: "else-if chain",

@@ -4,7 +4,7 @@
  * the page never needs `script-src 'unsafe-eval'`.
  *
  * This runs at BUILD time (Node + happy-dom, or a browser). It deliberately
- * reuses the same pure helpers the runtime uses — `extractVariableNames`,
+ * reuses the same pure helpers the runtime uses — `buildStateSetupBody`,
  * `extractFunctionDefinitions`, `transformCodeToStateAccess` — so the two paths
  * cannot drift apart in how they rewrite user code.
  *
@@ -15,6 +15,7 @@ import
     extractVariableNames,
     extractFunctionNames,
     extractFunctionDefinitions,
+    buildStateSetupBody,
   } from "../core/js/scriptParser";
 import
   {
@@ -347,13 +348,10 @@ export function emitComponent(
   {
     const content = script.content;
     if (!content.trim()) continue;
-    const vars = [
-      ...new Set([
-        ...extractVariableNames(content),
-        ...(component.templateBindings ?? []),
-      ]),
-    ];
-    const transformed = transformCodeToStateAccess(content, vars);
+    const transformed = buildStateSetupBody(
+      content,
+      component.templateBindings ?? [],
+    );
     const key = `state:${content}`;
     setupKeys.push(key);
     setupEntries.push(
