@@ -664,20 +664,63 @@ used when registering a component. Under
 
 - [x] **`{outer()}` fails when `outer` calls an arrow function declared in the
       same script.** Found while testing the entry above, pre-existing and
-      unrelated to it. `const mid = () => ...` is rewritten to
-      `__state__.mid ??= ...`, so no local `mid` remains — but
+      unrelated to it. `const mid = () => ...` was rewritten to
+      `__state__.mid ??= ...`, so no local `mid` remained — but
       `transformCodeToStateAccess`'s `(?!\s*[:(])` lookahead deliberately skips
-      *call sites*, so `outer`'s body still says bare `mid()` and throws
-      `mid is not defined`. A `function mid() {}` declaration is unaffected,
+      *call sites*, so `outer`'s body still said bare `mid()` and threw
+      `mid is not defined`. A `function mid() {}` declaration was unaffected,
       because it stays a real local declaration.
 
-      Not fixed here. Dropping `(` from that lookahead would rewrite call sites
-      correctly, but it would also rewrite object method shorthand
-      (`{ foo() {} }` → `{ __state__.foo() {} }`, a `SyntaxError` that rolls
-      back the whole script), so it needs its own change with its own tests.
-      Pinned as a known-bad fixture in
-      [conformance.test.ts](tests/unit/conformance.test.ts) so a future fix
-      trips the test rather than passing silently.
+      The tempting fix — drop `(` from that lookahead so call sites rewrite too
+      — also rewrites object method shorthand (`{ foo() {} }` →
+      `{ __state__.foo() {} }`, a `SyntaxError` that rolls back the whole
+      script). So the rule went the other way: a declaration whose initializer
+      is *syntactically* a function is no longer treated as a state variable at
+      all. `extractFunctionValuedNames` detects them and
+      `buildStateSetupBody` leaves the declaration local, publishing it through
+      the same epilogue that already handles `function` declarations. One rule
+      for both forms, and the transform is untouched.
+
+      Tracking still reaches through them, because the arrow's *body* is still
+      rewritten to `__state__.word` — so `{outer()}` updates when `word` does,
+      two call hops away.
+
+## Considered and rejected
+
+### Signals instead of a Proxy for reactivity
+
+Reviewed against the [TC39 Signals proposal](https://github.com/tc39/proposal-signals). It would not have fixed the staleness bug above, and it is not the
+right dependency for this project.
+
+Signals track dependencies through a hidden global `computing` context:
+`Signal.State.prototype.get()` adds itself to the currently-evaluating
+computed's source set. That only works if the read happens *inside* the tracked
+callback. LadrillosJS reads state **before** the call — `evaluateExpression`
+does `fn(...stateValues)`, passing values positionally — so no read of any
+reactive primitive occurs during evaluation. Swapping the Proxy for Signals
+changes nothing about that; `{shout()}` would go stale exactly the same way.
+
+The real axis is eager values vs. lazy reads, not Proxy vs. Signal. If
+evaluators were changed to read lazily through the state object, the *existing*
+Proxy `get` trap plus an active-effect stack would give automatic tracking with
+no new primitive. That parameter list is doing double duty as the sandbox,
+though — globals are shadowed by being passed as `undefined` parameters — so it
+is a substantial change to a hot path that the evaluator cache was built
+around, and it is not justified by this bug.
+
+The proposal itself is explicit that the two are not alternatives: *"Proxies and
+Signals are complementary… Proxies let you intercept shallow object operations
+and signals coordinate a dependency graph."* Vue's `reactive()` is exactly that
+combination.
+
+Practicalities, as of this writing: the proposal is **Stage 1**, no engine ships
+it, and the polyfill's own README says not to rely on its stability; the
+champions estimate 2–3 years minimum to native availability. Adopting it today
+means bundling a polyfill — a runtime dependency, in a framework whose stated
+constraint is zero of them, loaded straight from a CDN with no build step.
+
+Worth revisiting if Signals reach Stage 3 and the evaluator moves to lazy reads
+for other reasons. Not worth it now.
 
 - [x] **Nested `<for>` does not expand the inner loop.** The inner `<for>`
       rendered its template exactly once, with its loop variable left as

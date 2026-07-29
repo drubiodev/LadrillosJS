@@ -747,20 +747,22 @@ export function buildStateSetupBody(
   templateBindings: readonly string[] = [],
 ): string
 {
-  // Template bindings join the script's own variables so scripts can
-  // reference auto-bound props like {title} -> title.
-  const variables = [
-    ...new Set([...extractVariableNames(content), ...templateBindings]),
-  ];
-
   // Template evaluators resolve identifiers against state keys only, so a
   // `function greet() {}` has to be published there or `{greet(name)}` renders
   // literally. Module scripts already do this by returning their declarations;
   // plain scripts had no equivalent. `??=` so an attribute of the same name
   // still wins, matching how `let` declarations behave.
-  const exposeFunctions = extractFunctionNames(content)
+  const functionNames = extractFunctionNames(content);
+  const exposeFunctions = functionNames
     .map((name) => `__state__.${name} ??= ${name};`)
     .join("\n");
+
+  // A template binding of the same name must not drag a function-valued
+  // declaration back into the rewritten set; it stays local and is published
+  // by the epilogue instead.
+  const variables = [
+    ...new Set([...extractVariableNames(content), ...templateBindings]),
+  ].filter((name) => !functionNames.includes(name));
 
   return `${transformCodeToStateAccess(content, variables)}\n${exposeFunctions}`;
 }
@@ -1113,6 +1115,34 @@ export function extractVariableNames(content: string): string[]
 }
 
 /**
+ * Finds declarations whose initializer is syntactically a function:
+ * `const f = () => {}`, `let g = function () {}`, `var h = async x => x`.
+ *
+ * These must not be rewritten to `__state__.f ??= ...`, because that leaves no
+ * local `f` while the transform deliberately skips call sites — so a sibling
+ * function calling `f()` would throw. Keeping the declaration local and
+ * publishing it afterwards makes these behave exactly like `function f() {}`.
+ *
+ * A parenthesised parameter list must be free of nested parens to match, so
+ * `const f = (a = g(1)) => a` falls back to being treated as a plain variable.
+ */
+function extractFunctionValuedNames(content: string): string[]
+{
+  const masked = maskFunctionBodies(content);
+  const names: string[] = [];
+  const regex =
+    /(?:let|const|var)\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*=\s*(?:async\s*)?(?:function\b|\([^()]*\)\s*=>|[a-zA-Z_$][a-zA-Z0-9_$]*\s*=>)/g;
+  let match;
+
+  while ((match = regex.exec(masked)) !== null)
+  {
+    names.push(match[1]);
+  }
+
+  return names;
+}
+
+/**
  * Finds function declarations: function foo() {}, async function bar() {}
  * Only returns top-level declarations (consistent with extractVariableNames).
  */
@@ -1128,7 +1158,7 @@ export function extractFunctionNames(content: string): string[]
     names.push(match[1]);
   }
 
-  return names;
+  return [...names, ...extractFunctionValuedNames(content)];
 }
 
 // ============================================================================

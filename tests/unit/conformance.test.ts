@@ -292,16 +292,12 @@ const fixtures: {
       expected: "no",
     },
     {
-      // KNOWN BUG, pinned deliberately: correct output is "ADA!".
-      // Unrelated to dependency tracking, and pre-dates it -- `const mid = ...`
-      // is rewritten to `__state__.mid`, leaving no local `mid`, but the
-      // transform's `(?!\s*[:(])` lookahead skips the *call site*, so `outer`'s
-      // body still says bare `mid()` -> ReferenceError. A `function mid() {}`
-      // declaration is unaffected, because it stays a real local declaration.
-      // See ROADMAP.
+      // A function-valued declaration has to stay a real local binding, or a
+      // sibling function calling it throws -- while still being tracked.
       name: "function calling an arrow function declared in the same script",
       source: `
       <span id="out">{outer()}</span>
+      <button id="go" onclick="word = 'bo'">g</button>
       <script>
         let word = "ada";
         const mid = () => word + "!";
@@ -309,8 +305,13 @@ const fixtures: {
       </script>
     `,
       exercise: async (root) =>
-        root.getElementById("out")!.textContent!,
-      expected: "{outer()}",
+      {
+        const before = root.getElementById("out")!.textContent!;
+        root.getElementById("go")!.click();
+        await settle();
+        return `${before}|${root.getElementById("out")!.textContent!}`;
+      },
+      expected: "ada!|bo!",
     },
     {
       // Same call inside a loop row, where handlers splice function source in
