@@ -60,16 +60,19 @@ jobs:
               ;;
           esac
 
-      - name: Typecheck
-        run: |
-          npm run typecheck
-          npm run typecheck:plugin
+      - name: Typecheck core
+        run: npm run typecheck
+
+      # Must run before the plugin typecheck and the tests: both resolve
+      # ladrillosjs/compiler through the package exports, which point into dist.
+      - name: Build core
+        run: npm run build:all
+
+      - name: Typecheck plugin
+        run: npm run typecheck:plugin
 
       - name: Test
         run: npm run test
-
-      - name: Build core
-        run: npm run build:all
 
       - name: Build plugin
         run: npm run build
