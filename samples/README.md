@@ -7,6 +7,10 @@ Each sample is self-contained and highlights a different capability, integration
 or real-world use case. Use them as a reference, a starting point, or a way to
 compare LadrillosJS with what you already know.
 
+> Looking to start a project rather than read one? Copy a
+> [template](../templates) instead — samples demonstrate features, templates
+> give you a clean base.
+
 ---
 
 ## 📦 Available Samples

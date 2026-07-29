@@ -111,6 +111,11 @@ npx serve          # or: python -m http.server 8080
 
 That's it! Your reactive component is ready. 🎉
 
+> 🧱 **Starting a real project?** Copy a template instead:
+> [`templates/cdn-starter`](templates/cdn-starter) (no build step) or
+> [`templates/vite-starter`](templates/vite-starter) (Vite). Both come with a
+> page shell, CSP, error reporting, and two example components.
+
 > 📚 **Want more?** The [full documentation](docs/README.md) covers every
 > feature step by step, from your first component to building a design system.
 

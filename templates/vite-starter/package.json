@@ -1,0 +1,17 @@
+{
+    "name": "ladrillos-app",
+    "private": true,
+    "version": "0.0.0",
+    "type": "module",
+    "scripts": {
+        "dev": "vite",
+        "build": "vite build",
+        "preview": "vite preview"
+    },
+    "dependencies": {
+        "ladrillosjs": "^2.1.0"
+    },
+    "devDependencies": {
+        "vite": "^7.2.4"
+    }
+}
