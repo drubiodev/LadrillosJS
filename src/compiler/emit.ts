@@ -180,16 +180,16 @@ function collect(
     handlers.set(key, {
       code,
       deps: [
-      "__state__",
-      "$refs",
-      "$host",
-      "event",
-      "registerComponent",
-      "registerComponents",
-      "$use",
-      "$emit",
-      "$listen",
-    ],
+        "__state__",
+        "$refs",
+        "$host",
+        "event",
+        "registerComponent",
+        "registerComponents",
+        "$use",
+        "$emit",
+        "$listen",
+      ],
       loopVars: [...loopVars],
     });
   };
