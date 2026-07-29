@@ -68,7 +68,7 @@ describe("component styles", () =>
 
     it("warns that the @import fallback breaks under a strict CSP", async () =>
     {
-        const spy = vi.spyOn(console, "warn").mockImplementation(() => {});
+        const spy = vi.spyOn(console, "warn").mockImplementation(() => { });
 
         try
         {
