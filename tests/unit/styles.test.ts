@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { createWebComponentClass } from "../../src/core/component/webcomponent";
 import { parseComponent } from "../../src/core/component/extract";
 
@@ -66,6 +66,26 @@ describe("component styles", () =>
         expect(root.querySelector("style")).not.toBeNull();
     });
 
+    it("warns that the @import fallback breaks under a strict CSP", async () =>
+    {
+        const spy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+        try
+        {
+            const source =
+                `<p>hi</p><style>@import url("warn.css"); p { color: fuchsia; }</style>`;
+            await mount(await define(source));
+
+            const text = spy.mock.calls.map((c) => c.join(" ")).join("\n");
+            expect(text).toContain("@import");
+            expect(text).toContain("unsafe-inline");
+            expect(text).toContain("<link rel=\"stylesheet\">");
+        } finally
+        {
+            spy.mockRestore();
+        }
+    });
+
     it("adopts into the document for light-DOM components", async () =>
     {
         const before = document.adoptedStyleSheets.length;
@@ -75,5 +95,48 @@ describe("component styles", () =>
 
         expect(document.adoptedStyleSheets.length).toBe(before + 1);
         expect(document.querySelector("head > style")).toBeNull();
+    });
+});
+
+describe("external stylesheet hrefs", () =>
+{
+    const LINKED = `<link rel="stylesheet" href="/shared.css"><p>hi</p>`;
+
+    it("keeps the authored href when compiled from a file: URL", async () =>
+    {
+        const component = await parseComponent(
+            LINKED,
+            "ext-1",
+            "file:///Users/someone/proj/components/card.html",
+        );
+
+        // Resolving against the build machine's path would both break the fetch
+        // and ship that path to every visitor.
+        expect(component.externalStyles[0].href).toBe("/shared.css");
+    });
+
+    it("does not leak a build path for a relative href", async () =>
+    {
+        const component = await parseComponent(
+            `<link rel="stylesheet" href="./shared.css"><p>hi</p>`,
+            "ext-2",
+            "file:///Users/someone/proj/components/card.html",
+        );
+
+        expect(component.externalStyles[0].href).not.toContain("file:");
+        expect(component.externalStyles[0].href).not.toContain("/Users/someone");
+    });
+
+    it("still resolves against a real http base", async () =>
+    {
+        const component = await parseComponent(
+            `<link rel="stylesheet" href="./shared.css"><p>hi</p>`,
+            "ext-3",
+            "https://site.example/components/card.html",
+        );
+
+        expect(component.externalStyles[0].href).toBe(
+            "https://site.example/components/shared.css",
+        );
     });
 });

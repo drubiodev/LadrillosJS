@@ -1,3 +1,5 @@
+import { warn } from "../../../utils/devWarnings";
+
 type StyleTarget = HTMLElement | ShadowRoot;
 
 /**
@@ -29,6 +31,27 @@ const canAdopt = (): boolean =>
  * rather than losing their imports silently.
  */
 const hasImport = (cssText: string): boolean => cssText.includes("@import");
+
+const importWarned = new Set<string>();
+
+/**
+ * The <style> fallback below is inert under a CSP without `'unsafe-inline'`,
+ * which leaves the component rendering unstyled with nothing but a console
+ * error. Say so once per stylesheet while the author can still act on it.
+ */
+const warnImportFallback = (cssText: string): void =>
+{
+  if (importWarned.has(cssText)) return;
+  importWarned.add(cssText);
+
+  warn(
+    "CSS uses @import, which a constructed stylesheet cannot carry, so these " +
+    "styles fall back to a <style> element. A Content-Security-Policy without " +
+    "'unsafe-inline' blocks that element and the component renders unstyled. " +
+    'Prefer <link rel="stylesheet"> in the component, which is fetched and ' +
+    "adopted instead.",
+  );
+};
 
 const getSheet = (cssText: string): CSSStyleSheet | null =>
 {
@@ -76,6 +99,8 @@ export const loadStyles = (
 {
   if (!cssText) return;
 
+  if (canAdopt() && hasImport(cssText)) warnImportFallback(cssText);
+
   if (canAdopt() && !hasImport(cssText))
   {
     const sheet = getSheet(cssText);
@@ -109,6 +134,8 @@ export const loadExternalStyleText = (
   href: string,
 ): void =>
 {
+  if (canAdopt() && hasImport(cssText)) warnImportFallback(cssText);
+
   if (canAdopt() && !hasImport(cssText))
   {
     const sheet = getSheet(cssText);

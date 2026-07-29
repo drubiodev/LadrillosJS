@@ -7,6 +7,13 @@ export default defineConfig({
   },
   test: {
     environment: "happy-dom",
+    // Parsing a component containing <link rel="stylesheet"> otherwise makes
+    // happy-dom fetch it for real, so the suite depends on the network.
+    environmentOptions: {
+      happyDOM: {
+        settings: { disableCSSFileLoading: true },
+      },
+    },
     globals: true,
     include: ["tests/**/*.test.ts", "src/**/*.test.ts"],
     setupFiles: ["tests/setup.ts"],

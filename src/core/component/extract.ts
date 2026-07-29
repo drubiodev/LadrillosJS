@@ -419,8 +419,12 @@ export async function parseComponent(
       let href = l.getAttribute("href") || "";
       const rel = l.getAttribute("rel") || "stylesheet";
 
-      // Resolve relative URLs against component URL
-      if (componentUrl && href && !href.startsWith("http"))
+      // Only an absolute http(s) base resolves to a URL a browser can fetch.
+      // The build-time compiler passes a file: URL, which would otherwise bake
+      // the build machine's own path into the shipped bundle.
+      const canResolve = /^https?:\/\//i.test(componentUrl ?? "");
+
+      if (canResolve && href && !href.startsWith("http"))
       {
         try
         {
