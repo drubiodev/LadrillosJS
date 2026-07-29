@@ -146,7 +146,7 @@ function parseFor(
 interface Collected
 {
   evaluators: Map<string, string[]>;
-  handlers: Map<string, { code: string; deps: string[] }>;
+  handlers: Map<string, { code: string; deps: string[]; loopVars: string[] }>;
 }
 
 function collect(
@@ -155,7 +155,10 @@ function collect(
 ): Collected
 {
   const evaluators = new Map<string, string[]>();
-  const handlers = new Map<string, { code: string; deps: string[] }>();
+  const handlers = new Map<
+    string,
+    { code: string; deps: string[]; loopVars: string[] }
+  >();
 
   const tpl = document.createElement("template");
   tpl.innerHTML = trustedHTML(component.template);
@@ -168,13 +171,27 @@ function collect(
     evaluators.set(expression, depsFor(expression, available));
   };
 
-  const addHandler = (raw: string): void =>
+  const addHandler = (raw: string, loopVars: readonly string[]): void =>
   {
     const code = raw.trim();
     if (!code) return;
     const key = `handler:${code}`;
     if (handlers.has(key)) return;
-    handlers.set(key, { code, deps: ["__state__", "$refs", "$host", "event"] });
+    handlers.set(key, {
+      code,
+      deps: [
+      "__state__",
+      "$refs",
+      "$host",
+      "event",
+      "registerComponent",
+      "registerComponents",
+      "$use",
+      "$emit",
+      "$listen",
+    ],
+      loopVars: [...loopVars],
+    });
   };
 
   const scanText = (text: string, scope: ReadonlySet<string>): void =>
@@ -182,9 +199,17 @@ function collect(
     for (const m of text.matchAll(/{([^}]+)}/g)) addEvaluator(m[1], scope);
   };
 
-  const walk = (node: Element, scope: ReadonlySet<string>): void =>
+  const walk = (
+    node: Element,
+    scope: ReadonlySet<string>,
+    loopVars: readonly string[]
+  ): void =>
   {
+    // $no:bind marks a subtree as literal text, so it has nothing to evaluate.
+    if (node.hasAttribute("$no:bind")) return;
+
     let childScope = scope;
+    let childLoopVars = loopVars;
 
     if (node.tagName.toLowerCase() === "for")
     {
@@ -194,7 +219,12 @@ function collect(
       {
         addEvaluator(parsed.array, scope);
         childScope = new Set([...scope, parsed.item]);
-        if (parsed.index) childScope = new Set([...childScope, parsed.index]);
+        childLoopVars = [...loopVars, parsed.item];
+        if (parsed.index)
+        {
+          childScope = new Set([...childScope, parsed.index]);
+          childLoopVars = [...childLoopVars, parsed.index];
+        }
 
         const key = node.getAttribute("key");
         if (key) addEvaluator(key, childScope);
@@ -208,7 +238,7 @@ function collect(
 
       if (EVENT_ATTRIBUTE_SET.has(name) || name.startsWith("$on:"))
       {
-        addHandler(value);
+        addHandler(value, childLoopVars);
         continue;
       }
       if (name === "condition")
@@ -226,13 +256,16 @@ function collect(
       if (value.includes("{")) scanText(value, childScope);
     }
 
-    for (const child of Array.from(node.children)) walk(child, childScope);
+    for (const child of Array.from(node.children))
+    {
+      walk(child, childScope, childLoopVars);
+    }
   };
 
   const rootScope: ReadonlySet<string> = stateNames;
   for (const child of Array.from(tpl.content.children))
   {
-    walk(child as Element, rootScope);
+    walk(child as Element, rootScope, []);
   }
 
   // Text nodes anywhere in the template, with loop scope applied.
@@ -248,6 +281,8 @@ function collect(
       if (child.nodeType !== 1) continue;
 
       const el = child as Element;
+      if (el.hasAttribute("$no:bind")) continue;
+
       let childScope = scope;
       if (el.tagName.toLowerCase() === "for")
       {
@@ -330,20 +365,94 @@ export function emitComponent(
       { rewriteDeclarations: false }
     );
 
-  const handlerEntries = [...handlers].map(([key, { code, deps }]) =>
+  // Loop handlers are invoked with a different calling convention: the runtime
+  // passes the row context instead of __state__, so they need their own shape.
+  const LOOP_HANDLER_PARAMS = [
+    "event",
+    "context",
+    "reactiveState",
+    "$emit",
+    "$listen",
+  ];
+  const stateVarNames = allVariables.filter(
+    (name) => !stateFunctions.includes(name)
+  );
+  const rawFuncDefs = extractFunctionDefinitions(regularContent, []);
+
+  const buildLoopHandler = (code: string, loopVars: string[]): string =>
   {
+    // A state variable of the same name shadows the loop variable, exactly as
+    // the runtime's destructure order does.
+    const visibleLoopVars = loopVars.filter(
+      (name) => !stateVarNames.includes(name)
+    );
+    const visibleFuncNames = stateFunctions.filter(
+      (name) => !loopVars.includes(name)
+    );
+
+    const destructureLoopVars = visibleLoopVars.length
+      ? `const { ${visibleLoopVars.join(", ")} } = context;`
+      : "";
+    const destructureStateVars = stateVarNames.length
+      ? `let { ${stateVarNames.join(", ")} } = reactiveState;`
+      : "";
+    const funcs =
+      hasModuleScripts || !regularContent.trim()
+        ? visibleFuncNames.length
+          ? `const { ${visibleFuncNames.join(", ")} } = context;`
+          : ""
+        : rawFuncDefs;
+    const syncBack =
+      !hasModuleScripts && stateVarNames.length
+        ? stateVarNames.map((key) => `reactiveState.${key} = ${key};`).join(" ")
+        : "";
+
+    return `${destructureLoopVars}\n${destructureStateVars}\n${funcs}\n${code};\n${syncBack}`;
+  };
+
+  const handlerEntries = [...handlers].map(([key, { code, deps, loopVars }]) =>
+  {
+    if (loopVars.length)
+    {
+      return `  ${JSON.stringify(key)}: { deps: ${JSON.stringify(
+        LOOP_HANDLER_PARAMS
+      )}, fn: (${LOOP_HANDLER_PARAMS.join(", ")}) => { ${buildLoopHandler(
+        code,
+        loopVars
+      )} } },`;
+    }
+
     const body = transformCodeToStateAccess(code, allVariables, {
       rewriteDeclarations: false,
     });
+    // Mirrors the runtime's async detection: a handler body may `await`.
+    const isAsync =
+      /\bawait\b/.test(code) ||
+      /\bawait\b/.test(funcDefs) ||
+      /\basync\b/.test(funcDefs);
     return `  ${JSON.stringify(key)}: { deps: ${JSON.stringify(
       deps
-    )}, fn: (${deps.join(", ")}) => { ${funcDefs}\n${body}; } },`;
+    )}, fn: ${isAsync ? "async " : ""}(${deps.join(", ")}) => { ${funcDefs}\n${body}; } },`;
   });
 
   // The runtime runs each <script> separately, so each one is its own artifact
   // keyed by its own source — joining them would produce a key nothing requests.
   const setupEntries: string[] = [];
   const setupKeys: string[] = [];
+
+  // Everything the runtime hands a setup that is not reachable as a real
+  // global. Plain globals (console, Math, JSON, …) resolve on their own, but
+  // these only exist as parameters, so they must be declared as deps.
+  const SETUP_PARAMS = [
+    "__state__",
+    "$host",
+    "$refs",
+    "registerComponent",
+    "registerComponents",
+    "$use",
+    "$emit",
+    "$listen",
+  ];
 
   for (const script of regularScripts)
   {
@@ -356,9 +465,9 @@ export function emitComponent(
     const key = `state:${content}`;
     setupKeys.push(key);
     setupEntries.push(
-      `  ${JSON.stringify(
-        key
-      )}: { deps: ["__state__"], fn: (__state__) => { ${transformed} } },`
+      `  ${JSON.stringify(key)}: { deps: ${JSON.stringify(
+        SETUP_PARAMS
+      )}, fn: (${SETUP_PARAMS.join(", ")}) => { ${transformed} } },`
     );
   }
 

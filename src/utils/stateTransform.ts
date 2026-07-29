@@ -298,6 +298,10 @@ export function replaceVarWithStateAccess(
 
   return code.replace(pattern, (match: string, offset: number) =>
   {
+    // `const name = …` still standing here means declaration rewriting was off.
+    // Rewriting the binding would emit `const __state__.name = …`.
+    if (precededByDeclarationKeyword(code, offset)) return match;
+
     if (classifyColonSlot(code, offset, match.length) === "key") return match;
 
     switch (classifyShorthandSlot(code, offset, match.length))
@@ -313,6 +317,24 @@ export function replaceVarWithStateAccess(
         return `__state__.${varName}`;
     }
   });
+}
+
+/**
+ * True when the identifier at `start` is the name being bound by a preceding
+ * `let`, `const` or `var`.
+ */
+function precededByDeclarationKeyword(code: string, start: number): boolean
+{
+  let i = start - 1;
+  const spaceEnd = i;
+  while (i >= 0 && /\s/.test(code[i])) i--;
+  if (i === spaceEnd) return false; // keyword must be separated by whitespace
+
+  const wordEnd = i + 1;
+  while (i >= 0 && /[A-Za-z]/.test(code[i])) i--;
+  const word = code.slice(i + 1, wordEnd);
+
+  return word === "let" || word === "const" || word === "var";
 }
 
 /**

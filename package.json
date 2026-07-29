@@ -1,6 +1,6 @@
 {
   "name": "ladrillosjs",
-  "version": "2.1.1",
+  "version": "2.1.2",
   "description": "A lightweight, zero-dependency web component framework for building modular web applications.",
   "type": "module",
   "main": "./dist/index.js",
@@ -104,7 +104,7 @@
     "build:all": "npm run build && npm run build:cdn && npm run verify:build && npm run verify:no-eval",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "typecheck:plugin": "tsc --noEmit -p packages/vite-plugin/tsconfig.json",
-    "postinstall": "node scripts/link-self.mjs",
+    "prepare": "node scripts/link-self.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
