@@ -126,7 +126,7 @@ signal.
 
 ---
 
-## Phase 2 — `@ladrillosjs/compiler` *(in progress)*
+## Phase 2 — `ladrillosjs/compiler` *(in progress)*
 
 Build-time package that turns `counter.html` into a `.js` module:
 
@@ -289,12 +289,38 @@ nothing needs to emit them. Both are already tree-shaken out of every shipped
 bundle (verified: `"Error extracting script members"` appears in none of them).
 Worth deleting at some point, but it is not a CSP concern.
 
-### Open decision: packaging
+### Packaging: subpath, decided
 
-Shipping the compiler as a subpath export (`ladrillosjs/compiler`) rather than a
-separate `@ladrillosjs/compiler` package would mean less release infrastructure
-and a single version number to keep in sync; browsers never import it, so it
-costs runtime users nothing either way. **Not yet decided.**
+The compiler ships as `ladrillosjs/compiler`, not as a separate
+`@ladrillosjs/compiler` package.
+
+The deciding factor was not release infrastructure but *version coupling*. The
+emitter is only ~13 KB of unique source; the ~127 KB it depends on
+(`scriptParser`, `moduleExecutor`, `stateTransform`, `jsevents`) is already
+shipped as runtime code. That reuse is deliberate — it is what stops the
+build-time and runtime code-transform paths from drifting apart. A separate
+package would have to either duplicate those modules or take a version-locked
+dependency back on `ladrillosjs`, and a mismatched pair would emit artifacts
+whose keys the runtime silently cannot find. A subpath makes that state
+unrepresentable.
+
+**Measured cost to applications:** +0.2–0.3 KB raw (~+0.1 KB gz) per runtime
+entry, purely from Rollup splitting shared chunks differently once a sixth entry
+exists. No compiler code enters any runtime bundle — asserted by check 3 in
+[verify-no-eval.js](scripts/verify-no-eval.js), which walks the built import
+graph of all five runtime entries, and mirrored at source level in
+[entrypoints.test.ts](tests/unit/entrypoints.test.ts) so the mistake is caught in
+review rather than at build time.
+
+| Entry | Without compiler entry | With |
+| --- | --- | --- |
+| `dist/index.js` | 81.4 KB | 81.6 KB |
+| `dist/core.js` | 81.0 KB | 81.3 KB |
+| `dist/csp.js` | 82.4 KB | 82.7 KB |
+
+The compiler entry itself is 89.6 KB raw / 29.3 KB gz and pulls in `DOMParser`,
+since `parseComponent` is re-exported for build tools. It runs in Node, so that
+number is not a page-weight cost.
 
 ### Conformance suite runs in vitest (no browser needed)
 
@@ -342,6 +368,11 @@ a promise.
 compiled artifact. **Zero source changes for existing users** — that's what
 makes this satisfy "doesn't break how it currently works." Dev mode keeps
 runtime compilation for fast HMR.
+
+The plugin *is* a separate package — it is a build tool with its own dependency
+on Vite, and pulling that into `ladrillosjs` would burden every consumer. It
+takes a peer dependency on `ladrillosjs` and imports `ladrillosjs/compiler`,
+which is why the packaging question above had to be settled first.
 
 ### Correction: the CSP build is not smaller *yet*
 

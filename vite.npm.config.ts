@@ -1,5 +1,6 @@
 import { defineConfig } from "vite";
 import { resolve } from "path";
+import { rmSync } from "node:fs";
 import dts from "vite-plugin-dts";
 
 // ============================================================================
@@ -21,8 +22,18 @@ export default defineConfig({
       insertTypesEntry: true,
       copyDtsFiles: true,
       include: ["src/**/*.ts"],
-      exclude: ["src/global.d.ts", "**/*.test.ts", "**/*.spec.ts"],
+      // global.d.ts declares __DEV__ but must not be emitted, so it is filtered
+      // from the output below rather than excluded from the program — excluding
+      // it leaves __DEV__ unresolved (TS2304) in core/js/compiler.ts.
+      exclude: ["**/*.test.ts", "**/*.spec.ts"],
       tsconfigPath: "./tsconfig.json",
+      afterBuild: (emitted) =>
+      {
+        for (const file of emitted.keys())
+        {
+          if (file.endsWith("global.d.ts")) rmSync(file, { force: true });
+        }
+      },
     }),
   ],
 
@@ -39,6 +50,9 @@ export default defineConfig({
         csp: resolve(__dirname, "src/csp.ts"),
         lazy: resolve(__dirname, "src/lazy.ts"),
         events: resolve(__dirname, "src/events.ts"),
+        // Build-time only. verify-treeshaking.js asserts no runtime entry
+        // reaches it, so it never lands in an application bundle.
+        compiler: resolve(__dirname, "src/compiler/index.ts"),
       },
       formats: ["es"],
     },

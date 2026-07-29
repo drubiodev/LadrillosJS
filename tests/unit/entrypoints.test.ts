@@ -105,3 +105,93 @@ describe("compiling with no backend installed", () =>
         expect(result).toBe("threw");
     });
 });
+
+/**
+ * Pins each entry's public surface. Without this, dropping an export from an
+ * entry is invisible: every other test imports the deep module directly, so the
+ * suite stays green while the published API loses a function.
+ */
+describe("entry points export what the docs promise", () =>
+{
+    const surface: Record<string, string[]> = {
+        "../../src/index": ["registerComponent", "registerComponents", "$use", "configure"],
+        "../../src/core": ["registerComponent", "registerComponents", "$use", "configure"],
+        "../../src/csp": [
+            "registerComponent",
+            "registerComponents",
+            "$use",
+            "configure",
+            "defineCompiled",
+            "registerArtifacts",
+            "clearArtifacts",
+            "hasArtifact",
+        ],
+        "../../src/compiler/index": ["emitComponent", "parseComponent"],
+    };
+
+    for (const [entry, names] of Object.entries(surface))
+    {
+        it(`${entry.replace("../../src/", "")} exports ${names.length} functions`, async () =>
+        {
+            const mod: Record<string, unknown> = await import(entry);
+            for (const name of names)
+            {
+                expect(typeof mod[name], `${entry} is missing ${name}`).toBe("function");
+            }
+        });
+    }
+});
+
+describe("ladrillosjs/compiler", () =>
+{
+    it("installs no codegen backend, because it never mounts anything", async () =>
+    {
+        vi.resetModules();
+        await import("../../src/compiler/index");
+        const { getCodegenBackend } = await import("../../src/core/js/compiler");
+
+        // It runs in Node at build time. Installing a backend here would mean the
+        // emitter's own module graph could compile at runtime, which is exactly
+        // what the artifacts exist to avoid.
+        expect(getCodegenBackend().name).toBe("uninstalled");
+    });
+
+    it("is not reachable from any runtime entry", () =>
+    {
+        // The bundle-level version of this lives in scripts/verify-no-eval.js.
+        // This catches the mistake in review, before anyone has to build.
+        for (const entry of ["index", "core", "csp", "lazy", "events"])
+        {
+            const source = readFileSync(
+                resolve(process.cwd(), `src/${entry}.ts`),
+                "utf8"
+            );
+            expect(source).not.toMatch(/["'][^"']*compiler\/emit["']/);
+        }
+    });
+
+    it("emits an import that matches a real package export", async () =>
+    {
+        const { emitComponent } = await import("../../src/compiler/index");
+        const pkg = JSON.parse(
+            readFileSync(resolve(process.cwd(), "package.json"), "utf8")
+        );
+
+        const { code } = emitComponent({
+            tagName: "x-import-check",
+            template: "<p>{a}</p>",
+            scripts: [{ content: "let a = 1;", type: "text/javascript" }],
+            externalScripts: [],
+            externalStyles: [],
+            styles: "",
+            templateBindings: [],
+        });
+
+        // Emitting `from "ladrillosjs/csp"` is only useful if that subpath
+        // resolves; a typo here produces artifacts nobody can import.
+        const [, specifier] = code.match(/from\s+"([^"]+)"/) ?? [];
+        expect(specifier).toBe("ladrillosjs/csp");
+        expect(pkg.exports["./csp"]).toBeDefined();
+        expect(pkg.exports["./compiler"]).toBeDefined();
+    });
+});

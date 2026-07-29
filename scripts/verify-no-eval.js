@@ -141,4 +141,38 @@ if (indexHits.length === 0)
     );
 }
 
+// 3. The compiler ships as `ladrillosjs/compiler`, in the same package as the
+//    runtime so their versions cannot desynchronise. That only stays free for
+//    applications while no runtime entry reaches it — otherwise every consumer
+//    pays for a build-time tool they never call.
+const COMPILER_MARKER = /emitComponent|__LADRILLOS_ARTIFACTS/;
+const RUNTIME_ENTRIES = ["index.js", "core.js", "csp.js", "lazy.js", "events.js"];
+
+const leaked = [];
+for (const name of RUNTIME_ENTRIES)
+{
+    const entry = join(DIST, name);
+    if (!existsSync(entry)) continue;
+    for (const file of importGraph(entry))
+    {
+        if (COMPILER_MARKER.test(readFileSync(file, "utf8")))
+        {
+            leaked.push(`${name} → ${rel(file)}`);
+        }
+    }
+}
+
+if (leaked.length > 0)
+{
+    failed = true;
+    console.error(
+        "\n✗ The compiler leaked into a runtime entry:\n" +
+        leaked.map((l) => `    ${l}`).join("\n") +
+        "\n  src/compiler/** must only be imported by src/compiler/index.ts."
+    );
+} else
+{
+    console.log("✓ Compiler is absent from every runtime entry");
+}
+
 process.exit(failed ? 1 : 0);

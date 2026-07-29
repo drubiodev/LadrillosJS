@@ -43,6 +43,10 @@
       "types": "./dist/events.d.ts",
       "development": "./dist/events.dev.js",
       "default": "./dist/events.js"
+    },
+    "./compiler": {
+      "types": "./dist/compiler/index.d.ts",
+      "default": "./dist/compiler.js"
     }
   },
   "files": [
