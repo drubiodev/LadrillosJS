@@ -1,0 +1,22 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2022", "DOM"],
+    "strict": true,
+    "isolatedModules": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "declaration": true,
+    "sourceMap": true,
+    "types": ["node"],
+    "rootDir": "src",
+    "outDir": "dist",
+    // Resolves to the built declarations, which is exactly what a consumer installs.
+    "paths": {
+      "ladrillosjs/compiler": ["../../dist/compiler/index.d.ts"]
+    }
+  },
+  "include": ["src/**/*.ts"]
+}

@@ -357,7 +357,7 @@ The conformance suite is the mechanical guarantee that nothing breaks.
 
 ---
 
-## Phase 3 — Vite plugin + the CSP build *(entry point done)*
+## Phase 3 — Vite plugin + the CSP build *(done)*
 
 `ladrillosjs/csp` is a new entry point in
 [vite.npm.config.ts](vite.npm.config.ts#L36) that **never imports
@@ -365,16 +365,52 @@ The conformance suite is the mechanical guarantee that nothing breaks.
 only `index` and `core` load — so CSP compliance is structurally verifiable, not
 a promise.
 
-`@ladrillosjs/vite-plugin` in prod mode rewrites
+`@ladrillosjs/vite-plugin` rewrites
 `registerComponent('my-counter', './counter.html')` into an import of the
 compiled artifact. **Zero source changes for existing users** — that's what
-makes this satisfy "doesn't break how it currently works." Dev mode keeps
-runtime compilation for fast HMR.
+makes this satisfy "doesn't break how it currently works." The dev server is
+left alone by default, so editing a component stays a plain reload.
 
 The plugin *is* a separate package — it is a build tool with its own dependency
 on Vite, and pulling that into `ladrillosjs` would burden every consumer. It
 takes a peer dependency on `ladrillosjs` and imports `ladrillosjs/compiler`,
 which is why the packaging question above had to be settled first.
+
+### How the rewrite works
+
+Registrations are read as ESTree via Vite's own `parseAst` — free, since the
+bundler already ships a parser, and build-time only, so it says nothing about
+the runtime's no-AST design. Anything not statically analysable (a computed
+path, a spread, `lazy: true`) is **reported and left alone** rather than
+guessed at; an untouched call still works, it just needs `unsafe-eval`. The
+`strict` option turns those reports into build failures.
+
+Three things had to be settled to make it work, each verified by a mutation:
+
+- **Plugin ordering.** ESTree cannot represent TypeScript, so the plugin runs
+  with `enforce: "post"`, after Vite's esbuild transform. With `enforce: "pre"`
+  a `.ts` entry fails to parse — confirmed by flipping it.
+- **Path resolution.** At runtime a component path resolves against the *page*
+  URL; on disk the natural reading is relative to the module registering it.
+  Those only coincide when the entry sits at the web root, so the plugin tries
+  both and requires exactly one to exist. Ambiguity is reported, not guessed.
+- **Two module-scope DOM reads.** `new DOMParser()` in
+  [extract.ts](src/core/component/extract.ts) and
+  `createFrameworkHelpers(window.location.href)` in
+  [frameworkHelpers.ts](src/core/helpers/frameworkHelpers.ts) ran at *import*
+  time, so `import("ladrillosjs/compiler")` threw in Node before any DOM shim
+  could be installed. Both are now built on first use.
+
+Verified by [tests/unit/vitePlugin.test.ts](tests/unit/vitePlugin.test.ts),
+which runs a real `vite build` over a real project resolving `ladrillosjs`
+through node_modules — so it exercises the published entry points, not the
+source tree — and asserts the minified output contains no `Function(` at all.
+
+**Bug found and fixed here:** the emitted descriptor carried `sourcePath` as an
+absolute `file:` URL, which would have shipped the build machine's home
+directory in every production bundle. The plugin now rewrites it to a
+root-relative path after parsing, since parsing needs the real URL but the
+runtime only uses `sourcePath` in dev warnings.
 
 ### Correction: the CSP build is not smaller *yet*
 
@@ -459,7 +495,9 @@ transitive graph do not.
 - [x] Emit the parsed component descriptor (template, scripts, styles)
 - [x] `defineCompiled` — register without fetch or parse
       ([tests/unit/defineCompiled.test.ts](tests/unit/defineCompiled.test.ts))
-- [ ] Vite plugin: prod rewrite, dev passthrough
+- [x] Vite plugin: build rewrite, dev server untouched by default
+      ([packages/vite-plugin](packages/vite-plugin/src/index.ts),
+      [tests/unit/vitePlugin.test.ts](tests/unit/vitePlugin.test.ts))
 - [ ] Document the eval-free policy in [docs/22-csp-and-security.md](docs/22-csp-and-security.md)
 
 ### Cost

@@ -7,7 +7,9 @@ import {
   isControlElement,
 } from "../html/controlTagEscape";
 
-const parser = new DOMParser();
+// Built on first parse, not at import time: build tools import this module to
+// reach parseComponent and install their DOM shim (happy-dom, jsdom) afterwards.
+let parser: DOMParser | undefined;
 
 /**
  * Signatures of scripts injected by dev servers / live-reload tooling.
@@ -498,6 +500,7 @@ function parseHTML(source: string): Document
   // placeholders before parsing so the HTML parser's table insertion
   // modes cannot foster-parent them out of <table>/<tbody>/<tr>, then
   // restored with DOM APIs — which parser content rules cannot touch.
+  parser ??= new DOMParser();
   const doc = parser.parseFromString(escapeControlTags(source), "text/html");
   restoreControlTags(doc.head);
   restoreControlTags(doc.body);

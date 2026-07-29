@@ -186,8 +186,19 @@ export function getFrameworkHelperValues(): ((...args: any[]) => any)[]
   return [helpers.registerComponent, helpers.registerComponents, helpers.$use];
 }
 
-// For entry point / CDN usage - resolve relative to current page
-const defaultHelpers = createFrameworkHelpers(window.location.href);
-export const registerComponent = defaultHelpers.registerComponent;
-export const registerComponents = defaultHelpers.registerComponents;
-export const $use = defaultHelpers.$use;
+// For entry point / CDN usage - resolve relative to current page.
+// Built on first call rather than at import time: build tools pull this module
+// into Node, where `window` only exists once a DOM shim has been installed.
+let defaultHelpers: ReturnType<typeof createFrameworkHelpers> | undefined;
+const page = () =>
+  (defaultHelpers ??= createFrameworkHelpers(window.location.href));
+
+type Helpers = ReturnType<typeof createFrameworkHelpers>;
+
+export const registerComponent = (...args: Parameters<Helpers["registerComponent"]>) =>
+  page().registerComponent(...args);
+
+export const registerComponents = (...args: Parameters<Helpers["registerComponents"]>) =>
+  page().registerComponents(...args);
+
+export const $use = (...args: Parameters<Helpers["$use"]>) => page().$use(...args);
