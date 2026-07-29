@@ -102,12 +102,13 @@ describe("external stylesheet hrefs", () =>
 {
     const LINKED = `<link rel="stylesheet" href="/shared.css"><p>hi</p>`;
 
-    it("keeps the authored href when compiled from a file: URL", async () =>
+    it("keeps the authored href when compiled at build time", async () =>
     {
         const component = await parseComponent(
             LINKED,
             "ext-1",
             "file:///Users/someone/proj/components/card.html",
+            { resolveStyleHrefs: false },
         );
 
         // Resolving against the build machine's path would both break the fetch
@@ -121,6 +122,7 @@ describe("external stylesheet hrefs", () =>
             `<link rel="stylesheet" href="./shared.css"><p>hi</p>`,
             "ext-2",
             "file:///Users/someone/proj/components/card.html",
+            { resolveStyleHrefs: false },
         );
 
         expect(component.externalStyles[0].href).not.toContain("file:");
@@ -137,6 +139,22 @@ describe("external stylesheet hrefs", () =>
 
         expect(component.externalStyles[0].href).toBe(
             "https://site.example/components/shared.css",
+        );
+    });
+
+    it("resolves against a file: base when the page itself is on file://", async () =>
+    {
+        // Opening index.html directly gives every component a file: base. Left
+        // unresolved, the href would resolve against the page and lose the
+        // component's own directory.
+        const component = await parseComponent(
+            `<link rel="stylesheet" href="./header.css"><p>hi</p>`,
+            "ext-4",
+            "file:///site/components/header/index.html",
+        );
+
+        expect(component.externalStyles[0].href).toBe(
+            "file:///site/components/header/header.css",
         );
     });
 });

@@ -259,7 +259,8 @@ function extractTemplateBindingVariables(template: string): string[]
 export async function parseComponent(
   source: string,
   name: string,
-  componentUrl?: string
+  componentUrl?: string,
+  options?: { resolveStyleHrefs?: boolean }
 ): Promise<LadrillosComponent>
 {
   const doc = parseHTML(source);
@@ -419,12 +420,12 @@ export async function parseComponent(
       let href = l.getAttribute("href") || "";
       const rel = l.getAttribute("rel") || "stylesheet";
 
-      // Only an absolute http(s) base resolves to a URL a browser can fetch.
-      // The build-time compiler passes a file: URL, which would otherwise bake
-      // the build machine's own path into the shipped bundle.
-      const canResolve = /^https?:\/\//i.test(componentUrl ?? "");
+      // Build-time callers opt out, because their base is the build machine's
+      // own path and would ship in the bundle. A page served over file:// has a
+      // file: base too, so the protocol alone cannot tell the two apart.
+      const resolveHrefs = options?.resolveStyleHrefs ?? true;
 
-      if (canResolve && href && !href.startsWith("http"))
+      if (resolveHrefs && componentUrl && href && !href.startsWith("http"))
       {
         try
         {

@@ -131,7 +131,8 @@ export default function ladrillos(options: LadrillosOptions = {}): Plugin
             const component = await parseComponent(
                 source,
                 tagName,
-                pathToFileURL(file).href
+                pathToFileURL(file).href,
+                { resolveStyleHrefs: false }
             );
 
             // Parsing needs a real file: URL to resolve external scripts against,
