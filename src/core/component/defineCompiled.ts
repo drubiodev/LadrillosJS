@@ -2,9 +2,10 @@ import type { LadrillosComponent } from "../../types";
 import { createWebComponent } from "./webcomponent";
 import { warn, ErrorCode } from "../../utils/devWarnings";
 
-export interface DefineCompiledOptions {
-  /** Matches `registerComponent`, which also defaults to shadow DOM. */
-  useShadowDOM?: boolean;
+export interface DefineCompiledOptions
+{
+    /** Matches `registerComponent`, which also defaults to shadow DOM. */
+    useShadowDOM?: boolean;
 }
 
 /**
@@ -21,22 +22,24 @@ export interface DefineCompiledOptions {
  * what lets a build that only uses precompiled components drop the parser.
  */
 export function defineCompiled(
-  component: LadrillosComponent,
-  options: DefineCompiledOptions = {}
-): void {
-  const { tagName } = component;
+    component: LadrillosComponent,
+    options: DefineCompiledOptions = {}
+): void
+{
+    const { tagName } = component;
 
-  if (!tagName?.trim() || !tagName.includes("-")) {
-    warn(
-      `Invalid component name "${tagName || "(empty)"}". Custom element names must contain a hyphen.`,
-      { tagName, sourcePath: component.sourcePath },
-      {
-        code: ErrorCode.INVALID_COMPONENT_NAME,
-        hint: "Regenerate the artifact — the emitted tagName looks wrong.",
-      }
-    );
-    return;
-  }
+    if (!tagName?.trim() || !tagName.includes("-"))
+    {
+        warn(
+            `Invalid component name "${tagName || "(empty)"}". Custom element names must contain a hyphen.`,
+            { tagName, sourcePath: component.sourcePath },
+            {
+                code: ErrorCode.INVALID_COMPONENT_NAME,
+                hint: "Regenerate the artifact — the emitted tagName looks wrong.",
+            }
+        );
+        return;
+    }
 
-  createWebComponent(component, options.useShadowDOM ?? true);
+    createWebComponent(component, options.useShadowDOM ?? true);
 }

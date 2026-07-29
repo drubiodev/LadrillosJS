@@ -10,11 +10,12 @@
  * - createRefsProxy(map) - Wrap a Map in a Proxy for cleaner dot notation access
  */
 
-import {
-  ladrillos,
-  ComponentConfig,
-  RegisterComponentsResult,
-} from "../ladrillos";
+import
+  {
+    ladrillos,
+    ComponentConfig,
+    RegisterComponentsResult,
+  } from "../ladrillos";
 import type { LazyStrategy } from "../lazy";
 import { createRefsProxy } from "./refsProxy";
 
@@ -24,13 +25,15 @@ export { createRefsProxy };
  * Resolves a relative path against a base URL.
  * Used to resolve "./buttons.html" relative to the parent component's URL.
  */
-function resolvePath(path: string, baseUrl: string): string {
+function resolvePath(path: string, baseUrl: string): string
+{
   // If path is already absolute, return as-is
   if (
     path.startsWith("http://") ||
     path.startsWith("https://") ||
     path.startsWith("/")
-  ) {
+  )
+  {
     return path.startsWith("/")
       ? new URL(path, window.location.origin).href
       : path;
@@ -44,7 +47,8 @@ function resolvePath(path: string, baseUrl: string): string {
  * Converts a filename to a kebab-case tag name.
  * "./HeaderButtons.html" → "header-buttons"
  */
-function filenameToTagName(path: string): string {
+function filenameToTagName(path: string): string
+{
   const filename =
     path
       .split("/")
@@ -65,7 +69,8 @@ function filenameToTagName(path: string): string {
  * @param componentUrl - The absolute URL of the component (e.g., "http://localhost/header/header.html")
  * @returns Object containing bound helper functions
  */
-export function createFrameworkHelpers(componentUrl: string) {
+export function createFrameworkHelpers(componentUrl: string)
+{
   /**
    * Registers a child component from within a component's script.
    * Paths are resolved relative to the calling component's location.
@@ -84,7 +89,8 @@ export function createFrameworkHelpers(componentUrl: string) {
     path: string,
     useShadowDOM: boolean = true,
     lazy: boolean | LazyStrategy = false,
-  ): Promise<void> {
+  ): Promise<void>
+  {
     const resolvedPath = resolvePath(path, componentUrl);
     return ladrillos.registerComponent(name, resolvedPath, useShadowDOM, lazy);
   }
@@ -118,7 +124,8 @@ export function createFrameworkHelpers(componentUrl: string) {
     configs:
       | ComponentConfig[]
       | Record<string, string | Omit<ComponentConfig, "name">>,
-  ): Promise<RegisterComponentsResult> {
+  ): Promise<RegisterComponentsResult>
+  {
     // Normalize and resolve paths relative to component
     const normalizedConfigs: ComponentConfig[] = Array.isArray(configs)
       ? configs.map((config) => ({
@@ -142,7 +149,8 @@ export function createFrameworkHelpers(componentUrl: string) {
     path: string,
     useShadowDOM: boolean = true,
     lazy: boolean | LazyStrategy = false,
-  ): Promise<void> {
+  ): Promise<void>
+  {
     const tagName = filenameToTagName(path);
     const resolvedPath = resolvePath(path, componentUrl);
     return ladrillos.registerComponent(tagName, resolvedPath, useShadowDOM, lazy);
@@ -164,7 +172,8 @@ export const frameworkHelperNames = [
  * Default helpers for entry point usage (resolve relative to page URL).
  * Inside components, use createFrameworkHelpers(componentUrl) instead.
  */
-export function getFrameworkHelperValues(): ((...args: any[]) => any)[] {
+export function getFrameworkHelperValues(): ((...args: any[]) => any)[]
+{
   const helpers = createFrameworkHelpers(window.location.href);
   return [helpers.registerComponent, helpers.registerComponents, helpers.$use];
 }

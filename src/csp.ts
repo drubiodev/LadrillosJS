@@ -28,22 +28,23 @@ import { ComponentConfig, RegisterComponentsResult } from "./core/ladrillos";
 import { setCodegenBackend } from "./core/js/compiler";
 import { precompiledBackend } from "./core/js/precompiled";
 import
-  {
-    registerComponent,
-    registerComponents,
-    $use,
-  } from "./core/helpers/frameworkHelpers";
+{
+  registerComponent,
+  registerComponents,
+  $use,
+} from "./core/helpers/frameworkHelpers";
 import { configure, LadrillosConfig } from "./core/configure";
-import {
-  defineCompiled,
-  type DefineCompiledOptions,
-} from "./core/component/defineCompiled";
 import
   {
-    ErrorCode,
-    LadrillosError,
-    type LadrillosErrorHandler,
-  } from "./utils/devWarnings";
+    defineCompiled,
+    type DefineCompiledOptions,
+  } from "./core/component/defineCompiled";
+import
+{
+  ErrorCode,
+  LadrillosError,
+  type LadrillosErrorHandler,
+} from "./utils/devWarnings";
 
 setCodegenBackend(precompiledBackend);
 
@@ -66,7 +67,8 @@ export type {
 export { ErrorCode, LadrillosError };
 
 // Artifact registration — the build-time counterpart to this entry
-export {
+export
+{
   registerArtifacts,
   clearArtifacts,
   hasArtifact,

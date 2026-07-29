@@ -10,27 +10,31 @@
  *
  * @see src/core/js/precompiled.ts for the calling convention.
  */
-import {
-  extractVariableNames,
-  extractFunctionNames,
-  extractFunctionDefinitions,
-} from "../core/js/scriptParser";
-import {
-  stripImports,
-  extractDeclaredNames,
-  parseImports,
-} from "../core/js/moduleExecutor";
+import
+  {
+    extractVariableNames,
+    extractFunctionNames,
+    extractFunctionDefinitions,
+  } from "../core/js/scriptParser";
+import
+  {
+    stripImports,
+    extractDeclaredNames,
+    parseImports,
+  } from "../core/js/moduleExecutor";
 import { transformCodeToStateAccess } from "../utils/stateTransform";
 import { EVENT_ATTRIBUTE_SET } from "../utils/jsevents";
 import type { LadrillosComponent } from "../types";
 
-export interface EmittedKeys {
+export interface EmittedKeys
+{
   evaluators: string[];
   handlers: string[];
   setups: string[];
 }
 
-export interface EmitResult {
+export interface EmitResult
+{
   /** ES module source. Import it for its side effect of registering artifacts. */
   code: string;
   /** The parsed component as JSON — what `defineCompiled` consumes. */
@@ -80,10 +84,13 @@ const MODULE_INJECTED = new Set([
 ]);
 
 /** Local binding names introduced by a module script's import statements. */
-function importNamesFor(code: string): string[] {
+function importNamesFor(code: string): string[]
+{
   const names: string[] = [];
-  for (const parsed of parseImports(code)) {
-    for (const binding of parsed.imports) {
+  for (const parsed of parseImports(code))
+  {
+    for (const binding of parsed.imports)
+    {
       if (binding.local && !names.includes(binding.local)) names.push(binding.local);
     }
   }
@@ -94,10 +101,12 @@ function importNamesFor(code: string): string[] {
 function depsFor(
   expression: string,
   available: ReadonlySet<string>
-): string[] {
+): string[]
+{
   const found = expression.match(IDENTIFIER_G) ?? [];
   const deps: string[] = [];
-  for (const name of found) {
+  for (const name of found)
+  {
     if (RESERVED.has(name)) continue;
     if (!available.has(name)) continue;
     if (!deps.includes(name)) deps.push(name);
@@ -105,7 +114,8 @@ function depsFor(
   return deps;
 }
 
-function stripBindingBraces(expression: string): string {
+function stripBindingBraces(expression: string): string
+{
   const trimmed = expression.trim();
   return trimmed.startsWith("{") && trimmed.endsWith("}")
     ? trimmed.slice(1, -1).trim()
@@ -115,7 +125,8 @@ function stripBindingBraces(expression: string): string {
 /** Mirrors the runtime's `parseForExpression` closely enough to find loop names. */
 function parseFor(
   expression: string
-): { item: string; index?: string; array: string } | null {
+): { item: string; index?: string; array: string } | null
+{
   const match = expression.match(/([\s\S]*?)\s+(?:in|of)\s+([\s\S]+)$/);
   if (!match) return null;
 
@@ -129,7 +140,8 @@ function parseFor(
   return { item: parts[0], index: parts[1], array: rhs.trim() };
 }
 
-interface Collected {
+interface Collected
+{
   evaluators: Map<string, string[]>;
   handlers: Map<string, { code: string; deps: string[] }>;
 }
@@ -137,21 +149,24 @@ interface Collected {
 function collect(
   component: LadrillosComponent,
   stateNames: ReadonlySet<string>
-): Collected {
+): Collected
+{
   const evaluators = new Map<string, string[]>();
   const handlers = new Map<string, { code: string; deps: string[] }>();
 
   const tpl = document.createElement("template");
   tpl.innerHTML = component.template;
 
-  const addEvaluator = (raw: string, extra: ReadonlySet<string>): void => {
+  const addEvaluator = (raw: string, extra: ReadonlySet<string>): void =>
+  {
     const expression = raw.trim();
     if (!expression || evaluators.has(expression)) return;
     const available = new Set([...stateNames, ...extra]);
     evaluators.set(expression, depsFor(expression, available));
   };
 
-  const addHandler = (raw: string): void => {
+  const addHandler = (raw: string): void =>
+  {
     const code = raw.trim();
     if (!code) return;
     const key = `handler:${code}`;
@@ -159,17 +174,21 @@ function collect(
     handlers.set(key, { code, deps: ["__state__", "$refs", "$host", "event"] });
   };
 
-  const scanText = (text: string, scope: ReadonlySet<string>): void => {
+  const scanText = (text: string, scope: ReadonlySet<string>): void =>
+  {
     for (const m of text.matchAll(/{([^}]+)}/g)) addEvaluator(m[1], scope);
   };
 
-  const walk = (node: Element, scope: ReadonlySet<string>): void => {
+  const walk = (node: Element, scope: ReadonlySet<string>): void =>
+  {
     let childScope = scope;
 
-    if (node.tagName.toLowerCase() === "for") {
+    if (node.tagName.toLowerCase() === "for")
+    {
       const each = node.getAttribute("each");
       const parsed = each ? parseFor(each) : null;
-      if (parsed) {
+      if (parsed)
+      {
         addEvaluator(parsed.array, scope);
         childScope = new Set([...scope, parsed.item]);
         if (parsed.index) childScope = new Set([...childScope, parsed.index]);
@@ -179,19 +198,23 @@ function collect(
       }
     }
 
-    for (const attr of Array.from(node.attributes)) {
+    for (const attr of Array.from(node.attributes))
+    {
       const name = attr.name;
       const value = attr.value;
 
-      if (EVENT_ATTRIBUTE_SET.has(name) || name.startsWith("$on:")) {
+      if (EVENT_ATTRIBUTE_SET.has(name) || name.startsWith("$on:"))
+      {
         addHandler(value);
         continue;
       }
-      if (name === "condition") {
+      if (name === "condition")
+      {
         addEvaluator(stripBindingBraces(value), childScope);
         continue;
       }
-      if (name === "$bind") {
+      if (name === "$bind")
+      {
         addEvaluator(stripBindingBraces(value), childScope);
         continue;
       }
@@ -204,14 +227,18 @@ function collect(
   };
 
   const rootScope: ReadonlySet<string> = stateNames;
-  for (const child of Array.from(tpl.content.children)) {
+  for (const child of Array.from(tpl.content.children))
+  {
     walk(child as Element, rootScope);
   }
 
   // Text nodes anywhere in the template, with loop scope applied.
-  const walkText = (node: Node, scope: ReadonlySet<string>): void => {
-    for (const child of Array.from(node.childNodes)) {
-      if (child.nodeType === 3) {
+  const walkText = (node: Node, scope: ReadonlySet<string>): void =>
+  {
+    for (const child of Array.from(node.childNodes))
+    {
+      if (child.nodeType === 3)
+      {
         scanText(child.textContent ?? "", scope);
         continue;
       }
@@ -219,9 +246,11 @@ function collect(
 
       const el = child as Element;
       let childScope = scope;
-      if (el.tagName.toLowerCase() === "for") {
+      if (el.tagName.toLowerCase() === "for")
+      {
         const parsed = parseFor(el.getAttribute("each") ?? "");
-        if (parsed) {
+        if (parsed)
+        {
           childScope = new Set([...scope, parsed.item]);
           if (parsed.index) childScope = new Set([...childScope, parsed.index]);
         }
@@ -238,7 +267,8 @@ function collect(
 export function emitComponent(
   component: LadrillosComponent,
   options: { runtimeImport?: string; format?: "module" | "table" } = {}
-): EmitResult {
+): EmitResult
+{
   const runtimeImport = options.runtimeImport ?? "ladrillosjs/csp";
   const format = options.format ?? "module";
 
@@ -252,7 +282,8 @@ export function emitComponent(
   // into __state__ before any binding is evaluated, so expressions can name them.
   const moduleVars: string[] = [];
   const moduleFuncs: string[] = [];
-  for (const script of moduleScripts) {
+  for (const script of moduleScripts)
+  {
     const declared = extractDeclaredNames(stripImports(script.content));
     moduleVars.push(...declared.variables);
     moduleFuncs.push(...declared.functions);
@@ -268,7 +299,8 @@ export function emitComponent(
 
   const { evaluators, handlers } = collect(component, stateNames);
 
-  const evaluatorEntries = [...evaluators].map(([expression, deps]) => {
+  const evaluatorEntries = [...evaluators].map(([expression, deps]) =>
+  {
     const params = deps.join(", ");
     return `  ${JSON.stringify(expression)}: { deps: ${JSON.stringify(
       deps
@@ -290,12 +322,13 @@ export function emitComponent(
       ? `const { ${stateFunctions.join(", ")} } = __state__;`
       : ""
     : transformCodeToStateAccess(
-        extractFunctionDefinitions(regularContent, []),
-        allVariables,
-        { rewriteDeclarations: false }
-      );
+      extractFunctionDefinitions(regularContent, []),
+      allVariables,
+      { rewriteDeclarations: false }
+    );
 
-  const handlerEntries = [...handlers].map(([key, { code, deps }]) => {
+  const handlerEntries = [...handlers].map(([key, { code, deps }]) =>
+  {
     const body = transformCodeToStateAccess(code, allVariables, {
       rewriteDeclarations: false,
     });
@@ -309,7 +342,8 @@ export function emitComponent(
   const setupEntries: string[] = [];
   const setupKeys: string[] = [];
 
-  for (const script of regularScripts) {
+  for (const script of regularScripts)
+  {
     const content = script.content;
     if (!content.trim()) continue;
     const vars = [
@@ -328,7 +362,8 @@ export function emitComponent(
     );
   }
 
-  for (const script of moduleScripts) {
+  for (const script of moduleScripts)
+  {
     const content = script.content;
     if (!content.trim()) continue;
 

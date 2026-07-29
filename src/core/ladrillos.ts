@@ -2,20 +2,20 @@ import { LadrillosComponent } from "../types";
 import { fetchComponentSource } from "./component/loader";
 import { createWebComponent } from "./component/webcomponent";
 import
-  {
-    LazyStrategy,
-    defaultLazyStrategy,
-    initLazyLoader,
-    registerLazyComponent,
-    forceLoadLazyComponent,
-  } from "./lazy";
+{
+  LazyStrategy,
+  defaultLazyStrategy,
+  initLazyLoader,
+  registerLazyComponent,
+  forceLoadLazyComponent,
+} from "./lazy";
 import
-  {
-    warn,
-    error,
-    ErrorCode,
-    LadrillosError,
-  } from "../utils/devWarnings";
+{
+  warn,
+  error,
+  ErrorCode,
+  LadrillosError,
+} from "../utils/devWarnings";
 
 /**
  * Component registration configuration
