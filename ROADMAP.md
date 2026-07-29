@@ -604,13 +604,46 @@ used when registering a component. Under
       which risks colliding with the existing handler-splicing path, so it is
       left for its own change rather than smuggled into the CSP branch.
 
-- [ ] **Nested `<for>` does not expand the inner loop.** The inner `<for>`
-      renders its template exactly once, with its loop variable left as literal
-      text: `{group.name}-{item}` yields `a-{item}` instead of `a-1a-2`.
+- [x] **Nested `<for>` does not expand the inner loop.** The inner `<for>`
+      rendered its template exactly once, with its loop variable left as
+      literal text: `{group.name}-{item}` yielded `a-{item}` instead of
+      `a-1a-2`. [docs/08-loops.md](docs/08-loops.md) documents nested loops as
+      supported, so this was a straight bug, not a missing feature.
 
-      The outer variable resolves correctly inside the inner loop, and a single
-      `<for>` is correct, so the defect is specific to nesting.
-      [docs/08-loops.md](docs/08-loops.md) documents nested loops as supported.
+      `scanLoops` skipped any `<for>` with a `<for>` ancestor, on the stated
+      assumption that "those are processed when the outer loop renders an
+      iteration" — but nothing ever did. `renderLoop` cloned the row template
+      and ran the binding pass over it; the inner `<for>` just sat there as an
+      unknown element, and its `{item}` text was bound against a context that
+      had no `item`.
+
+      Fixed in
+      [directiveProcessor.ts](src/core/directives/directiveProcessor.ts) by
+      actually rendering nested loops per row:
+
+      - `createLoopDescriptor` was factored out of `scanLoops` so a `<for>`
+        can be turned into a descriptor from inside a row clone, not just
+        from the component host.
+      - `renderLoop` takes an optional `scope` holding the enclosing loops'
+        variables. It is merged into the pass context *before* the fast
+        evaluator is built, so those names are part of its fixed key set, and
+        into each row's handler context, so a handler can read the outer row's
+        item. `state` stays the real reactive state, which keeps
+        `__reactiveState__` and handler sync-back correct.
+      - Each row's nested `<for>` elements are extracted at creation time and
+        their descriptors stashed on the row element, so a *reused* row
+        re-renders its own children against the item it now holds. All three
+        reuse paths (identical-items, keyed, positional) do this.
+      - `buildLoopTemplate` now wraps a lone nested `<for>`: a row must be
+        exactly one element, and the nested loop replaces itself with a
+        placeholder comment, so it needs a parent that survives.
+
+      That last change exposed a second, subtler bug in the same scan.
+      `scanLoops` skipped already-extracted elements with `!element.parentNode`,
+      which is wrong: a nested `<for>` keeps a parent *inside the detached
+      template*. It was therefore rescanned as a top-level loop, with no
+      enclosing scope, and failed with `group is not defined`. The guard is now
+      `!host.contains(element)`, which is what the code meant all along.
 
       **Both of the above were being reported as *conformant*.** The conformance
       suite only asserted that the two backends agree, and they agree perfectly
@@ -618,9 +651,10 @@ used when registering a component. Under
       [conformance.test.ts](tests/unit/conformance.test.ts) and
       [emitter.test.ts](tests/unit/emitter.test.ts) now pins its expected
       output, so "both paths agree" can no longer mean "both paths are broken".
-      The two known-bad fixtures are pinned to their current output with a
-      `KNOWN BUG` comment, so fixing either one trips the test rather than
-      passing quietly.
+      That pin is what turned the nested-`<for>` fix into a verifiable change:
+      the fixture failed the moment the behaviour changed. The remaining
+      known-bad fixture keeps a `KNOWN BUG` comment so fixing it trips the test
+      rather than passing quietly.
 
 ---
 

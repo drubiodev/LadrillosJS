@@ -278,67 +278,86 @@ function scanLoops(
 ): void
 {
   // Outermost-first: snapshot live, but skip nested <for> inside another <for>
-  // (those are processed when the outer loop renders an iteration).
+  // (those are extracted per row when the outer loop renders an iteration).
   const elements = Array.from(host.querySelectorAll("for"));
 
   for (const element of elements)
   {
-    if (!element.parentNode) continue; // already extracted by an outer pass
-    if (hasForAncestor(element)) continue;
+    // Extracting an outer <for> pulls its whole subtree — nested loops
+    // included — out of the host and into a template, so anything no longer
+    // under `host` belongs to some other loop's template, not here.
+    // Checking `parentNode` alone is not enough: a nested <for> keeps a
+    // parent inside that detached template.
+    if (!host.contains(element)) continue;
 
-    const expression =
-      element.getAttribute("each") || element.getAttribute("of") || "";
-    if (!expression)
-    {
-      warn(`<for> requires an "each" attribute, e.g. <for each="item in items">.`);
-      continue;
-    }
-
-    let parsed = parseForExpression(expression);
-    if (!parsed)
-    {
-      warn(`Invalid <for each="…"> expression: "${expression}"`);
-      continue;
-    }
-
-    // key="…" or track-by="…" override anything in the each expression.
-    const keyAttr =
-      element.getAttribute("key") ||
-      element.getAttribute("track-by") ||
-      parsed.key;
-
-    // Build the per-iteration template root.
-    const template = buildLoopTemplate(element);
-    if (!template)
-    {
-      warn(`<for each="${expression}"> has no content to render.`);
-      continue;
-    }
-
-    const placeholder = document.createComment(` <for> ${expression} `);
-    const parent = element.parentElement || host;
-    parent.insertBefore(placeholder, element);
-    element.remove();
-
-    const descriptor: LoopDescriptor = {
-      template,
-      expression,
-      itemName: parsed.item,
-      indexName: parsed.index,
-      arrayName: parsed.array,
-      keyAttribute: keyAttr,
-      placeholder,
-      renderedElements: [],
-      originalParent: parent as Element | ShadowRoot,
-      // Detected once here so renderLoop can skip the per-row conditional
-      // walk (a querySelectorAll on every clone) for conditional-free
-      // templates. resolveLoopConditionals never matches a root-level <if>
-      // (querySelectorAll excludes the root), so querySelector parity holds.
-      hasConditionals: template.querySelector(IF_TAG) !== null,
-    };
-
-    context.loops.push(descriptor);
+    const descriptor = createLoopDescriptor(element, host);
+    if (descriptor) context.loops.push(descriptor);
   }
+}
+
+/**
+ * Turns one live `<for>` element into a descriptor, replacing it in the tree
+ * with a placeholder comment. Returns null (having warned) if the element is
+ * not usable as a loop.
+ */
+function createLoopDescriptor(
+  element: Element,
+  host: HTMLElement | ShadowRoot | DocumentFragment | Element,
+): LoopDescriptor | null
+{
+  const expression =
+    element.getAttribute("each") || element.getAttribute("of") || "";
+  if (!expression)
+  {
+    warn(`<for> requires an "each" attribute, e.g. <for each="item in items">.`);
+    return null;
+  }
+
+  const parsed = parseForExpression(expression);
+  if (!parsed)
+  {
+    warn(`Invalid <for each="…"> expression: "${expression}"`);
+    return null;
+  }
+
+  // key="…" or track-by="…" override anything in the each expression.
+  const keyAttr =
+    element.getAttribute("key") ||
+    element.getAttribute("track-by") ||
+    parsed.key;
+
+  // Build the per-iteration template root.
+  const template = buildLoopTemplate(element);
+  if (!template)
+  {
+    warn(`<for each="${expression}"> has no content to render.`);
+    return null;
+  }
+
+  const placeholder = document.createComment(` <for> ${expression} `);
+  const parent = element.parentElement || host;
+  parent.insertBefore(placeholder, element);
+  element.remove();
+
+  return {
+    template,
+    expression,
+    itemName: parsed.item,
+    indexName: parsed.index,
+    arrayName: parsed.array,
+    keyAttribute: keyAttr,
+    placeholder,
+    renderedElements: [],
+    originalParent: parent as Element | ShadowRoot,
+    // Detected once here so renderLoop can skip the per-row conditional
+    // walk (a querySelectorAll on every clone) for conditional-free
+    // templates. resolveLoopConditionals never matches a root-level <if>
+    // (querySelectorAll excludes the root), so querySelector parity holds.
+    hasConditionals: template.querySelector(IF_TAG) !== null,
+    // buildLoopTemplate guarantees the root is never a <for>, so
+    // querySelectorAll's exclusion of the root cannot hide one.
+    hasNestedLoops: template.querySelector(FOR_TAG) !== null,
+  };
 }
 
 /**
@@ -359,7 +378,11 @@ function buildLoopTemplate(forEl: Element): Element | null
 
   if (
     significant.length === 1 &&
-    significant[0].nodeType === Node.ELEMENT_NODE
+    significant[0].nodeType === Node.ELEMENT_NODE &&
+    // A lone nested <for> must still be wrapped: a row has to be exactly one
+    // element, and the nested loop replaces itself with a placeholder comment,
+    // so it needs a parent that survives.
+    (significant[0] as Element).tagName !== FOR_TAG
   )
   {
     return significant[0] as Element;
@@ -706,6 +729,11 @@ export function renderLoops(
 /**
  * Renders a single loop with keyed diffing for optimal DOM updates.
  * Uses LIS-based algorithm to minimize DOM operations.
+ *
+ * `scope` carries the loop variables of any enclosing loops. It is empty for
+ * a top-level loop; for `<for each="item in group.items">` nested inside
+ * `<for each="group in groups">` it holds the current `group`, which is what
+ * makes `group.items` resolvable at all.
  */
 function renderLoop(
   loop: LoopDescriptor,
@@ -714,10 +742,18 @@ function renderLoop(
     expr: string,
     context: Record<string, unknown>,
   ) => unknown,
+  scope?: Record<string, unknown>,
 ): void
 {
+  ((globalThis as any).__P__ ??= []).push({
+    arr: loop.arrayName, scope: scope ? Object.keys(scope) : null,
+    scopeNames: loop.scopeNames, nested: loop.hasNestedLoops,
+  });
   // Get the array to iterate over
-  const arrayValue = evaluateExpression(loop.arrayName, state);
+  const arrayValue = evaluateExpression(
+    loop.arrayName,
+    scope ? { ...state, ...scope } : state,
+  );
 
   if (!arrayValue || !isIterable(arrayValue))
   {
@@ -746,6 +782,7 @@ function renderLoop(
   // context, below), so mutating item/index per element is safe and avoids
   // copying the whole component state once per item.
   const updateContext = createBaseLoopContext(state);
+  if (scope) Object.assign(updateContext, scope);
 
   // Prime the item/index keys so the pass-scoped fast evaluator captures the
   // complete key set (its contract: keys must not change once created —
@@ -756,6 +793,8 @@ function renderLoop(
   // Static-mode fast evaluator: state slots are filled once, and only the
   // item/index slots are refreshed per row (setRow → refresh()). State
   // values cannot change mid-pass — no user code runs during a flush.
+  // Enclosing loop variables are static too: this whole call renders one
+  // row of the outer loop.
   const volatileKeys = loop.indexName
     ? [loop.itemName, loop.indexName]
     : [loop.itemName];
@@ -779,12 +818,42 @@ function renderLoop(
   // Everything handler creation needs that is identical across rows — name
   // lists, the generated destructuring prelude, event-bus helpers — built at
   // most once per pass, and only if a handler attribute is actually seen.
+  // Enclosing loop variables are declared alongside this loop's own, so a
+  // handler in a nested row can read the outer row's item.
+  const rowVarNames = loop.indexName
+    ? [loop.itemName, loop.indexName]
+    : [loop.itemName];
+  const scopedVarNames = loop.scopeNames?.length
+    ? [...loop.scopeNames, ...rowVarNames]
+    : rowVarNames;
   let handlerSetup: LoopHandlerSetup | null = null;
   const getSetup = (): LoopHandlerSetup =>
-  (handlerSetup ??= createLoopHandlerSetup(
-    state,
-    loop.indexName ? [loop.itemName, loop.indexName] : [loop.itemName],
-  ));
+  (handlerSetup ??= createLoopHandlerSetup(state, scopedVarNames));
+
+  /** The loop variables visible to anything rendered inside one row. */
+  const scopeForRow = (item: unknown, index: number): Record<string, unknown> =>
+  {
+    const inner: Record<string, unknown> = scope ? { ...scope } : {};
+    inner[loop.itemName] = item;
+    if (loop.indexName) inner[loop.indexName] = index;
+    return inner;
+  };
+
+  /**
+   * Renders the `<for>` elements extracted from one row. Their descriptors
+   * live on the row element, so a reused row re-renders its own children
+   * against the item it now holds rather than rebuilding them.
+   */
+  const renderNested = (el: Element, item: unknown, index: number): void =>
+  {
+    const nested = (el as any)[LOOP_ROW_NESTED] as LoopDescriptor[] | undefined;
+    if (!nested) return;
+    const inner = scopeForRow(item, index);
+    for (const child of nested)
+    {
+      renderLoop(child, state, evaluateExpression, inner);
+    }
+  };
 
   // Refresh the small per-row context captured by an element's handlers so a
   // reused row's handlers read the CURRENT item/index at event time, not the
@@ -813,12 +882,24 @@ function renderLoop(
     // Small per-row context for event handlers: item/index own-properties
     // over a pass-shared prototype carrying state functions and markers.
     const rowCtx: Record<string, unknown> = Object.create(getSetup().proto);
+    if (scope) Object.assign(rowCtx, scope);
     rowCtx[loop.itemName] = item;
     if (loop.indexName) rowCtx[loop.indexName] = index;
     (clone as any)[LOOP_ROW_CTX] = rowCtx;
+    // Extract nested <for> elements before anything walks the clone, so the
+    // generic binding pass never sees their templates and cannot bind them
+    // against a context that lacks the inner loop variable.
+    if (loop.hasNestedLoops)
+    {
+      (clone as any)[LOOP_ROW_NESTED] = extractNestedLoops(
+        clone,
+        scopedVarNames,
+      );
+    }
     if (plan)
     {
       applyCreationPlan(clone, plan, evalOne, rowCtx, getSetup, loop);
+      renderNested(clone, item, index);
       return clone;
     }
     // Resolve any <if>/<else-if>/<else> chains nested inside the loop
@@ -841,6 +922,7 @@ function renderLoop(
       rowCtx,
       getSetup,
     );
+    renderNested(clone, item, index);
     return clone;
   };
 
@@ -881,6 +963,7 @@ function renderLoop(
           evalOne,
           getSetup,
         );
+        renderNested(oldElements[i], newItems[i], i);
       }
       loop.previousItems = newItems;
       return;
@@ -934,6 +1017,7 @@ function renderLoop(
           evalOne,
           getSetup,
         );
+        renderNested(existingEl, item, i);
         newElements[i] = existingEl;
         source[i] = keyToOldIndex.get(key) ?? -1;
       } else
@@ -959,6 +1043,7 @@ function renderLoop(
           evalOne,
           getSetup,
         );
+        renderNested(oldElements[i], newItems[i], i);
         newElements[i] = oldElements[i];
         source[i] = i;
       } else
@@ -1128,6 +1213,52 @@ const BINDING_CACHE = "__ladrillosBindingCache" as const;
  * different row, so handlers read current data at event time.
  */
 const LOOP_ROW_CTX = "__ladrillosLoopCtx" as const;
+
+/**
+ * Per-row key holding the loop descriptors extracted from that row's clone.
+ * Kept on the element so a reused row re-renders its own nested loops
+ * against the item it now holds, instead of being rebuilt from scratch.
+ */
+const LOOP_ROW_NESTED = "__ladrillosLoopNested" as const;
+
+/**
+ * Pulls every top-level `<for>` out of one row clone, turning each into a
+ * descriptor rooted in that clone.
+ *
+ * Only the outermost ones: a `<for>` inside another `<for>` belongs to that
+ * loop's template and is extracted when it renders its own rows.
+ */
+function extractNestedLoops(
+  clone: Element,
+  scopeNames: readonly string[],
+): LoopDescriptor[]
+{
+  const nested: LoopDescriptor[] = [];
+  for (const el of Array.from(clone.querySelectorAll(FOR_TAG)))
+  {
+    if (!el.parentNode) continue; // already pulled out with an outer one
+    if (hasForAncestorWithin(el, clone)) continue;
+    const descriptor = createLoopDescriptor(el, clone);
+    if (descriptor)
+    {
+      descriptor.scopeNames = scopeNames;
+      nested.push(descriptor);
+    }
+  }
+  return nested;
+}
+
+/** Like hasForAncestor, but stops at `root` rather than at the document. */
+function hasForAncestorWithin(el: Element, root: Element): boolean
+{
+  let p: Element | null = el.parentElement;
+  while (p && p !== root)
+  {
+    if (p.tagName === FOR_TAG) return true;
+    p = p.parentElement;
+  }
+  return false;
+}
 
 function collectBindingCache(element: Element): LoopBindingCache
 {

@@ -330,9 +330,6 @@ const fixtures: {
       expected: "1",
     },
     {
-      // KNOWN BUG, pinned deliberately: correct output is "a-1a-2 b-3".
-      // An inner <for> is never expanded -- it renders its template once with
-      // the inner variable left as literal text. See ROADMAP.
       name: "nested loops",
       source: `
       <div id="out">
@@ -349,7 +346,79 @@ const fixtures: {
     `,
       exercise: async (root) =>
         root.getElementById("out")!.textContent!.replace(/\s+/g, " ").trim(),
-      expected: "a-{item}b-{item}",
+      expected: "a-1a-2 b-3",
+    },
+    {
+      // Both loops' indexes must be visible at once, and the row template has
+      // several children so the wrapper path is exercised too.
+      name: "nested loops with both indexes",
+      source: `
+      <div id="out">
+        <for each="group, gi in groups">
+          <b>{gi}</b>
+          <for each="item, ii in group.items"><span>{gi}{ii}{item}</span></for>
+        </for>
+      </div>
+      <script>
+        let groups = [{ items: ["a", "b"] }, { items: ["c"] }];
+      </script>
+    `,
+      exercise: async (root) =>
+        root.getElementById("out")!.textContent!.replace(/\s+/g, " ").trim(),
+      expected: "0 00a01b 1 10c",
+    },
+    {
+      // Mutating the outer array must re-render the inner loops of reused
+      // rows against their new item, not leave stale rows behind.
+      name: "nested loops re-render when the outer array changes",
+      source: `
+      <div id="out">
+        <for each="group in groups">
+          <for each="item in group.items"><span>{item}</span></for>
+        </for>
+      </div>
+      <button id="go" onclick="groups = [{ items: [9] }, { items: [7, 8] }]">g</button>
+      <script>
+        let groups = [{ items: [1, 2] }, { items: [3] }];
+      </script>
+    `,
+      exercise: async (root) =>
+      {
+        root.getElementById("go")!.click();
+        await settle();
+        return root.getElementById("out")!.textContent!
+          .replace(/\s+/g, " ")
+          .trim();
+      },
+      expected: "9 78",
+    },
+    {
+      // A handler inside the inner row must close over BOTH loop variables.
+      name: "nested loop handler using outer and inner variables",
+      source: `
+      <div id="out">{picked}</div>
+      <div>
+        <for each="group in groups">
+          <for each="item in group.items">
+            <button class="pick" onclick="picked = group.name + item">x</button>
+          </for>
+        </for>
+      </div>
+      <script>
+        let picked = "none";
+        let groups = [
+          { name: "a", items: [1, 2] },
+          { name: "b", items: [3] },
+        ];
+      </script>
+    `,
+      exercise: async (root) =>
+      {
+        root.querySelectorAll<HTMLElement>("button.pick")[2]?.click();
+        await settle();
+        return root.getElementById("out")!.textContent!;
+      },
+      expected: "b3",
     },
     {
       name: "loop with an event handler using the row item",

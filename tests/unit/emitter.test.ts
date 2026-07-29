@@ -352,10 +352,6 @@ const fixtures: Fixture[] = [
     expected: "1",
   },
   {
-    // KNOWN BUG, pinned deliberately: correct output is "a-1a-2 b-3".
-    // An inner <for> is never expanded -- it renders its template once with
-    // the inner variable left as literal text. The outer variable resolves
-    // fine, and a single <for> is correct, so only nesting is broken.
     // See ROADMAP. Pinned so a fix trips this test rather than passing quietly.
     name: "nested loops",
     source: `
@@ -373,7 +369,7 @@ const fixtures: Fixture[] = [
     `,
     exercise: async (root) =>
       root.getElementById("out")!.textContent!.replace(/\s+/g, " ").trim(),
-    expected: "a-{item}b-{item}",
+    expected: "a-1a-2 b-3",
   },
   {
     name: "loop with an event handler using the row item",
