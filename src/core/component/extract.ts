@@ -1,11 +1,12 @@
 import { LadrillosComponent } from "../../types";
 import { REGEX_PATTERNS } from "../../utils/regex";
 import { rewriteImports } from "../js/moduleExecutor";
-import {
-  escapeControlTags,
-  restoreControlTags,
-  isControlElement,
-} from "../html/controlTagEscape";
+import
+  {
+    escapeControlTags,
+    restoreControlTags,
+    isControlElement,
+  } from "../html/controlTagEscape";
 
 // Built on first parse, not at import time: build tools import this module to
 // reach parseComponent and install their DOM shim (happy-dom, jsdom) afterwards.
