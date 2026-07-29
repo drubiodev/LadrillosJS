@@ -5,7 +5,17 @@
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "sideEffects": false,
+  "sideEffects": [
+    "./src/index.ts",
+    "./src/core.ts",
+    "./src/csp.ts",
+    "./dist/index.js",
+    "./dist/index.dev.js",
+    "./dist/core.js",
+    "./dist/core.dev.js",
+    "./dist/csp.js",
+    "./dist/csp.dev.js"
+  ],
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",

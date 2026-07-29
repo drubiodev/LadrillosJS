@@ -102,9 +102,12 @@ describe("@ladrillosjs/vite-plugin", () =>
 
     it("produces a bundle with no runtime code generation", async () =>
     {
+        // Importing from "ladrillosjs/csp" is the whole point: the default
+        // entry installs the `Function`-based backend, and the plugin cannot
+        // remove an import the app asked for. See the next test.
         write(
             "single.js",
-            `import { registerComponent } from "ladrillosjs";
+            `import { registerComponent } from "ladrillosjs/csp";
        await registerComponent("my-button", "./components/button.html");`
         );
 
@@ -114,6 +117,22 @@ describe("@ladrillosjs/vite-plugin", () =>
         expect(all).not.toMatch(/\bnew Function\s*\(/);
         expect(all).not.toMatch(/(?<![.\w$])eval\s*\(/);
         expect(all).not.toMatch(/(?<![.\w$])Function\s*\(/);
+    });
+
+    it("cannot remove code generation if the app imports the default entry", async () =>
+    {
+        // The opposite of the test above, so that one cannot pass by accident:
+        // if this fixture ever stops containing `Function(`, the check is no
+        // longer measuring anything.
+        write(
+            "default-entry.js",
+            `import { registerComponent } from "ladrillosjs";
+       await registerComponent("my-button", "./components/button.html");`
+        );
+
+        const { all } = await bundle("default-entry.js", {}, true);
+
+        expect(all).toMatch(/(?<![.\w$])Function\s*\(/);
     });
 
     it("handles a TypeScript entry, whose syntax is not parseable as ESTree", async () =>

@@ -180,6 +180,89 @@ function verifyBuild(buildConfig)
 // Main
 // ============================================================================
 
+/**
+ * Every entry point installs its codegen backend with a bare top-level call:
+ *
+ *   setCodegenBackend(precompiledBackend);
+ *
+ * Nothing consumes the result, so a bundler told the package is side-effect
+ * free is entitled to delete that statement — and then every component fails
+ * at mount with "No codegen backend installed". This is not theoretical: it
+ * shipped in 2.0.0 and broke any consumer who ran `vite build`.
+ *
+ * The fix is to list those entries in `sideEffects`, and this check keeps the
+ * list honest when a new entry point is added.
+ */
+function verifySideEffects()
+{
+  console.log(`\n📦 Checking: package.json "sideEffects"`);
+
+  const errors = [];
+  const pkg = JSON.parse(
+    fs.readFileSync(path.join(rootDir, "package.json"), "utf8")
+  );
+  const declared = new Set(
+    Array.isArray(pkg.sideEffects) ? pkg.sideEffects : []
+  );
+
+  if (pkg.sideEffects === false)
+  {
+    errors.push(
+      '"sideEffects": false deletes every entry point\'s ' +
+        "setCodegenBackend() call during a consumer's production build"
+    );
+    return errors;
+  }
+
+  const srcDir = path.join(rootDir, "src");
+  const entries = fs
+    .readdirSync(srcDir)
+    .filter((name) => name.endsWith(".ts"))
+    .filter((name) =>
+      fs.readFileSync(path.join(srcDir, name), "utf8").includes(
+        "\nsetCodegenBackend("
+      )
+    );
+
+  if (entries.length === 0)
+  {
+    errors.push(
+      "no entry point calls setCodegenBackend() — this check is now vacuous " +
+        "and needs updating"
+    );
+    return errors;
+  }
+
+  for (const entry of entries)
+  {
+    const stem = entry.replace(/\.ts$/, "");
+    const required = [
+      `./src/${entry}`,
+      `./dist/${stem}.js`,
+      `./dist/${stem}.dev.js`,
+    ];
+
+    for (const file of required)
+    {
+      if (!declared.has(file))
+      {
+        errors.push(
+          `${file} installs a codegen backend but is missing from "sideEffects"`
+        );
+      }
+    }
+  }
+
+  if (errors.length === 0)
+  {
+    console.log(
+      `   ✅ All ${entries.length} backend-installing entries are declared`
+    );
+  }
+
+  return errors;
+}
+
 function main()
 {
   console.log("🔍 Verifying production builds for tree-shaking...\n");
@@ -203,6 +286,12 @@ function main()
       console.log(`   ⚠️  WARNING: ${warning}`);
       totalWarnings++;
     }
+  }
+
+  for (const error of verifySideEffects())
+  {
+    console.log(`   ❌ ERROR: ${error}`);
+    totalErrors++;
   }
 
   console.log("\n" + "=".repeat(60));
