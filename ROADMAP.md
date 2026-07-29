@@ -280,14 +280,14 @@ Two behaviours had to be mirrored exactly:
   artifact keyed by its own source. The emitter previously joined them, which
   would have produced a key nothing ever requests.
 
-### `members:` / `values:` are unreachable
+### `members:` / `values:` are unreachable — *deleted*
 
-`extractScriptMembers` and `extractScriptMembersValuesOnly`
-([scriptParser.ts](src/core/js/scriptParser.ts#L735)) are neither exported nor
-called anywhere in the repo, so those two setup keys can never be requested and
-nothing needs to emit them. Both are already tree-shaken out of every shipped
-bundle (verified: `"Error extracting script members"` appears in none of them).
-Worth deleting at some point, but it is not a CSP concern.
+`extractScriptMembers` and `extractScriptMembersValuesOnly` in
+[scriptParser.ts](src/core/js/scriptParser.ts) were neither exported nor called
+anywhere, so those two setup keys could never be requested and nothing needed to
+emit them. Both have been removed (~130 lines). They were already tree-shaken
+out of every shipped bundle, so this changes no output — it removes two codegen
+call sites that the emitter could never satisfy.
 
 ### Packaging: subpath, decided
 
@@ -336,10 +336,12 @@ recorder observes.
 
 Two things this flushed out:
 
-- **`tests/integration/component-mount.test.ts` is skipped on an outdated
-  premise.** It claims happy-dom can't render reliably. It can: interpolation,
-  event handlers, reactive re-render, keyed loops and conditionals all work.
-  That test file should be revisited.
+- **`tests/integration/component-mount.test.ts` was skipped on an outdated
+  premise** — it claimed happy-dom can't render reliably. It can: interpolation,
+  event handlers, reactive re-render, keyed loops and conditionals all work. The
+  file held four empty test bodies, and the conformance suite already covers all
+  four cases against real mounted elements, so it has been deleted rather than
+  left as a standing lie about the runner.
 - **Swapping backends without invalidating caches was a latent bug.**
   `evaluatorCache` is module-level and keyed by state-key signature, so a second
   component with the same expressions reused the *previous backend's* compiled
@@ -469,13 +471,25 @@ budget exists to catch *unexpected* regressions. The verbose "no backend
 installed" guidance is gated behind `__DEV__`, which recovered ~750 bytes of an
 initial +1,076.
 
-### Tracked bug found here (pre-existing, not caused by this work)
+### Circular dependency found here (pre-existing) — *fixed*
 
-Importing `src/lazy.ts` as the **first** module of a fresh graph throws
-`TypeError: initLazyLoader is not a function` — a circular dependency between
-`core/lazy` and `core/ladrillos`. It reproduces with this branch's changes
-stashed. `tests/unit/entrypoints.test.ts` therefore asserts lazy's behaviour by
-reading the source rather than importing it.
+Importing `src/lazy.ts` as the **first** module of a fresh graph threw
+`TypeError: initLazyLoader is not a function`. The cycle is
+`ladrillos → lazy → lazyLoader → webcomponent → scriptParser → frameworkHelpers
+→ ladrillos`. Native ESM survives it, because `initLazyLoader` is a hoisted
+function declaration; transforms that evaluate modules in dependency order and
+read exports off a namespace object — Vite's SSR transform, and therefore
+Vitest — do not, so the singleton's constructor saw `undefined`.
+
+Fixed at the back edge, with the same technique used for the HTML parser:
+[frameworkHelpers.ts](src/core/helpers/frameworkHelpers.ts) now loads the
+`ladrillos` singleton via `import()` and keeps only a type-only static import.
+All three call sites (`registerComponent`, `registerComponents`, `$use`) already
+returned promises, so no signature changed.
+
+[entrypoints.test.ts](tests/unit/entrypoints.test.ts) now imports `src/lazy.ts`
+directly instead of reading its source as a workaround; restoring the static
+import reproduces the original `TypeError`.
 
 ---
 

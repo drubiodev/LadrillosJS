@@ -10,16 +10,20 @@
  * - createRefsProxy(map) - Wrap a Map in a Proxy for cleaner dot notation access
  */
 
-import
-  {
-    ladrillos,
-    ComponentConfig,
-    RegisterComponentsResult,
-  } from "../ladrillos";
+import type {
+  ComponentConfig,
+  RegisterComponentsResult,
+} from "../ladrillos";
 import type { LazyStrategy } from "../lazy";
 import { createRefsProxy } from "./refsProxy";
 
 export { createRefsProxy };
+
+// Loaded on demand. A static import closes a cycle — ladrillos imports the lazy
+// loader, which reaches back here via webcomponent -> scriptParser — and under
+// transforms that evaluate modules in dependency order (Vite's SSR transform,
+// so Vitest) the singleton's constructor then sees `initLazyLoader` undefined.
+const framework = () => import("../ladrillos").then((m) => m.ladrillos);
 
 /**
  * Resolves a relative path against a base URL.
@@ -92,7 +96,9 @@ export function createFrameworkHelpers(componentUrl: string)
   ): Promise<void>
   {
     const resolvedPath = resolvePath(path, componentUrl);
-    return ladrillos.registerComponent(name, resolvedPath, useShadowDOM, lazy);
+    return framework().then((l) =>
+      l.registerComponent(name, resolvedPath, useShadowDOM, lazy),
+    );
   }
 
   /**
@@ -138,7 +144,7 @@ export function createFrameworkHelpers(componentUrl: string)
           : { name, ...value, path: resolvePath(value.path, componentUrl) },
       );
 
-    return ladrillos.registerComponents(normalizedConfigs);
+    return framework().then((l) => l.registerComponents(normalizedConfigs));
   }
 
   /**
@@ -153,7 +159,9 @@ export function createFrameworkHelpers(componentUrl: string)
   {
     const tagName = filenameToTagName(path);
     const resolvedPath = resolvePath(path, componentUrl);
-    return ladrillos.registerComponent(tagName, resolvedPath, useShadowDOM, lazy);
+    return framework().then((l) =>
+      l.registerComponent(tagName, resolvedPath, useShadowDOM, lazy),
+    );
   }
 
   return { registerComponent, registerComponents, $use };

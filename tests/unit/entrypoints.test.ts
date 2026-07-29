@@ -48,20 +48,13 @@ describe("entry points install a codegen backend", () =>
         expect(await backendInstalledBy("../../src/csp")).toBe("precompiled");
     });
 
-    it("ladrillosjs/lazy installs nothing, because it cannot mount a component", () =>
+    it("ladrillosjs/lazy installs nothing, because it cannot mount a component", async () =>
     {
-        // Asserted against the source rather than by importing it: importing
-        // src/lazy.ts first in a fresh module graph trips a pre-existing circular
-        // dependency between core/lazy and core/ladrillos ("initLazyLoader is not
-        // a function"), which is unrelated to backend wiring and reproduces with
-        // all of this branch's changes stashed.
-        const source = readFileSync(
-            resolve(process.cwd(), "src/lazy.ts"),
-            "utf8"
-        );
+        expect(await backendInstalledBy("../../src/lazy")).toBe("uninstalled");
 
         // It only exports loading strategies; registering a component still
         // requires 'ladrillosjs' or 'ladrillosjs/core', which bring a backend.
+        const source = readFileSync(resolve(process.cwd(), "src/lazy.ts"), "utf8");
         expect(source).not.toContain("setCodegenBackend");
         expect(source).not.toContain("runtimeBackend");
     });
