@@ -7,26 +7,14 @@
   <fieldset class="plans">
     <legend class="sr-only">Plan</legend>
 
-    <label class="tile {plan === 'starter' ? 'is-on' : ''}">
-      <input type="radio" name="plan" value="starter" $bind="plan" />
-      <span class="tile-name">Starter</span>
-      <span class="tile-price">{money(12)}<i>/seat</i></span>
-      <span class="tile-blurb">For small teams finding their feet</span>
-    </label>
-
-    <label class="tile {plan === 'pro' ? 'is-on' : ''}">
-      <input type="radio" name="plan" value="pro" $bind="plan" />
-      <span class="tile-name">Pro</span>
-      <span class="tile-price">{money(24)}<i>/seat</i></span>
-      <span class="tile-blurb">Everything most teams need</span>
-    </label>
-
-    <label class="tile {plan === 'scale' ? 'is-on' : ''}">
-      <input type="radio" name="plan" value="scale" $bind="plan" />
-      <span class="tile-name">Scale</span>
-      <span class="tile-price">{money(48)}<i>/seat</i></span>
-      <span class="tile-blurb">Controls, audit logs, and SSO</span>
-    </label>
+    <for each="p in plans" key="p.id">
+      <label class="tile {plan === p.id ? 'is-on' : ''}">
+        <input type="radio" name="plan" value="{p.id}" $bind="plan" />
+        <span class="tile-name">{p.name}</span>
+        <span class="tile-price">{money(p.price)}<i>/seat</i></span>
+        <span class="tile-blurb">{p.blurb}</span>
+      </label>
+    </for>
   </fieldset>
 
   <div class="row">
