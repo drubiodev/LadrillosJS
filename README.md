@@ -787,8 +787,8 @@ In short: untrusted **data** through LadrillosJS's bindings is safe; untrusted
 
 ### Content Security Policy
 
-Because components are compiled in the browser (that's what "no build step"
-costs), a page using LadrillosJS needs `'unsafe-eval'`:
+By default components are compiled in the browser (that's what "no build step"
+costs), so a page using LadrillosJS needs `'unsafe-eval'`:
 
 ```http
 Content-Security-Policy:
@@ -802,9 +802,20 @@ Notably, `'unsafe-inline'` for **scripts** is *not* needed — inline `onclick`
 attributes are removed and reattached via `addEventListener()` — and neither is
 `blob:`. `require-trusted-types-for 'script'` is not yet supported.
 
+**If you use Vite, you can drop `'unsafe-eval'`.** Add
+[`@ladrillosjs/vite-plugin`](packages/vite-plugin) and import from
+`ladrillosjs/csp`; components are compiled at build time instead, with no
+change to your components or your code:
+
+```js
+// vite.config.js
+import ladrillos from "@ladrillosjs/vite-plugin";
+
+export default { plugins: [ladrillos()] };
+```
+
 See [Content Security Policy](docs/22-csp-and-security.md) for the full
-breakdown, verification results, and the roadmap toward an opt-in eval-free
-build.
+breakdown, both policies, and the verification results.
 
 ---
 

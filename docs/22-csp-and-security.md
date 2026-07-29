@@ -1,13 +1,23 @@
 # Content Security Policy (CSP)
 
-> **Short version:** LadrillosJS compiles your templates and component scripts
-> in the browser, so a page using it needs `'unsafe-eval'` in `script-src`.
-> This page tells you exactly which directives you need and why.
+> **Short version:** by default LadrillosJS compiles your templates and
+> component scripts in the browser, so a page using it needs `'unsafe-eval'` in
+> `script-src`. Add [`@ladrillosjs/vite-plugin`](#eval-free-builds) and it does
+> not — with no change to your components or your code.
 
-If your project cannot allow `'unsafe-eval'`, LadrillosJS is not a good fit
-**today**. We would rather say that here than have you find out from a console
-full of red. An opt-in, eval-free build is on the roadmap — see
-[Roadmap](#roadmap-eval-free-builds).
+There are two supported ways to run the same component, and they need different
+policies:
+
+| | Default (`ladrillosjs`) | Precompiled (`ladrillosjs/csp`) |
+| --- | --- | --- |
+| Build step | None | Vite plugin |
+| Component code compiled | In the browser, at mount | At build time |
+| `script-src 'unsafe-eval'` | **Required** | Not required |
+| `.html` fetched at runtime | Yes | No |
+| `style-src 'unsafe-inline'` | Required | Required |
+
+Pick your path: [the default policy](#the-policy-you-need), or
+[eval-free builds](#eval-free-builds).
 
 Every policy on this page was tested against a real browser running a real
 component, not inferred from reading the source. The
@@ -15,7 +25,7 @@ component, not inferred from reading the source. The
 
 ---
 
-## Why `'unsafe-eval'` is required
+## Why `'unsafe-eval'` is required *by default*
 
 LadrillosJS has no build step. A component is just an `.html` file the browser
 fetches at runtime. But something still has to turn this:
@@ -46,13 +56,14 @@ cost is paid once, not per render:
 | Component `<script>` bodies | `let count = 0;` |
 
 **This is a deliberate trade-off, not an oversight:** no build step in exchange
-for runtime compilation. You cannot have both.
+for runtime compilation. You cannot have both — but you can choose, per
+project, which one you want. See [eval-free builds](#eval-free-builds).
 
 ---
 
 ## The policy you need
 
-For a page using same-origin components:
+For a page using same-origin components, on the **default** build:
 
 ```http
 Content-Security-Policy:
@@ -196,22 +207,138 @@ block, and module scripts. Results:
 
 ---
 
-## Roadmap: eval-free builds
+## Eval-free builds
 
-An optional ahead-of-time compiler is planned:
+If you use Vite, you can drop `'unsafe-eval'` entirely. Two pieces do it:
 
-1. **Route all code generation through one internal seam**, so `Function()`
-   lives in exactly one module.
-2. **Ship a precompiler** that turns a `.html` component into a `.js` module
-   with every expression, handler, and script body emitted as a real closure.
-3. **Ship a Vite plugin and an eval-free entry point.** The plugin rewrites
-   `registerComponent()` calls to import precompiled artifacts, so **your
-   component source does not change**. The eval-free entry never imports the
-   runtime compiler, so `Function()` is absent from the bundle — verifiable in
-   the output, not merely promised.
+- **`ladrillosjs/csp`** — an entry point that reads component code from
+  artifacts generated at build time. It never imports the runtime compiler, so
+  `Function()` is not in the bundle at all.
+- **`@ladrillosjs/vite-plugin`** — generates those artifacts and rewrites your
+  registration calls to use them.
 
-The no-build-step path is not going away. It stays the default. The compiler is
-opt-in, for people who need `script-src` without `'unsafe-eval'`.
+### Setup
+
+```bash
+npm install -D @ladrillosjs/vite-plugin
+```
+
+```js
+// vite.config.js
+import ladrillos from "@ladrillosjs/vite-plugin";
+
+export default { plugins: [ladrillos()] };
+```
+
+That is the whole change. **Your components do not change and your application
+code does not change.** The plugin rewrites
+
+```js
+registerComponent("my-counter", "./components/counter.html");
+```
+
+into an import of the compiled component plus a call that registers it — so
+there is no fetch, no HTML parse, and no code generation left on the page.
+
+To also drop the now-unused compiler from your bundle, import from the
+eval-free entry:
+
+```js
+import { registerComponent } from "ladrillosjs/csp";
+```
+
+Do not mix `ladrillosjs` and `ladrillosjs/csp` in one bundle. Both install a
+code-generation backend when their module body runs, so whichever evaluates
+last wins — and pulling in a non-CSP entry puts `Function()` back in the output
+regardless.
+
+Then tighten the policy:
+
+```http
+Content-Security-Policy:
+  default-src 'self';
+  script-src 'self';
+  style-src 'self' 'unsafe-inline';
+```
+
+`connect-src` no longer needs an entry for components — they are in the bundle.
+`style-src 'unsafe-inline'` is still required; see
+[what is still missing](#what-is-still-missing).
+
+### What the plugin will not precompile
+
+The plugin reads registrations statically. Anything it cannot resolve with
+certainty it **leaves alone and reports**, rather than guessing:
+
+```js
+registerComponent(name, path);                    // not string literals
+registerComponent("x", `./${dir}/x.html`);        // interpolated path
+registerComponents([...list]);                    // spread
+registerComponents([{ tag: "x", path: "./x.html", lazy: true }]);  // lazy
+```
+
+A left-alone call still works — it falls back to runtime compilation, which
+means that page needs `'unsafe-eval'` again. You will see:
+
+```
+Left a component registration for the runtime to handle: path is not a string
+literal. (src/main.js, offset 412) The page will need script-src 'unsafe-eval'
+unless this is precompiled.
+```
+
+Turn those warnings into build failures:
+
+```js
+ladrillos({ strict: true })
+```
+
+Use `strict` in CI once you are on a strict CSP. It is the difference between
+intending to be eval-free and being eval-free.
+
+`lazy: true` is skipped on purpose: a lazy component is one you asked *not* to
+define up front, and precompiling it would pull it into the initial bundle and
+undo that.
+
+If something does slip into a `ladrillosjs/csp` bundle unprecompiled, it fails
+loudly rather than degrading — there is no compiler to fall back to, so you get
+a `MissingArtifactError` naming the expression it could not find.
+
+### Verifying it rather than trusting it
+
+"This bundle cannot generate code" is worth checking, because one stray import
+can undo it silently.
+
+In your own project, grep the **minified** production bundle:
+
+```bash
+grep -c "new Function\|(0,eval)" dist/assets/*.js
+```
+
+Minified matters: unminified bundles keep comments, and the word `Function`
+appears in plenty of them.
+
+In this repo, `npm run build:all` runs
+[scripts/verify-no-eval.js](../scripts/verify-no-eval.js) against the built
+output. It matches `new Function`, `Function("…")`, direct and indirect `eval`,
+and the minified `AsyncFunction` construction — not just the literal text,
+which survives minification only by accident. It also asserts the *opposite*
+for the default entry: if `dist/index.js` ever stops containing code
+generation, the runtime build is broken and the CSP check would be passing for
+the wrong reason.
+
+### What is still missing
+
+- **`style-src 'unsafe-inline'` is still required, on both paths.** Component
+  `<style>` blocks are injected as `<style>` elements, which CSP treats as
+  inline styles, and there is no nonce option yet. A nonce- or hash-based
+  `style-src` will silently drop your component styles. This is a much smaller
+  exposure than `'unsafe-inline'` for scripts, but it is not nothing.
+- **Trusted Types are still unsupported** on both paths — see above.
+- **The precompiled build is not yet smaller.** It removes code generation, not
+  bytes; the two are within about 1 KB gzipped of each other.
+
+The no-build-step path is not going away. It stays the default. Precompilation
+is opt-in, for people who need `script-src` without `'unsafe-eval'`.
 
 ---
 
