@@ -209,7 +209,7 @@ function verifySideEffects()
   {
     errors.push(
       '"sideEffects": false deletes every entry point\'s ' +
-        "setCodegenBackend() call during a consumer's production build"
+      "setCodegenBackend() call during a consumer's production build"
     );
     return errors;
   }
@@ -228,7 +228,7 @@ function verifySideEffects()
   {
     errors.push(
       "no entry point calls setCodegenBackend() — this check is now vacuous " +
-        "and needs updating"
+      "and needs updating"
     );
     return errors;
   }

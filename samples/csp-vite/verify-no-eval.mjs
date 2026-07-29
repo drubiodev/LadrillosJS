@@ -17,8 +17,8 @@ const indexHtml = join(import.meta.dirname, "dist", "index.html");
 
 if (!existsSync(assetsDir))
 {
-  console.error("dist/assets not found — run `npm run build` first.");
-  process.exit(1);
+    console.error("dist/assets not found — run `npm run build` first.");
+    process.exit(1);
 }
 
 /**
@@ -26,60 +26,60 @@ if (!existsSync(assetsDir))
  * patterns below are anchored on the exact forms a bundler emits.
  */
 const FORBIDDEN = [
-  { name: "Function constructor", pattern: /\bnew Function\s*\(/ },
-  { name: "Function() without new", pattern: /[^.\w]Function\s*\(\s*["'`]/ },
-  { name: "indirect eval", pattern: /\(\s*0\s*,\s*eval\s*\)/ },
-  { name: "direct eval", pattern: /[^.\w]eval\s*\(/ },
+    { name: "Function constructor", pattern: /\bnew Function\s*\(/ },
+    { name: "Function() without new", pattern: /[^.\w]Function\s*\(\s*["'`]/ },
+    { name: "indirect eval", pattern: /\(\s*0\s*,\s*eval\s*\)/ },
+    { name: "direct eval", pattern: /[^.\w]eval\s*\(/ },
 ];
 
 const files = readdirSync(assetsDir).filter((name) => name.endsWith(".js"));
 
 if (files.length === 0)
 {
-  console.error("No JavaScript emitted in dist/assets — nothing to verify.");
-  process.exit(1);
+    console.error("No JavaScript emitted in dist/assets — nothing to verify.");
+    process.exit(1);
 }
 
 let failures = 0;
 
 for (const file of files)
 {
-  const source = readFileSync(join(assetsDir, file), "utf8");
+    const source = readFileSync(join(assetsDir, file), "utf8");
 
-  for (const { name, pattern } of FORBIDDEN)
-  {
-    if (pattern.test(source))
+    for (const { name, pattern } of FORBIDDEN)
     {
-      console.error(`  ✗ ${file}: contains ${name}`);
-      failures++;
+        if (pattern.test(source))
+        {
+            console.error(`  ✗ ${file}: contains ${name}`);
+            failures++;
+        }
     }
-  }
 }
 
 // The policy itself lives in vite.config.js and is injected at build time, so
 // verify it actually landed rather than trusting the plugin ran.
 const html = readFileSync(indexHtml, "utf8");
 const REQUIRED_DIRECTIVES = [
-  "script-src &#39;self&#39;",
-  "require-trusted-types-for &#39;script&#39;",
+    "script-src &#39;self&#39;",
+    "require-trusted-types-for &#39;script&#39;",
 ];
 
 for (const directive of REQUIRED_DIRECTIVES)
 {
-  if (!html.includes(directive))
-  {
-    console.error(`  ✗ dist/index.html: missing CSP directive ${directive}`);
-    failures++;
-  }
+    if (!html.includes(directive))
+    {
+        console.error(`  ✗ dist/index.html: missing CSP directive ${directive}`);
+        failures++;
+    }
 }
 
 if (failures > 0)
 {
-  console.error(`\n✗ ${failures} problem(s) found.`);
-  process.exit(1);
+    console.error(`\n✗ ${failures} problem(s) found.`);
+    process.exit(1);
 }
 
 console.log(
-  `✓ ${files.length} bundle(s) contain no runtime code generation, ` +
+    `✓ ${files.length} bundle(s) contain no runtime code generation, ` +
     "and the CSP meta tag is present.",
 );

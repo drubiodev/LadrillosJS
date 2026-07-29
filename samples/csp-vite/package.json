@@ -1,19 +1,19 @@
 {
-  "name": "csp-vite",
-  "private": true,
-  "version": "0.0.0",
-  "type": "module",
-  "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview",
-    "verify": "node verify-no-eval.mjs"
-  },
-  "dependencies": {
-    "ladrillosjs": "file:../.."
-  },
-  "devDependencies": {
-    "@ladrillosjs/vite-plugin": "file:../../packages/vite-plugin",
-    "vite": "^7.2.4"
-  }
+    "name": "csp-vite",
+    "private": true,
+    "version": "0.0.0",
+    "type": "module",
+    "scripts": {
+        "dev": "vite",
+        "build": "vite build",
+        "preview": "vite preview",
+        "verify": "node verify-no-eval.mjs"
+    },
+    "dependencies": {
+        "ladrillosjs": "file:../.."
+    },
+    "devDependencies": {
+        "@ladrillosjs/vite-plugin": "file:../../packages/vite-plugin",
+        "vite": "^7.2.4"
+    }
 }

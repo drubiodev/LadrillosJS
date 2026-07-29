@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
+
+<head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>LadrillosJS — eval-free build</title>
@@ -13,21 +14,23 @@
     -->
     <link rel="stylesheet" href="/src/app.css" />
     <script type="module" src="/src/main.js"></script>
-  </head>
-  <body>
+</head>
+
+<body>
     <main>
-      <h1>Eval-free LadrillosJS</h1>
-      <p class="lede">
-        This page runs with no <code>'unsafe-eval'</code> and no
-        <code>'unsafe-inline'</code>, with Trusted Types enforced. The
-        components below are identical to the ones any other sample uses —
-        they were compiled at build time instead of in the browser.
-      </p>
+        <h1>Eval-free LadrillosJS</h1>
+        <p class="lede">
+            This page runs with no <code>'unsafe-eval'</code> and no
+            <code>'unsafe-inline'</code>, with Trusted Types enforced. The
+            components below are identical to the ones any other sample uses —
+            they were compiled at build time instead of in the browser.
+        </p>
 
-      <csp-counter start="3"></csp-counter>
-      <csp-greeting name="world"></csp-greeting>
+        <csp-counter start="3"></csp-counter>
+        <csp-greeting name="world"></csp-greeting>
 
-      <csp-report></csp-report>
+        <csp-report></csp-report>
     </main>
-  </body>
+</body>
+
 </html>

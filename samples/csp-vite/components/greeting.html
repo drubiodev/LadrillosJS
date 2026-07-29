@@ -1,72 +1,72 @@
 <div class="card">
-  <h2>Two-way binding</h2>
+    <h2>Two-way binding</h2>
 
-  <label for="who">Name</label>
-  <input id="who" type="text" $bind="name" />
+    <label for="who">Name</label>
+    <input id="who" type="text" $bind="name" />
 
-  <p class="hello">Hello, {name || "stranger"}!</p>
+    <p class="hello">Hello, {name || "stranger"}!</p>
 
-  <p class="note">
-    The styles on this card are applied as an adopted stylesheet, not an
-    injected <code>&lt;style&gt;</code> element. Open devtools and look under
-    this component's shadow root: there is no <code>&lt;style&gt;</code> to
-    find, which is why <code>style-src</code> needs no
-    <code>'unsafe-inline'</code>.
-  </p>
+    <p class="note">
+        The styles on this card are applied as an adopted stylesheet, not an
+        injected <code>&lt;style&gt;</code> element. Open devtools and look under
+        this component's shadow root: there is no <code>&lt;style&gt;</code> to
+        find, which is why <code>style-src</code> needs no
+        <code>'unsafe-inline'</code>.
+    </p>
 </div>
 
 <script>
-  let name = "";
+    let name = "";
 </script>
 
 <style>
-  .card {
-    background: #171b26;
-    border: 1px solid #262c3a;
-    border-radius: 10px;
-    padding: 1.25rem 1.5rem;
-  }
+    .card {
+        background: #171b26;
+        border: 1px solid #262c3a;
+        border-radius: 10px;
+        padding: 1.25rem 1.5rem;
+    }
 
-  h2 {
-    margin: 0 0 0.75rem;
-    font-size: 1.1rem;
-  }
+    h2 {
+        margin: 0 0 0.75rem;
+        font-size: 1.1rem;
+    }
 
-  label {
-    display: block;
-    font-size: 0.85rem;
-    color: #94a3b8;
-    margin-bottom: 0.35rem;
-  }
+    label {
+        display: block;
+        font-size: 0.85rem;
+        color: #94a3b8;
+        margin-bottom: 0.35rem;
+    }
 
-  input {
-    font: inherit;
-    width: 100%;
-    padding: 0.45rem 0.6rem;
-    border-radius: 6px;
-    border: 1px solid #2f3648;
-    background: #0f1219;
-    color: #e2e8f0;
-  }
+    input {
+        font: inherit;
+        width: 100%;
+        padding: 0.45rem 0.6rem;
+        border-radius: 6px;
+        border: 1px solid #2f3648;
+        background: #0f1219;
+        color: #e2e8f0;
+    }
 
-  input:focus {
-    outline: 2px solid #6ee7b7;
-    outline-offset: 1px;
-  }
+    input:focus {
+        outline: 2px solid #6ee7b7;
+        outline-offset: 1px;
+    }
 
-  .hello {
-    margin: 1rem 0 0;
-    font-size: 1.15rem;
-    color: #6ee7b7;
-  }
+    .hello {
+        margin: 1rem 0 0;
+        font-size: 1.15rem;
+        color: #6ee7b7;
+    }
 
-  .note {
-    margin: 1rem 0 0;
-    font-size: 0.85rem;
-    color: #94a3b8;
-  }
+    .note {
+        margin: 1rem 0 0;
+        font-size: 0.85rem;
+        color: #94a3b8;
+    }
 
-  code {
-    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  }
+    code {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
 </style>
