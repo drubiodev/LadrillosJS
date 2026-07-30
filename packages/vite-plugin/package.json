@@ -1,6 +1,6 @@
 {
     "name": "@ladrillosjs/vite-plugin",
-    "version": "0.1.0",
+    "version": "0.1.1",
     "description": "Precompiles LadrillosJS components at build time so the page never needs script-src 'unsafe-eval'.",
     "type": "module",
     "main": "./dist/index.js",
@@ -35,7 +35,8 @@
         "vite": "^5.0.0 || ^6.0.0 || ^7.0.0 || ^8.0.0"
     },
     "dependencies": {
-        "happy-dom": "^20.0.0"
+        "happy-dom": "^20.0.0",
+        "magic-string": "^0.30.21"
     },
     "engines": {
         "node": ">=18"
