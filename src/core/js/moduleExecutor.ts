@@ -1409,11 +1409,18 @@ export async function executeModuleScriptWithReactivity(
   const code = script.content;
 
   // 1. Resolve all imports (wrap arrays in reactive proxies for automatic UI updates)
-  const importedValues = await resolveImports(
-    code,
-    componentUrl,
-    onStateChange,
-  );
+  const importedValues = script.resolvedImports
+    ? Object.fromEntries(
+      Object.entries(script.resolvedImports).map(([name, value]) => [
+        name,
+        wrapImportedValue(value, onStateChange),
+      ]),
+    )
+    : await resolveImports(
+      code,
+      componentUrl,
+      onStateChange,
+    );
 
   // Merge imports into reactive state so they're accessible from template
   // bindings (e.g. {getName()} when getName is an imported function).

@@ -1,6 +1,8 @@
 export type ScriptElement = {
   content: string;
   type: string | null;
+  /** Build-time resolved bindings supplied by precompiled component artifacts. */
+  resolvedImports?: Record<string, unknown>;
 };
 
 export type ExternalScriptElement = {
@@ -62,10 +64,10 @@ export type BindingDescriptor = {
 
 export type TwoWayBindingDescriptor = {
   element:
-    | HTMLInputElement
-    | HTMLTextAreaElement
-    | HTMLSelectElement
-    | HTMLElement;
+  | HTMLInputElement
+  | HTMLTextAreaElement
+  | HTMLSelectElement
+  | HTMLElement;
   path: string[]; // ['person', 'name'] or ['inputText']
   raw: string; // "person.name" or "inputText"
   isContentEditable?: boolean; // True if element has contenteditable attribute

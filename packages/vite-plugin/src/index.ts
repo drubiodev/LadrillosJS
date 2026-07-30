@@ -1,5 +1,5 @@
 import { readFile } from "node:fs/promises";
-import { existsSync } from "node:fs";
+import { statSync } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import MagicString from "magic-string";
@@ -24,8 +24,7 @@ export interface LadrillosOptions
     strict?: boolean;
 }
 
-const QUERY = "ladrillos-artifact";
-const ARTIFACT_RE = new RegExp(`[?&]${QUERY}(?:&|$)`);
+const VIRTUAL_PREFIX = "\0ladrillos-artifact:";
 const SCANNABLE = /\.[cm]?[jt]sx?(?:$|\?)/;
 
 interface Resolved extends ComponentRef
@@ -44,7 +43,8 @@ interface Resolved extends ComponentRef
 function resolveComponent(
     ref: ComponentRef,
     importer: string,
-    root: string
+    root: string,
+    publicDir: string,
 ): Resolved | string
 {
     if (!/^\.{0,2}\//.test(ref.path))
@@ -53,13 +53,28 @@ function resolveComponent(
     }
 
     const candidates = ref.path.startsWith("/")
-        ? [path.join(root, ref.path)]
+        ? [path.join(root, ref.path), path.join(publicDir, ref.path)]
         : [
             path.resolve(path.dirname(importer), ref.path),
             path.resolve(root, ref.path),
+            path.resolve(publicDir, ref.path),
         ];
 
-    const found = [...new Set(candidates)].filter((candidate) => existsSync(candidate));
+    const found = [...new Set(candidates)]
+        .map((candidate) =>
+        {
+            try
+            {
+                if (statSync(candidate).isFile()) return candidate;
+                const index = path.join(candidate, "index.html");
+                return statSync(index).isFile() ? index : undefined;
+            }
+            catch
+            {
+                return undefined;
+            }
+        })
+        .filter((candidate): candidate is string => candidate !== undefined);
 
     if (found.length === 0) return `no file found for "${ref.path}"`;
     if (found.length > 1)
@@ -75,7 +90,7 @@ function resolveComponent(
 
 function artifactId(file: string, tagName: string): string
 {
-    return `${file}?${QUERY}&tag=${encodeURIComponent(tagName)}`;
+    return `${VIRTUAL_PREFIX}${encodeURIComponent(file)}?tag=${encodeURIComponent(tagName)}`;
 }
 
 /** `defineCompiled` defaults to shadow DOM, so only pass the flag when it differs. */
@@ -90,6 +105,7 @@ export default function ladrillos(options: LadrillosOptions = {}): Plugin
     const strict = options.strict ?? false;
 
     let root = process.cwd();
+    let publicDir = path.resolve(root, "public");
     let active = true;
 
     return {
@@ -102,21 +118,25 @@ export default function ladrillos(options: LadrillosOptions = {}): Plugin
         configResolved(config)
         {
             root = config.root;
+            publicDir = config.publicDir;
             active = config.command === "build" || options.dev === true;
         },
 
         resolveId(id)
         {
-            if (!ARTIFACT_RE.test(id)) return null;
-            // Already absolute: the transform hook only ever emits resolved paths.
-            return path.isAbsolute(id.split("?")[0]) ? id : null;
+            return id.startsWith(VIRTUAL_PREFIX) ? id : null;
         },
 
         async load(id)
         {
-            if (!ARTIFACT_RE.test(id)) return null;
+            if (!id.startsWith(VIRTUAL_PREFIX)) return null;
 
-            const [file, query] = [id.slice(0, id.indexOf("?")), id.slice(id.indexOf("?") + 1)];
+            const artifact = id.slice(VIRTUAL_PREFIX.length);
+            const [encodedFile, query] = [
+                artifact.slice(0, artifact.indexOf("?")),
+                artifact.slice(artifact.indexOf("?") + 1),
+            ];
+            const file = decodeURIComponent(encodedFile);
             const tagName = decodeURIComponent(
                 new URLSearchParams(query).get("tag") ?? ""
             );
@@ -146,7 +166,7 @@ export default function ladrillos(options: LadrillosOptions = {}): Plugin
         async transform(code, id)
         {
             if (!active) return null;
-            if (ARTIFACT_RE.test(id)) return null;
+            if (id.startsWith(VIRTUAL_PREFIX)) return null;
             if (!SCANNABLE.test(id) || id.includes("/node_modules/")) return null;
             // Cheap gate: parsing every module in the graph is not worth it.
             if (!code.includes("registerComponent")) return null;
@@ -168,7 +188,7 @@ export default function ladrillos(options: LadrillosOptions = {}): Plugin
 
                 for (const ref of rewrite.components)
                 {
-                    const result = resolveComponent(ref, id, root);
+                    const result = resolveComponent(ref, id, root, publicDir);
                     if (typeof result === "string")
                     {
                         failure = result;

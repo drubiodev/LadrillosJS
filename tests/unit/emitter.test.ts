@@ -187,6 +187,24 @@ const fixtures: Fixture[] = [
     expected: "4",
   },
   {
+    name: "module script handler calling an async arrow function",
+    source: `
+      <span id="out">{message}</span>
+      <button id="run" onclick="sayHi()">run</button>
+      <script type="module">
+        let message = "waiting";
+        const sayHi = async () => { message = "hello"; };
+      </script>
+    `,
+    exercise: async (root) =>
+    {
+      root.getElementById("run")!.click();
+      await settle();
+      return root.getElementById("out")!.textContent!;
+    },
+    expected: "hello",
+  },
+  {
     name: "module and regular script together",
     source: `
       <span id="out">{a} {b}</span>

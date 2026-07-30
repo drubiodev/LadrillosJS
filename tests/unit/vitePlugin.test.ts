@@ -29,6 +29,14 @@ const CARD = `
 <script>let title = "card";</script>
 `;
 
+const MODULE_CARD = `
+<div>{value}</div>
+<script type="module">
+    import { VALUE } from "component-dependency";
+    let value = VALUE;
+</script>
+`;
+
 function write(file: string, content: string): void
 {
     const full = join(root, file);
@@ -71,6 +79,16 @@ beforeAll(() =>
     rmSync(root, { recursive: true, force: true });
     write("components/button.html", BUTTON);
     write("components/card.html", CARD);
+    write("components/module-card.html", MODULE_CARD);
+    write("public/components/public-card/index.html", CARD);
+    write(
+        "node_modules/component-dependency/package.json",
+        JSON.stringify({ name: "component-dependency", type: "module", exports: "./index.js" })
+    );
+    write(
+        "node_modules/component-dependency/index.js",
+        `export const VALUE = "bundled-component-dependency";`
+    );
 });
 
 afterAll(() =>
@@ -178,6 +196,20 @@ describe("@ladrillosjs/vite-plugin", () =>
         expect(entry).toContain("Clicks");
     });
 
+    it("bundles bare imports from component module scripts", async () =>
+    {
+        write(
+            "module-import.js",
+            `import { registerComponent } from "ladrillosjs/csp";
+       registerComponent("module-card", "./components/module-card.html");`
+        );
+
+        const { all } = await bundle("module-import.js");
+
+        expect(all).toContain("bundled-component-dependency");
+        expect(all).not.toContain('from "component-dependency"');
+    });
+
     it("keeps the result shape of registerComponents", async () =>
     {
         write(
@@ -212,6 +244,20 @@ describe("@ladrillosjs/vite-plugin", () =>
 
         const { entry: min } = await bundle("record.js", {}, true);
         expect(min).not.toContain("DOMParser");
+    });
+
+    it("resolves directory registrations from Vite's public directory", async () =>
+    {
+        write(
+            "public-component.js",
+            `import { registerComponent } from "ladrillosjs/csp";
+       registerComponent("public-card", "./components/public-card");`
+        );
+
+        const { entry } = await bundle("public-component.js");
+
+        expect(entry).toContain("registerArtifacts");
+        expect(entry).toContain("public-card");
     });
 
     it("leaves a dynamic registration alone rather than guessing", async () =>

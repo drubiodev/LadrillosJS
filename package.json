@@ -1,6 +1,6 @@
 {
   "name": "ladrillosjs",
-  "version": "2.1.2",
+  "version": "2.1.3",
   "description": "A lightweight, zero-dependency web component framework for building modular web applications.",
   "type": "module",
   "main": "./dist/index.js",
