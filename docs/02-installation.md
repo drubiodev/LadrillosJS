@@ -93,7 +93,7 @@ import {
   loadLazyComponent, // Force load a lazy component
 
   // Configuration
-  configure, // Framework options (cacheSize, onError)
+  configure, // Framework options (cacheSize, onError, delegateLoopEvents, trustedTypesPolicy)
 
   // Event Bus
   $emit, // Emit events
@@ -122,6 +122,28 @@ import { lazyOnVisible, lazyOnIdle } from "ladrillosjs/lazy";
 // Event bus only
 import { $emit, $listen } from "ladrillosjs/events";
 ```
+
+Every runtime entry point above also has a `/dev` variant (`ladrillosjs/dev`,
+`ladrillosjs/core/dev`, `ladrillosjs/csp/dev`) that keeps the development
+warnings a production build strips out.
+
+### Build-Time Entry Points
+
+These two are only needed if you adopt the optional build step. Neither is
+reachable from the entry points above, so importing the framework never pulls
+the compiler into your bundle.
+
+```javascript
+// The eval-free runtime: same API, plus defineCompiled() for precompiled output.
+// Runs without script-src 'unsafe-eval'.
+import { registerComponent, defineCompiled, registerArtifacts } from "ladrillosjs/csp";
+
+// The build-time compiler, for writing your own tooling.
+import { parseComponent, emitComponent } from "ladrillosjs/compiler";
+```
+
+Most projects should not call these directly — `@ladrillosjs/vite-plugin` wires
+both up for you. See [CSP and Security](22-csp-and-security.md).
 
 ---
 

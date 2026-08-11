@@ -45,6 +45,10 @@ interface LadrillosConfig {
   cacheSize?: number;
   /** Called for every framework error. Pass `null` to restore default. */
   onError?: LadrillosErrorHandler | null;
+  /** Route `<for>` row events through one delegated listener (default false). */
+  delegateLoopEvents?: boolean;
+  /** Trusted Types policy for the framework's HTML sinks. See [CSP](22-csp-and-security.md). */
+  trustedTypesPolicy?: TrustedTypesPolicyLike | null;
 }
 ```
 

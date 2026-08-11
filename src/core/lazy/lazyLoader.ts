@@ -6,7 +6,6 @@
  */
 
 import { LadrillosComponent } from "../../types";
-import { parseComponent } from "../component/extract";
 import { fetchComponentSource } from "../component/loader";
 import { createWebComponentClass } from "../component/webcomponent";
 import { LazyStrategy } from "./lazyStrategies";
@@ -114,6 +113,7 @@ async function loadLazyComponent(name: string): Promise<string>
   {
     const fetchResult = await fetchComponentSource(config.absolutePath);
 
+    const { parseComponent } = await import("../component/extract");
     // Use the resolved path for correct relative path resolution in child components
     const component = await parseComponent(
       fetchResult.source,

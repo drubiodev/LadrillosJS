@@ -1,6 +1,8 @@
 export type ScriptElement = {
   content: string;
   type: string | null;
+  /** Build-time resolved bindings supplied by precompiled component artifacts. */
+  resolvedImports?: Record<string, unknown>;
 };
 
 export type ExternalScriptElement = {
@@ -62,10 +64,10 @@ export type BindingDescriptor = {
 
 export type TwoWayBindingDescriptor = {
   element:
-    | HTMLInputElement
-    | HTMLTextAreaElement
-    | HTMLSelectElement
-    | HTMLElement;
+  | HTMLInputElement
+  | HTMLTextAreaElement
+  | HTMLSelectElement
+  | HTMLElement;
   path: string[]; // ['person', 'name'] or ['inputText']
   raw: string; // "person.name" or "inputText"
   isContentEditable?: boolean; // True if element has contenteditable attribute
@@ -102,6 +104,17 @@ export type LoopDescriptor = {
    * entirely for the common conditional-free template.
    */
   hasConditionals?: boolean;
+  /**
+   * Whether the template contains a nested <for>. Those are extracted and
+   * rendered per row, because their array expression usually depends on the
+   * enclosing row's item.
+   */
+  hasNestedLoops?: boolean;
+  /**
+   * Loop variable names contributed by enclosing loops, outermost first.
+   * Empty for a top-level loop; `["group"]` for a <for> nested one deep.
+   */
+  scopeNames?: readonly string[];
 };
 
 /**

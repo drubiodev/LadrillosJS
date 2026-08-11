@@ -139,6 +139,70 @@ Bind to nested properties:
 
 ---
 
+## Inside a Loop
+
+`$bind` works on elements rendered by `<for>`. Bind a **property of the row's
+item** — that property lives on the object in the array, so the edit lands on
+your data:
+
+```html
+<for each="todo in todos" key="todo.id">
+  <li>
+    <input type="checkbox" $bind="todo.done" />
+    <input type="text" $bind="todo.text" />
+  </li>
+</for>
+
+<p>{todos.filter((t) => t.done).length} of {todos.length} done</p>
+
+<script>
+  let todos = [
+    { id: 1, text: "Write docs", done: false },
+    { id: 2, text: "Ship it", done: false },
+  ];
+</script>
+```
+
+Component state variables also work inside a row, but they are shared by every
+row — all of them read and write the same value.
+
+### You cannot bind the row variable itself
+
+```html
+<for each="name in names">
+  <!-- ✗ rejected: reports an error and does nothing -->
+  <input type="text" $bind="name" />
+</for>
+```
+
+The row variable is a per-iteration binding, so there is nowhere to write an
+edit back to. Bind a property of it instead, or restructure the array into
+objects:
+
+```html
+<for each="entry in names">
+  <input type="text" $bind="entry.value" />
+</for>
+
+<script>
+  let names = [{ value: "Ada" }, { value: "Grace" }];
+</script>
+```
+
+> Other frameworks land in the same place. Svelte allowed binding the each-block
+> variable in its legacy mode, found it "buggy and unpredictable", and made it a
+> compile error in runes mode — recommending `bind:value={array[i]}` instead.
+
+### Use a key when rows contain inputs
+
+Without `key`, `<for>` reuses row elements by position: after a reorder, each
+input is re-pointed at whichever item now sits at its index, so focus and
+caret stay with the position rather than following the item the user was
+editing. `key="todo.id"` ties a row to its item, so reordering moves the whole
+row — input state included.
+
+---
+
 ## Complete Form Example
 
 ```html

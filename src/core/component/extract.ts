@@ -1,13 +1,17 @@
 import { LadrillosComponent } from "../../types";
 import { REGEX_PATTERNS } from "../../utils/regex";
 import { rewriteImports } from "../js/moduleExecutor";
-import {
+import
+{
   escapeControlTags,
   restoreControlTags,
   isControlElement,
 } from "../html/controlTagEscape";
+import { trustedHTML } from "../html/trustedTypes";
 
-const parser = new DOMParser();
+// Built on first parse, not at import time: build tools import this module to
+// reach parseComponent and install their DOM shim (happy-dom, jsdom) afterwards.
+let parser: DOMParser | undefined;
 
 /**
  * Signatures of scripts injected by dev servers / live-reload tooling.
@@ -255,7 +259,8 @@ function extractTemplateBindingVariables(template: string): string[]
 export async function parseComponent(
   source: string,
   name: string,
-  componentUrl?: string
+  componentUrl?: string,
+  options?: { resolveStyleHrefs?: boolean }
 ): Promise<LadrillosComponent>
 {
   const doc = parseHTML(source);
@@ -415,8 +420,12 @@ export async function parseComponent(
       let href = l.getAttribute("href") || "";
       const rel = l.getAttribute("rel") || "stylesheet";
 
-      // Resolve relative URLs against component URL
-      if (componentUrl && href && !href.startsWith("http"))
+      // Build-time callers opt out, because their base is the build machine's
+      // own path and would ship in the bundle. A page served over file:// has a
+      // file: base too, so the protocol alone cannot tell the two apart.
+      const resolveHrefs = options?.resolveStyleHrefs ?? true;
+
+      if (resolveHrefs && componentUrl && href && !href.startsWith("http"))
       {
         try
         {
@@ -498,7 +507,11 @@ function parseHTML(source: string): Document
   // placeholders before parsing so the HTML parser's table insertion
   // modes cannot foster-parent them out of <table>/<tbody>/<tr>, then
   // restored with DOM APIs — which parser content rules cannot touch.
-  const doc = parser.parseFromString(escapeControlTags(source), "text/html");
+  parser ??= new DOMParser();
+  const doc = parser.parseFromString(
+    trustedHTML(escapeControlTags(source)),
+    "text/html",
+  );
   restoreControlTags(doc.head);
   restoreControlTags(doc.body);
 

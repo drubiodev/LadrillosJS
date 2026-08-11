@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!--
+      The strictest policy the no-build path can run under.
+
+      'unsafe-eval' is the one concession: with no build step there is nowhere
+      but the browser to compile template expressions, so the framework does it
+      with Function(). Everything else is locked down — note that styles need
+      no 'unsafe-inline', because component CSS is adopted as a constructed
+      stylesheet rather than injected as a <style> element.
+
+      Want 'unsafe-eval' gone too? That requires a build step. See
+      ../csp-vite.
+
+      In production this belongs in a response header; a <meta> tag is used
+      here so the sample works with any static file server.
+    -->
+    <meta http-equiv="Content-Security-Policy" content="
+        default-src 'self';
+        script-src 'self' 'unsafe-eval';
+        style-src 'self';
+        connect-src 'self';
+        img-src 'self' data:;
+        object-src 'none';
+        base-uri 'none'
+      " />
+
+    <title>LadrillosJS — no build step, strict CSP</title>
+
+    <!-- External, because style-src 'self' blocks an inline <style>. -->
+    <link rel="stylesheet" href="./app.css" />
+
+    <!-- Same-origin here. From a real CDN, add that origin to script-src. -->
+    <script src="/dist-cdn/ladrillos.iife.js"></script>
+
+    <!-- External, because script-src 'self' blocks an inline <script>. -->
+    <script type="module" src="./app.js"></script>
+</head>
+
+<body>
+    <main>
+        <h1>No build step, strict CSP</h1>
+        <p class="lede">
+            This page loads LadrillosJS from a plain <code>&lt;script&gt;</code> tag
+            and compiles its components in the browser. It still runs under a
+            locked-down policy — the only concession is
+            <code>'unsafe-eval'</code>.
+        </p>
+
+        <csp-counter start="3"></csp-counter>
+        <csp-greeting name="world"></csp-greeting>
+        <csp-report></csp-report>
+    </main>
+</body>
+
+</html>

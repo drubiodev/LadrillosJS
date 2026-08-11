@@ -1,0 +1,75 @@
+<section class="card">
+    <h1>Hello, {name || "stranger"}!</h1>
+
+    <label for="name">Your name</label>
+    <input id="name" type="text" $bind="name" placeholder="Type here" />
+
+    <p class="count">
+        You have clicked <strong>{clicks}</strong>
+        <if condition="clicks === 1">time.</if>
+        <else>times.</else>
+    </p>
+
+    <button onclick="clicks++">Click me</button>
+</section>
+
+<script>
+    // Attributes become state: <hello-card name="world">
+    let name = "";
+    let clicks = 0;
+</script>
+
+<style>
+    .card {
+        background: #171b26;
+        border: 1px solid #262c3a;
+        border-radius: 10px;
+        padding: 1.5rem;
+    }
+
+    h1 {
+        margin: 0 0 1rem;
+        font-size: 1.5rem;
+    }
+
+    label {
+        display: block;
+        font-size: 0.85rem;
+        color: #94a3b8;
+        margin-bottom: 0.35rem;
+    }
+
+    input {
+        width: 100%;
+        padding: 0.55rem 0.7rem;
+        background: #0f131b;
+        border: 1px solid #2c3444;
+        border-radius: 6px;
+        color: inherit;
+        font: inherit;
+    }
+
+    input:focus-visible {
+        outline: 2px solid #7aa2f7;
+        outline-offset: 1px;
+    }
+
+    .count {
+        color: #94a3b8;
+    }
+
+    button {
+        padding: 0.5rem 1rem;
+        background: #7aa2f7;
+        color: #0b0e14;
+        border: 0;
+        border-radius: 6px;
+        font: inherit;
+        font-weight: 600;
+        cursor: pointer;
+    }
+
+    button:hover {
+        background: #9ab8fa;
+    }
+</style>

@@ -1,0 +1,204 @@
+/*
+ * <monaco-editor> — light-DOM component styles.
+ * Every custom property below can be overridden per instance:
+ *   <monaco-editor style="--lme-height: 600px"> ... </monaco-editor>
+ */
+monaco-editor {
+    --lme-height: 420px;
+    --lme-bg: #0d1117;
+    --lme-panel: #161b22;
+    --lme-border: #30363d;
+    --lme-text: #e6edf3;
+    --lme-muted: #9198a1;
+    --lme-accent: #ff6b35;
+    --lme-danger: #f85149;
+    --lme-radius: 10px;
+    --lme-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
+        "Liberation Mono", monospace;
+
+    display: block;
+    height: var(--lme-height);
+}
+
+.lme {
+    display: grid;
+    grid-template-columns: 1fr 6px 1fr;
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+    background: var(--lme-bg);
+    color: var(--lme-text);
+    border: 1px solid var(--lme-border);
+    border-radius: var(--lme-radius);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+.lme[data-layout="vertical"] {
+    grid-template-columns: none;
+    grid-template-rows: 1fr 6px 1fr;
+}
+
+.lme__pane {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+}
+
+/* ── Pane headers ──────────────────────────────────────────────── */
+.lme__head {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.4rem 0.7rem;
+    font-size: 0.7rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--lme-muted);
+    background: var(--lme-panel);
+    border-bottom: 1px solid var(--lme-border);
+}
+
+.lme__dot {
+    flex: 0 0 auto;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--lme-accent);
+}
+
+.lme__tabs {
+    display: flex;
+    gap: 0.25rem;
+    flex: 1;
+    min-width: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+}
+
+.lme__tabs::-webkit-scrollbar {
+    display: none;
+}
+
+.lme__tab {
+    flex: 0 0 auto;
+    padding: 0.2rem 0.55rem;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--lme-muted);
+    font: inherit;
+    font-size: 0.7rem;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+}
+
+.lme__tab:hover {
+    color: var(--lme-text);
+}
+
+.lme__tab.is-active {
+    color: var(--lme-text);
+    background: #1c2230;
+    border-color: var(--lme-border);
+}
+
+.lme__reset {
+    flex: 0 0 auto;
+    padding: 0.2rem 0.55rem;
+    border: 1px solid var(--lme-border);
+    border-radius: 6px;
+    background: transparent;
+    color: var(--lme-muted);
+    font: inherit;
+    font-size: 0.7rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    cursor: pointer;
+}
+
+.lme__reset:hover {
+    color: var(--lme-text);
+    border-color: var(--lme-accent);
+}
+
+/* ── Editor ────────────────────────────────────────────────────── */
+.lme__editor {
+    flex: 1;
+    min-height: 0;
+    background: #1e1e1e;
+}
+
+/* ── Divider ───────────────────────────────────────────────────── */
+.lme__resizer {
+    background: var(--lme-border);
+    cursor: col-resize;
+    touch-action: none;
+}
+
+.lme[data-layout="vertical"] .lme__resizer {
+    cursor: row-resize;
+}
+
+.lme__resizer:hover,
+.lme__resizer.is-dragging {
+    background: var(--lme-accent);
+}
+
+/* While dragging, the iframe must not swallow pointer events. */
+.lme.is-resizing {
+    user-select: none;
+}
+
+.lme.is-resizing iframe {
+    pointer-events: none;
+}
+
+/* ── Preview ───────────────────────────────────────────────────── */
+.lme__preview {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+    background: #fff;
+}
+
+.lme__preview iframe {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border: 0;
+    background: #fff;
+}
+
+.lme__error {
+    display: none;
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    max-height: 45%;
+    overflow: auto;
+    margin: 0;
+    padding: 0.7rem 0.9rem;
+    background: #2b1315;
+    color: #ffb4ab;
+    border-top: 1px solid var(--lme-danger);
+    font-family: var(--lme-mono);
+    font-size: 12px;
+    white-space: pre-wrap;
+}
+
+.lme__error.is-visible {
+    display: block;
+}
+
+@media (max-width: 800px) {
+    .lme {
+        grid-template-columns: none;
+        grid-template-rows: 1fr 6px 1fr;
+    }
+
+    .lme__resizer {
+        cursor: row-resize;
+    }
+}

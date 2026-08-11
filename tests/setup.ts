@@ -7,6 +7,12 @@
  *   - requestIdleCallback (lazyOnIdle)
  *   - matchMedia (lazyOnMedia)
  */
+import { setCodegenBackend } from "../src/core/js/compiler";
+import { runtimeBackend } from "../src/core/js/runtimeBackend";
+
+// Tests import deep modules rather than an entry point, so nothing would have
+// installed a backend. Entry points do this for real consumers.
+setCodegenBackend(runtimeBackend);
 
 // IntersectionObserver stub with manual trigger
 class MockIntersectionObserver implements IntersectionObserver {

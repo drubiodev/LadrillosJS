@@ -27,7 +27,7 @@ labels: bug
 
 ## Environment
 
-- LadrillosJS version: `v2.0.0`
+- LadrillosJS version: `v2.1.0`
 - Browser + version:
 - Node version (if building):
 - Bundler (Vite / Rollup / CDN / other):

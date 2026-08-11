@@ -8,32 +8,40 @@ This document provides a deep dive into LadrillosJS's internal structure. Useful
 src/
 ├── index.ts              # Main entry point, exports public API
 ├── core.ts               # Core exports
+├── csp.ts                # Eval-free entry point (adds defineCompiled)
 ├── events.ts             # Event bus exports
 ├── lazy.ts               # Lazy loading exports
 ├── global.d.ts           # TypeScript declarations
+├── compiler/
+│   ├── index.ts          # `ladrillosjs/compiler` build-time API
+│   └── emit.ts           # Emits precompiled artifacts as static JS
 ├── core/
 │   ├── ladrillos.ts      # Main framework class
+│   ├── configure.ts      # configure() and LadrillosConfig
+│   ├── globals.ts        # Framework globals under globalThis.__ladrillos
+│   ├── builtins/         # <for>, <if>, <show>, <lazy>
 │   ├── cache/            # Caching utilities
-│   ├── component/        # Component processing
-│   ├── css/              # CSS parsing
+│   ├── component/        # Component processing, incl. defineCompiled.ts
+│   ├── css/              # CSS parsing and stylesheet adoption
 │   ├── diff/             # List diffing algorithm
 │   ├── directives/       # Directive processing
 │   ├── events/           # Event bus
 │   ├── helpers/          # Framework helpers (registerComponent, etc.)
-│   ├── html/             # HTML/template parsing
-│   ├── js/               # JavaScript processing & reactivity
+│   ├── html/             # HTML/template parsing, incl. trustedTypes.ts
+│   ├── js/               # JS processing, reactivity, codegen backends
 │   ├── lazy/             # Lazy loading strategies
-│   ├── reactivity/       # Dependency tracking
 │   └── scheduler/        # Batch update scheduler
 ├── types/
 │   └── index.ts          # TypeScript type definitions
 └── utils/
     ├── devWarnings.ts    # Development warnings
     ├── directives.ts     # Directive constants
+    ├── dynamicImport.ts  # Real dynamic import (replaces indirect eval)
+    ├── globalScope.ts    # Scoped globals for component code
     ├── jsevents.ts       # JavaScript event names
     ├── keyModifiers.ts   # Key modifier parsing
     ├── regex.ts          # Regex patterns
-    └── sandbox.ts        # Sandbox globals
+    └── stateTransform.ts # Declaration-to-state rewriting
 ```
 
 ---
@@ -345,6 +353,14 @@ function executeScriptWithReactiveState(script, state, ...) {
   fn(state, refs, $emit, ...);
 }
 ```
+
+Code generation is reached through a single seam (`src/core/js/compiler.ts`), so
+the `new Function` call above is one of two interchangeable backends.
+`ladrillosjs` installs `runtimeBackend.ts`, which compiles in the browser and
+therefore needs `script-src 'unsafe-eval'`. `ladrillosjs/csp` installs
+`precompiled.ts` instead, which looks the function up in an artifact table
+emitted at build time — that build contains no `new Function` at all, and
+`scripts/verify-treeshaking.js` fails the build if one reappears.
 
 ---
 
