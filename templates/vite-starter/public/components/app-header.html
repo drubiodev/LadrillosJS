@@ -1,0 +1,52 @@
+<header>
+  <a class="brand" href="/">{title}</a>
+
+  <nav>
+    <for each="link in links">
+      <a href="{link.href}">{link.label}</a>
+    </for>
+  </nav>
+</header>
+
+<script>
+  let title = "My App";
+
+  const links = [
+    { href: "/", label: "Home" },
+    { href: "/about", label: "About" },
+  ];
+</script>
+
+<style>
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    max-width: 48rem;
+    margin: 0 auto;
+    padding: 1.25rem 1.5rem;
+    border-bottom: 1px solid #262c3a;
+  }
+
+  .brand {
+    font-weight: 600;
+    color: #e6e9ef;
+    text-decoration: none;
+  }
+
+  nav {
+    display: flex;
+    gap: 1rem;
+  }
+
+  nav a {
+    color: #94a3b8;
+    text-decoration: none;
+    font-size: 0.95rem;
+  }
+
+  nav a:hover {
+    color: #7aa2f7;
+  }
+</style>

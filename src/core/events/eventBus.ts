@@ -29,6 +29,8 @@
  * ```
  */
 
+import { getLadrillosGlobal } from "../globals";
+
 // ============================================================================
 // Types
 // ============================================================================
@@ -46,7 +48,8 @@ export type EventCallback<T = unknown> = EventListener<T>;
 /**
  * Internal listener registration with metadata for cleanup
  */
-interface ListenerRegistration {
+interface ListenerRegistration
+{
   callback: EventListener;
   componentId?: string; // Track which component registered this listener
 }
@@ -63,7 +66,8 @@ export type Unsubscribe = () => void;
 /**
  * Global event bus interface for type safety
  */
-interface GlobalEventBus {
+interface GlobalEventBus
+{
   listeners: Map<string, Set<ListenerRegistration>>;
   componentListeners: Map<
     string,
@@ -72,30 +76,21 @@ interface GlobalEventBus {
 }
 
 /**
- * Extend globalThis to include our event bus
- */
-declare global {
-  var __ladrillosEventBus: GlobalEventBus | undefined;
-}
-
-/**
  * Initialize or get the global event bus.
  * This is shared with external module scripts that inject their own $emit/$listen.
+ * Storage lives under the single `globalThis.__ladrillos` namespace; see
+ * src/core/globals.ts for why a global is needed here at all.
  */
-function getEventBus(): GlobalEventBus {
-  if (!globalThis.__ladrillosEventBus) {
-    globalThis.__ladrillosEventBus = {
-      listeners: new Map(),
-      componentListeners: new Map(),
-    };
-  }
-  return globalThis.__ladrillosEventBus;
+function getEventBus(): GlobalEventBus
+{
+  return getLadrillosGlobal().bus as unknown as GlobalEventBus;
 }
 
 /**
  * Get the listeners map (uses global storage)
  */
-function getEventListeners(): Map<string, Set<ListenerRegistration>> {
+function getEventListeners(): Map<string, Set<ListenerRegistration>>
+{
   return getEventBus().listeners;
 }
 
@@ -105,7 +100,8 @@ function getEventListeners(): Map<string, Set<ListenerRegistration>> {
 function getComponentListeners(): Map<
   string,
   Set<{ event: string; registration: ListenerRegistration }>
-> {
+>
+{
   return getEventBus().componentListeners;
 }
 
@@ -122,19 +118,24 @@ function getComponentListeners(): Map<
  * $emit("item-added", { id: 1, name: "Product" });
  * ```
  */
-export function $emit<T = unknown>(eventName: string, data?: T): void {
+export function $emit<T = unknown>(eventName: string, data?: T): void
+{
   const eventListeners = getEventListeners();
   const listeners = eventListeners.get(eventName);
-  if (!listeners || listeners.size === 0) {
+  if (!listeners || listeners.size === 0)
+  {
     // No listeners for this event - that's fine, just return
     return;
   }
 
   // Call all listeners with the data
-  for (const registration of listeners) {
-    try {
+  for (const registration of listeners)
+  {
+    try
+    {
       registration.callback(data as T);
-    } catch (error) {
+    } catch (error)
+    {
       console.error(
         `[LadrillosJS] Error in event listener for "${eventName}":`,
         error
@@ -168,13 +169,15 @@ export function $listen<T = unknown>(
   eventName: string,
   callback: EventListener<T>,
   componentId?: string
-): Unsubscribe {
+): Unsubscribe
+{
   const eventListeners = getEventListeners();
   const componentListeners = getComponentListeners();
 
   // Get or create the listener set for this event
   let listeners = eventListeners.get(eventName);
-  if (!listeners) {
+  if (!listeners)
+  {
     listeners = new Set();
     eventListeners.set(eventName, listeners);
   }
@@ -189,9 +192,11 @@ export function $listen<T = unknown>(
   listeners.add(registration);
 
   // Track by component ID for cleanup
-  if (componentId) {
+  if (componentId)
+  {
     let componentRegs = componentListeners.get(componentId);
-    if (!componentRegs) {
+    if (!componentRegs)
+    {
       componentRegs = new Set();
       componentListeners.set(componentId, componentRegs);
     }
@@ -199,28 +204,35 @@ export function $listen<T = unknown>(
   }
 
   // Return unsubscribe function
-  return () => {
+  return () =>
+  {
     const eventListeners = getEventListeners();
     const componentListeners = getComponentListeners();
 
     listeners?.delete(registration);
 
     // Clean up empty listener sets
-    if (listeners?.size === 0) {
+    if (listeners?.size === 0)
+    {
       eventListeners.delete(eventName);
     }
 
     // Remove from component tracking
-    if (componentId) {
+    if (componentId)
+    {
       const componentRegs = componentListeners.get(componentId);
-      if (componentRegs) {
-        for (const reg of componentRegs) {
-          if (reg.registration === registration) {
+      if (componentRegs)
+      {
+        for (const reg of componentRegs)
+        {
+          if (reg.registration === registration)
+          {
             componentRegs.delete(reg);
             break;
           }
         }
-        if (componentRegs.size === 0) {
+        if (componentRegs.size === 0)
+        {
           componentListeners.delete(componentId);
         }
       }
@@ -234,18 +246,22 @@ export function $listen<T = unknown>(
  *
  * @param componentId - The component's unique ID
  */
-export function cleanupComponentListeners(componentId: string): void {
+export function cleanupComponentListeners(componentId: string): void
+{
   const eventListeners = getEventListeners();
   const componentListeners = getComponentListeners();
 
   const componentRegs = componentListeners.get(componentId);
   if (!componentRegs) return;
 
-  for (const { event, registration } of componentRegs) {
+  for (const { event, registration } of componentRegs)
+  {
     const listeners = eventListeners.get(event);
-    if (listeners) {
+    if (listeners)
+    {
       listeners.delete(registration);
-      if (listeners.size === 0) {
+      if (listeners.size === 0)
+      {
         eventListeners.delete(event);
       }
     }
@@ -257,7 +273,8 @@ export function cleanupComponentListeners(componentId: string): void {
 /**
  * Remove all event listeners (useful for testing)
  */
-export function clearAllListeners(): void {
+export function clearAllListeners(): void
+{
   getEventListeners().clear();
   getComponentListeners().clear();
 }
@@ -265,14 +282,16 @@ export function clearAllListeners(): void {
 /**
  * Get the count of listeners for an event (useful for debugging)
  */
-export function getListenerCount(eventName: string): number {
+export function getListenerCount(eventName: string): number
+{
   return getEventListeners().get(eventName)?.size ?? 0;
 }
 
 /**
  * Check if an event has any listeners
  */
-export function hasListeners(eventName: string): boolean {
+export function hasListeners(eventName: string): boolean
+{
   return (getEventListeners().get(eventName)?.size ?? 0) > 0;
 }
 
@@ -287,11 +306,13 @@ export function hasListeners(eventName: string): boolean {
  * @param componentId - The unique ID of the component
  * @returns Object containing bound $emit and $listen functions
  */
-export function createEventBusHelpers(componentId: string) {
+export function createEventBusHelpers(componentId: string)
+{
   /**
    * Emit an event (same as global $emit)
    */
-  function boundEmit<T = unknown>(eventName: string, data?: T): void {
+  function boundEmit<T = unknown>(eventName: string, data?: T): void
+  {
     $emit(eventName, data);
   }
 
@@ -301,7 +322,8 @@ export function createEventBusHelpers(componentId: string) {
   function boundListen<T = unknown>(
     eventName: string,
     callback: EventListener<T>
-  ): Unsubscribe {
+  ): Unsubscribe
+  {
     return $listen(eventName, callback, componentId);
   }
 

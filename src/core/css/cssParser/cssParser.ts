@@ -1,18 +1,153 @@
+import { warn } from "../../../utils/devWarnings";
+
 type StyleTarget = HTMLElement | ShadowRoot;
 
+/**
+ * One CSSStyleSheet per unique CSS text, shared by every instance that adopts
+ * it. The browser parses a component's CSS once no matter how many instances
+ * exist, instead of once per injected <style>.
+ */
+const sheetCache = new Map<string, CSSStyleSheet>();
+
+let adoptable: boolean | undefined;
+
+const canAdopt = (): boolean =>
+{
+  if (adoptable === undefined)
+  {
+    try
+    {
+      adoptable = typeof new CSSStyleSheet().replaceSync === "function";
+    } catch
+    {
+      adoptable = false;
+    }
+  }
+  return adoptable;
+};
+
+/**
+ * Constructed stylesheets drop `@import` rules, so those keep the <style> path
+ * rather than losing their imports silently.
+ */
+const hasImport = (cssText: string): boolean => cssText.includes("@import");
+
+const importWarned = new Set<string>();
+
+/**
+ * The <style> fallback below is inert under a CSP without `'unsafe-inline'`,
+ * which leaves the component rendering unstyled with nothing but a console
+ * error. Say so once per stylesheet while the author can still act on it.
+ */
+const warnImportFallback = (cssText: string): void =>
+{
+  if (importWarned.has(cssText)) return;
+  importWarned.add(cssText);
+
+  warn(
+    "CSS uses @import, which a constructed stylesheet cannot carry, so these " +
+    "styles fall back to a <style> element. A Content-Security-Policy without " +
+    "'unsafe-inline' blocks that element and the component renders unstyled. " +
+    'Prefer <link rel="stylesheet"> in the component, which is fetched and ' +
+    "adopted instead.",
+  );
+};
+
+const getSheet = (cssText: string): CSSStyleSheet | null =>
+{
+  let sheet = sheetCache.get(cssText);
+  if (sheet) return sheet;
+
+  try
+  {
+    sheet = new CSSStyleSheet();
+    sheet.replaceSync(cssText);
+  } catch
+  {
+    return null;
+  }
+
+  sheetCache.set(cssText, sheet);
+  return sheet;
+};
+
+const adopt = (
+  root: DocumentOrShadowRoot,
+  sheet: CSSStyleSheet,
+  first: boolean,
+): void =>
+{
+  const current = root.adoptedStyleSheets;
+  if (current.includes(sheet)) return;
+  // Assignment rather than push(): the mutable-array form of
+  // adoptedStyleSheets shipped later than the property itself.
+  root.adoptedStyleSheets = first ? [sheet, ...current] : [...current, sheet];
+};
+
+/**
+ * Applies a component's own `<style>` block.
+ *
+ * Adopting a constructed stylesheet instead of injecting `<style>` keeps this
+ * off the `style-src` fetch directive entirely, so components render under a
+ * CSP that does not allow `'unsafe-inline'`.
+ */
 export const loadStyles = (
   target: StyleTarget,
   cssText: string | undefined,
-  useShadowDOM: boolean
-): void => {
+  useShadowDOM: boolean,
+): void =>
+{
   if (!cssText) return;
+
+  if (canAdopt() && hasImport(cssText)) warnImportFallback(cssText);
+
+  if (canAdopt() && !hasImport(cssText))
+  {
+    const sheet = getSheet(cssText);
+    if (sheet)
+    {
+      adopt(useShadowDOM ? (target as ShadowRoot) : document, sheet, false);
+      return;
+    }
+  }
 
   const styleEl = document.createElement("style");
   styleEl.textContent = cssText;
 
-  if (useShadowDOM) {
+  if (useShadowDOM)
+  {
     target.appendChild(styleEl);
-  } else {
+  } else
+  {
     document.head.appendChild(styleEl);
   }
+};
+
+/**
+ * Applies a stylesheet fetched for a `<link>` inside a shadow root, which
+ * cannot see document styles. Ordered ahead of the component's own styles so
+ * those still win.
+ */
+export const loadExternalStyleText = (
+  root: ShadowRoot,
+  cssText: string,
+  href: string,
+): void =>
+{
+  if (canAdopt() && hasImport(cssText)) warnImportFallback(cssText);
+
+  if (canAdopt() && !hasImport(cssText))
+  {
+    const sheet = getSheet(cssText);
+    if (sheet)
+    {
+      adopt(root, sheet, true);
+      return;
+    }
+  }
+
+  const styleEl = document.createElement("style");
+  styleEl.textContent = cssText;
+  styleEl.setAttribute("data-external-href", href);
+  root.insertBefore(styleEl, root.firstChild);
 };

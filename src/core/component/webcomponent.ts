@@ -16,6 +16,7 @@ import
   loadExternalStyles,
 } from "../js/moduleExecutor";
 import { cleanupComponentListeners } from "../events/eventBus";
+import { getLadrillosGlobal } from "../globals";
 import
 {
   scanDirectives,
@@ -27,7 +28,7 @@ import
   setupTwoWayBindings,
   DirectiveContext,
 } from "../directives/directiveProcessor";
-import { createRefsProxy } from "../helpers/frameworkHelpers";
+import { createRefsProxy } from "../helpers/refsProxy";
 import { setComponentContext, warn } from "../../utils/devWarnings";
 import
 {
@@ -350,16 +351,11 @@ export function createWebComponentClass(
       // Register the onStateChange callback globally so external module scripts
       // can trigger UI updates when imported arrays are mutated.
       // This is used by the __wrapReactiveArray helper injected into external scripts.
-      if (typeof globalThis !== "undefined")
       {
-        if (!(globalThis as any).__ladrillosStateCallbacks)
-        {
-          (globalThis as any).__ladrillosStateCallbacks = new Map();
-        }
         // The wrapper passes the state key its array is bound to (when known)
         // so mutations refresh that key's text/attribute bindings too, not
         // just directives. Keyless calls fall back to directive updates.
-        (globalThis as any).__ladrillosStateCallbacks.set(
+        getLadrillosGlobal().stateCallbacks.set(
           this._componentId,
           (stateKey?: string) =>
           {
@@ -445,23 +441,16 @@ export function createWebComponentClass(
 
       // Also populate the global refs registry for external module scripts
       // This allows external .js files to access refs via the global registry
-      if (typeof globalThis !== "undefined")
       {
-        if (!(globalThis as any).__ladrillosRefs)
-        {
-          (globalThis as any).__ladrillosRefs = new Map();
-        }
+        const refsRegistry = getLadrillosGlobal().refs;
         // Get or create the refs Map for this component in the global registry
-        let globalRefs = (globalThis as any).__ladrillosRefs.get(
-          this._componentId,
-        );
+        let globalRefs = refsRegistry.get(this._componentId) as
+          | Map<string, unknown>
+          | undefined;
         if (!globalRefs)
         {
           globalRefs = new Map();
-          (globalThis as any).__ladrillosRefs.set(
-            this._componentId,
-            globalRefs,
-          );
+          refsRegistry.set(this._componentId, globalRefs);
         }
         // Copy all refs into the global registry
         for (const [key, value] of this._directives.refs)
@@ -515,12 +504,7 @@ export function createWebComponentClass(
       unregisterComponent(this._componentId);
 
       // Clean up global state change callback
-      if (typeof globalThis !== "undefined")
-      {
-        (globalThis as any).__ladrillosStateCallbacks?.delete(
-          this._componentId,
-        );
-      }
+      getLadrillosGlobal().stateCallbacks.delete(this._componentId);
 
       this._initialized = false;
       this._propsReady = false;
