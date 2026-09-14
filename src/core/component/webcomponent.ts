@@ -1,6 +1,6 @@
 import { LadrillosComponent } from "../../types";
 import { loadStyles } from "../css/cssParser/cssParser";
-import { loadTemplate } from "../html/htmlparser";
+import { loadTemplate, prepareTemplate } from "../html/htmlparser";
 import
 {
   loadScripts,
@@ -106,6 +106,8 @@ export function createWebComponentClass(
   const allObservedAttributes = [
     ...new Set([...declaredVariables, ...templateBindings]),
   ];
+
+  let preparedTemplate: HTMLTemplateElement | undefined;
 
   class LadrillosWebComponent extends HTMLElement
   {
@@ -234,7 +236,8 @@ export function createWebComponentClass(
         : this;
 
       // Parse template and find bindings
-      const { bindings } = loadTemplate(this._root, template);
+      preparedTemplate ??= prepareTemplate(template);
+      const { bindings } = loadTemplate(this._root, preparedTemplate);
 
       // Load scoped styles
       loadStyles(this._root, styles, useShadowDOM);

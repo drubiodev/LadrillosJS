@@ -2,19 +2,27 @@ import { BindingDescriptor } from "../../types";
 import { REGEX_PATTERNS } from "../../utils/regex";
 import { analyzeBinding } from "../component/bindingParser";
 import
-  {
-    scanLazyElements,
-    getPendingLazyContent,
-  } from "../builtins/lazyElement";
+{
+  scanLazyElements,
+  getPendingLazyContent,
+} from "../builtins/lazyElement";
 import
-  {
-    escapeControlTags,
-    restoreControlTags,
-  } from "./controlTagEscape";
+{
+  escapeControlTags,
+  restoreControlTags,
+} from "./controlTagEscape";
 import { trustedHTML } from "./trustedTypes";
 
 type TemplateLoadResult = {
   bindings: BindingDescriptor[];
+};
+
+export const prepareTemplate = (template: string): HTMLTemplateElement =>
+{
+  const prepared = document.createElement("template");
+  prepared.innerHTML = trustedHTML(escapeControlTags(template));
+  restoreControlTags(prepared.content);
+  return prepared;
 };
 
 /**
@@ -32,7 +40,7 @@ type TemplateLoadResult = {
  */
 export const loadTemplate = (
   host: HTMLElement | ShadowRoot,
-  template: string,
+  template: string | HTMLTemplateElement,
 ): TemplateLoadResult =>
 {
   // Parse into a detached <template> first. Its .content is a DocumentFragment
@@ -44,15 +52,12 @@ export const loadTemplate = (
   // custom elements never fire connectedCallback prematurely. The fragment is
   // stashed on a sentinel inside `tpl.content` so subsequent scanners can
   // still find and wire its contents (bindings, listeners, directives).
-  const tpl = document.createElement("template");
-  // Escape control elements (<for>, <if>, …) to <template> placeholders
-  // before parsing so table insertion modes cannot foster-parent them out
-  // of <table>/<tbody>/<tr>, then rebuild them with DOM APIs.
-  tpl.innerHTML = trustedHTML(escapeControlTags(template));
-  restoreControlTags(tpl.content);
-  scanLazyElements(tpl.content);
+  const fragment = typeof template === "string"
+    ? prepareTemplate(template).content
+    : template.content.cloneNode(true) as DocumentFragment;
+  scanLazyElements(fragment);
   host.replaceChildren();
-  host.appendChild(tpl.content);
+  host.appendChild(fragment);
 
   // Scan bindings on host AND on each pending <lazy> content fragment.
   // Lazy-content fragments are detached, but binding descriptors hold direct

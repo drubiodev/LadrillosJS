@@ -155,7 +155,7 @@ class Ladrillos
    * Benefits over sequential registration:
    * - Parallel network requests via Promise.allSettled
    * - Early deduplication check (skips already registered)
-   * - Batched custom element definitions
+  * - Defines each component as soon as its source and dependencies are ready
    * - Returns detailed results for error handling
    *
    * @example
@@ -253,79 +253,50 @@ class Ladrillos
       return result;
     }
 
-    // Parallel fetch all eager component sources
-    const fetchResults = await Promise.allSettled(
+    const registrationResults = await Promise.allSettled(
       eagerComponents.map(async (config) =>
       {
-        const result = await fetchComponentSource(config.absolutePath);
-        return { config, result };
-      }),
-    );
-
-    // Parse components in parallel
-    const parseResults = await Promise.allSettled(
-      fetchResults.map(async (fetchResult, index) =>
-      {
-        if (fetchResult.status === "rejected")
-        {
-          throw fetchResult.reason;
-        }
-
-        const { config, result } = fetchResult.value;
-
+        const fetched = await fetchComponentSource(config.absolutePath);
         const { parseComponent } = await import("./component/extract");
-        // Use the resolved path for correct relative path resolution in child components
         const component = await parseComponent(
-          result.source,
+          fetched.source,
           config.name,
-          result.resolvedPath,
+          fetched.resolvedPath,
         );
-        return { config, component };
+        this.components[config.name] = component;
+        try
+        {
+          createWebComponent(component, config.useShadowDOM ?? true);
+        } catch (cause)
+        {
+          delete this.components[config.name];
+          throw cause;
+        }
       }),
     );
 
-    // Batch register all successfully parsed components
-    for (let i = 0; i < parseResults.length; i++)
+    for (const [index, registration] of registrationResults.entries())
     {
-      const parseResult = parseResults[i];
-      const config = eagerComponents[i];
+      const config = eagerComponents[index];
 
-      if (parseResult.status === "rejected")
+      if (registration.status === "rejected")
       {
         result.failed.push({
           name: config.name,
           error:
-            parseResult.reason instanceof Error
-              ? parseResult.reason
-              : new Error(String(parseResult.reason)),
+            registration.reason instanceof Error
+              ? registration.reason
+              : new Error(String(registration.reason)),
         });
         error(
           `Error registering component "${config.name}"`,
           { tagName: config.name, sourcePath: config.path },
-          parseResult.reason,
+          registration.reason,
         );
-        continue;
       }
-
-      const { component } = parseResult.value;
-      const useShadowDOM = config.useShadowDOM ?? true;
-
-      // Store in registry
-      this.components[config.name] = component;
-
-      // Define custom element
-      try
+      else
       {
-        createWebComponent(component, useShadowDOM);
         result.success.push(config.name);
-      } catch (e)
-      {
-        result.failed.push({
-          name: config.name,
-          error: e instanceof Error ? e : new Error(String(e)),
-        });
-        // Remove from registry on failure
-        delete this.components[config.name];
       }
     }
 

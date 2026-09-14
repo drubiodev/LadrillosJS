@@ -29,14 +29,17 @@ const require = createRequire(
   pathToFileURL(join(repoRoot, "benchmarks", "package.json"))
 );
 let chromium;
-try {
+try
+{
   ({ chromium } = require("playwright-core"));
-} catch {
+} catch
+{
   console.error("playwright-core not found. Run: cd benchmarks && npm install");
   process.exit(1);
 }
 
-if (!existsSync(join(repoRoot, "dist", "index.js"))) {
+if (!existsSync(join(repoRoot, "dist", "index.js")))
+{
   console.error("dist/index.js not found. Run: npm run build");
   process.exit(1);
 }
@@ -48,7 +51,8 @@ const MIME = {
   ".map": "application/json",
 };
 
-const server = http.createServer((req, res) => {
+const server = http.createServer((req, res) =>
+{
   let f = join(repoRoot, decodeURIComponent(new URL(req.url, "http://x").pathname));
   if (!f.startsWith(repoRoot)) return res.writeHead(403).end();
   if (existsSync(f) && statSync(f).isDirectory()) f = join(f, "index.html");
@@ -58,13 +62,16 @@ const server = http.createServer((req, res) => {
 });
 await new Promise((ok) => server.listen(PORT, ok));
 
-function findChromium() {
+function findChromium()
+{
   const cache = join(os.homedir(), "Library/Caches/ms-playwright");
   if (!existsSync(cache)) return null;
   const bins = [];
-  for (const dir of readdirSync(cache)) {
+  for (const dir of readdirSync(cache))
+  {
     const rev = dir.match(/^chromium_headless_shell-(\d+)$/)?.[1];
-    if (rev) {
+    if (rev)
+    {
       const bin = join(cache, dir, "chrome-headless-shell-mac-arm64/chrome-headless-shell");
       if (existsSync(bin)) bins.push({ rev: +rev, bin });
     }
@@ -74,7 +81,8 @@ function findChromium() {
 }
 
 const executablePath = findChromium();
-if (!executablePath) {
+if (!executablePath)
+{
   console.error("No cached Playwright Chromium found.");
   process.exit(1);
 }
@@ -93,7 +101,8 @@ await page.waitForFunction(
   { timeout: 5000 }
 );
 
-const result = await page.evaluate(() => {
+const result = await page.evaluate(() =>
+{
   const readRows = (root) =>
     Array.from(root.querySelectorAll("tbody tr")).map((tr) => ({
       id: tr.querySelector(".rid")?.textContent.trim(),
@@ -109,6 +118,33 @@ const result = await page.evaluate(() => {
   };
 });
 
+const cachedResult = await page.evaluate(async () =>
+{
+  const instances = ["table-rows-light", "table-rows-shadow"].map((tagName) =>
+    document.createElement(tagName)
+  );
+  const ready = instances.map((element) => new Promise((resolve) =>
+  {
+    element.addEventListener("ladrillos:ready", resolve, { once: true });
+  }));
+  document.body.append(...instances);
+  await Promise.all(ready);
+  return instances.map((element) =>
+  {
+    const root = element.shadowRoot ?? element;
+    const original = document.querySelector(element.localName);
+    const originalRoot = original.shadowRoot ?? original;
+    const rows = Array.from(root.querySelectorAll("tbody tr"));
+    const names = rows.map((row) => row.querySelector(".rname")?.textContent.trim());
+    rows[0]?.remove();
+    return {
+      names,
+      independent: originalRoot.querySelectorAll("tbody tr").length === 3,
+      hoisted: !!root.querySelector(":scope > for, :scope > table ~ *"),
+    };
+  });
+});
+
 await browser.close();
 server.close();
 
@@ -119,11 +155,14 @@ const expected = [
 ];
 
 let failed = false;
-const assert = (cond, msg) => {
-  if (!cond) {
+const assert = (cond, msg) =>
+{
+  if (!cond)
+  {
     failed = true;
     console.error("  ✗", msg);
-  } else {
+  } else
+  {
     console.log("  ✓", msg);
   }
 };
@@ -138,6 +177,13 @@ assert(!result.lightHoisted, "no elements foster-parented out of the table");
 assert(
   JSON.stringify(result.shadow) === JSON.stringify(expected),
   `shadow DOM renders 3 keyed rows with conditional cells (got ${JSON.stringify(result.shadow)})`
+);
+assert(
+  cachedResult.every((instance) =>
+    JSON.stringify(instance.names) === JSON.stringify(["Alice", "Bob", "Carol"]) &&
+    instance.independent && !instance.hoisted
+  ),
+  "cached templates render independent table instances in light and shadow DOM"
 );
 
 process.exit(failed ? 1 : 0);
