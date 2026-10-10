@@ -35,6 +35,11 @@ import
 } from "./core/helpers/frameworkHelpers";
 import { configure, LadrillosConfig } from "./core/configure";
 import
+{
+  clearComponentCache,
+  invalidateComponentCache,
+} from "./core/component/loader";
+import
   {
     defineCompiled,
     type DefineCompiledOptions,
@@ -76,7 +81,16 @@ export
 } from "./core/js/precompiled";
 
 // Public exports
-export { registerComponent, registerComponents, $use, configure, defineCompiled };
+export
+{
+  registerComponent,
+  registerComponents,
+  $use,
+  configure,
+  defineCompiled,
+  clearComponentCache,
+  invalidateComponentCache,
+};
 
 export default {
   registerComponent,
@@ -84,4 +98,6 @@ export default {
   defineCompiled,
   $use,
   configure,
+  clearComponentCache,
+  invalidateComponentCache,
 };

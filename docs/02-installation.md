@@ -91,6 +91,8 @@ import {
   registerComponents, // Register multiple components
   $use, // Shorthand registration (tag name derived from path)
   loadLazyComponent, // Force load a lazy component
+  clearComponentCache, // Remove all cached component source files
+  invalidateComponentCache, // Remove one cached component source file
 
   // Configuration
   configure, // Framework options (cacheSize, onError, delegateLoopEvents, trustedTypesPolicy)

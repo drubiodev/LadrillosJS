@@ -4,6 +4,9 @@ import { loadTemplate, prepareTemplate } from "../../src/core/html/htmlparser";
 import { getPendingLazyContent } from "../../src/core/builtins/lazyElement";
 import
   {
+    clearCachedComponents,
+    deleteCachedComponent,
+    getCachedComponent,
     setCachedComponentSource,
     getCachedComponentSource,
     setCacheSize,
@@ -13,6 +16,7 @@ describe("component source cache", () =>
 {
   beforeEach(() =>
   {
+    clearCachedComponents();
     setCacheSize(3); // fresh small cache per test
   });
 
@@ -25,6 +29,39 @@ describe("component source cache", () =>
   it("returns undefined for unknown paths", () =>
   {
     expect(getCachedComponentSource("/missing.html")).toBeUndefined();
+  });
+
+  it("caches empty component files", () =>
+  {
+    setCachedComponentSource("/empty.html", "");
+    expect(getCachedComponentSource("/empty.html")).toBe("");
+  });
+
+  it("retains the resolved URL used for relative component resources", () =>
+  {
+    setCachedComponentSource(
+      "/components/card",
+      "<p>Card</p>",
+      "/components/card/index.html",
+    );
+
+    expect(getCachedComponent("/components/card")).toEqual({
+      source: "<p>Card</p>",
+      resolvedPath: "/components/card/index.html",
+    });
+  });
+
+  it("clears and invalidates cached sources", () =>
+  {
+    setCachedComponentSource("/a.html", "A");
+    setCachedComponentSource("/b.html", "B");
+
+    expect(deleteCachedComponent("/a.html")).toBe(true);
+    expect(deleteCachedComponent("/missing.html")).toBe(false);
+    expect(getCachedComponentSource("/a.html")).toBeUndefined();
+
+    clearCachedComponents();
+    expect(getCachedComponentSource("/b.html")).toBeUndefined();
   });
 
   it("evicts the least recently used entry when cache is full", () =>

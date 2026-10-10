@@ -15,7 +15,88 @@ import
   error,
   ErrorCode,
   LadrillosError,
+  createError,
 } from "../utils/devWarnings";
+
+const CUSTOM_ELEMENT_NAME = /^[a-z][.0-9_a-z-]*-[.0-9_a-z-]*$/;
+const RESERVED_CUSTOM_ELEMENT_NAMES = new Set([
+  "annotation-xml",
+  "color-profile",
+  "font-face",
+  "font-face-src",
+  "font-face-uri",
+  "font-face-format",
+  "font-face-name",
+  "missing-glyph",
+]);
+
+function validateComponentConfig(
+  name: unknown,
+  path: unknown,
+): LadrillosError | null
+{
+  const context = {
+    tagName: typeof name === "string" ? name : String(name ?? ""),
+    sourcePath: typeof path === "string" ? path : String(path ?? ""),
+  };
+
+  if (
+    typeof name !== "string" ||
+    name !== name.trim() ||
+    !CUSTOM_ELEMENT_NAME.test(name) ||
+    RESERVED_CUSTOM_ELEMENT_NAMES.has(name)
+  )
+  {
+    return createError(
+      `Invalid component name "${context.tagName || "(empty)"}". Custom element names must contain a hyphen and use lowercase characters.`,
+      ErrorCode.INVALID_COMPONENT_NAME,
+      context,
+      'Use a lowercase name with a hyphen, such as "user-card".',
+    );
+  }
+
+  if (typeof path !== "string" || !path.trim())
+  {
+    return createError(
+      "A component path is required.",
+      ErrorCode.INVALID_COMPONENT_PATH,
+      context,
+      "Pass a URL or relative .html path as the component path.",
+    );
+  }
+
+  return null;
+}
+
+function reportRegistrationError(diagnostic: LadrillosError): void
+{
+  error(
+    diagnostic.diagnosticMessage,
+    diagnostic.componentContext,
+    diagnostic.cause,
+    { code: diagnostic.code, hint: diagnostic.hint },
+  );
+}
+
+function resolveComponentUrl(
+  path: string,
+  context: { tagName: string; sourcePath: string },
+): string
+{
+  try
+  {
+    return new URL(path, window.location.href).href;
+  } catch (cause)
+  {
+    throw createError(
+      `Invalid component path "${path}".`,
+      ErrorCode.INVALID_COMPONENT_PATH,
+      context,
+      "Pass a valid URL or relative .html path.",
+      cause,
+    );
+  }
+}
 
 /**
  * Component registration configuration
@@ -50,6 +131,7 @@ export interface RegisterComponentsResult
 class Ladrillos
 {
   components: Record<string, LadrillosComponent>;
+  private readonly registeredNames = new Set<string>();
 
   constructor()
   {
@@ -66,7 +148,7 @@ class Ladrillos
   ): Promise<void>
   {
     // check if component is already registered
-    if (this.components[name])
+    if (this.registeredNames.has(name) || this.components[name])
     {
       warn(
         `Component "<${name}>" is already registered.`,
@@ -81,26 +163,21 @@ class Ladrillos
 
     const context = { tagName: name, sourcePath: path };
 
-    if (!name?.trim() || !name.includes("-"))
+    const validationError = validateComponentConfig(name, path);
+    if (validationError)
     {
-      error(
-        `Invalid component name "${name || "(empty)"}". Custom element names must contain a hyphen.`,
-        context,
-        undefined,
-        {
-          code: ErrorCode.INVALID_COMPONENT_NAME,
-          hint: 'Use a lowercase name with a hyphen, such as "user-card".',
-        },
-      );
+      reportRegistrationError(validationError);
       return;
     }
 
-    if (!path?.trim())
+    if (customElements.get(name))
     {
-      error("A component path is required.", context, undefined, {
-        code: ErrorCode.INVALID_COMPONENT_PATH,
-        hint: "Pass a URL or relative .html path as the second argument to registerComponent().",
-      });
+      reportRegistrationError(createError(
+        `Custom element "<${name}>" is already defined outside this registration.`,
+        ErrorCode.COMPONENT_ALREADY_REGISTERED,
+        context,
+        "Use a different component name or remove the existing custom element definition.",
+      ));
       return;
     }
 
@@ -108,12 +185,13 @@ class Ladrillos
     {
       // Resolve relative paths before loading so nested resources use the
       // component file as their base URL.
-      const absolutePath = new URL(path, window.location.href).href;
+      const absolutePath = resolveComponentUrl(path, context);
 
       if (lazy)
       {
         const strategy = lazy === true ? defaultLazyStrategy : lazy;
         registerLazyComponent(name, absolutePath, useShadowDOM, strategy);
+        this.registeredNames.add(name);
         return;
       }
 
@@ -131,8 +209,10 @@ class Ladrillos
       this.components[name] = component;
 
       createWebComponent(component, useShadowDOM);
+      this.registeredNames.add(name);
     } catch (e)
     {
+      delete this.components[name];
       const diagnostic = e instanceof LadrillosError ? e : null;
       error(
         "Could not register the component.",
@@ -199,17 +279,74 @@ class Ladrillos
       [];
     const eagerComponents: Array<ComponentConfig & { absolutePath: string }> =
       [];
+    const seenNames = new Set<string>();
 
     for (const config of componentConfigs)
     {
-      if (this.components[config.name])
+      if (
+        this.registeredNames.has(config.name) ||
+        this.components[config.name]
+      )
       {
         result.skipped.push(config.name);
         continue;
       }
 
-      // Resolve path once
-      const absolutePath = new URL(config.path, window.location.href).href;
+      const diagnostic = validateComponentConfig(config.name, config.path);
+      if (diagnostic)
+      {
+        result.failed.push({ name: String(config.name ?? ""), error: diagnostic });
+        reportRegistrationError(diagnostic);
+        continue;
+      }
+
+      if (seenNames.has(config.name))
+      {
+        const duplicate = createError(
+          `Component "<${config.name}>" appears more than once in the same batch.`,
+          ErrorCode.COMPONENT_ALREADY_REGISTERED,
+          { tagName: config.name, sourcePath: config.path },
+          "Remove the duplicate batch entry or use a different component name.",
+        );
+        result.failed.push({ name: config.name, error: duplicate });
+        reportRegistrationError(duplicate);
+        continue;
+      }
+      seenNames.add(config.name);
+
+      if (customElements.get(config.name))
+      {
+        const conflict = createError(
+          `Custom element "<${config.name}>" is already defined outside this registration.`,
+          ErrorCode.COMPONENT_ALREADY_REGISTERED,
+          { tagName: config.name, sourcePath: config.path },
+          "Use a different component name or remove the existing custom element definition.",
+        );
+        result.failed.push({ name: config.name, error: conflict });
+        reportRegistrationError(conflict);
+        continue;
+      }
+
+      let absolutePath: string;
+      try
+      {
+        absolutePath = resolveComponentUrl(config.path, {
+          tagName: config.name,
+          sourcePath: config.path,
+        });
+      } catch (cause)
+      {
+        const pathError = cause instanceof Error
+          ? cause
+          : new Error(String(cause));
+        result.failed.push({ name: config.name, error: pathError });
+        if (pathError instanceof LadrillosError)
+        {
+          reportRegistrationError(pathError);
+        }
+        continue;
+      }
+
       const configWithPath = { ...config, absolutePath };
 
       if (config.lazy)
@@ -237,6 +374,7 @@ class Ladrillos
           useShadowDOM,
           strategy,
         );
+        this.registeredNames.add(config.name);
         result.success.push(config.name);
       } catch (e)
       {
@@ -267,6 +405,7 @@ class Ladrillos
         try
         {
           createWebComponent(component, config.useShadowDOM ?? true);
+          this.registeredNames.add(config.name);
         } catch (cause)
         {
           delete this.components[config.name];

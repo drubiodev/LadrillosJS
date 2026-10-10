@@ -26,6 +26,11 @@ import
 import { configure, LadrillosConfig } from "./core/configure";
 import
 {
+  clearComponentCache,
+  invalidateComponentCache,
+} from "./core/component/loader";
+import
+{
   ErrorCode,
   LadrillosError,
   type LadrillosErrorHandler,
@@ -49,7 +54,15 @@ export type { LadrillosComponent } from "./types";
 export { ErrorCode, LadrillosError };
 
 // Public exports
-export { registerComponent, registerComponents, $use, configure };
+export
+{
+  registerComponent,
+  registerComponents,
+  $use,
+  configure,
+  clearComponentCache,
+  invalidateComponentCache,
+};
 
 // Default export for CDN usage
 export default {
@@ -57,4 +70,6 @@ export default {
   registerComponents,
   $use,
   configure,
+  clearComponentCache,
+  invalidateComponentCache,
 };

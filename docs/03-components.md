@@ -87,8 +87,37 @@ await registerComponents([
 **Batch registration benefits:**
 
 - Parallel network requests (faster loading)
-- Shared fetch cache
-- Detailed error reporting
+- Shared settled cache and in-flight request deduplication
+- Per-component validation and typed error reporting
+
+Invalid names, empty or malformed paths, duplicate names in one batch, and
+conflicts with existing custom elements are added to `failed`. They do not stop
+valid entries in the same batch from registering.
+
+### Managing the Component Source Cache
+
+Loaded source files are retained in an LRU cache. If eager and lazy
+registrations request the same URL simultaneously, they also share the same
+pending network request.
+
+```javascript
+import {
+  clearComponentCache,
+  invalidateComponentCache,
+} from "ladrillosjs";
+
+invalidateComponentCache("./components/user-card.html");
+clearComponentCache();
+```
+
+`invalidateComponentCache(path)` resolves relative paths against the page URL,
+matching `registerComponent()`. It returns `true` when a settled entry was
+removed. `clearComponentCache()` removes all settled entries.
+
+An invalidated request that is already in flight may still resolve for its
+current caller, but its response will not repopulate the cache. These functions
+only manage source files; they do not unregister Custom Elements already
+defined by the browser.
 
 ---
 

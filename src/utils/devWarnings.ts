@@ -357,6 +357,7 @@ export class LadrillosError extends Error
   readonly docsUrl: string;
   readonly componentContext: ComponentContext | null;
   readonly hint?: string;
+  readonly diagnosticMessage: string;
 
   constructor(
     message: string,
@@ -378,6 +379,7 @@ export class LadrillosError extends Error
     this.docsUrl = docsUrl;
     this.componentContext = options.context ?? null;
     this.hint = options.hint;
+    this.diagnosticMessage = message;
   }
 }
 

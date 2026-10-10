@@ -60,7 +60,7 @@ registerComponent(name, path)
         │
         ▼
 ┌───────────────────┐
-│ loader.ts         │  Fetch HTML, handle folder-as-component
+│ loader.ts         │  Dedupe fetches, cache HTML, handle folder components
 └───────┬───────────┘
         │
         ▼
@@ -126,6 +126,21 @@ class Ladrillos {
   loadLazyComponent(name);
 }
 ```
+
+Single and batch registration share the same name and path validation.
+`registerComponents()` records invalid entries independently so one bad
+configuration does not block valid components in the same batch.
+
+### loader.ts - Component Source Loading
+
+The loader maintains two dependency-free maps:
+
+- An LRU cache for settled component source and its final resolved URL.
+- An in-flight promise map so simultaneous requests for one URL share a fetch.
+
+Cache invalidation advances a revision before deleting entries. A request that
+started before that revision may finish for its existing caller, but cannot put
+stale source back into the cache.
 
 ### webcomponent.ts - Web Component Factory
 

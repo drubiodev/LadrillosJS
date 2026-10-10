@@ -107,13 +107,29 @@ describe("compiling with no backend installed", () =>
 describe("entry points export what the docs promise", () =>
 {
     const surface: Record<string, string[]> = {
-        "../../src/index": ["registerComponent", "registerComponents", "$use", "configure"],
-        "../../src/core": ["registerComponent", "registerComponents", "$use", "configure"],
+        "../../src/index": [
+            "registerComponent",
+            "registerComponents",
+            "$use",
+            "configure",
+            "clearComponentCache",
+            "invalidateComponentCache",
+        ],
+        "../../src/core": [
+            "registerComponent",
+            "registerComponents",
+            "$use",
+            "configure",
+            "clearComponentCache",
+            "invalidateComponentCache",
+        ],
         "../../src/csp": [
             "registerComponent",
             "registerComponents",
             "$use",
             "configure",
+            "clearComponentCache",
+            "invalidateComponentCache",
             "defineCompiled",
             "registerArtifacts",
             "clearArtifacts",

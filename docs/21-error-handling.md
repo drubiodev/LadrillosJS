@@ -117,12 +117,14 @@ that its tag name matches the registration name.
 ## LJS503
 
 **Component is already registered.** Remove the duplicate registration or use a
-different custom element name.
+different custom element name. In batch registration this also covers duplicate
+names in the same batch and conflicts with a Custom Element defined elsewhere.
 
 ## LJS504
 
 **Invalid component path.** Pass a non-empty URL or relative `.html` path as the
-second argument to `registerComponent()`.
+second argument to `registerComponent()`. Batch registration reports this error
+for the individual entry and continues processing valid entries.
 
 ## LJS505
 

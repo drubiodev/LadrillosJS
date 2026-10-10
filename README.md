@@ -25,6 +25,7 @@
 
 - [Quick Start](#-quick-start)
 - [Installation](#-installation)
+- [Design Principles](#-design-principles)
 - [Core Concepts](#-core-concepts)
 - [Built-in Elements & Directives](#-built-in-elements--directives)
 - [Event Bus](#-event-bus)
@@ -180,6 +181,24 @@ import { lazyOnVisible, lazyOnIdle } from "ladrillosjs/lazy";
 // Event bus only
 import { $emit, $listen } from "ladrillosjs/events";
 ```
+
+---
+
+## 🧱 Design Principles
+
+LadrillosJS keeps these constraints as part of its release contract:
+
+- **Zero runtime dependencies.** Everything needed by the browser ships in the
+  framework bundle.
+- **No required build step.** A CDN import and plain `.html` component files
+  remain the default workflow.
+- **One self-contained CDN file.** Optional tooling must not split or become a
+  prerequisite for the browser runtime.
+- **Standards-first components.** Templates remain readable HTML, scripts remain
+  JavaScript, and rendered components remain Custom Elements.
+
+The production verification script enforces the dependency and single-file
+constraints on every release build.
 
 ---
 
@@ -521,7 +540,8 @@ registerComponent("my-footer", "./footer.html", true, lazyOnVisible());
 
 ### `registerComponents`
 
-Register multiple components with parallel fetching:
+Register multiple components with parallel fetching and per-component
+validation:
 
 ```javascript
 const result = await registerComponents([
@@ -532,6 +552,34 @@ const result = await registerComponents([
 
 // Returns: { success: [...], failed: [...], skipped: [...] }
 ```
+
+Invalid names, empty or malformed paths, duplicate names within the same batch,
+and conflicts with existing custom elements are reported in `failed` without
+preventing valid entries from registering. Simultaneous registrations that use
+the same component URL share one network request.
+
+### Component Source Cache
+
+LadrillosJS keeps recently loaded component source files in an LRU cache and
+deduplicates requests already in flight.
+
+```javascript
+import {
+  clearComponentCache,
+  invalidateComponentCache,
+} from "ladrillosjs";
+
+// Remove one source using the same page-relative path used for registration.
+const existed = invalidateComponentCache("./components/user-card.html");
+
+// Remove every settled component source.
+clearComponentCache();
+```
+
+Requests already in flight still resolve for their existing callers, but an
+invalidation prevents those stale responses from repopulating the cache.
+Cache controls do not unregister a Custom Element that the browser has already
+defined.
 
 ### `$use`
 
@@ -652,30 +700,33 @@ Medians of 10 runs, headless Chromium on an Apple M5 Pro,
 
 | Operation | LadrillosJS | React 18.3 (keyed, memoized rows) | Vanilla JS (hand-optimized) |
 |---|---:|---:|---:|
-| create 1,000 rows | **3.2 ms** | 4.2 ms | 1.7 ms |
-| replace all 1,000 rows | **3.8 ms** | 6.3 ms | 2 ms |
-| partial update (every 10th of 1,000) | 1 ms | 1.2 ms | 0.1 ms |
-| select row | 0.6 ms | 0.3 ms | 0 ms |
-| swap 2 rows | **0.9 ms** | 3 ms | 0 ms |
-| remove row | 0.8 ms | 0.9 ms | 0.1 ms |
-| append 1,000 to 1,000 rows | **3.6 ms** | 3.9 ms | 1.2 ms |
-| clear 1,000 rows | **1.1 ms** | 4 ms | 0.8 ms |
-| create 10,000 rows | **29.1 ms** | 228.3 ms | 11.3 ms |
-| **JS payload (min+gzip)** | **27.7 KB** | **47 KB** | ~1 KB |
-| JS heap after 1,000 rows | 2.4 MB | 6.2 MB | 1.3 MB |
+| create 1,000 rows | 3.8 ms | 4.3 ms | 1.3 ms |
+| replace all 1,000 rows | **4 ms** | 7 ms | 2.1 ms |
+| partial update (every 10th of 1,000) | **0.9 ms** | 1.1 ms | 0.2 ms |
+| select row | 0.6 ms | **0.4 ms** | 0 ms |
+| swap 2 rows | **0.9 ms** | 3.3 ms | 0 ms |
+| remove row | 0.9 ms | 1 ms | 0.1 ms |
+| append 1,000 to 1,000 rows | **3.5 ms** | 3.6 ms | 1.2 ms |
+| clear 1,000 rows | **1.3 ms** | 2.8 ms | 1 ms |
+| create 10,000 rows | **29.7 ms** | 239.4 ms | 11.6 ms |
+| **JS payload (min+gzip)** | **34.8 KB** | **47 KB** | ~1 KB |
+| JS heap after 1,000 rows | 2.7 MB | 6.3 MB | 1.4 MB |
 
 **How to read this honestly:**
 
-- Every operation lands well within a single 60 fps frame (16.7 ms):
-  updates on a 1,000-row list take about a millisecond, and bulk creation
-  of 1,000 rows is under 5 ms.
-- LadrillosJS beats React on bulk creation (and by nearly 8× on 10,000 rows),
-  full replaces, row swaps, and clearing, while shipping **~40% less JS**
-  and using **~60% less memory** for the same UI.
-- React 18 remains faster on single-row selection, and partial updates
-  are effectively a tie. We publish these numbers to track and improve them —
-  not to claim LadrillosJS wins everything.
-- Vanilla JS is the baseline.
+- Updates on a 1,000-row list take about a millisecond, and LadrillosJS
+  creates 1,000 rows in under 5 ms. The 10,000-row creation test is a stress
+  case and takes 29.7 ms.
+- LadrillosJS is faster than React on most list operations, and is about 8×
+  faster on 10,000-row creation, while shipping **~26% less JS** and using
+  **~57% less memory** for the same UI.
+- React 18 remains faster on single-row selection, while vanilla JS remains
+  the speed baseline. We publish these numbers to track and improve the
+  framework — not to claim LadrillosJS wins everything.
+
+Latest run: **2026-10-10**, Apple M5 Pro, Chromium headless, LadrillosJS
+2.1.4. Absolute timings depend on the machine; compare columns rather than
+across machines.
 
 Reproduce it yourself (no benchmark numbers should be trusted otherwise):
 

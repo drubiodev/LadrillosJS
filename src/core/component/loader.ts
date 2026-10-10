@@ -1,5 +1,16 @@
-import { getCachedComponentSource, setCachedComponentSource } from "./cache";
+import
+{
+  clearCachedComponents,
+  deleteCachedComponent,
+  getCachedComponent,
+  setCachedComponentSource,
+} from "./cache";
 import { createError, ErrorCode } from "../../utils/devWarnings";
+
+const pendingFetches = new Map<string, Promise<FetchComponentResult>>();
+const activeFetchCounts = new Map<string, number>();
+const pathRevisions = new Map<string, number>();
+let cacheRevision = 0;
 
 /**
  * Resolves a component path, supporting folder-as-component pattern.
@@ -80,30 +91,10 @@ export interface FetchComponentResult
   resolvedPath: string;
 }
 
-export async function fetchComponentSource(
-  path: string
-): Promise<FetchComponentResult>
+async function loadComponentSource(path: string): Promise<FetchComponentResult>
 {
-  if (!path?.trim())
-  {
-    throw createError(
-      "A component path is required.",
-      ErrorCode.INVALID_COMPONENT_PATH,
-      null,
-      "Pass a URL or relative .html path to registerComponent().",
-    );
-  }
-
-  // check cache for component source
-  const cachedSource = getCachedComponentSource(path);
-  if (cachedSource)
-  {
-    // Return cached source with the original path
-    // (we can't know the resolved path from cache alone, but the caller
-    // should use the resolvedPath from the first fetch)
-    return { source: cachedSource, resolvedPath: path };
-  }
-
+  const requestCacheRevision = cacheRevision;
+  const requestPathRevision = pathRevisions.get(path) ?? 0;
   const resolved = await resolveComponentPath(path);
 
   if (!resolved)
@@ -121,12 +112,121 @@ export async function fetchComponentSource(
 
   const text = await resolved.response.text();
 
-  // Cache with both the original path and resolved path
-  setCachedComponentSource(path, text);
-  if (resolved.path !== path)
+  if (
+    requestCacheRevision === cacheRevision &&
+    requestPathRevision === (pathRevisions.get(path) ?? 0)
+  )
   {
-    setCachedComponentSource(resolved.path, text);
+    setCachedComponentSource(path, text, resolved.path);
   }
 
   return { source: text, resolvedPath: resolved.path };
+}
+
+export async function fetchComponentSource(
+  path: string
+): Promise<FetchComponentResult>
+{
+  if (!path?.trim())
+  {
+    throw createError(
+      "A component path is required.",
+      ErrorCode.INVALID_COMPONENT_PATH,
+      null,
+      "Pass a URL or relative .html path to registerComponent().",
+    );
+  }
+
+  const cached = getCachedComponent(path);
+  if (cached)
+  {
+    return cached;
+  }
+
+  const pending = pendingFetches.get(path);
+  if (pending)
+  {
+    return pending;
+  }
+
+  const request = loadComponentSource(path);
+  activeFetchCounts.set(path, (activeFetchCounts.get(path) ?? 0) + 1);
+  pendingFetches.set(path, request);
+
+  try
+  {
+    return await request;
+  } finally
+  {
+    if (pendingFetches.get(path) === request)
+    {
+      pendingFetches.delete(path);
+    }
+
+    const activeCount = (activeFetchCounts.get(path) ?? 1) - 1;
+    if (activeCount === 0)
+    {
+      activeFetchCounts.delete(path);
+      pathRevisions.delete(path);
+    } else
+    {
+      activeFetchCounts.set(path, activeCount);
+    }
+  }
+}
+
+/**
+ * Removes all settled component sources from the cache. Requests already in
+ * flight still resolve for their callers but cannot repopulate the cache.
+ */
+export function clearComponentCache(): void
+{
+  cacheRevision++;
+  pendingFetches.clear();
+  pathRevisions.clear();
+  clearCachedComponents();
+}
+
+/**
+ * Removes one component source from the cache.
+ *
+ * Relative paths use the page URL as their base, matching registerComponent().
+ * Returns true when a settled cache entry existed.
+ */
+export function invalidateComponentCache(path: string): boolean
+{
+  if (!path?.trim())
+  {
+    throw createError(
+      "A component path is required.",
+      ErrorCode.INVALID_COMPONENT_PATH,
+      null,
+      "Pass the same URL or relative path used to register the component.",
+    );
+  }
+
+  let absolutePath: string;
+  try
+  {
+    absolutePath = new URL(path, window.location.href).href;
+  } catch (cause)
+  {
+    throw createError(
+      `Invalid component path "${path}".`,
+      ErrorCode.INVALID_COMPONENT_PATH,
+      { sourcePath: path },
+      "Pass the same valid URL or relative path used to register the component.",
+      cause,
+    );
+  }
+
+  if (activeFetchCounts.has(absolutePath))
+  {
+    pathRevisions.set(
+      absolutePath,
+      (pathRevisions.get(absolutePath) ?? 0) + 1,
+    );
+  }
+  pendingFetches.delete(absolutePath);
+  return deleteCachedComponent(absolutePath);
 }

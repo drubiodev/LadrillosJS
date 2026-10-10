@@ -263,6 +263,61 @@ function verifySideEffects()
   return errors;
 }
 
+function verifyDistributionContract()
+{
+  console.log(`\n📦 Checking: zero-dependency single-file distribution`);
+
+  const errors = [];
+  const pkg = JSON.parse(
+    fs.readFileSync(path.join(rootDir, "package.json"), "utf8")
+  );
+
+  for (const field of [
+    "dependencies",
+    "optionalDependencies",
+    "peerDependencies",
+  ])
+  {
+    const entries = Object.keys(pkg[field] ?? {});
+    if (entries.length > 0)
+    {
+      errors.push(
+        `"${field}" must stay empty; found: ${entries.join(", ")}`
+      );
+    }
+  }
+
+  const cdnDir = path.join(rootDir, "dist-cdn");
+  if (!fs.existsSync(cdnDir))
+  {
+    errors.push("dist-cdn is missing — run `npm run build:cdn` first");
+    return errors;
+  }
+
+  const javascriptFiles = fs
+    .readdirSync(cdnDir)
+    .filter((name) => name.endsWith(".js"));
+  if (
+    javascriptFiles.length !== 1 ||
+    javascriptFiles[0] !== "ladrillos.iife.js"
+  )
+  {
+    errors.push(
+      "the CDN build must contain exactly one production JavaScript file " +
+      `(ladrillos.iife.js); found: ${javascriptFiles.join(", ") || "none"}`
+    );
+  }
+
+  if (errors.length === 0)
+  {
+    console.log(
+      "   ✅ No runtime dependencies and one self-contained CDN JavaScript file"
+    );
+  }
+
+  return errors;
+}
+
 function main()
 {
   console.log("🔍 Verifying production builds for tree-shaking...\n");
@@ -294,6 +349,12 @@ function main()
     totalErrors++;
   }
 
+  for (const error of verifyDistributionContract())
+  {
+    console.log(`   ❌ ERROR: ${error}`);
+    totalErrors++;
+  }
+
   console.log("\n" + "=".repeat(60));
 
   if (totalErrors > 0)
@@ -313,6 +374,8 @@ function main()
     console.log("\n✅ All builds verified successfully!");
     console.log("   - No dev-only code found");
     console.log("   - Sizes within expected limits");
+    console.log("   - Zero runtime dependencies");
+    console.log("   - Single-file CDN build");
     process.exit(0);
   }
 }

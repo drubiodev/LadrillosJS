@@ -16,6 +16,11 @@ import { $emit, $listen, EventCallback } from "./core/events/eventBus";
 import { configure, LadrillosConfig } from "./core/configure";
 import
 {
+  clearComponentCache,
+  invalidateComponentCache,
+} from "./core/component/loader";
+import
+{
   ErrorCode,
   LadrillosError,
   type LadrillosErrorHandler,
@@ -68,6 +73,9 @@ export const loadLazyComponent = (name: string) =>
 // Framework configuration
 export { configure };
 
+// Component source cache controls
+export { clearComponentCache, invalidateComponentCache };
+
 // Component registration + $use alias + event bus helpers
 export { registerComponent, registerComponents, $use, $emit, $listen };
 
@@ -81,6 +89,8 @@ export default {
   $listen,
   loadLazyComponent,
   configure,
+  clearComponentCache,
+  invalidateComponentCache,
   // Lazy loading strategies
   lazyOnIdle,
   lazyOnVisible,

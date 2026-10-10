@@ -1,4 +1,10 @@
-const cache = new Map<string, string>();
+export interface CachedComponentSource
+{
+  source: string;
+  resolvedPath: string;
+}
+
+const cache = new Map<string, CachedComponentSource>();
 let maxCacheSize = 25;
 
 /**
@@ -29,9 +35,28 @@ export const setCacheSize = (size: number): void => {
  * @returns The cached content or undefined if not found
  */
 export const getCachedComponentSource = (path: string): string | undefined => {
+  return getCachedComponent(path)?.source;
+};
+
+export const clearCachedComponents = (): void => {
+  cache.clear();
+};
+
+export const deleteCachedComponent = (path: string): boolean => {
+  return cache.delete(path);
+};
+
+/**
+ * Gets cached component content together with the URL it resolved to.
+ * Keeping the resolved URL is required for folder components because relative
+ * scripts, styles, and child components use it as their base URL.
+ */
+export const getCachedComponent = (
+  path: string,
+): CachedComponentSource | undefined => {
   const cached = cache.get(path);
 
-  if (cached) {
+  if (cached !== undefined) {
     // Move to end to mark as recently used
     cache.delete(path);
     cache.set(path, cached);
@@ -50,6 +75,7 @@ export const getCachedComponentSource = (path: string): string | undefined => {
 export const setCachedComponentSource = (
   path: string,
   content: string,
+  resolvedPath: string = path,
 ): void => {
   if (cache.has(path)) {
     // Update existing: remove and re-add to mark as most recent
@@ -62,5 +88,5 @@ export const setCachedComponentSource = (
     }
   }
   // Add/update as most recently used
-  cache.set(path, content);
+  cache.set(path, { source: content, resolvedPath });
 };
